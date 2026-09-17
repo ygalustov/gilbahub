@@ -34,16 +34,14 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 const srcPath = path.join(__dirname, '../assets/nutrition-summary-integration.js');
 const src = fs.readFileSync(srcPath, 'utf8');
 
 describe('GH-278 — nutrition-summary-integration.js reacts to monthly normals arriving late', () => {
     test('init() subscribes gaip:monthly-normals-ready to updateNutritionSummary, alongside the other reactive listeners', () => {
-        const initIdx = src.indexOf('function init() {');
-        expect(initIdx).toBeGreaterThan(-1);
-        const initEndIdx = src.indexOf('\n    }', initIdx);
-        const body = src.slice(initIdx, initEndIdx);
+        const body = anchoredSlice(src, 'function init() {', '\n    }');
 
         expect(body).toMatch(/addEventListener\('gaip:soil-data-update',\s*updateNutritionSummary\)/);
         expect(body).toMatch(/addEventListener\('gaip:mlsn-calculated',\s*updateNutritionSummary\)/);

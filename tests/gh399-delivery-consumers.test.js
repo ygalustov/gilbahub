@@ -23,6 +23,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 function readAsset(file) {
     return fs.readFileSync(path.join(__dirname, '../assets/' + file), 'utf8');
@@ -148,8 +149,7 @@ describe('GH-399 — the retired accumulators are gone, not commented out', () =
         // rows showed phosphorus its ANR Delivered column did not. One
         // document, two answers, on facing pages.
         const src = code(readAsset('word-export.js'));
-        const fn = src.slice(src.indexOf('function _extractEntryNutrients'),
-                             src.indexOf('function _detectActiveNutrientColumns'));
+        const fn = anchoredSlice(src, 'function _extractEntryNutrients');
         expect(fn.length).toBeGreaterThan(100);
         expect(fn).not.toMatch(/analysis/);
         expect(fn).not.toMatch(/totalKgHa|totalLHa|totalKg/);
@@ -165,8 +165,7 @@ describe('GH-399 — the retired accumulators are gone, not commented out', () =
         // two-name read. It is not an accumulator over applications — it sums
         // a product map the module built.
         const src = code(readAsset('word-export.js'));
-        const fn = src.slice(src.indexOf('function _computeProgrammeDelivered'),
-                             src.indexOf('function _extractEntryNutrients'));
+        const fn = anchoredSlice(src, 'function _computeProgrammeDelivered');
         expect(fn).toMatch(/if \(entry\._isAmendment\) return;/);
         expect(fn).toMatch(/entry\.nutrients \|\| entry\.totalDelivered/);
     });

@@ -50,6 +50,7 @@ require('../assets/hill-labs-sample-types.js');
 require('../assets/ammonium-acetate-methodology.js');
 require('../assets/gaip-classification-constants.js');
 const NPI = require('../assets/nutrition-program-inputs.js');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 global.window.GAIP_NutritionProgramInputs = NPI;
 
 global.console = _realConsole;
@@ -123,9 +124,7 @@ describe('GH-413 — the real Green 5 record, computed with its own pH', () => {
 
 describe('GH-413 — the picker writes the sample\'s pH into the state the calendar reads', () => {
     test('applySample() carries pH, pH_water and CEC alongside the ppm figures', () => {
-        const idx = CALENDAR_SRC.indexOf('function applySample(sample) {');
-        expect(idx).toBeGreaterThan(-1);
-        const block = CALENDAR_SRC.slice(idx, idx + 3200);
+        const block = anchoredWindow(CALENDAR_SRC, 'function applySample(sample) {', 3200);
         // `pH_water` is the key collectFromState() reads first; `pH` is the one
         // every other consumer of state.inputs.soil reads.
         expect(block).toMatch(/pH: pl\.pH_Water != null \? pl\.pH_Water : \(pl\.pH != null \? pl\.pH : null\)/);
@@ -134,25 +133,25 @@ describe('GH-413 — the picker writes the sample\'s pH into the state the calen
     });
 
     test('pH_CaCl2 is not a fallback for water pH — a different measurement on a different scale', () => {
-        const idx = CALENDAR_SRC.indexOf('function applySample(sample) {');
-        const block = CALENDAR_SRC.slice(idx, idx + 3200);
+        const block = anchoredWindow(CALENDAR_SRC, 'function applySample(sample) {', 3200);
         expect(block).not.toMatch(/pl\.pH_CaCl2/);
     });
 
     test('rebuilding the soil object no longer drops the site texture the page bridged in', () => {
-        const idx = CALENDAR_SRC.indexOf('function applySample(sample) {');
-        const block = CALENDAR_SRC.slice(idx, idx + 3200);
+        const block = anchoredWindow(CALENDAR_SRC, 'function applySample(sample) {', 3200);
         expect(block).toMatch(/soilTexture: existingSoil\.soilTexture/);
     });
 });
 
 describe('GH-413 — the export\'s per-sample programme uses the per-sample ranges', () => {
     test('ranges and their provenance are overlaid per sample, beside texture, CEC and pH', () => {
-        const idx = COMBINED_SRC.indexOf('perSampleInputs.pH = _siteInputs.pH;');
+        // GH-470: one builder, one place.
+        const CAL_SRC = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-calendar.js'), 'utf8');
+        const idx = CAL_SRC.indexOf('pH: prog.pH');
         expect(idx).toBeGreaterThan(-1);
         const block = COMBINED_SRC.slice(idx, idx + 2000);
-        expect(block).toMatch(/perSampleInputs\.ranges = _siteInputs\.ranges;/);
-        expect(block).toMatch(/perSampleInputs\.rangeSources = _siteInputs\.rangeSources;/);
+        expect(CAL_SRC).toMatch(/ranges: prog\.ranges/);
+        expect(CAL_SRC).toMatch(/rangeSources: prog\.rangeSources/);
     });
 
     test('computeProgram() still prefers the ranges it is handed, which is what makes the overlay bite', () => {

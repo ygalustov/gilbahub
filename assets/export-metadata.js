@@ -632,8 +632,12 @@
         const originalCollectData = global.GAIP_WordExport.collectData;
 
         // Enhanced collectData that adds metadata
-        global.GAIP_WordExport.collectData = function() {
-            const data = originalCollectData.call(this);
+        // GH-468: the wrapper passes its arguments through. Declaring no
+        // parameters made `collectData(inputs)` reach the original as
+        // `collectData()` — a wrapper silently turning a call that names its
+        // site into one that does not.
+        global.GAIP_WordExport.collectData = function(inputs) {
+            const data = originalCollectData.call(this, inputs);
             
             // Generate and attach metadata
             data._exportMetadata = generateExportMetadata(data);

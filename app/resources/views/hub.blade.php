@@ -94,7 +94,7 @@
             'gilba-storage-ns.js',
             'gaip-site-context.js',
             'gilba-storage-migrate.js',
-            'location-preloader.js',
+            
             'turf-profile-controller.js',
             'nitrogen-validator.js',
             'wear-recovery-engine-pure.js',

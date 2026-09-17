@@ -31,7 +31,10 @@ const src = fs.readFileSync(
 // Extract a named function's body by brace-counting from its declaration.
 function extractFunctionSrc(source, fnName) {
     var start = source.indexOf('function ' + fnName + '(');
-    if (start === -1) return null;
+    if (start === -1) {
+        throw new Error('extractFunction: no function named ' + fnName + ' — the anchor names code that is ' +
+            'no longer there, and every assertion against the result would pass on nothing.');
+    }
     var depth = 0, begun = false;
     for (var i = start; i < source.length; i++) {
         if (source[i] === '{') { depth++; begun = true; }

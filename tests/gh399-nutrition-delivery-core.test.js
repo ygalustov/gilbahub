@@ -26,6 +26,7 @@
 const fs = require('fs');
 const path = require('path');
 const delivery = require('../assets/nutrition-delivery-core.js');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 function fixture(name) {
     return JSON.parse(fs.readFileSync(
@@ -264,13 +265,10 @@ describe('GH-399 — no rounding, anywhere', () => {
         // this assertion can stay absolute.
         const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-delivery-core.js'), 'utf8');
         const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-        const start = code.indexOf('function accumulate(');
-        expect(start).toBeGreaterThan(-1);
-        const end = code.indexOf('function catalogueProducts(');
-        expect(end).toBeGreaterThan(start);
-        expect(code.slice(start, end)).not.toMatch(/Math\.round|toFixed|Math\.ceil|Math\.floor/);
+        const accumulator = anchoredSlice(code, 'function accumulate(');
+        expect(accumulator).not.toMatch(/Math\.round|toFixed|Math\.ceil|Math\.floor/);
         // ...and nothing calls the display helper on its way through, either.
-        expect(code.slice(start, end)).not.toMatch(/roundAtOutput/);
+        expect(accumulator).not.toMatch(/roundAtOutput/);
     });
 });
 

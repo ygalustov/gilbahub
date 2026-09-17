@@ -113,7 +113,7 @@
             'gaip-utils.js',
             'species-controller.js',
             'regional-profiles.js',
-            'location-preloader.js',
+            
             'climate-engine.js',
             'shade-engine.js',
             'cascade-orchestrator.js',

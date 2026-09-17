@@ -17,8 +17,25 @@
             siteUrl:      "{{ url('/') }}",
             hubUrl:       "{{ route('hub') }}",
             hubMode:      "agronomic",
+            // GH-441 (GH-439 stage 2): the site's stored config travels with
+            // the page. Pages that run the legacy engine used to start with
+            // nothing and read a copy out of localStorage instead.
+            savedLocation: @json($injectedSavedLocation ?? null),
+            gaipConfig:   @json(($injectedGaipConfig ?? []) ?: null),
         };
         window.GAIP_DASHBOARD_DATA = @json($analysisCache ?? null);
+        // GH-441: the setup wizard reads the database's own wizard record
+        // rather than deciding from localStorage, which is why a clean browser
+        // used to see it on a site that had completed it.
+        window.GAIP_WIZARD_CONFIG = Object.assign({}, window.GAIP_WIZARD_CONFIG || {}, {
+            nonce:          "{{ csrf_token() }}",
+            csrfToken:      "{{ csrf_token() }}",
+            restUrl:        "{{ url('/api') }}/",
+            activeSiteId:   @json($activeSite?->id),
+            savedLocation:  @json($injectedSavedLocation ?? null),
+            wizardComplete: @json($injectedWizardAnswered ?? false),
+            wizardState:    @json($injectedWizardState ?? [])
+        });
     </script>
     @yield('head')
     <link rel="stylesheet" href="{{ $legacyAssetUrl('gaip-design-system.css') }}">
@@ -92,6 +109,7 @@
 
 @yield('overlays')
 <script>window.GAIP_SpeciesData = { speciesByType: @json($speciesData ?? []) };</script>
+<script src="{{ $legacyAssetUrl('settings-unavailable-banner.js') }}"></script>
 <script src="{{ $legacyAssetUrl('dashboard-ui.js') }}"></script>
 @yield('scripts')
 

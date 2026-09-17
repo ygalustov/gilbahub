@@ -498,10 +498,67 @@
         });
     };
 
+    /**
+     * GH-440 (GH-439 stage 1): re-read the site's configuration from the
+     * server before generating.
+     *
+     * A Plan tab holds the config it was rendered with. Left open while the
+     * site is edited elsewhere -- methodology in Settings, a new location, a
+     * different soil texture -- Generate computed against what the tab
+     * remembered, and until this stage it then wrote that memory back.
+     * Writing the memory back is fixed in persistSiteConfigPatch(); this is
+     * the other half, so the programme itself is computed against what the
+     * site actually is. One GET, on a button press.
+     */
+    NutritionCalendar.refreshSiteConfig = async function() {
+        const siteId = this.getActiveSiteId();
+        const hub = window.GAIP_HUB_CONFIG || {};
+        // 'skipped': this page has no server config to re-read (hub pages keep
+        // theirs in GAIP_SiteConfig, and a page with no site id has nothing to
+        // ask about). Not a failure, and not a reason to refuse to compute.
+        if (!siteId || !hub.restUrl || typeof fetch !== 'function') return 'skipped';
+
+        try {
+            const url = hub.restUrl.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(siteId);
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!response.ok) {
+                console.warn('[NutritionCalendar] re-read of the site config failed: HTTP ' + response.status);
+                return 'failed';
+            }
+            const payload = await response.json();
+            const config = payload && payload.data && payload.data.configs
+                && payload.data.configs.gaip && payload.data.configs.gaip.config;
+            if (config && typeof config === 'object' && !Array.isArray(config)) {
+                window.GAIP_SITE_CONFIG = config;
+                return 'refreshed';
+            }
+            console.warn('[NutritionCalendar] re-read of the site config returned no config');
+            return 'failed';
+        } catch (e) {
+            console.warn('[NutritionCalendar] could not re-read the site config before Generate:', e && e.message);
+            return 'failed';
+        }
+    };
+
     NutritionCalendar.bindEvents = function() {
         if (this.elements.generateBtn) {
             this.elements.generateBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
+                // GH-440 (review): a programme computed on a configuration
+                // this page cannot confirm is worse than no programme -- it
+                // looks exactly like a correct one, and until stage 1 it also
+                // wrote itself back. When the re-read fails, say so and stop;
+                // pressing Generate again is the retry.
+                const state = await this.refreshSiteConfig();
+                if (state === 'failed') {
+                    alert('Could not read this site\'s current settings, so the programme was not generated.\n\n'
+                        + 'Generating now could use settings that have since changed. Check your connection and press Generate again.');
+                    return;
+                }
                 await this.generate();
             });
         }
@@ -522,6 +579,196 @@
     /**
      * Extract all required data from GAIP_STATE
      */
+    /**
+     * GH-469 (PLAN-GH439 section 10.6, eighth refinement) — the shape of a
+     * calendar input object, by name.
+     *
+     * The combined export used to start each sample's inputs as a copy of ONE
+     * facility-wide snapshot (`collectFromState()` off the hidden runner's own
+     * DOM, "whichever site restored first" by its own comment) and then
+     * overwrite the fields it remembered to name. Measured rather than
+     * guessed: the snapshot's return carries 33 keys, 21 of them are
+     * overwritten per sample, and TWELVE were kept —
+     *
+     *     longitude, isC4, bulkDensity, soilDepth, monthlyTempsSource,
+     *     monthlyTempsPeriod, turfType, bulkDensityDefaulted,
+     *     soilDepthDefaulted, annualNBase, _speciesDefaulted,
+     *     _methodologyDefaulted
+     *
+     * — `isC4` among them, which chooses the growth curve, and `annualNBase`,
+     * which is the same quantity as the `annualNOverride` beside it that WAS
+     * refreshed. A list of fields to overwrite is only ever as complete as the
+     * list; building the object instead makes the question "which fields" stop
+     * existing.
+     */
+    NutritionCalendar.CALENDAR_INPUT_KEYS = Object.freeze([
+        'hemisphere', 'latitude', 'longitude', 'species', 'speciesDisplay', 'isC4',
+        'soilPpm', 'tissuePercent', 'bulkDensity', 'soilDepth', 'methodology',
+        'soilTexture', 'CEC', 'pH', 'monthlyTemps', 'monthlyTempsSource',
+        'monthlyTempsPeriod', 'annualNOverride', 'maxNPerMonth', 'distribution',
+        'traffic', 'trafficModifier', 'turfType', 'surfaceType', 'clippingManagement',
+        'ranges', 'rangeSources', 'inputSources', 'bulkDensityDefaulted',
+        'soilDepthDefaulted', 'annualNBase', '_speciesDefaulted', '_methodologyDefaulted',
+        'overseedConfig', 'monthlyTempsUnavailableReason'
+    ]);
+
+    /**
+     * Where each calendar input comes from, by name — a path inside the one
+     * object `inputsForSite()` is given.
+     *
+     * GH-470: a key with no entry here is a key nobody can say the origin of,
+     * and the test below fails on it. The map is the answer to "which fields
+     * does this carry from the site", which the previous shape answered with a
+     * list of assignments somebody had to remember to extend.
+     */
+    NutritionCalendar.calendarSources = Object.freeze({
+        hemisphere: 'site.location.lat',
+        latitude: 'site.location.lat',
+        longitude: 'site.location.lon',
+        species: 'program.speciesKey',
+        speciesDisplay: 'program.speciesDisplay',
+        isC4: 'turf.isC4',
+        soilPpm: 'samples.soil',
+        tissuePercent: 'samples.tissue',
+        bulkDensity: 'samples.soil',
+        soilDepth: 'samples.soil',
+        methodology: 'program.methodology',
+        soilTexture: 'program.soilTexture',
+        CEC: 'program.CEC',
+        pH: 'program.pH',
+        monthlyTemps: 'climateNormals.monthlyTemps',
+        monthlyTempsSource: 'climateNormals.source',
+        monthlyTempsPeriod: 'climateNormals.period',
+        annualNOverride: 'program.annualNBase',
+        maxNPerMonth: 'program.maxNPerMonth',
+        distribution: 'program.distributionMode',
+        traffic: 'program.trafficIntensity',
+        trafficModifier: 'program.trafficModifier',
+        turfType: 'program.turfType',
+        surfaceType: 'program.surfaceType',
+        clippingManagement: 'program.clippingManagement',
+        ranges: 'program.ranges',
+        rangeSources: 'program.rangeSources',
+        inputSources: 'program.sources',
+        bulkDensityDefaulted: 'samples.soil',
+        soilDepthDefaulted: 'samples.soil',
+        annualNBase: 'program.annualNBase',
+        _speciesDefaulted: 'program.sources.species',
+        _methodologyDefaulted: 'program.sources.methodology',
+        overseedConfig: 'turf.overseedSpecies',
+        monthlyTempsUnavailableReason: 'climateReason'
+    });
+
+    /**
+     * A full calendar input object for ONE site, built from that site's own
+     * resolved inputs and from nothing else.
+     *
+     * ONE argument, deliberately (GH-470). The previous version took three —
+     * the export inputs, a separately resolved programme, and a bag of
+     * sample-level values — and the combined export then wrote seventeen
+     * fields onto the result afterwards. That is the same shape this section
+     * keeps removing: an object assembled from more than one place plus a list
+     * of fields somebody has to keep current. It failed exactly that way: the
+     * programme argument was declared BELOW the call that used it, so 24 of 35
+     * fields were built null and the second pass filled back the fourteen the
+     * parity harness happens to compare.
+     *
+     * `resolveExportInputs()` already carries everything needed: `program` (it
+     * resolves it itself), `samples` by id, `climateNormals` for the site's own
+     * coordinates. So there is nothing to pass in the wrong order.
+     *
+     * The result is FROZEN. Writing to it after the fact throws in strict mode
+     * instead of silently becoming the second source this exists to remove.
+     */
+    NutritionCalendar.inputsForSite = function(inputs) {
+        const win = (typeof window !== 'undefined') ? window : {};
+        const site = (inputs && inputs.site) || {};
+        const turf = (inputs && inputs.turf) || {};
+        const loc = site.location || {};
+        const prog = (inputs && inputs.program) || {};
+        const samples = (inputs && inputs.samples) || {};
+        const normals = (inputs && inputs.climateNormals) || {};
+        const lat = loc.lat != null ? loc.lat : null;
+
+        // The sample's own readings, through the one validator both surfaces
+        // use — it applies the null-not-zero rule and the engine's documented
+        // defaults, and says which of the two answered.
+        // The readings inside a sample record, by the one key the live store
+        // has: {id, label, date, notes, zoneType, values, methodologySnapshot,
+        // soilTextureSnapshot}. GH-471 removed the `|| payload || sample`
+        // chain — a read that agrees with any store cannot tell a stub written
+        // from memory from the real thing.
+        const readings = (sample) => (sample && sample.values) || null;
+        const soilPayload = readings(samples.soil);
+        const npi = win.GAIP_NutritionProgramInputs;
+        const validated = (npi && typeof npi.validateSampleInputs === 'function')
+            ? npi.validateSampleInputs({
+                soil: soilPayload,
+                // validateSampleInputs reads the tissue readings under
+                // `tissuePercent`; handing them as `tissue` was a silent no-op.
+                tissuePercent: readings(samples.tissue),
+                bulkDensity: soilPayload && soilPayload.bulkDensity,
+                soilDepth: soilPayload && soilPayload.soilDepth
+            })
+            : { soilPpm: null, tissuePercent: null, bulkDensity: null, soilDepth: null,
+                bulkDensityDefaulted: true, soilDepthDefaulted: true };
+
+        // The site's own normals, reindexed once into the calendar's month
+        // convention — the engine keys 1-12 and this file works in 0-11.
+        const temps = normals.monthlyTemps || null;
+        const monthlyTemps = temps
+            ? NutritionCalendar.extractMonthlyTemps({ monthlyTemps: temps }, {})
+            : null;
+
+        const overseedSpecies = turf.overseedSpecies || turf.coolOverseed || null;
+
+        return Object.freeze({
+            hemisphere: lat != null ? (lat < 0 ? 'south' : 'north') : null,
+            latitude: lat,
+            longitude: loc.lon != null ? loc.lon : null,
+            species: prog.speciesKey || turf.speciesKey || null,
+            speciesDisplay: prog.speciesDisplay || turf.speciesDisplay || null,
+            // The curve follows the species. Two independent inputs is how a
+            // report came to print the right grass on the wrong curve.
+            isC4: turf.isC4 == null ? null : !!turf.isC4,
+            soilPpm: validated.soilPpm,
+            tissuePercent: validated.tissuePercent,
+            bulkDensity: validated.bulkDensity,
+            soilDepth: validated.soilDepth,
+            methodology: prog.methodology || null,
+            soilTexture: prog.soilTexture || null,
+            CEC: prog.CEC != null ? prog.CEC : null,
+            pH: prog.pH != null ? prog.pH : null,
+            monthlyTemps: monthlyTemps,
+            monthlyTempsSource: normals.source || normals.monthlyTempsSource || null,
+            monthlyTempsPeriod: normals.period || normals.monthlyTempsPeriod || null,
+            annualNOverride: prog.annualNBase != null ? prog.annualNBase : null,
+            maxNPerMonth: prog.maxNPerMonth != null ? prog.maxNPerMonth : null,
+            distribution: prog.distributionMode || null,
+            traffic: prog.trafficIntensity || null,
+            trafficModifier: prog.trafficModifier != null ? prog.trafficModifier : null,
+            turfType: prog.turfType || turf.type || null,
+            surfaceType: prog.surfaceType || null,
+            clippingManagement: prog.clippingManagement || null,
+            ranges: prog.ranges || null,
+            rangeSources: prog.rangeSources || null,
+            inputSources: prog.sources || null,
+            bulkDensityDefaulted: !!validated.bulkDensityDefaulted,
+            soilDepthDefaulted: !!validated.soilDepthDefaulted,
+            // The same quantity as annualNOverride above. It used to be the
+            // stale half of the pair, and then the half nobody refilled.
+            annualNBase: prog.annualNBase != null ? prog.annualNBase : null,
+            _speciesDefaulted: !!(prog.sources && prog.sources.species === 'species-default'),
+            _methodologyDefaulted: !!(prog.sources && prog.sources.methodology === 'default'),
+            overseedConfig: overseedSpecies
+                ? { isOverseed: true, baseSpecies: turf.species || null,
+                    overseedSpecies: overseedSpecies, summerIntent: turf.summerIntent || 'transition',
+                    baseIsC4: !!turf.isC4 }
+                : { isOverseed: false, baseIsC4: !!turf.isC4 },
+            monthlyTempsUnavailableReason: (inputs && inputs.climateReason) || null
+        });
+    };
+
     NutritionCalendar.collectFromState = function() {
         const state = window.GAIP_STATE || {};
         const climate = window.climateMetrics || state.climate || {};
@@ -2138,7 +2385,61 @@
      *
      * Keep this function small. All programme math lives in computeProgram().
      */
+    /**
+     * GH-505: the answer to a press that produced nothing.
+     *
+     * Measured on the live stand: on a site with no saved programme the Annual
+     * N field starts empty — legitimately, there is nothing to prefill it from
+     * and nothing may be invented for it — and pressing Generate refused with a
+     * browser alert. An alert names the remedy ("Please enter your Annual N
+     * Target") and not the outcome, and it leaves nothing behind: once it is
+     * dismissed the page looks exactly as it did before the press. A client who
+     * clicks OK has no way of telling whether a programme was generated.
+     *
+     * This writes the answer into the page, where it stays: what did not
+     * happen, and why. It is placed in the results area, so a later successful
+     * generate — which rewrites that area — removes it without anyone having to
+     * remember to.
+     */
+    NutritionCalendar._answer = function (text) {
+        try {
+            var btn = this.elements && this.elements.generateBtn;
+            var node = document.querySelector('[data-nutrition-answer]');
+            if (!node) {
+                node = document.createElement('p');
+                node.setAttribute('data-nutrition-answer', '');
+                node.className = 'plan-nut-answer';
+                node.style.cssText = 'margin:12px 0 0;padding:10px 12px;border-radius:6px;'
+                    + 'background:#FEF3C7;color:#92400E;font-size:13px;line-height:1.4';
+                // Beside the button that was pressed, not in the results
+                // container: measured on the live page, `#plan-nut-results` is
+                // `display:none` until a programme has been rendered into it,
+                // so an answer placed there is created, correct and invisible —
+                // which is the same as no answer at all.
+                if (btn && btn.parentNode) btn.parentNode.insertBefore(node, btn.nextSibling);
+                else if (this.elements && this.elements.results) {
+                    this.elements.results.insertBefore(node, this.elements.results.firstChild);
+                }
+            }
+            node.textContent = text;
+            node.hidden = false;
+        } catch (e) { /* the answer must never be the reason a press throws */ }
+    };
+
+    /** Every press starts without the previous press's answer standing under it. */
+    NutritionCalendar._clearAnswer = function () {
+        try {
+            var node = document.querySelector('[data-nutrition-answer]');
+            if (node && node.parentNode) node.parentNode.removeChild(node);
+        } catch (e) { /* as above */ }
+    };
+
     NutritionCalendar.generate = async function() {
+        // GH-505: this press answers for itself; the previous press's answer
+        // goes first, so a programme that generates leaves no refusal standing
+        // under the button.
+        this._clearAnswer();
+
         // Sync soil data from DOM to GAIP_STATE first
         this.syncSoilFromDOM();
 
@@ -2148,6 +2449,10 @@
         // computeProgram() also rejects annualNOverride < 50 via error object, but
         // we short-circuit here so the user sees the alert with suggested ranges.
         if (!inputs.annualNOverride || inputs.annualNOverride < 50) {
+            // GH-505: the outcome, in the page and in these words — the action
+            // that did not happen, and the reason. The alert below still offers
+            // the ranges; it is advice, and advice is not an answer.
+            this._answer('Programme not generated: annual N target is not set');
             alert('Please enter your Annual N Target (kg/ha).\n\nTypical ranges:\n• Greens: 80-150\n• Tees: 120-180\n• Fairways: 150-250\n• Sports fields: 180-350');
             if (this.elements.annualNInput) {
                 this.elements.annualNInput.focus();
@@ -2251,8 +2556,12 @@
 
         // Dispatch event for Prebble integration
         console.log('[NutritionCalendar] Dispatching gaip:nutrition-calendar-generated, program keys:', Object.keys(this.program || {}));
+        // GH-444: `restored` tells a listener whether this programme was just
+        // computed or just read back from the database. They used to be
+        // indistinguishable, and the difference decides whether anything
+        // should be written.
         document.dispatchEvent(new CustomEvent('gaip:nutrition-calendar-generated', {
-            detail: { program: this.program }
+            detail: { program: this.program, restored: false }
         }));
 
         return this.program;
@@ -2279,6 +2588,40 @@
         if (!isFinite(v)) return '—';
         return v.toFixed(1);
     }
+
+    /**
+     * GH-441 (GH-439 stage 2, review): show that the programme on screen was
+     * not stored.
+     *
+     * Everything below this panel is drawn from what the page computed. When
+     * the write is refused -- a stale tab's programme, a lost connection --
+     * the page looked exactly the same as one whose programme is in the
+     * database, and the next page load would quietly show something else.
+     * Saying it here costs a line and removes the ambiguity.
+     */
+    NutritionCalendar.showSaveFailure = function(reason) {
+        const results = this.elements && this.elements.results;
+        if (!results || typeof document === 'undefined') return;
+
+        let banner = document.getElementById('plan-nut-save-failed');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'plan-nut-save-failed';
+            banner.style.cssText = 'margin:12px 0;padding:10px 12px;border:1px solid #dc2626;'
+                + 'border-radius:6px;background:#fef2f2;color:#7f1d1d;font-size:13px;line-height:1.45;';
+            results.insertBefore(banner, results.firstChild);
+        }
+        banner.textContent = 'This programme was NOT saved to the site, so it is not what the '
+            + 'reports and the next page load will use'
+            + (reason ? ' (' + String(reason).slice(0, 160) + ')' : '')
+            + '. Check the site settings and press Generate again.';
+    };
+
+    NutritionCalendar.clearSaveFailure = function() {
+        if (typeof document === 'undefined') return;
+        const banner = document.getElementById('plan-nut-save-failed');
+        if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+    };
 
     NutritionCalendar.renderResults = function() {
         if (!this.program) return;
@@ -2690,9 +3033,10 @@
      *     site-config-persistence.js (confirmed via console: GAIP_SiteConfig is
      *     undefined there) — but it already has the current config server-rendered
      *     into window.GAIP_SITE_CONFIG and the site id in
-     *     window.GAIP_HUB_CONFIG.activeSiteId, so PUT directly to the same
-     *     /sites/{id}/config/gaip endpoint (SiteController::updateConfig — a full
-     *     replace of the config column, hence merging into GAIP_SITE_CONFIG first).
+     *     window.GAIP_HUB_CONFIG.activeSiteId, so it PATCHes the same
+     *     /sites/{id}/config/gaip endpoint directly (GH-440: the patch itself,
+     *     never the page's copy of the config; the copy is refreshed from the
+     *     response).
      */
     /**
      * Resolve the active site id regardless of which page/script-stack is
@@ -2707,6 +3051,27 @@
         }
         const hub = window.GAIP_HUB_CONFIG || {};
         return hub.activeSiteId || null;
+    };
+
+    /**
+     * GH-440 (review): the coordinates a calendar programme was computed
+     * against, read from the calendar itself.
+     *
+     * computeProgram() stamps meta.lat/meta.lon from the exact inputs that
+     * drove the computation, so this is a statement about where the object in
+     * hand came from -- not a value looked up in a copy of the site's config,
+     * which is the habit GH-439 exists to remove. The regional integrations
+     * build their product programme from a calendar they are holding and use
+     * this to declare its origin; the server then refuses a programme whose
+     * origin is not where the site is.
+     *
+     * Returns null when the calendar carries no real coordinates: an
+     * unprovable origin is left unstated rather than guessed at.
+     */
+    NutritionCalendar.coordsFromCalendar = function(calendar) {
+        const meta = calendar && calendar.meta;
+        if (!meta || typeof meta.lat !== 'number' || typeof meta.lon !== 'number') return null;
+        return { lat: meta.lat, lon: meta.lon };
     };
 
     NutritionCalendar.persistSiteConfigPatch = function(patch) {
@@ -2737,15 +3102,11 @@
         // its own. Only set when the incoming programme actually carries
         // real coordinates — never overwrites a good existing stamp with a
         // blank one from an unrelated patch (e.g. { nzDistributor: ... }).
-        if (patch && patch.nutritionCalendarProgram && patch.nutritionCalendarProgram.meta &&
-            typeof patch.nutritionCalendarProgram.meta.lat === 'number' &&
-            typeof patch.nutritionCalendarProgram.meta.lon === 'number') {
-            patch = Object.assign({}, patch, {
-                nutritionProgramCoords: {
-                    lat: patch.nutritionCalendarProgram.meta.lat,
-                    lon: patch.nutritionCalendarProgram.meta.lon
-                }
-            });
+        const calendarStamp = patch && patch.nutritionCalendarProgram
+            ? this.coordsFromCalendar(patch.nutritionCalendarProgram)
+            : null;
+        if (calendarStamp) {
+            patch = Object.assign({}, patch, { nutritionProgramCoords: calendarStamp });
         }
 
         try {
@@ -2761,29 +3122,54 @@
                 return false;
             }
 
-            window.GAIP_SITE_CONFIG = Object.assign({}, window.GAIP_SITE_CONFIG || {}, patch, {
-                savedAt: new Date().toISOString()
-            });
-
-            var _putUrl = hub.restUrl.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(siteId) + '/config/gaip';
-            console.log('[NutritionCalendar] persist-debug: PUT', _putUrl, 'body keys=',
-                Object.keys(window.GAIP_SITE_CONFIG), 'csrfTokenPresent=', !!hub.csrfToken);
-            fetch(_putUrl, {
-                method: 'PUT',
+            // GH-440 (GH-439 stage 1): what leaves this page is the patch
+            // itself. It used to be window.GAIP_SITE_CONFIG -- the whole
+            // config as this tab had it at load time -- which meant pressing
+            // Generate in a tab opened before a Settings change put the old
+            // settings back, silently, every time (GH-439 scenario B,
+            // reproduced live). The local copy is refreshed from the server's
+            // answer below, not from what was sent.
+            var _patchUrl = hub.restUrl.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(siteId) + '/config/gaip';
+            console.log('[NutritionCalendar] persist-debug: PATCH', _patchUrl, 'patch keys=',
+                Object.keys(patch), 'csrfTokenPresent=', !!hub.csrfToken);
+            fetch(_patchUrl, {
+                method: 'PATCH',
                 credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': hub.csrfToken || ''
                 },
-                body: JSON.stringify({ config: window.GAIP_SITE_CONFIG })
+                body: JSON.stringify({ patch: patch })
             }).then(function(r) {
                 r.text().then(function(bodyText) {
-                    console.log('[NutritionCalendar] persist-debug: direct PUT response status', r.status,
+                    console.log('[NutritionCalendar] persist-debug: PATCH response status', r.status,
                         'ok=', r.ok, 'body=', bodyText.slice(0, 500));
+                    if (!r.ok) {
+                        // GH-441 (GH-439 stage 2, review): a refused write is
+                        // said on the page. The panel below is drawn from what
+                        // this page computed, and until now a 422 left it
+                        // showing a programme the database does not have --
+                        // the reader has no way to tell the two apart.
+                        NutritionCalendar.showSaveFailure(
+                            (function () {
+                                try { return (JSON.parse(bodyText) || {}).message || ''; } catch (_e) { return ''; }
+                            })()
+                        );
+                        return;
+                    }
+                    NutritionCalendar.clearSaveFailure();
+                    try {
+                        var saved = JSON.parse(bodyText);
+                        var config = saved && saved.data && saved.data.config;
+                        if (config && typeof config === 'object' && !Array.isArray(config)) {
+                            window.GAIP_SITE_CONFIG = config;
+                        }
+                    } catch (_e) { /* the page keeps what it has */ }
                 });
             }).catch(function(err) {
-                console.warn('[NutritionCalendar] persist-debug: direct PUT failed', err && err.message);
+                console.warn('[NutritionCalendar] persist-debug: PATCH failed', err && err.message);
+                NutritionCalendar.showSaveFailure(err && err.message);
             });
             return true;
         } catch (e) {
@@ -2957,8 +3343,12 @@
         // self-check at their own init() time -- they render at most once
         // either way, whichever mechanism reaches them first.
         console.log('[GH322-DEBUG] restoreFromPersisted() dispatching gaip:nutrition-calendar-generated');
+        // GH-444: restored, not generated. Everything downstream renders from
+        // it exactly as before; what changes is that the regional integrations
+        // no longer write the result back to the database, because it came
+        // from there.
         document.dispatchEvent(new CustomEvent('gaip:nutrition-calendar-generated', {
-            detail: { program: this.program }
+            detail: { program: this.program, restored: true }
         }));
     };
 

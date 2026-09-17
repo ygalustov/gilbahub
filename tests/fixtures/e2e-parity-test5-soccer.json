@@ -12,7 +12,13 @@
     "_clientIdNote": "sample-persistence.js: client_uid || payload.label || payload.sampleId || 'sample_' + id. Sample 141 has client_uid NULL and its payload carries only _label, so the client store keys it 'sample_141' and the export picker's checkbox is input[data-sample-uid='<siteId>::sample_141'].",
     "label": "Soccer",
     "zone": "Other",
-    "sampleDate": "2026-08-17"
+    "sampleDate": "2026-08-17",
+    "_payloadSource": "GH-490: samples.payload for id=141, read verbatim 2026-09-17 with docker exec gilba_mysql mysql -ugilba -pgilba_secret gilba -e \"select payload from samples where id=141\". Strings, because that is how the column stores them. Until GH-490 the export took ten of these fourteen readings off the page's soil form instead of the record; the sandbox therefore only needed the five in currentInputs.soilPpm. Now the record answers, so the record is here.",
+    "payload": {
+      "B": "0.2", "K": "40", "P": "40", "S": "75", "Ca": "803", "Cu": "1.3",
+      "EC": "0.16", "Fe": "168", "Mg": "129", "Mn": "28.3", "OM": "3.7",
+      "Zn": "5.7", "pH": "6", "CEC": "5.9", "zone": "Other", "_label": "Soccer"
+    }
   },
   "tissueSample": {
     "dbId": 144,
@@ -51,5 +57,18 @@
     "name": "Burns",
     "sampleUid": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e::Soil_25_zo0t",
     "label": "12th Fairway"
+  },
+  "scenario": {
+    "_what": "The state this fixture is written for. Numbers alone record what the database held on the day of capture; a state records what the run is testing, and survives the owner moving a test site from one scenario to another.",
+    "soilK": {
+      "state": "deficient",
+      "rule": "below the floor of the resolved certificate range — asserted live against plan.program.annual_totals_range (see mustBeBelowFloor)",
+      "value": 40
+    },
+    "tissueK": {
+      "state": "irrelevant",
+      "value": 2,
+      "why": "This run asserts that Plan and the Combined export received the SAME tissue input, whatever it is; the value itself carries no assertion. What the tissue sample has to do here is exist, so tissue_gate_applied is true on both surfaces. The number below is the reading on the day of capture (09.09) and is not compared with the database any more (GH-452). (thresholds for reference: deficient below 1.6, normal 2.0-3.42)"
+    }
   }
 }

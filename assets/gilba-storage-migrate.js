@@ -21,14 +21,17 @@
     // Keys that are static (same string on every install)
     var STATIC_KEYS = [
         'gilba_samples',
-        'gilba_hub_site_configs',
+        // GH-442 (GH-439 stage 3): gilba_hub_site_configs is not migrated --
+        // it no longer exists. site-config-persistence.js deletes any copy a
+        // browser still holds, and the config lives in the database.
         'gilba_turf_profiles',
         'gilba_turf_profiles_last',
         'gilba_hub_deleted_profiles',
         'gilba_soil_temp_log',
         'gilba_soil_temp_log_migrated_v1',
         'gilba_sensor_mappings',
-        'gilba_wizard_complete',
+        // GH-451 (GH-439 stage 4b): gilba_wizard_complete is not migrated --
+        // nothing writes it any more; the wizard record lives on the site.
         'gilba_export_include_scenario',
         'gaip_turf_profiles',
         'gaip_selected_logo_id',
@@ -150,7 +153,7 @@
         var prefix = ns ? 'gilba_' + ns + '_' : '';
         if (!prefix) return;
         var V2_KEYS = [
-            'gilba_hub_site_configs',
+            // GH-442: see the note above -- this key is gone, not moved.
             'gilba_samples',
             'gilba_turf_profiles',
             'gilba_turf_profiles_last',

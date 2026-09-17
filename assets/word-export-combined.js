@@ -90,6 +90,61 @@
     }
 
     /**
+     * GH-498: wait for the CONFIGURATION OF THIS SITE to be on the page.
+     *
+     * What stood at the call site was `await new Promise(r => setTimeout(r,
+     * 300))` under the comment "Small delay for DOM to settle after load". It
+     * was not waiting for the DOM to settle; it was waiting for the arriving
+     * site's configuration to be applied, and 300 ms is less than that takes.
+     * Measured on the stand: `gaip:site-changed` → a 300 ms restore delay →
+     * `restoreConfig`'s own 1050 ms write cascade. The loop pressed Run
+     * Analysis at 300 ms, inside the window where site-switch-cleanup had
+     * already wiped the previous site's turf identity and the new one had not
+     * been written yet, and the first report of every export printed a growth
+     * potential of 0% while its own Monthly Schedule said 13%.
+     *
+     * Three properties, and the first two are why this is not a fourth guess
+     * at a duration:
+     *   - the event is dispatched by the writer at the end of its write
+     *     (site-config-persistence.js), not by a timer wearing the event's
+     *     name;
+     *   - the event carries the fact — which site, and whether a stored config
+     *     was restored — and this consumer checks the site id rather than
+     *     trusting that an event named "applied" is about the site it asked
+     *     for;
+     *   - running out of time is an OUTCOME, `config-not-applied`, and the
+     *     caller skips the sample with it. It is never a quiet continuation.
+     *
+     * The listener is attached BEFORE the switch is asked for, so an
+     * announcement that arrives synchronously cannot be missed.
+     */
+    function waitForSiteConfig(siteId, timeoutMs) {
+        var settled = false;
+        var timer = null;
+        var resolveOuter = null;
+        function onApplied(e) {
+            var detail = (e && e.detail) || {};
+            if (detail.siteId !== siteId) return;   // somebody else's site
+            finish({ ok: true, restored: !!detail.restored, source: detail.source || null });
+        }
+        function finish(outcome) {
+            if (settled) return;
+            settled = true;
+            document.removeEventListener('gaip:site-config-applied', onApplied);
+            if (timer) clearTimeout(timer);
+            if (resolveOuter) resolveOuter(outcome);
+        }
+        document.addEventListener('gaip:site-config-applied', onApplied);
+        timer = setTimeout(function () {
+            finish({ ok: false, reason: 'config-not-applied', waitedMs: timeoutMs });
+        }, timeoutMs || TIMEOUT_MS);
+        return new Promise(function (resolve) {
+            resolveOuter = resolve;
+            if (settled) resolve({ ok: true, alreadySettled: true });
+        });
+    }
+
+    /**
      * Wait for analysis-complete event with timeout
      */
     function waitForAnalysis(timeoutMs) {
@@ -619,10 +674,12 @@
             var _sc = window.GAIP_SiteConfig;
             if (_svc && typeof _svc.resolveFor === 'function' && _sc && typeof _sc.getConfig === 'function') {
                 var _coordPromises = _siteIds.map(function(siteId) {
-                    var cfg = _sc.getConfig(siteId);
-                    var loc = cfg && cfg.location;
-                    var lat = loc && parseFloat(loc.lat);
-                    var lon = loc && parseFloat(loc.lon);
+                    // GH-477: the coordinates from the site row, which owns
+                    // them. The copy is derived from it by the server, so
+                    // reading the copy adds a write path and nothing else.
+                    var _row = (typeof _sc.getSite === 'function') ? _sc.getSite(siteId) : null;
+                    var lat = _row && parseFloat(_row.latitude);
+                    var lon = _row && parseFloat(_row.longitude);
                     if (!isFinite(lat) || !isFinite(lon) || !lat || !lon) {
                         _climateUnavailableReasons[siteId] = 'no-coordinates';
                         return Promise.resolve();
@@ -656,8 +713,33 @@
                 var entry = samples[i];
                 progress.update(i + 1, entry.siteLabel, entry.sampleLabel || entry.sampleId);
 
-                // Switch to the sample's site
-                sm.setActiveSite(entry.siteId);
+                // GH-498: the wait is armed BEFORE the switch is asked for,
+                // because the announcement can arrive while setActiveSite() is
+                // still on the stack.
+                //
+                // And it is armed only when the site is actually going to
+                // change — asked of the page itself, not remembered from the
+                // previous entry. A switch to the site the page is already on
+                // dispatches nothing (sample-manager only fires
+                // gaip:site-changed when the id differs), so waiting there
+                // would wait for something that will never be said: measured,
+                // it skipped the first sample of every single-site export.
+                var _pointerBefore = (typeof sm.getActiveSiteId === 'function')
+                    ? sm.getActiveSiteId() : null;
+                var _configWait = (entry.siteId && entry.siteId !== _pointerBefore)
+                    ? waitForSiteConfig(entry.siteId, TIMEOUT_MS) : null;
+
+                // Switch to the sample's site. GH-469: the answer is read.
+                // setActiveSite() returns false for a site it does not know
+                // and leaves the pointer where it was (sample-manager.js:2443)
+                // — a silent early exit that left the rest of this iteration
+                // running against the previous sample's site.
+                if (sm.setActiveSite(entry.siteId) === false) {
+                    console.warn('[CombinedExport] GH-469: the sample manager refused to switch to site',
+                        entry.siteId, '— skipping this sample rather than printing it against ' +
+                        'whichever site the page is still on.');
+                    continue;
+                }
 
                 // Load samples according to primaryType — soil-only, water-only, or tissue-only
                 if (entry.primaryType === 'soil' || (!entry.primaryType && entry.sampleId)) {
@@ -680,8 +762,19 @@
                     }
                 }
 
-                // Small delay for DOM to settle after load
-                await new Promise(function(r) { setTimeout(r, 300); });
+                // GH-498: the fact, or an outcome. Never a number of milliseconds.
+                if (_configWait) {
+                    var _cfg = await _configWait;
+                    if (!_cfg.ok) {
+                        console.warn('[CombinedExport] GH-498: the configuration of site', entry.siteId,
+                            'was not applied within', _cfg.waitedMs, 'ms (' + _cfg.reason + ') — skipping this ' +
+                            'sample rather than running the analysis against whatever the page still holds.');
+                        warn('Config not applied for ' + (entry.siteLabel || entry.siteId) +
+                             ' — sample ' + entry.sampleId + ' skipped');
+                        continue;
+                    }
+                    log('Config applied for', entry.siteId, '— restored:', _cfg.restored);
+                }
 
                 // Trigger analysis
                 triggerAnalysis();
@@ -700,8 +793,40 @@
                     log('Injected pre-captured blend water to GilbaHub store: ecw=' + _capturedBlendWater.ecw);
                 }
 
+                // GH-468: the loop names the site of the sample it is printing.
+                //
+                // `we.collectData()` with no argument used to send the resolver
+                // to the page's active site. setActiveSite() above does switch
+                // the page, so the two agreed most of the time — and did not
+                // when the switch had not settled, or when the page was pointed
+                // somewhere else while the export ran. Measured on the stand:
+                // the page on a Christchurch site while a Test5 sample was
+                // exported printed "Species: Couch" seven times and no
+                // nutrition programme table at all. The entry has had the right
+                // answer in hand all along.
+                //
+                // setActiveSite() stays, for the analysis runner above — it is
+                // what the page computes against — but it no longer has
+                // anything to do with the identity of this document.
+                var _npiComb = global.GAIP_NutritionProgramInputs;
+                if (!_npiComb || typeof _npiComb.resolveExportInputs !== 'function') {
+                    throw new Error('[CombinedExport] GH-468: nutrition-program-inputs.js is not loaded — ' +
+                        'this report\'s site cannot be resolved by id.');
+                }
+                var _entryInputs = _npiComb.resolveExportInputs({
+                    siteId: entry.siteId,
+                    soilSampleId: entry.sampleId,
+                    tissueSampleId: entry.tissueSampleId,
+                    waterSampleId: entry.waterSampleId
+                });
+
                 // Collect data and charts using the standard export pipeline
-                var data = we.collectData();
+                var data = we.collectData(_entryInputs);
+                // GH-469: the post-loop pass builds this sample's calendar
+                // inputs from the same resolved object. Carried on the report
+                // rather than re-resolved, so the two halves of the document
+                // cannot answer differently about the same site.
+                data._exportInputs = _entryInputs;
 
                 // GH-245 follow-up 3: _buildEngineInputs()'s own getReason() can
                 // only see "not-attempted" here (the coordinate was never
@@ -723,10 +848,11 @@
                 data.site.sampleLabel = resolvedLabel;
                 data.site.siteLabel = entry.siteLabel;
 
-                // Override soil.sampleLabel too — buildSections uses this for the section heading
-                // (e.g. "Soil Nutrition (SLAN) — Green 2"). collectData reads it from the DOM
-                // label input which reflects the last-active sample, not the current iteration.
-                if (data.soil) data.soil.sampleLabel = resolvedLabel;
+                // GH-490: the override that stood here is gone. collectData no
+                // longer reads the label off the DOM input, so `data.soil
+                // .sampleLabel` is already this sample's own, taken from the
+                // record by id; writing `entry.sampleLabel` over it would put
+                // the enumerator's copy back on top of the record's.
 
                 // ──────────────────────────────────────────────────────────────
                 // b35fix436 / C45 (revised), per-sample spray-log filter.
@@ -836,8 +962,23 @@
 
                         var _turfCfg = typeof _nsIntegration.extractTurfConfig === 'function'
                             ? _nsIntegration.extractTurfConfig() : null;
-                        var _monthlyTemps = typeof _nsIntegration.extractMonthlyTemps === 'function'
-                            ? _nsIntegration.extractMonthlyTemps() : null;
+                        // GH-480: this sample's own twelve months, resolved by
+                        // site id a few lines above and already on the report.
+                        //
+                        // What stood here was `_nsIntegration.extractMonthlyTemps()`
+                        // with no site and no coordinates. That reader takes, in
+                        // order, `window.climateMetrics.monthlyTemps`, the
+                        // orchestrator's `state.climate.monthlyTemps`, and finally
+                        // the normals cached for the coordinates it reads out of
+                        // the DOM's `.gaip-lat`/`.gaip-lon` — three page-level
+                        // answers, each belonging to whichever site the page was
+                        // last switched to. The comment above it called the
+                        // capture safe because it happens "while the correct site
+                        // is active", which is the assumption GH-459 was filed
+                        // against: the loop does switch the page, and the page is a
+                        // step behind whenever the switch has not settled.
+                        var _monthlyTemps = (data.engineInputs && data.engineInputs.climate
+                            && data.engineInputs.climate.monthlyTemps) || null;
                         var _overseedCfg = typeof _nsIntegration.detectOverseedScenario === 'function'
                             ? _nsIntegration.detectOverseedScenario() : null;
 
@@ -866,7 +1007,12 @@
                             // correct. null propagates explicitly to the
                             // engine instead (Hoxton audit D02/D03).
                             monthlyTemps:       _monthlyTemps,
-                            climateNormalsSource: (global.climateMetrics && global.climateMetrics.monthlyTempsSource) || 'unavailable',
+                            // GH-480: the source of the twelve above, from the
+                            // same place they came from. `global.climateMetrics`
+                            // is the page's last run and says nothing about this
+                            // sample's site.
+                            climateNormalsSource: (data.engineInputs && data.engineInputs.climate
+                                && data.engineInputs.climate.source) || 'unavailable',
                             // GH-408: the fallback derives the base from this
                             // site's own species instead of asserting cool-
                             // season. A hardcoded `baseIsC4: false` here put a
@@ -2116,19 +2262,11 @@
         // Per-sample programme overlay (moved from later in the pipeline).
         // Without this moved up, per-green Nutrition Program sections would
         // still render from the facility-cached programme.
-        var _facilityCalendarInputs = null;
-        if (window.GilbaNutritionCalendar && window.GilbaNutritionCalendar.collectFromState) {
-            try {
-                // GH-388: the aaTextureKey overlay is gone with
-                // NutritionCalendar._collectAATexture(). Since GH-384 the AA
-                // sufficiency range comes from the shared resolver, which
-                // buckets the texture itself off the one texture chain; this
-                // key was computed on every export and read by nobody.
-                _facilityCalendarInputs = window.GilbaNutritionCalendar.collectFromState();
-            } catch (e) {
-                console.warn('[CombinedExport] Could not collect facility calendar inputs:', e.message);
-            }
-        }
+        // GH-469: the facility-wide snapshot is gone. It existed to be the
+        // base of every sample's inputs, and that base is now built per sample
+        // from the sample's own site (nutrition-calendar.js inputsForSite).
+        // collectFromState() stays where it belongs — the Plan page, which is
+        // the page of its own site.
 
         // The facility snapshot supplies only the sample-independent shape of
         // the calendar's input object (monthly temps get overlaid per sample,
@@ -2140,8 +2278,8 @@
         // Samples whose site has no resolvable annual N are skipped
         // individually (_perSampleProgSkip).
         var _perSampleProgGen = !!(
-            _facilityCalendarInputs &&
             window.GilbaNutritionCalendar &&
+            typeof window.GilbaNutritionCalendar.inputsForSite === 'function' &&
             window.GilbaNutritionCalendar.computeProgram &&
             ((window.AuFertiliserRecommender && window.AuFertiliserRecommender.generateAnnualProgram) ||
              (window.PrebbleRecommender && window.PrebbleRecommender.generateProgram))
@@ -2205,7 +2343,38 @@
                 if (!r.data || !r.data.soil || !r.data.soil.hasData) { _perSampleProgSkip++; return; }
                 if (r._anr && r._anr.isCotula) { _perSampleProgSkip++; return; }
 
-                var perSampleInputs = Object.assign({}, _facilityCalendarInputs);
+                // GH-469 (eighth refinement): BUILT from this sample's own
+                // site, not copied from a page-wide snapshot and patched.
+                //
+                // What stood here was `Object.assign({}, _facilityCalendar
+                // Inputs)` — one snapshot of the hidden runner's DOM, taken
+                // once for the whole document, whose own comment says it holds
+                // "whichever site restored first" — followed by naming the
+                // fields to overwrite. Measured: the snapshot carries 33 keys,
+                // 21 were overwritten, and twelve were kept, `isC4` among them.
+                // That field chooses the growth curve, so a report could carry
+                // the right site's name and species over another site's curve.
+                // The shape that produced it is the one section 10.3 declined:
+                // a copy of a page-wide object plus a list of exceptions.
+                // GH-470: ONE argument, and the object is frozen. The three
+                // arguments this used to take were assembled from three
+                // places, and one of them — the separately resolved programme
+                // — was declared BELOW this line, so 24 of the 35 fields were
+                // built null and a second pass further down filled back the
+                // fourteen the parity harness compares. An object with one
+                // source cannot be built in the wrong order, and a frozen one
+                // cannot be completed afterwards in silence.
+                var perSampleInputs = (window.GilbaNutritionCalendar &&
+                    typeof window.GilbaNutritionCalendar.inputsForSite === 'function')
+                    ? window.GilbaNutritionCalendar.inputsForSite(r.data._exportInputs)
+                    : null;
+                if (!perSampleInputs) {
+                    console.warn('[CombinedExport] GH-469: nutrition-calendar.js does not expose ' +
+                        'inputsForSite() — skipping this sample\'s programme rather than building ' +
+                        'it from a page-wide snapshot.');
+                    _perSampleProgSkip++;
+                    return;
+                }
 
                 // GH-383 (D31 stage 1): every programme-level input for THIS
                 // sample's site comes from the one shared adapter, keyed by
@@ -2222,30 +2391,13 @@
                 // question 12, seen live as a Burns sample printing 250 kg N/ha
                 // in a Test5-active export.
                 var _NPI = window.GAIP_NutritionProgramInputs;
-                var _siteInputs = null;
-                if (_NPI) {
-                    try {
-                        _siteInputs = _NPI.resolveSiteProgramInputs({
-                            siteId: r.siteId,
-                            soil: r.data.soil || null,
-                            sample: {
-                                species: (r.data.engineInputs && r.data.engineInputs.turf && r.data.engineInputs.turf.species) || undefined,
-                                methodology: (r.data.soil && r.data.soil.methodology) || undefined,
-                                soilTexture: (r.data.engineInputs && r.data.engineInputs.soilTexture) || undefined,
-                                CEC: (r.data.soil && (r.data.soil.CEC != null ? r.data.soil.CEC : r.data.soil.cec)),
-                                pH: (r.data.soil && (r.data.soil.pH_water != null ? r.data.soil.pH_water : r.data.soil.pH))
-                            },
-                            // Never let this per-site resolution read the Plan
-                            // page's live form: this page has none, and a
-                            // hidden legacy input with the same class is
-                            // exactly the cross-site leak above.
-                            planForm: null
-                        });
-                    } catch (_piErr) {
-                        console.warn('[CombinedExport] GH-383: programme input resolution failed for site',
-                            r.siteId, '-', _piErr && _piErr.message);
-                    }
-                }
+                // GH-470: the programme this sample's site resolved, out of
+                // the same object the document was built from. The separate
+                // resolveSiteProgramInputs() call that stood here was a second
+                // border onto the same question — and being declared after the
+                // line that used it is what made the previous version quietly
+                // empty.
+                var _siteInputs = (r.data._exportInputs && r.data._exportInputs.program) || null;
                 if (!_siteInputs) {
                     // No adapter, or no config for this site. Do not guess with
                     // another site's numbers — skip this sample's programme,
@@ -2288,61 +2440,19 @@
                 // re-multiplying — printed 1.15. Inert until this ticket
                 // because every site resolved 1.0; live the moment a schedule
                 // is saved, which is why it is fixed here and not later.
-                perSampleInputs.annualNOverride = _siteInputs.annualNBase;
-                perSampleInputs.clippingManagement = _siteInputs.clippingManagement;
-                perSampleInputs.traffic = _siteInputs.trafficIntensity;
-                perSampleInputs.trafficModifier = _siteInputs.trafficModifier;
-                perSampleInputs.inputSources = _siteInputs.sources;
-                // GH-387: the RAW surface the calendar works in ('greens',
-                // 'soccer', ...) — the same value nutrition-calendar.js's
-                // collectFromState() resolves on the Plan page and stamps as
-                // meta.surfaceType. GH-383 assigned `turfType` here ('golf',
-                // 'sports'), which is a different field entirely: the Plan and
-                // the export then handed their product recommenders different
-                // surfaces and, on an AU site, got different products out of
-                // the same catalogue for the same sample.
-                perSampleInputs.surfaceType = _siteInputs.surfaceType || perSampleInputs.surfaceType;
-                perSampleInputs.species = _siteInputs.speciesKey || perSampleInputs.species;
-                perSampleInputs.speciesDisplay = _siteInputs.speciesDisplay || perSampleInputs.speciesDisplay;
-                perSampleInputs.methodology = _siteInputs.methodology;
-                perSampleInputs.soilTexture = _siteInputs.soilTexture;
-                perSampleInputs.CEC = _siteInputs.CEC;
-                perSampleInputs.pH = _siteInputs.pH;
-                // GH-413: the sufficiency ranges belong in this list too, and
-                // their absence from it is why the document's Annual Nutrient
-                // Requirements table printed a Range column from one floor and
-                // a Required column from another. `perSampleInputs` starts as a
-                // copy of the FACILITY collectFromState() snapshot, whose
-                // `ranges` were resolved from the hidden #rp-hub-runner's DOM —
-                // one sample's pH, texture and methodology for every sample in
-                // the document. computeProgram() prefers `inputs.ranges` when it
-                // is present, so that stale object drove the per-sample
-                // programme (and `annual_totals_range`, which this file stashes
-                // as r._planParity.ranges and the ANR table prints), while the
-                // ANR's own Required came from engineInputs.ranges — resolved
-                // per sample. Measured on New test - location / Green 5
-                // (pH 8.26): Required computed from the pH-adjusted floor 51,
-                // Range printed from the unadjusted 27 ("37.8–75.6" beside a
-                // "Deficit (-6%)" that was scored against neither).
-                perSampleInputs.ranges = _siteInputs.ranges;
-                perSampleInputs.rangeSources = _siteInputs.rangeSources;
+                // GH-470: the second pass that stood here — seventeen
+                // `perSampleInputs.<field> = _siteInputs.<field>` assignments —
+                // is gone. Every one of those values is in the object above,
+                // built from the same resolver, and the object is frozen, so
+                // this cannot come back without throwing.
 
-                // GH-398 (D31 stage 4): the monthly cap and the distribution
-                // mode now come from the same adapter call as everything above,
-                // keyed by r.siteId. They used to be read here directly — the
-                // cap off _siteCfg, the mode off the persisted programme's meta
-                // — which was a second resolution of two fields the Word
-                // export's own Monthly N Distribution table also needs, and it
-                // is a second resolution of a shared concept that every defect
-                // in this area has been.
-                perSampleInputs.maxNPerMonth = _siteInputs.maxNPerMonth;
-                perSampleInputs.distribution = _siteInputs.distributionMode;
                 // And this sample's overseed configuration, so the calendar's
                 // monthly GP curve blends C3 and C4 by season for an oversown
                 // warm-season sward exactly as the engine's does (decision 3).
                 // Identical for every sward that is not overseeded, which is
                 // all ten dev sites.
-                perSampleInputs.overseedConfig = (r.data.engineInputs && r.data.engineInputs.overseedConfig) || null;
+                // GH-470: the overseed configuration is built with the rest of
+                // the object, from this site's own turf.
 
                 // GH-383: `parseFloat(...) || 0` turned a missing reading into
                 // 0 ppm, which reads as maximally deficient against every floor
@@ -2350,12 +2460,11 @@
                 // was never measured — the exact failure GH-338 fixed on the
                 // Plan page and left standing here. validateSampleInputs()
                 // applies that same null-not-zero rule for both surfaces.
-                var _validated = _NPI.validateSampleInputs({
-                    soil: r.data.soil,
-                    bulkDensity: perSampleInputs.bulkDensity,
-                    soilDepth: perSampleInputs.soilDepth
-                });
-                perSampleInputs.soilPpm = _validated.soilPpm;
+                // GH-470: the sample's own readings are validated inside
+                // inputsForSite(), from samples-by-id, with the same validator
+                // and the same null-not-zero rule. Nothing is written onto the
+                // object here — it is frozen.
+
 
                 // GH-361 (Hoxton audit D07a): same "this sample's own data,
                 // not the facility default" overlay as soilPpm above, so
@@ -2370,69 +2479,44 @@
                 // unconditionally, including with an all-null object when
                 // r.data.tissue had nothing. Two problems: (1) it duplicated
                 // _tissuePercentFromData()'s parse instead of sharing it; (2)
-                // perSampleInputs starts as a copy of _facilityCalendarInputs,
-                // which nutrition-calendar.js's own collectFromState() may
-                // already have populated with a MORE complete resolution (its
-                // SampleManager fallback + {tissue:{...}} wrapper-unwrap,
-                // neither of which this per-sample overlay re-implements) —
-                // clobbering that with an all-null object whenever this
-                // sample's r.data.tissue came up empty threw away a real
-                // value the facility-level resolution had already found,
-                // silently losing the tissue gate in the export while the
-                // Plan page (which reads collectFromState() directly) kept
-                // it — the exact UI-vs-export divergence class GH-362 exists
-                // to close. Now only overlays when this sample's own tissue
-                // data actually resolved to something.
-                var _resolvedSampleTissue = (window.GAIP_WordExport && window.GAIP_WordExport._tissuePercentFromData)
-                    ? window.GAIP_WordExport._tissuePercentFromData(r.data)
-                    : null;
-                if (_resolvedSampleTissue) {
-                    perSampleInputs.tissuePercent = _resolvedSampleTissue;
-                }
-                // else: leave whatever _facilityCalendarInputs already carried
-                // (collectFromState()'s own resolution) rather than clobbering
-                // it with nulls.
+                // perSampleInputs used to start as a copy of the facility
+                // snapshot, which collectFromState() may have populated with a
+                // more complete resolution than this per-sample overlay does —
+                // so clobbering it with nulls when this sample had no tissue
+                // threw away a real value.
+                //
+                // GH-469 changes what that sentence means. The base is now
+                // built from THIS sample's site, so a sample with no tissue of
+                // its own carries null rather than the facility-level answer —
+                // and the facility-level answer belonged to whichever site the
+                // hidden runner restored first. A tissue reading from another
+                // site is not a more complete resolution of this one; it is
+                // the same defect as the species and the curve. The gate
+                // closing for a sample that genuinely has no tissue is the
+                // correct outcome, and it is a behaviour change: a sample that
+                // was silently borrowing one now shows none.
+                // GH-470: this sample's tissue comes from samples-by-id
+                // inside inputsForSite(). The overlay that stood here parsed
+                // r.data.tissue and wrote onto the object afterwards.
 
-                // GH-245 follow-up 3: perSampleInputs started as a copy of
-                // _facilityCalendarInputs, which was built once from
+                // else: this sample has no tissue of its own, and the object
+                // says so. Nothing to fall back to any more, deliberately.
+
+                // GH-245 follow-up 3: perSampleInputs used to start as a copy
+                // of a facility-wide snapshot built once from
                 // window.climateMetrics — whichever site happened to be
                 // active LAST in the collection loop above, not this sample's
-                // own site. Every sample's Monthly Schedule was silently
-                // computed against one site's climate (or null, if that last
-                // site failed). r.data.engineInputs.climate was already
-                // resolved correctly per-sample in that same collection loop
-                // (via _buildEngineInputs()/collectData(), same mechanism
-                // Monthly N Distribution already relies on) — overlay it here
-                // so the calendar engine sees this sample's real climate.
+                // own site. GH-469 removed that base, and GH-470 moved the
+                // reindexing of this sample's own monthly temperatures into
+                // inputsForSite(), which is where the calendar's month
+                // convention is applied once.
+                //
+                // GH-479: the overlay that used to stand here was left behind
+                // `if (false && …)` when GH-470 replaced it. Dead since then,
+                // and read as live code by anything that counts what this file
+                // does. Removed; `_sampleClimate` stays because the catalogue
+                // resolution below reads this sample's coordinates off it.
                 var _sampleClimate = r.data.engineInputs && r.data.engineInputs.climate;
-                if (_sampleClimate) {
-                    // GH-363: month-key convention mismatch, and the real cause
-                    // of what GH-354 only guarded against. GilbaClimateNormals
-                    // Service keys monthlyTemps 1-12 (climate-normals-service.js),
-                    // which is what nutrition-requirement-engine.js consumes and
-                    // what engineInputs.climate carries. GilbaNutritionCalendar
-                    // works in 0-11 and has extractMonthlyTemps() to reindex
-                    // exactly once on the way in — this overlay bypassed it and
-                    // handed computeProgram() the raw 1-12 object, whose key 0 is
-                    // always undefined. Confirmed live on a site with fully
-                    // resolved NASA POWER normals: every sample returned
-                    // climateDataUnavailable ('fetch-failed', though the fetch
-                    // had succeeded), per-sample programmes came out ok=0
-                    // failed=1, and the report silently fell back to the cached
-                    // site-level window.GAIP_NUTRITION_PROGRAM instead of the
-                    // per-sample recompute b35fix307/GH-245 introduced.
-                    // Reindexed through the calendar's own helper so the
-                    // convention has one implementation, not two.
-                    var _reindexed = (window.GilbaNutritionCalendar &&
-                        typeof window.GilbaNutritionCalendar.extractMonthlyTemps === 'function')
-                        ? window.GilbaNutritionCalendar.extractMonthlyTemps(
-                            { monthlyTemps: _sampleClimate.monthlyTemps }, {})
-                        : _sampleClimate.monthlyTemps;
-                    perSampleInputs.monthlyTemps = _reindexed;
-                    perSampleInputs.hemisphere = _sampleClimate.hemisphere;
-                    perSampleInputs.latitude = _sampleClimate.latitude;
-                    perSampleInputs.monthlyTempsUnavailableReason = _sampleClimate.unavailableReason;
-                }
 
                 // GH-362: resolve THIS sample's product catalogue from THIS
                 // sample's coordinates — see the block comment above the loop
@@ -2986,7 +3070,11 @@
                                 && typeof _wx._amendmentDecisionsToProducts === 'function'
                                 && r.data.soil && r.data.soil.thresholds) {
                             var _soilForAmend = r.data.soil;
-                            var _surfaceType = (_facilityCalendarInputs && _facilityCalendarInputs.surfaceType) || '';
+                            // GH-469: this sample's own site. It used to come
+                            // off the facility-wide snapshot, which is the same
+                            // defect one field wide — every report's amendment
+                            // block reading one site's surface.
+                            var _surfaceType = (_siteInputs && _siteInputs.surfaceType) || '';
                             var _ctx = (r.data._combinedCtx || {});
                             var _hem = _ctx.hemisphere || 'south';
                             var _amendCtx = {

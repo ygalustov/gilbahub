@@ -104,5 +104,13 @@
       "julyProduct": "Andersons Pendi Pro 22-0-5",
       "julyWarningNote": "Contains pre-emergent herbicide (pendimethalin). Please verify no seeding/overseeding has occurred or is planned within the next 12 weeks before applying."
     }
+  },
+  "scenario": {
+    "soilK": {
+      "state": "sufficient",
+      "rule": "above the AA ceiling for this surface",
+      "value": 276,
+      "why": "The AA-ceiling case: the companion to the below-floor fixture of the same sample, kept so both sides of the ceiling rule are covered."
+    }
   }
 }

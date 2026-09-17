@@ -196,11 +196,15 @@
             try {
                 var _SC = global.GAIP_SiteConfig || global.GAIP_SiteContext;
                 var _siteId = global.GAIP_SiteContext ? global.GAIP_SiteContext.getSiteId() : null;
-                if (_SC && _siteId && typeof _SC.getConfig === 'function') {
-                    var _cfg = _SC.getConfig(_siteId);
-                    if (_cfg && _cfg.location && _cfg.location.lat) {
-                        _lat = parseFloat(_cfg.location.lat);
-                        _lon = parseFloat(_cfg.location.lon || _cfg.location.lng || 0);
+                // GH-474: the site row owns the coordinates, so they are read
+                // from it. The copy in `config.location` is written by the
+                // server from these same columns, and reading the owner means
+                // never being a write path behind it.
+                if (_SC && _siteId && typeof _SC.getSite === 'function') {
+                    var _row = _SC.getSite(_siteId);
+                    if (_row && _row.latitude != null) {
+                        _lat = parseFloat(_row.latitude);
+                        _lon = parseFloat(_row.longitude != null ? _row.longitude : 0);
                     }
                 }
             } catch(e) {}
@@ -210,9 +214,12 @@
         // site-switch. Using it caused all sites to resolve to whatever region the
         // server-side saved location was set to (e.g. UK coords applied to AU sites).
         // RegionalProfiles — direct region string (no coords needed)
-        if (!_lat && global.GAIP_RegionalProfiles && typeof global.GAIP_RegionalProfiles.detectRegionFromHub === 'function') {
+        // GH-476: by the site's own coordinates.
+        if (!_lat && global.GAIP_RegionalProfiles
+            && typeof global.GAIP_RegionalProfiles.detectRegionForSite === 'function') {
             try {
-                var _rpRegion = global.GAIP_RegionalProfiles.detectRegionFromHub();
+                var _rpRegion = global.GAIP_RegionalProfiles.detectRegionForSite(
+                    global.GAIP_RegionalProfiles.activeSiteId());
                 if (_rpRegion) return _rpRegion;
             } catch(e) {}
         }

@@ -40,6 +40,7 @@ require('../assets/gaip-classification-constants.js');
 const NPI = require('../assets/nutrition-program-inputs.js');
 global.window.GAIP_NutritionProgramInputs = NPI;
 const Balance = require('../assets/nutrient-balance-status.js');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 global.console = _realConsole;
 
@@ -106,9 +107,7 @@ describe('GH-416 — the Plan page banner', () => {
 
 describe('GH-416 — the document', () => {
     test('a pH-only sample is eligible for the ANR and Monthly N tables', () => {
-        const idx = COMBINED_SRC.indexOf('function _anrEligible(r) {');
-        expect(idx).toBeGreaterThan(-1);
-        const block = COMBINED_SRC.slice(idx, idx + 400);
+        const block = anchoredWindow(COMBINED_SRC, 'function _anrEligible(r) {', 400);
         expect(block).toMatch(/if \(s\.hasData && \(s\.P != null \|\| s\.K != null\)\) return true;/);
         expect(block).toMatch(/return s\.pH != null \|\| s\.pH_water != null;/);
         expect(COMBINED_SRC).toMatch(/var anrReports = reports\.filter\(_anrEligible\);/);

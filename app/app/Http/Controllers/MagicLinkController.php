@@ -7,6 +7,7 @@ use App\Models\Invitation;
 use App\Models\MagicLink;
 use App\Models\Site;
 use App\Models\SiteConfig;
+use App\Support\SiteConfigWriter;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -181,12 +182,8 @@ class MagicLinkController extends Controller
             'modified_by_user_id' => $user->id,
         ]);
 
-        SiteConfig::query()->create([
-            'site_id' => $site->id,
-            'namespace' => 'gaip',
-            'config' => (object) [],
-            'synced_at' => now(),
-        ]);
+        // GH-447: the empty starting row, through the one writer.
+        SiteConfigWriter::createEmpty($site->id);
 
         if (! $user->is_admin) {
             $user->sites()->attach($site->id, ['role' => 'manager']);

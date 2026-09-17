@@ -4328,8 +4328,14 @@
         try {
           const _cSiteId = global.GAIP_SiteContext ? global.GAIP_SiteContext.getSiteId() : null;
           if (_cSiteId) {
-            const _cConfigs = JSON.parse(localStorage.getItem('gilba_hub_site_configs') || '{}');
-            companionSpecies = (_cConfigs[_cSiteId] && _cConfigs[_cSiteId].turf && _cConfigs[_cSiteId].turf.companionSpecies) || '';
+            // GH-442 (GH-439 stage 3): the in-memory cache, which holds what
+            // the server sent for this site. It used to be read out of
+            // localStorage, where a copy from an earlier session -- possibly
+            // of a different site -- could still be sitting.
+            const _cCfg = global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getConfig === 'function'
+              ? global.GAIP_SiteConfig.getConfig(_cSiteId)
+              : null;
+            companionSpecies = (_cCfg && _cCfg.turf && _cCfg.turf.companionSpecies) || '';
           }
         } catch (_) {}
       }
@@ -4873,6 +4879,17 @@
         // site-config-applied doesn't dispatch until ~2400ms. Running computeAll
         // here hits a TIER 0 identity failure (speciesKey missing). Defer to
         // the site-config-applied listener below.
+        // GH-441 (GH-439 stage 2, review): a failed settings read stops the
+        // run outright. PENDING means "wait, the config is coming"; FAILED
+        // means it is not coming, and computing anyway would produce numbers
+        // from whatever the legacy form happens to hold -- indistinguishable
+        // on screen from real ones. The page shows the settings-unavailable
+        // banner instead (dashboard-ui.js / layouts.app).
+        if (window.GAIP_SITE_CONFIG_FAILED) {
+          console.warn("[Orchestrator] site settings could not be loaded — not computing on form defaults");
+          _orchestratorDeferredPending = false;
+          return;
+        }
         if (window.GAIP_SITE_CONFIG_PENDING) {
           log("integration", "gaip:site-changed, config restore pending, deferring to site-config-applied");
           _orchestratorDeferredPending = true;

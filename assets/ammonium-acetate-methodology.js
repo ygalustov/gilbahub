@@ -402,8 +402,11 @@
      */
     function isNewZealand() {
         // Method 1: RegionalProfiles
-        if (window.GAIP_RegionalProfiles?.detectRegionFromHub) {
-            return window.GAIP_RegionalProfiles.detectRegionFromHub() === 'new_zealand';
+        if (window.GAIP_RegionalProfiles?.detectRegionForSite) {
+            // GH-476: by the site's own coordinates, not by the hidden
+            // runner's form fields.
+            return window.GAIP_RegionalProfiles.detectRegionForSite(
+                window.GAIP_RegionalProfiles.activeSiteId()) === 'new_zealand';
         }
 
         // Method 2: GAIP_STATE

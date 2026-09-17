@@ -76,12 +76,11 @@
         addBtn.type = 'button';
         bar.appendChild(addBtn);
 
-        var renameBtn = document.createElement('button');
-        renameBtn.className = 'gaip-site-btn gaip-site-btn-rename';
-        renameBtn.title = 'Rename current site';
-        renameBtn.textContent = '\u270E';
-        renameBtn.type = 'button';
-        bar.appendChild(renameBtn);
+        // GH-441 (GH-439 stage 2, decision 9): Rename and Save are gone from
+        // this bar. Rename wrote through POST /api/sites/sync, which no longer
+        // writes a name; Save snapshotted the legacy form and stored that as
+        // the site's configuration, which is the defect this stage removes.
+        // Both are done in Settings, on a page a client actually opens.
 
         var delBtn = document.createElement('button');
         delBtn.className = 'gaip-site-btn gaip-site-btn-delete';
@@ -90,14 +89,6 @@
         delBtn.type = 'button';
         if (activeId === 'default') delBtn.style.display = 'none';
         bar.appendChild(delBtn);
-
-        var saveBtn = document.createElement('button');
-        saveBtn.className = 'gaip-site-btn gaip-site-btn-save';
-        saveBtn.title = 'Save current site configuration';
-        saveBtn.textContent = '\uD83D\uDCBE';
-        saveBtn.type = 'button';
-        saveBtn.style.cssText = 'font-size: 14px; cursor: pointer;';
-        bar.appendChild(saveBtn);
 
         var badge = document.createElement('span');
         badge.className = 'gaip-site-sample-count';
@@ -123,14 +114,6 @@
             updateUI();
         });
 
-        renameBtn.addEventListener('click', function() {
-            var currentLabel = SM.getActiveSiteLabel();
-            var newName = prompt('Rename site:', currentLabel);
-            if (!newName || !newName.trim() || newName.trim() === currentLabel) return;
-            SM.renameSite(SM.getActiveSiteId(), newName.trim());
-            updateUI();
-        });
-
         delBtn.addEventListener('click', function() {
             var siteLabel = SM.getActiveSiteLabel();
             var siteId = SM.getActiveSiteId();
@@ -139,21 +122,6 @@
             SM.removeSite(siteId);
             reloadActiveSample();
             updateUI();
-        });
-
-        saveBtn.addEventListener('click', function() {
-            var siteLabel = SM.getActiveSiteLabel();
-            document.dispatchEvent(new CustomEvent('gaip:site-save-requested', {
-                detail: { siteId: SM.getActiveSiteId(), label: siteLabel }
-            }));
-            // Visual feedback
-            var origText = saveBtn.textContent;
-            saveBtn.textContent = '✓';
-            saveBtn.style.color = '#28a745';
-            setTimeout(function() {
-                saveBtn.textContent = origText;
-                saveBtn.style.color = '';
-            }, 1500);
         });
 
         return bar;
@@ -693,16 +661,8 @@
                 });
             }
 
-            var renameBtnTop = document.getElementById('gaip-site-rename-top');
-            if (renameBtnTop) {
-                renameBtnTop.addEventListener('click', function() {
-                    var cur = SM.getActiveSiteLabel();
-                    var name = prompt('Rename site:', cur);
-                    if (!name || !name.trim() || name.trim() === cur) return;
-                    SM.renameSite(SM.getActiveSiteId(), name.trim());
-                    updateUI();
-                });
-            }
+            // GH-441 (GH-439 stage 2, decision 9): the Rename and Save
+            // buttons are removed from the markup; nothing is wired for them.
 
             var delBtnTop = document.getElementById('gaip-site-delete-top');
             if (delBtnTop) {
@@ -713,20 +673,6 @@
                     SM.removeSite(id);
                     updateUI();
                     reloadActiveSample();
-                });
-            }
-
-            var saveBtnTop = document.getElementById('gaip-site-save-top');
-            if (saveBtnTop) {
-                saveBtnTop.addEventListener('click', function() {
-                    if (global.GilbaSiteConfig && typeof global.GilbaSiteConfig.saveCurrentSite === 'function') {
-                        global.GilbaSiteConfig.saveCurrentSite();
-                    }
-                    var statusTop = document.getElementById('gaip-site-status-top');
-                    if (statusTop) {
-                        statusTop.textContent = '✓ Saved';
-                        setTimeout(function() { statusTop.textContent = ''; }, 2000);
-                    }
                 });
             }
 

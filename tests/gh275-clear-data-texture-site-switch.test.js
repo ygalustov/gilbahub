@@ -37,6 +37,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 describe('GH-275 — clearSoilData() leaves .gaip-soil-texture alone on site switch', () => {
     let src;
@@ -45,9 +46,7 @@ describe('GH-275 — clearSoilData() leaves .gaip-soil-texture alone on site swi
     });
 
     function extractClearSoilData() {
-        const start = src.indexOf('function clearSoilData(btn, domOnly)');
-        const end = src.indexOf('\n    // =========', start + 10);
-        return src.slice(start, end);
+        return anchoredSlice(src, 'function clearSoilData(btn, domOnly)');
     }
 
     test('the old unconditional reset is gone', () => {

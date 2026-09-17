@@ -31,6 +31,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 describe('GH-338 — nutrition-calendar.js: no soil sample is null, not 0', () => {
     let src;
@@ -115,9 +116,7 @@ describe.each([
     // the early return still has to happen before the canCompute check, which
     // is pinned against the module itself below.
     test('classifyBalance() hands the missing-soil-data flag to the shared classifier', () => {
-        const idx = src.indexOf('function classifyBalance(nutrient, required, delivered) {');
-        expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, idx + 1600);
+        const block = anchoredWindow(src, 'function classifyBalance(nutrient, required, delivered) {', 1600);
         expect(block).toMatch(/missingSoilData: !!missingSoilDataMap\[nutrient\]/);
     });
 });
@@ -126,12 +125,10 @@ describe('GH-338 — the shared classifier still short-circuits on missing soil 
     const modSrc = fs.readFileSync(path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8');
 
     test('the no-data return comes before the canCompute check', () => {
-        const idx = modSrc.indexOf('function classify(o) {');
-        expect(idx).toBeGreaterThan(-1);
-        const block = modSrc.slice(idx, idx + 1600);
+        const block = anchoredWindow(modSrc, 'function classify(o) {', 1600);
         expect(block).toMatch(/if \(missingSoilData\) \{/);
         expect(block).toMatch(/statusClass: 'no-data', statusLabel: 'No Soil Data'/);
-        expect(block.indexOf('if (missingSoilData) {')).toBeLessThan(modSrc.slice(idx).indexOf('const canCompute'));
+        expect(block.indexOf('if (missingSoilData) {')).toBeLessThan(block.indexOf('const canCompute'));
     });
 
     test('the classifier is executable, and a missing reading returns No Soil Data rather than a verdict', () => {

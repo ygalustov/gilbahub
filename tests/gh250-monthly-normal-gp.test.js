@@ -25,6 +25,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. calculateWeightedGrowth() math — confirms the reused function produces
@@ -172,10 +173,10 @@ describe('GH-252 — buildClimateView() forwards growth.monthlyNormal', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/growth-light-analysis.js'), 'utf8');
 
     test('the growth object literal returned by buildClimateView() includes monthlyNormal', () => {
-        const idx = src.indexOf('function buildClimateView(data)');
-        expect(idx).toBeGreaterThan(-1);
-        const returnIdx = src.indexOf('return {', idx);
-        const body = src.slice(returnIdx, returnIdx + 900);
+        // GH-467: the function anchor is checked by the helper, and the
+        // window starts at the object literal inside it.
+        const fn = anchoredWindow(src, 'function buildClimateView(data)', 4000);
+        const body = anchoredWindow(fn, 'return {', 900);
         expect(body).toMatch(/dailyPattern:\s*dailyPattern/); // sibling field, confirms right object literal
         expect(body).toMatch(/monthlyNormal:\s*growth\.monthlyNormal/);
     });

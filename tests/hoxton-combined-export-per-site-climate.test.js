@@ -31,6 +31,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 let combinedSrc, exportSrc;
 beforeAll(() => {
@@ -60,12 +61,16 @@ describe('word-export-combined.js — per-site climate normals pre-pass', () => 
         expect(preLoop).toMatch(/new Set\(samples\.map\(function\(s\) \{ return s\.siteId; \}\)\)/);
     });
 
-    test('reads coordinates from GAIP_SiteConfig.getConfig(siteId).location — a safe read, not the mergeConfig write path', () => {
+    test('reads coordinates from GAIP_SiteConfig.getSite(siteId) — the owner, and not the mergeConfig write path', () => {
         const fnStart = combinedSrc.indexOf('async function exportCombinedWithSamples(samples)');
         const loopStart = combinedSrc.indexOf('for (var i = 0; i < samples.length; i++)', fnStart);
         const preLoop = combinedSrc.slice(fnStart, loopStart);
 
-        expect(preLoop).toMatch(/_sc\.getConfig\(siteId\)/);
+        // GH-477: from the site row, which owns the coordinates. The copy in
+        // `config.location` is derived from that row by the server, so reading
+        // the copy was one write path further from the fact for no gain. What
+        // this test protects is unchanged: a READ, never the write path.
+        expect(preLoop).toMatch(/_sc\.getSite\(siteId\)/);
         expect(preLoop).not.toMatch(/\.mergeConfig\(/);
     });
 
@@ -81,37 +86,60 @@ describe('word-export-combined.js — per-site climate normals pre-pass', () => 
 
 describe('word-export.js — _buildEngineInputs reads per-sample coordinates, not the single climateMetrics slot', () => {
     test('no longer reads window.climateMetrics.monthlyTemps directly', () => {
-        const fnStart = exportSrc.indexOf('function _buildEngineInputs(data)');
-        expect(fnStart).toBeGreaterThan(-1);
-        const fnBody = exportSrc.slice(fnStart, exportSrc.indexOf('data.engineInputs = {', fnStart));
+        const fnBody = anchoredSlice(exportSrc, 'function _buildEngineInputs(data', 'data.engineInputs = {');
 
         expect(fnBody).not.toMatch(/window\.climateMetrics\s*&&\s*window\.climateMetrics\.monthlyTemps/);
     });
 
     test('reads via GilbaClimateNormalsService.getResolvedSync(_lat, _lon) — per-sample coordinates', () => {
-        const fnStart = exportSrc.indexOf('function _buildEngineInputs(data)');
-        const fnBody = exportSrc.slice(fnStart, exportSrc.indexOf('data.engineInputs = {', fnStart));
+        const fnBody = anchoredSlice(exportSrc, 'function _buildEngineInputs(data', 'data.engineInputs = {');
 
         expect(fnBody).toMatch(/GilbaClimateNormalsService\.getResolvedSync\(_lat, _lon\)/);
     });
 
-    test('resolves longitude (.gaip-lon), not latitude alone — getResolvedSync needs both', () => {
-        const fnStart = exportSrc.indexOf('function _buildEngineInputs(data)');
-        const fnBody = exportSrc.slice(fnStart, exportSrc.indexOf('data.engineInputs = {', fnStart));
+    test('resolves both coordinates from the SAMPLE\'S SITE, never from a form field', () => {
+        const fnBody = anchoredSlice(exportSrc, 'function _buildEngineInputs(data', 'data.engineInputs = {');
+        const code = fnBody.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
 
-        expect(fnBody).toMatch(/\.gaip-lon/);
-        expect(fnBody).toMatch(/var _lon\b/);
+        // GH-459: these two lines pinned `.gaip-lat` / `.gaip-lon` — the defect
+        // itself. A form field belongs to whichever site the page has finished
+        // painting, and the combined export calls this function once per sample
+        // while switching sites, so the field is a race the export loses on a
+        // slower machine: the owner's report printed an Auckland site on
+        // Christchurch temperatures, with the annual total still reconciling
+        // because it is normalised to the target.
+        expect(code).not.toMatch(/\.gaip-lat/);
+        expect(code).not.toMatch(/\.gaip-lon/);
+        expect(code).toMatch(/getSiteConfig\(/);
+        expect(code).toMatch(/_sampleSiteConfig\s*&&\s*_sampleSiteConfig\.location/);
+        expect(code).toMatch(/var _lon\b/);
     });
 
     test('latitude/longitude are computed before the climate lookup that depends on them', () => {
-        const fnStart = exportSrc.indexOf('function _buildEngineInputs(data)');
-        const fnBody = exportSrc.slice(fnStart, exportSrc.indexOf('data.engineInputs = {', fnStart));
+        const fnBody = anchoredSlice(exportSrc, 'function _buildEngineInputs(data', 'data.engineInputs = {');
 
-        const latIdx = fnBody.indexOf('var _lat = _latEl');
+        const latIdx = fnBody.indexOf('var _lat = _coordLocation');
         const lookupIdx = fnBody.indexOf('getResolvedSync(_lat, _lon)');
 
         expect(latIdx).toBeGreaterThan(-1);
         expect(lookupIdx).toBeGreaterThan(-1);
         expect(latIdx).toBeLessThan(lookupIdx);
+    });
+
+    test('no other calculation input is taken from the page\'s current state either', () => {
+        const fnBody = anchoredSlice(exportSrc, 'function _buildEngineInputs(data', 'data.engineInputs = {');
+        const code = fnBody.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+
+        // GH-459: the coordinates were one of three. A run on the same tree
+        // printed the previous site's SPECIES with correct coordinates — the
+        // mirror of the owner's case — and the overseed state is the third,
+        // a page-level global with no site stamp at all. Each is read per
+        // site now, so none of them can be half-fixed.
+        expect(code).not.toMatch(/GAIP_CANONICAL_STATE/);
+        expect(code).not.toMatch(/GAIP_STATE/);
+        expect(code).not.toMatch(/GAIP_OVERSEED_STATE/);
+        expect(code).not.toMatch(/\.gaip-species/);
+        // and the species it does use comes from the sample or that site
+        expect(code).toMatch(/_siteTurf\.species/);
     });
 });

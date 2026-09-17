@@ -27,4 +27,16 @@ abstract class Controller
         }
         return ($saved !== null && $saved !== '') ? $saved : 'mlsn';
     }
+
+    /**
+     * GH-439: the site's own time zone, derived from its coordinates.
+     *
+     * GH-446: the implementation moved to App\Support\SiteTimezone so the
+     * repair command compares against the same function the server writes
+     * with. This stays as the controllers' way in.
+     */
+    protected static function timezoneFromCoordinates(?float $lat, ?float $lon): ?string
+    {
+        return \App\Support\SiteTimezone::fromCoordinates($lat, $lon);
+    }
 }

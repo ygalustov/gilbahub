@@ -44,7 +44,9 @@
             restUrl: "{{ url('/api') }}/",
             activeSiteId: @json($activeSite?->id),
             savedLocation: @json($savedLocation),
-            wizardComplete: @json((bool) ($wizardState['complete'] ?? false)),
+            {{-- GH-450: `complete` or `skipped` -- a dismissed wizard has been
+                 answered too, and after stage 4b this flag is the only gate. --}}
+            wizardComplete: @json((bool) (($wizardState['complete'] ?? false) || ($wizardState['skipped'] ?? false))),
             wizardState: @json($wizardState)
         });
         window.GAIP_SpeciesData = { speciesByType: @json($speciesData ?? []) };
@@ -213,6 +215,7 @@
 
     @yield('body')
 </div>
+<script src="{{ url('/legacy-assets/settings-unavailable-banner.js') }}"></script>
 @yield('scripts')
 </body>
 </html>

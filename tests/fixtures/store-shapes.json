@@ -1,0 +1,374 @@
+{
+ "_why": "The shape of the sample manager's and site config's own stores, taken from a live /reports/export. The sandbox builds its stubs from this, and the resolver is checked against it, so a stub written from memory and a read of a key that does not exist both fail instead of agreeing with each other.",
+ "_captured": "2026-09-17",
+ "_page": "/reports/export, after the sample manager and site config had loaded",
+ "shapes": {
+  "answers": {
+   "getSiteList()": {
+    "_answer": "array",
+    "_rowKeys": {
+     "id": "string",
+     "label": "string",
+     "createdAt": "string"
+    }
+   },
+   "getAllSamples()": {
+    "_answer": "object",
+    "allSites": "object",
+    "allActive": "object",
+    "allMeta": "object",
+    "sites": "object",
+    "currentSite": "string"
+   },
+   "getAllConfigs()": {
+    "_answer": "object",
+    "019e96d8-97b7-714c-9bd6-d65b16ec7f2e": "object",
+    "019f457d-987c-7013-9dfe-e9d2bc1d972d": "object",
+    "019e96d7-36aa-707a-9879-68ab28726e12": "object",
+    "01a00d5b-c67a-7281-8f0f-2d8de6676a0f": "object",
+    "019f35f0-d912-73e5-82bd-3de0bfd4f6ce": "object",
+    "01a08b0b-4d6a-736d-a184-2fa1e04394b6": "object",
+    "01a08ae6-8a43-7004-99a6-8cddfc69b9cb": "object",
+    "019e96d8-8480-721b-ac5a-1ef8022300a2": "object",
+    "019e96f3-63d9-7170-a4cd-94a5ada95686": "object",
+    "019e96f3-9294-72be-a13c-7fa7427afd5a": "object",
+    "019e971b-ec9d-7076-a34d-601bfcc7cb81": "object",
+    "019f7d28-50ed-71e2-b817-c252b0160460": "object"
+   },
+   "getConfig(id)": {
+    "_answer": "object",
+    "pgr": "object",
+    "turf": "object",
+    "wizard": "object",
+    "savedAt": "string",
+    "traffic": "object",
+    "location": "object",
+    "maxNPerMonth": "number",
+    "multiSiteTurf": "boolean",
+    "nzDistributor": "string",
+    "nutritionProgram": "object",
+    "nutritionProgramCoords": "object",
+    "nutritionCalendarProgram": "object"
+   },
+   "getSite(id)": {
+    "_answer": "object",
+    "id": "string",
+    "account_id": "number",
+    "precinct_group_id": "null",
+    "parent_site_id": "null",
+    "name": "string",
+    "slug": "string",
+    "site_type": "string",
+    "location_name": "string",
+    "latitude": "string",
+    "longitude": "string",
+    "timezone": "string",
+    "methodology_override": "null",
+    "soil_texture_override": "string",
+    "account_soil_texture": "string",
+    "timezone_derived": "string",
+    "configs": "object"
+   },
+   "getActiveSample(soil)": {
+    "_answer": "object",
+    "id": "string",
+    "label": "string",
+    "date": "string",
+    "notes": "string",
+    "zoneType": "string",
+    "values": "object",
+    "methodologySnapshot": "string",
+    "soilTextureSnapshot": "string"
+   },
+   "getSamples(soil)": {
+    "_answer": "array",
+    "_rowKeys": {
+     "id": "string",
+     "label": "string",
+     "date": "string",
+     "notes": "string",
+     "zoneType": "string",
+     "values": "object",
+     "methodologySnapshot": "string",
+     "soilTextureSnapshot": "string"
+    }
+   },
+   "getActiveSiteLabel()": {
+    "_answer": "string"
+   },
+   "getSampleTurfProfile()": {
+    "_answer": "null"
+   },
+   "isMultiSiteTurfEnabled(id)": {
+    "_answer": "boolean"
+   },
+   "getActiveSiteId()": {
+    "_answer": "string"
+   },
+   "setActiveSite(id)": {
+    "_answer": "boolean"
+   },
+   "setActiveSite(unknown id)": {
+    "_answer": "boolean"
+   },
+   "loadSample(soil, id)": {
+    "_answer": "object",
+    "success": "boolean",
+    "dataType": "string",
+    "sampleId": "string",
+    "sample": "object",
+    "populatedFields": "array"
+   },
+   "readingsOf(tissue, sample)": {
+    "_answer": "object",
+    "N": "number",
+    "P": "number",
+    "K": "number",
+    "Ca": "number",
+    "Mg": "number",
+    "S": "number",
+    "Fe": "number",
+    "Mn": "number",
+    "Zn": "number",
+    "Cu": "number"
+   },
+   "readingsOf(water, sample)": {
+    "_answer": "object",
+    "pH": "number",
+    "EC": "number",
+    "Ca": "number",
+    "Mg": "number",
+    "Na": "number",
+    "K": "number",
+    "Cl": "number",
+    "SO4": "number",
+    "HCO3": "number",
+    "CO3": "number",
+    "B": "number",
+    "Fe": "number",
+    "NO3": "number",
+    "PO4": "number",
+    "Mn": "number"
+   },
+   "readingsOf(soil, sample)": {
+    "_answer": "object",
+    "pH": "number",
+    "EC": "number",
+    "CEC": "number",
+    "OM": "number",
+    "K": "number",
+    "P": "number",
+    "Ca": "number",
+    "Mg": "number",
+    "S": "number",
+    "Fe": "number",
+    "Mn": "number",
+    "Cu": "number",
+    "Zn": "number",
+    "B": "number"
+   },
+   "readingKeysFor(soil)": {
+    "_answer": "array",
+    "_rowKeys": {
+     "_type": "string"
+    }
+   }
+  },
+  "soilForm": {
+   "[data-mlsn=\"K\"]": "string",
+   "[data-mlsn=\"P\"]": "string",
+   "[data-mlsn=\"Ca\"]": "string",
+   "[data-mlsn=\"Mg\"]": "string",
+   "[data-mlsn=\"S\"]": "string",
+   "[data-mlsn=\"Fe\"]": "string",
+   "[data-mlsn=\"Mn\"]": "string",
+   "[data-mlsn=\"Cu\"]": "string",
+   "[data-mlsn=\"Zn\"]": "string",
+   "[data-mlsn=\"B\"]": "string",
+   "[data-mlsn=\"Na\"]": "string",
+   ".gaip-soil-ph": "string",
+   ".gaip-cec": "string",
+   ".gaip-soil-ec": "string",
+   ".gaip-loi": "string"
+  },
+  "_sitesUnioned": 12,
+  "siteConfigUnion": {
+   "pgr": "object",
+   "turf": "object",
+   "wizard": "object",
+   "savedAt": "string",
+   "location": "object",
+   "maxNPerMonth": "number",
+   "multiSiteTurf": "boolean",
+   "nutritionProgram": "object",
+   "nutritionProgramCoords": "object",
+   "nutritionCalendarProgram": "object",
+   "nzDistributor": "string",
+   "traffic": "object"
+  },
+  "siteConfigTurfUnion": {
+   "hoc": "string",
+   "c3Cover": "string",
+   "species": "string",
+   "variety": "string",
+   "drainage": "string",
+   "nProgram": "string",
+   "turfType": "string",
+   "aaTexture": "string",
+   "poaPercent": "string",
+   "methodology": "string",
+   "subCategory": "string",
+   "thatchDepth": "null",
+   "construction": "string",
+   "summerIntent": "string",
+   "trafficLevel": "null",
+   "eventsPerWeek": "null",
+   "winterMinTemp": "null",
+   "overseedStatus": "null",
+   "trafficEnabled": "boolean",
+   "overseedSpecies": "null",
+   "overseedVariety": "string",
+   "yearsEstablished": "null",
+   "led": "object",
+   "siteHistory": "object",
+   "coolOverseed": "null",
+   "companionSpecies": "null"
+  },
+  "siteConfigLocationUnion": {
+   "lat": "number",
+   "lon": "number",
+   "name": "string"
+  },
+  "siteListRow": {
+   "id": "string",
+   "label": "string",
+   "createdAt": "string"
+  },
+  "soilSample": {
+   "id": "string",
+   "label": "string",
+   "date": "string",
+   "notes": "string",
+   "zoneType": "string",
+   "values": "object",
+   "methodologySnapshot": "string",
+   "soilTextureSnapshot": "string"
+  },
+  "soilSampleValues": {
+   "B": "string",
+   "K": "string",
+   "P": "string",
+   "S": "string",
+   "Ca": "string",
+   "Cu": "string",
+   "EC": "string",
+   "Fe": "string",
+   "Mg": "string",
+   "Mn": "string",
+   "OM": "string",
+   "Zn": "string",
+   "pH": "string",
+   "CEC": "string",
+   "zone": "string",
+   "_label": "string"
+  },
+  "tissueSample": {
+   "id": "string",
+   "label": "string",
+   "date": "string",
+   "notes": "string",
+   "zoneType": "string",
+   "values": "object",
+   "methodologySnapshot": "string",
+   "soilTextureSnapshot": "string"
+  },
+  "tissueSampleValues": {
+   "K": "string",
+   "N": "string",
+   "P": "string",
+   "S": "string",
+   "Ca": "string",
+   "Cu": "string",
+   "Fe": "string",
+   "Mg": "string",
+   "Mn": "string",
+   "Zn": "string",
+   "zone": "string",
+   "_label": "string"
+  },
+  "waterSample": {
+   "id": "string",
+   "label": "string",
+   "date": "string",
+   "notes": "string",
+   "zoneType": "string",
+   "values": "object",
+   "methodologySnapshot": "string",
+   "soilTextureSnapshot": "string"
+  },
+  "waterSampleValues": {
+   "B": "number",
+   "K": "number",
+   "Ca": "number",
+   "Cl": "number",
+   "EC": "number",
+   "Fe": "number",
+   "Mg": "number",
+   "Mn": "number",
+   "Na": "number",
+   "pH": "number",
+   "CO3": "number",
+   "NO3": "number",
+   "PO4": "number",
+   "SO4": "number",
+   "HCO3": "number",
+   "zone": "string",
+   "_zone": "string",
+   "_label": "string",
+   "_source": "string"
+  },
+  "siteConfig": {
+   "pgr": "object",
+   "turf": "object",
+   "wizard": "object",
+   "savedAt": "string",
+   "traffic": "object",
+   "location": "object",
+   "maxNPerMonth": "number",
+   "multiSiteTurf": "boolean",
+   "nzDistributor": "string",
+   "nutritionProgram": "object",
+   "nutritionProgramCoords": "object",
+   "nutritionCalendarProgram": "object"
+  },
+  "siteConfigTurf": {
+   "hoc": "string",
+   "c3Cover": "string",
+   "species": "string",
+   "variety": "string",
+   "drainage": "string",
+   "nProgram": "string",
+   "turfType": "string",
+   "aaTexture": "null",
+   "poaPercent": "string",
+   "methodology": "string",
+   "subCategory": "string",
+   "thatchDepth": "null",
+   "construction": "string",
+   "summerIntent": "string",
+   "trafficLevel": "null",
+   "eventsPerWeek": "null",
+   "winterMinTemp": "null",
+   "overseedStatus": "string",
+   "trafficEnabled": "boolean",
+   "overseedSpecies": "null",
+   "overseedVariety": "string",
+   "yearsEstablished": "null"
+  },
+  "siteConfigLocation": {
+   "lat": "number",
+   "lon": "number",
+   "name": "string"
+  }
+ }
+}

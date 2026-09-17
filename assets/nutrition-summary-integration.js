@@ -878,7 +878,14 @@
     // GH-296: same coordinate-read climate-normals-service.js's own
     // readCoords() uses, duplicated here (not imported — that file exposes no
     // "current site's coords" getter) so extractMonthlyTemps() below can query
-    // its per-coordinate cache directly as a race-proof fallback.
+    // its per-coordinate cache directly.
+    //
+    // GH-480: it was called a "race-proof fallback" here. It is the opposite:
+    // `.gaip-lat`/`.gaip-lon` are the page's own fields, holding whichever site
+    // the page was last switched to, so this read is where the race enters —
+    // it does not survive one. It is legitimate on a page that is about one
+    // site and is asking about that site; it is not an answer about a sample,
+    // and the combined export no longer asks it one (word-export-combined.js).
     function _readCoordsForNormals() {
         let lat, lon;
         if (typeof document !== 'undefined') {

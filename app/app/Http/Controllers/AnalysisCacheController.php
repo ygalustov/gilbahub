@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SiteConfig;
+use App\Support\SiteConfigWriter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,15 +23,18 @@ class AnalysisCacheController extends Controller
             'computed'    => 'nullable|array',
         ]);
 
-        SiteConfig::updateOrCreate(
-            ['site_id' => $validated['site_id'], 'namespace' => 'analysis_cache'],
-            [
-                'config'    => [
-                    'metrics'     => $validated['metrics'],
-                    'computed'    => $validated['computed'] ?? null,
-                ],
-                'synced_at' => $validated['analyzed_at'],
-            ]
+        // GH-447: through the one writer. This one replaces rather than
+        // merges -- an analysis result is whole or it is nothing -- but it goes
+        // the same way so that "what writes a config column" has a single
+        // answer, and so a later merge here cannot quietly arrive unlocked.
+        SiteConfigWriter::mutate(
+            $validated['site_id'],
+            'analysis_cache',
+            fn () => [
+                'metrics' => $validated['metrics'],
+                'computed' => $validated['computed'] ?? null,
+            ],
+            $validated['analyzed_at'],
         );
 
         return response()->json(['ok' => true]);

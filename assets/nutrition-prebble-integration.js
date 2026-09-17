@@ -60,6 +60,8 @@
                     this.hideRecommendations();
                     return;
                 }
+                // GH-444: a restored programme is one the database already has.
+                this._calendarWasRestored = !!(e.detail && e.detail.restored);
                 this.generateAndRender(e.detail.program);
             });
             
@@ -178,15 +180,16 @@
             // GAIP_STATE / GAIP_HUB_CONFIG. Downstream that put an NZ site's
             // Word export on the AU product catalogue. Only trust Method 1 when
             // the inputs it reads actually hold usable coordinates.
-            if (window.GAIP_RegionalProfiles?.detectRegionFromHub) {
-                const _latEl = document.querySelector('.gaip-lat');
-                const _lonEl = document.querySelector('.gaip-lon');
-                const _domLat = _latEl ? parseFloat(_latEl.value) : NaN;
-                const _domLon = _lonEl ? parseFloat(_lonEl.value) : NaN;
-                if (!isNaN(_domLat) && !isNaN(_domLon) && !(_domLat === 0 && _domLon === 0)) {
-                    const region = window.GAIP_RegionalProfiles.detectRegionFromHub();
-                    return region === 'new_zealand';
-                }
+            // GH-476: by the site's own coordinates. The guard that stood
+            // here checked whether the DOM fields held usable numbers before
+            // trusting them — the right worry aimed at the wrong half, because
+            // a field holding a usable number from the PREVIOUS site is the
+            // case that put an NZ site's export on the AU catalogue. The
+            // numbers come from the site now, so there is nothing to vet.
+            if (window.GAIP_RegionalProfiles?.detectRegionForSite) {
+                const region = window.GAIP_RegionalProfiles.detectRegionForSite(
+                    window.GAIP_RegionalProfiles.activeSiteId());
+                if (region) return region === 'new_zealand';
             }
 
             // Method 2: Check GAIP_STATE for region
@@ -393,7 +396,30 @@
                 // (window.GAIP_NUTRITION_PROGRAM would otherwise be empty there).
                 if (_nc && typeof _nc.persistSiteConfigPatch === 'function'
                         && program._generatedForSite !== 'unknown') {
-                    _nc.persistSiteConfigPatch({ nutritionProgram: program });
+                    // GH-440 (review): say where this programme came from. It is
+                    // built from the calendar in hand, so its coordinates are that
+                    // calendar's own stamp -- the server checks that against where
+                    // the site actually is and refuses a programme computed for
+                    // somewhere else. A stale tab reaches here with a calendar the
+                    // server has already refused; unstamped, this write used to be
+                    // accepted anyway and left a programme for one location beside
+                    // a calendar for another.
+                    var _programPatch = { nutritionProgram: program };
+                    var _programCoords = typeof _nc.coordsFromCalendar === 'function'
+                        ? _nc.coordsFromCalendar(calendarData)
+                        : null;
+                    if (_programCoords) _programPatch.nutritionProgramCoords = _programCoords;
+                // GH-444: only a freshly computed programme is written. A
+                // restored one came from the database a moment ago, and
+                // sending it back is the page returning state it was given --
+                // it moved savedAt on every plain page load and, if the
+                // restore had rebuilt it from anything stale, would have
+                // stored that too.
+                if (this._calendarWasRestored) {
+                    console.log('[NutritionIntegration] restored programme — not written back');
+                } else {
+                    _nc.persistSiteConfigPatch(_programPatch);
+                }
                 }
 
                 this.renderProductRecommendations(program);

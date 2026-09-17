@@ -55,6 +55,7 @@ global.console = { log() {}, warn() {}, error() {}, info() {} };
 const Core = require('../assets/nutrition-requirement-core.js');
 global.window.NutritionRequirementCore = Core;
 const Inputs = require('../assets/nutrition-program-inputs.js');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 const SITE = 'site-under-test';
 
@@ -134,8 +135,10 @@ describe('GH-387 — both surfaces read the one resolution', () => {
 
     test('the Combined export no longer puts turfType into surfaceType', () => {
         const combined = strip(read('word-export-combined.js'));
-        expect(combined).not.toMatch(/perSampleInputs\.surfaceType = _siteInputs\.turfType/);
-        expect(combined).toMatch(/perSampleInputs\.surfaceType = _siteInputs\.surfaceType \|\| perSampleInputs\.surfaceType;/);
+        // GH-470: built in nutrition-calendar.js's inputsForSite().
+        const cal = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-calendar.js'), 'utf8');
+        expect(cal).not.toMatch(/surfaceType: prog\.turfType/);
+        expect(cal).toMatch(/surfaceType: prog\.surfaceType/);
     });
 
     test('the export hands the AU recommender the canonical key, as the Plan page does', () => {
@@ -166,13 +169,10 @@ describe('GH-387 — both surfaces read the one resolution', () => {
      */
     function loadFallbackMapper() {
         const au = read('nutrition-au-fertiliser-integration.js');
-        const start = au.indexOf('function _mapTurfType');
-        const end = au.indexOf('// Primary: legacy turf profile component');
-        if (start === -1 || end === -1 || end <= start) {
-            throw new Error('GH-436: _mapTurfType was not found in nutrition-au-fertiliser-integration.js — '
-                + 'if it was renamed or moved, update this anchor rather than deleting the comparison.');
-        }
-        const body = au.slice(start, end);
+        // GH-467: the hand-rolled refusal this file already had, now the
+        // helper's — same rule, one place, so a signature change reddens every
+        // guard anchored on it rather than only the ones somebody remembered.
+        const body = anchoredSlice(au, 'function _mapTurfType');
         // `window` with no adapter on it: the fallback branch, which is the
         // half this test exists to compare.
         // eslint-disable-next-line no-new-func

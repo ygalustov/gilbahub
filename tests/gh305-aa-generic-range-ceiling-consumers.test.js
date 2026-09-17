@@ -22,15 +22,14 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 describe('GH-305 — nutrition-summary-integration.js _resolveAARanges() falls back to the generic range', () => {
     const srcPath = path.join(__dirname, '../assets/nutrition-summary-integration.js');
     const src = fs.readFileSync(srcPath, 'utf8');
 
     test('structural: falls back to AmmoniumAcetateMethodology.getSufficiencyRange() when the certificate path has no range', () => {
-        const idx = src.indexOf('function _resolveAARanges(soilValues, species) {');
-        expect(idx).toBeGreaterThan(-1);
-        const body = src.slice(idx, src.indexOf('\n        return any ? ranges : null;', idx));
+        const body = anchoredSlice(src, 'function _resolveAARanges(soilValues, species) {', '\n        return any ? ranges : null;');
         expect(body).toMatch(/global\.AmmoniumAcetateMethodology/);
         expect(body).toMatch(/aam\.getSufficiencyRange\(n, texKey\)/);
         // Must attempt the certificate path first -- fallback is only reached when `r` is falsy.

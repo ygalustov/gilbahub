@@ -18,6 +18,12 @@
             companionSpecies: @json($companionSpecies ?? null),
         }
     };
+    // GH-469: the injected config says which site it was rendered for, and
+    // says it once. See plan.blade.php for why a live pointer cannot answer
+    // that question.
+    Object.defineProperty(window, 'GAIP_SITE_CONFIG_SITE_ID', {
+        value: @json($activeSite?->id), writable: false, configurable: false
+    });
     window.GAIP_SiteContext = {
         getSiteId: function() {
             return (window.GAIP_HUB_CONFIG || {}).activeSiteId || null;

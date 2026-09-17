@@ -1303,25 +1303,52 @@
     }
 
     /**
-     * Get region from current hub location
+     * GH-476 (PLAN-GH439 section 10.6, fourteenth refinement) — the region a
+     * site is in, worked out from the SITE's own coordinates.
+     *
+     * What this replaces was `detectRegionFromHub()`, which read `.gaip-lat`
+     * and `.gaip-lon` — form fields in the hidden /hub runner, holding
+     * whatever it last restored — and, when they were missing, returned
+     * 'uk_ireland'. It was the first link of every region question in the
+     * product, so the three sources that answer by site id were never reached.
+     *
+     * Measured on the stand: a site moved from Sydney to Auckland had −36.85
+     * in its row, −36.85 in the config copy and −36.85 in the server's own
+     * injection, while `.gaip-lat` still said −33.8688 — and the client was
+     * offered Australian products for a New Zealand site. The owner settled
+     * the question behind it (10.8(11)): the region comes from the site's
+     * coordinates, and there is no separate country setting.
+     *
+     * The 'uk_ireland' fallback is deleted rather than moved: an answer
+     * invented when the fields are missing is a default printed as a fact
+     * about a client's turf, the same class as 10.8(7). A site whose
+     * coordinates are unknown gets `null`, and the caller decides what that
+     * means rather than being told Ireland.
+     *
+     * @param {string} siteId  the site to answer about — required
+     * @returns {string|null}  the region id, or null when the site has no
+     *                         coordinates to derive one from
      */
-    function detectRegionFromHub() {
-        const latInput = document.querySelector('.gaip-lat');
-        const lonInput = document.querySelector('.gaip-lon');
-        
-        if (!latInput || !lonInput) {
-            console.warn('[RegionalProfiles] Location inputs not found');
-            return 'uk_ireland';
-        }
-        
-        const lat = parseFloat(latInput.value);
-        const lon = parseFloat(lonInput.value);
-        
-        if (isNaN(lat) || isNaN(lon)) {
-            return 'uk_ireland';
-        }
-        
+    function detectRegionForSite(siteId) {
+        if (!siteId) return null;
+        const SC = (typeof window !== 'undefined') ? window.GAIP_SiteConfig : null;
+        const row = (SC && typeof SC.getSite === 'function') ? SC.getSite(siteId) : null;
+        if (!row) return null;
+        const lat = parseFloat(row.latitude);
+        const lon = parseFloat(row.longitude);
+        if (isNaN(lat) || isNaN(lon)) return null;
+
         return detectRegion(lat, lon);
+    }
+
+    /** The site the page is showing, for callers that have no id of their own. */
+    function activeSiteId() {
+        const w = (typeof window !== 'undefined') ? window : {};
+        if (w.GAIP_SampleManager && typeof w.GAIP_SampleManager.getActiveSiteId === 'function') {
+            const id = w.GAIP_SampleManager.getActiveSiteId();
+            if (id) return id;
+        }
+        return (w.GAIP_HUB_CONFIG && w.GAIP_HUB_CONFIG.activeSiteId) || null;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1338,9 +1365,9 @@
     /**
      * Get current region based on hub location
      */
-    function getCurrentRegion() {
-        const regionId = detectRegionFromHub();
-        return getRegion(regionId);
+    function getCurrentRegion(siteId) {
+        const regionId = detectRegionForSite(siteId || activeSiteId());
+        return regionId ? getRegion(regionId) : null;
     }
 
     /**
@@ -1348,6 +1375,9 @@
      */
     function getDiseaseMultiplier(disease, regionId) {
         const region = regionId ? getRegion(regionId) : getCurrentRegion();
+        // GH-476: an unknown region is not a region — no adjustment, rather
+        // than the adjustments of a country nobody established.
+        if (!region) return 1.0;
         return region.diseaseMultipliers[disease] || 1.0;
     }
 
@@ -1356,6 +1386,7 @@
      */
     function getAllDiseaseMultipliers(regionId) {
         const region = regionId ? getRegion(regionId) : getCurrentRegion();
+        if (!region) return {};
         return region.diseaseMultipliers;
     }
 
@@ -1364,6 +1395,7 @@
      */
     function getClimateCharacteristics(regionId) {
         const region = regionId ? getRegion(regionId) : getCurrentRegion();
+        if (!region) return null;
         return region.climate;
     }
 
@@ -1372,6 +1404,7 @@
      */
     function getPrimaryGrassTypes(regionId) {
         const region = regionId ? getRegion(regionId) : getCurrentRegion();
+        if (!region) return null;
         return region.grassTypes.primary;
     }
 
@@ -1380,6 +1413,7 @@
      */
     function isWarmSeasonRegion(regionId) {
         const region = regionId ? getRegion(regionId) : getCurrentRegion();
+        if (!region) return false;
         return region.grassTypes.warmSeason === true;
     }
 
@@ -1388,6 +1422,7 @@
      */
     function getManagementNotes(regionId) {
         const region = regionId ? getRegion(regionId) : getCurrentRegion();
+        if (!region) return [];
         return region.managementNotes || [];
     }
 
@@ -1396,6 +1431,7 @@
      */
     function getDataSource(regionId) {
         const region = regionId ? getRegion(regionId) : getCurrentRegion();
+        if (!region) return null;
         return region.dataSource;
     }
 
@@ -1406,16 +1442,16 @@
     /**
      * Check if UK varieties should be used
      */
-    function shouldUseUKVarieties() {
-        const regionId = detectRegionFromHub();
+    function shouldUseUKVarieties(siteId) {
+        const regionId = detectRegionForSite(siteId || activeSiteId());
         return regionId === 'uk_ireland';
     }
 
     /**
      * Check if NTEP varieties should be used
      */
-    function shouldUseNTEPVarieties() {
-        const regionId = detectRegionFromHub();
+    function shouldUseNTEPVarieties(siteId) {
+        const regionId = detectRegionForSite(siteId || activeSiteId());
         return [
             'us_north', 'us_transition', 'us_south',
             'australia', 'australia_tropical', 'australia_subtropical', 
@@ -1426,8 +1462,8 @@
     /**
      * Get appropriate variety database key for region
      */
-    function getVarietyDatabaseKey() {
-        const regionId = detectRegionFromHub();
+    function getVarietyDatabaseKey(siteId) {
+        const regionId = detectRegionForSite(siteId || activeSiteId());
         
         switch (regionId) {
             case 'uk_ireland':
@@ -1466,7 +1502,12 @@
      */
     function getRegionDisplayInfo(regionId) {
         const region = regionId ? getRegion(regionId) : getCurrentRegion();
-        
+        // GH-476: a site whose region cannot be derived has nothing to display
+        // about one. This used to be impossible because the region was always
+        // answered, with 'uk_ireland' when nothing was known — and that answer
+        // was printed to a client as a fact about their turf.
+        if (!region) return null;
+
         return {
             name: region.name,
             description: region.description,
@@ -1685,7 +1726,8 @@
         
         // Detection
         detectRegion: detectRegion,
-        detectRegionFromHub: detectRegionFromHub,
+        detectRegionForSite: detectRegionForSite,
+        activeSiteId: activeSiteId,
         detectAustralianSubRegion: detectAustralianSubRegion,
         
         // Data access

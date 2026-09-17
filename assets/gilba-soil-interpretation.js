@@ -305,8 +305,10 @@
          * Detect region from location
          */
         detectRegion() {
-            if (window.GAIP_RegionalProfiles?.detectRegionFromHub) {
-                return window.GAIP_RegionalProfiles.detectRegionFromHub();
+            if (window.GAIP_RegionalProfiles?.detectRegionForSite) {
+                // GH-476: by the site's own coordinates.
+                return window.GAIP_RegionalProfiles.detectRegionForSite(
+                    window.GAIP_RegionalProfiles.activeSiteId());
             }
             
             const lat = window.GAIP_STATE?.location?.lat;

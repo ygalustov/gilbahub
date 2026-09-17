@@ -5,9 +5,14 @@
  * ~2% K vs 4% N" composition) even when a real tissue sample for that exact
  * site was on file. Confirmed on the Hoxton dataset (same soil/tissue
  * profile as this repo's own Test5-NZ / Soccer sample, sample id 144:
- * tissue N 4.57%, P 0.62%, K 1.05% per `docker exec gilba_mysql` — the
- * audit's own Hoxton tissue K reads 3.05%, evidently a different capture of
- * a similar site, but N and P match exactly): the generic ratios read P/N
+ * tissue N 4.57%, P 0.62%, K 1.05% per `docker exec gilba_mysql`. GH-452:
+ * the two K figures are two SCENARIOS, not two captures. 1.05 is a
+ * K-deficiency state set by hand on the dev site — the cases below that use
+ * it show the gate LOWERING K removal (0.230 against the generic 0.556) —
+ * while 3.05 is the client's own Hoxton reading, a sufficiency state, and the
+ * case that uses it shows the gate RAISING removal (134 against 100). Both
+ * directions are needed and both are here; the earlier note calling 1.05
+ * "evidently a different capture of a similar site" was wrong): the generic ratios read P/N
  * 0.10 and K/N 0.55, while the real tissue ratio was P/N 0.136 — under-
  * reading P removal by roughly a third, exactly matching the audit's D07a
  * finding ("the model is under-reading K uptake and under-reading P uptake

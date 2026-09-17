@@ -332,7 +332,12 @@
             _allSiteMeta[siteId] = { soil: null, water: null, tissue: null, loi: null };
         }
         if (!_sites[siteId]) {
-            _sites[siteId] = { label: siteId, createdAt: new Date().toISOString() };
+            // GH-441 (GH-439 stage 2): no label. A registry entry created
+            // here knows an id and nothing else, and labelling it with the id
+            // is what made "my site is called 019e0a..." possible once that
+            // label was pushed. getActiveSiteLabel() still falls back to the
+            // id for display; the difference is that nothing sends it.
+            _sites[siteId] = { label: '', createdAt: new Date().toISOString() };
         }
     }
 
@@ -1511,6 +1516,93 @@
     /**
      * Populate tissue fields (special handling for tissue UI)
      */
+    /**
+     * GH-484 — the readings of a sample, normalised, as a plain object.
+     *
+     * This is the rule the form filling has always applied, lifted out of it so
+     * that the page and the Word export normalise a lab row with ONE piece of
+     * code: resolve each mapped column against the row's real keys (case- and
+     * suffix-tolerant), parse it as a number, and let the first alias that
+     * answers win. What changed is only where it lives; the loop is the one
+     * populateTissueFields() ran.
+     *
+     * Pure: it reads the sample it is handed and nothing else — no form, no
+     * page state, no active-sample pointer. A caller that has no sample gets
+     * null, which is not the same as a sample with no readings ({}).
+     *
+     * The water map's values are SELECTORS (that is what filling a form needs),
+     * so the reading's name is taken from the selector rather than from a
+     * second table: `[data-ion="Ca"]` is Ca, `.gaip-ecw` is EC, and
+     * `.gaip-water-ph` is pH.
+     */
+    const CLASS_READING_KEYS = {
+        '.gaip-ecw': 'EC', '.gaip-water-ph': 'pH',
+        // GH-490: the soil form's four fields that are not `data-mlsn`.
+        '.gaip-soil-ph': 'pH', '.gaip-cec': 'CEC', '.gaip-soil-ec': 'EC', '.gaip-loi': 'OM'
+    };
+
+    function _readingKeyFor(kind, mapped) {
+        if (kind === 'tissue') return mapped;
+        const ion = /\[data-ion="([^"]+)"\]/.exec(mapped);
+        if (ion) return ion[1];
+        // GH-490: soil's nutrients are named by the same attribute the form
+        // marks them with, so the reading's name comes out of the selector
+        // rather than out of a second table.
+        const mlsn = /\[data-mlsn="([^"]+)"\]/.exec(mapped);
+        if (mlsn) return mlsn[1];
+        return CLASS_READING_KEYS[mapped] || null;
+    }
+
+    /**
+     * GH-490: the readings a kind CAN carry, in map order, derived from the
+     * same map `readingsOf` normalises against — so a caller that wants to
+     * say which readings a sample is missing does not keep a second list that
+     * drifts from the first. Unknown kind: null, the same answer `readingsOf`
+     * gives it.
+     */
+    function readingKeysFor(kind) {
+        const fieldMap = _fieldMapFor(kind);
+        if (!fieldMap) return null;
+        const keys = [];
+        for (const col in fieldMap) {
+            const key = _readingKeyFor(kind, fieldMap[col]);
+            if (key && keys.indexOf(key) === -1) keys.push(key);
+        }
+        return keys;
+    }
+
+    function _fieldMapFor(kind) {
+        // GH-490: soil joined tissue and water — all three kinds normalise
+        // here, and no reading in the export comes off a form any more.
+        return kind === 'tissue' ? TISSUE_FIELD_MAP
+            : kind === 'water' ? WATER_FIELD_MAP
+                : kind === 'soil' ? SOIL_FIELD_MAP : null;
+    }
+
+    function readingsOf(kind, sample) {
+        if (!sample) return null;
+        // Server-restored samples carry `values`; CSV-imported ones `rawData`
+        // — the same pair loadSample() reads, in the same order.
+        const row = sample.rawData || sample.values || null;
+        if (!row) return null;
+        const fieldMap = _fieldMapFor(kind);
+        if (!fieldMap) return null;
+        const rowKeys = Object.keys(row);
+        const idx = _buildColumnIndex(fieldMap, rowKeys);
+        const out = {};
+        for (const col in fieldMap) {
+            const key = _readingKeyFor(kind, fieldMap[col]);
+            if (!key || out[key] !== undefined) continue;
+            const actualCol = idx.resolve(col);
+            if (actualCol === null) continue;
+            const rawVal = row[actualCol];
+            if (rawVal === undefined || rawVal === null || rawVal === '') continue;
+            const val = parseFloat(rawVal);
+            if (!isNaN(val)) out[key] = val;
+        }
+        return out;
+    }
+
     function populateTissueFields(row) {
         const populated = [];
         const container = document.querySelector('#gaipTissueModule') ||
@@ -1521,24 +1613,11 @@
         // loadSample. Tissue suffixes are less varied than soil but the
         // resolver costs nothing on the happy path and catches casing
         // variants (`Cu_mgkg` vs `cu_mgkg` etc) for free.
-        const rowKeys = Object.keys(row || {});
-        const idx = _buildColumnIndex(TISSUE_FIELD_MAP, rowKeys);
-
-        // Build nutrient map
-        const nutrientValues = {};
-        for (const col in TISSUE_FIELD_MAP) {
-            const actualCol = idx.resolve(col);
-            if (actualCol === null) continue;
-            const rawVal = row[actualCol];
-            if (rawVal === undefined || rawVal === '') continue;
-            const nutrient = TISSUE_FIELD_MAP[col];
-            const val = parseFloat(rawVal);
-            // Don't overwrite a previously-set nutrient (preserves first-write
-            // wins for multiple aliases mapping to the same nutrient).
-            if (!isNaN(val) && nutrientValues[nutrient] === undefined) {
-                nutrientValues[nutrient] = val;
-            }
-        }
+        // GH-484: the same normalisation the export uses, so a reading the
+        // document prints and a reading this form shows cannot be produced by
+        // two different rules. `readingsOf` takes a SAMPLE; this function is
+        // handed the row itself, so it is wrapped in one.
+        const nutrientValues = readingsOf('tissue', { values: row || {} }) || {};
 
         // Find and populate tissue inputs
         const tissueInputs = container.querySelectorAll('input[data-val]') ||
@@ -2426,6 +2505,14 @@
         // Site management
         getActiveSiteId: function() { return _currentSite; },
         getActiveSiteLabel: function() { return (_sites[_currentSite] || {}).label || _currentSite; },
+        // GH-484: the normalisation of a sample's readings, so the export and
+        // the form apply one rule. Pure — the sample it is handed and nothing
+        // else.
+        readingsOf: readingsOf,
+        // GH-490: the readings a kind can carry, out of the same map, so the
+        // export can name the ones a sample does not have.
+        readingKeysFor: readingKeysFor,
+
         getSiteList: function() {
             var list = [];
             var keys = Object.keys(_sites);

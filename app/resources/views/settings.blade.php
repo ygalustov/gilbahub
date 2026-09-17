@@ -78,6 +78,16 @@
                                     <select id="stg-timezone" name="timezone">
                                         @php
                                             $tz = $activeSite->timezone ?? '';
+                                            // GH-440 (GH-439 stage 1): the server derives the zone from the
+                                            // site's coordinates, so the first option is that answer and the
+                                            // rest are manual overrides. Auto is selected when the site has
+                                            // no zone of its own, or when the one it has is what the
+                                            // coordinates already say.
+                                            $tzDerived = $timezoneDerived ?? null;
+                                            $tzAutoLabel = $tzDerived
+                                                ? 'Auto — '.$tzDerived
+                                                : 'Auto — set location first';
+                                            $tzIsAuto = $tz === '' || $tz === null || $tz === $tzDerived;
                                             $tzOptions = [
                                                 'Australia/Sydney'    => 'Australia — Sydney / Melbourne',
                                                 'Australia/Brisbane'  => 'Australia — Brisbane',
@@ -96,8 +106,9 @@
                                                 'UTC'                 => 'UTC',
                                             ];
                                         @endphp
+                                        <option value="" {{ $tzIsAuto ? 'selected' : '' }}>{{ $tzAutoLabel }}</option>
                                         @foreach($tzOptions as $val => $label)
-                                        <option value="{{ $val }}" {{ $tz === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                        <option value="{{ $val }}" {{ (! $tzIsAuto && $tz === $val) ? 'selected' : '' }}>{{ $label }}</option>
                                         @endforeach
                                     </select>
                                 </div>

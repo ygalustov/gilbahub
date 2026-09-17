@@ -37,8 +37,14 @@
   "expected": {
     "_note": "SLAN P floor from the Spencer scaled ladder at pH > 8.0 is 51 ppm (27 at pH 6.0-7.5, the figure the Plan was using); the Carrow 2004 ceiling of 54 is NOT pH-adjusted, which is why the printed Range is only 3 ppm wide here. That narrowness is a property of two sources, not a fault (decision D-1) — recorded so it is not 'fixed' by accident.",
     "ranges": {
-      "P": { "min": 51, "max": 54 },
-      "K": { "min": 75, "max": 176 }
+      "P": {
+        "min": 51,
+        "max": 54
+      },
+      "K": {
+        "min": 75,
+        "max": 176
+      }
     },
     "removal": {
       "P": 12.0,
@@ -60,6 +66,13 @@
       "_note": "What the Plan page printed for the same sample while pH was null — the pH-independent SLAN floor of 27 ppm.",
       "pFloor": 27,
       "annualRequirementP": 15.6
+    }
+  },
+  "scenario": {
+    "soilP": {
+      "state": "irrelevant",
+      "value": 21.9,
+      "why": "GH-413 is about the pH-outside-6.0-7.5 branch, not about where this reading sits: the fixture replays its own inputs and expected Required P 32.4. (thresholds are methodology-dependent and resolved by the page, not by this file)"
     }
   }
 }

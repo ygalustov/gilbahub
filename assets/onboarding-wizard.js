@@ -541,10 +541,12 @@
 
             this._save()
                 .then(function () {
-                    localStorage.setItem('gilba_wizard_complete', JSON.stringify({
-                        completedAt: new Date().toISOString(),
-                        version: '1.0',
-                    }));
+                    // GH-451 (GH-439 stage 4b): gilba_wizard_complete is not
+                    // written. Nothing reads it any more -- the wizard record
+                    // lives on the site, and the dashboard decides from the
+                    // species the database holds. gilba_getting_started is a
+                    // different key, read by the getting-started checklist, and
+                    // stays.
                     localStorage.setItem('gilba_getting_started', '1');
                     self._close();
                     window.location.href = '/dashboard';
@@ -581,7 +583,12 @@
                     wizard: { complete: true, completedAt: new Date().toISOString(), version: '1.0' },
                 };
 
-                tasks.push(self._api('PUT', 'sites/' + encodeURIComponent(siteId) + '/config/gaip', { config: gaipCfg }));
+                // GH-440 (GH-439 stage 1): the wizard states the three things
+                // it collected. As a whole-object write it also deleted
+                // everything it did not collect, which on an existing site
+                // meant the traffic schedule, irrigation, alerts and the
+                // cached programme went with it.
+                tasks.push(self._api('PATCH', 'sites/' + encodeURIComponent(siteId) + '/config/gaip', { patch: gaipCfg }));
 
                 return Promise.all(tasks);
             });
@@ -599,7 +606,10 @@
                 latitude:      this.d.location ? this.d.location.lat  : null,
                 longitude:     this.d.location ? this.d.location.lon  : null,
                 site_type:     this.d.turfType || 'sports',
-                timezone:      'Australia/Sydney',
+                // GH-440 (GH-439 stage 1, contract 2.5): no timezone. This
+                // used to send Australia/Sydney for every site anywhere in the
+                // world; the server derives it from the coordinates above, and
+                // Settings > Site is where a person overrides it.
             }).then(function (payload) {
                 var site = payload && payload.data ? payload.data : null;
                 if (!site || !site.id) throw new Error('Site creation failed');
@@ -627,11 +637,10 @@
 
         // ── Skip ──────────────────────────────────────────────────────────────
         _skip: function () {
-            localStorage.setItem('gilba_wizard_complete', JSON.stringify({
-                completedAt: new Date().toISOString(),
-                skipped: true,
-                version: '1.0',
-            }));
+            // GH-451 (GH-439 stage 4b): skipping is not recorded in this
+            // browser. Nothing reads that key now; a skip that should outlive
+            // the tab belongs on the site, where the injected flag reads it
+            // (GH-450).
             this._close();
         },
 

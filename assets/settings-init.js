@@ -180,6 +180,67 @@
         }).then(function (r) { return r.json(); });
     }
 
+    /**
+     * GH-440 (GH-439 stage 1): send the sections this form just changed, and
+     * take the site's config back from the answer.
+     *
+     * Every save here used to PUT a clone of D.gaipConfig -- the whole config
+     * as it stood when the page loaded -- so saving the Turf tab could undo a
+     * location set in another tab, and an empty field anywhere in that clone
+     * became an empty field in the database. Only the named sections travel
+     * now, and a null inside one of them (an unset number: irrigation
+     * efficiency, any weather override, elevation) is stated as `clear`,
+     * because the route refuses null rather than guessing what it meant.
+     */
+    // The fields a site cannot work without. A form that submits one of them
+    // empty is a form whose control had nothing in it, not a person erasing
+    // the site's species — the server refuses to empty these at all, so they
+    // are left out of the request entirely and keep their stored value.
+    var GAIP_IDENTITY_FIELDS = ['turf.species', 'turf.methodology', 'turf.turfType', 'location.lat', 'location.lon'];
+
+    function patchGaipConfig(sections) {
+        var patch = {};
+        var clear = [];
+
+        function isEmpty(value) {
+            return value === null || value === undefined
+                || (typeof value === 'string' && value.trim() === '');
+        }
+
+        Object.keys(sections).forEach(function (key) {
+            var value = sections[key];
+            if (isEmpty(value)) { clear.push(key); return; }
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                var section = {};
+                Object.keys(value).forEach(function (field) {
+                    var path = key + '.' + field;
+                    if (!isEmpty(value[field])) { section[field] = value[field]; return; }
+                    if (GAIP_IDENTITY_FIELDS.indexOf(path) !== -1) return;
+                    // An unset number or a cleared text box: said as a clear,
+                    // because the route refuses null and never sees the empty
+                    // string (Laravel converts it on the way in).
+                    clear.push(path);
+                });
+                if (Object.keys(section).length) patch[key] = section;
+                return;
+            }
+            patch[key] = value;
+        });
+
+        var body = {};
+        if (Object.keys(patch).length) body.patch = patch;
+        if (clear.length) body.clear = clear;
+
+        return apiFetch('PATCH', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', body)
+            .then(function (response) {
+                var saved = response && response.data && response.data.config;
+                if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+                    D.gaipConfig = saved;
+                }
+                return response;
+            });
+    }
+
     /* ── Site form ───────────────────────────────────────────── */
     var siteForm = document.getElementById('stg-site-form');
     var siteSaveBtn = document.getElementById('stg-site-save');
@@ -249,48 +310,30 @@
                                           ? parseFloat(siteForm.querySelector('#stg-longitude').value) : null,
             };
 
-            // Irrigation system + weather override → gaip config (location/irrigation/weatherOverride keys)
-            var cfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));
-            if (Array.isArray(cfg)) cfg = {};
-
-            // GH-371 follow-up (independent review): this form never reads,
-            // edits, or otherwise legitimately needs to round-trip the
-            // cached nutrition programme -- cfg is just a full clone of
-            // whatever D.gaipConfig happened to hold at page load, and
-            // these three keys ride along as unintended baggage. Sent as-is,
-            // that clone can carry a now-stale programme (computed for the
-            // OLD coordinates, since this clone was taken before the edits
-            // below) straight back into the DB via this same save's PUT --
-            // including immediately after the sibling PATCH below has just
-            // cleared it server-side for this exact coordinate change (both
-            // requests fire together, see the Promise.all below). Stripped
-            // here so this save's PUT body can never carry them; the server
-            // side (SiteController::updateConfig()) independently also
-            // never lets a client payload overwrite these three keys with
-            // anything other than a freshly, correctly-stamped programme,
-            // so this is belt-and-braces, not the only guard.
-            delete cfg.nutritionProgram;
-            delete cfg.nutritionCalendarProgram;
-            delete cfg.nutritionProgramCoords;
-
-            var _latVal = siteForm.querySelector('#stg-latitude').value;
-            var _lonVal = siteForm.querySelector('#stg-longitude').value;
-            var _latNum = _latVal !== '' ? parseFloat(_latVal) : null;
-            var _lonNum = _lonVal !== '' ? parseFloat(_lonVal) : null;
+            // GH-440 (GH-439 stage 1): only the sections this form owns.
+            // What used to go up was a clone of the whole config taken at page
+            // load; the three programme keys had to be deleted from it by hand
+            // (GH-371) precisely because a clone carries things the form never
+            // touched. A patch has nothing to strip.
             var _locUpdate = {
                 name:      siteForm.querySelector('#stg-location-name').value.trim() || '',
                 elevation: elevEl && elevEl.value !== '' ? parseInt(elevEl.value, 10) : null,
             };
+            var _latVal = siteForm.querySelector('#stg-latitude').value;
+            var _lonVal = siteForm.querySelector('#stg-longitude').value;
+            var _latNum = _latVal !== '' ? parseFloat(_latVal) : null;
+            var _lonNum = _lonVal !== '' ? parseFloat(_lonVal) : null;
             if (_latNum !== null && !isNaN(_latNum)) _locUpdate.lat = _latNum;
             if (_lonNum !== null && !isNaN(_lonNum)) _locUpdate.lon = _lonNum;
-            cfg.location = Object.assign({}, cfg.location || {}, _locUpdate);
+
+            var _sections = { location: _locUpdate };
 
             var irrigMethodEl     = siteForm.querySelector('#stg-irrig-method');
             var irrigEffEl        = siteForm.querySelector('#stg-irrig-efficiency');
             var irrigRainEl       = siteForm.querySelector('#stg-irrig-rain');
             var irrigCostEl       = siteForm.querySelector('#stg-irrig-cost');
             if (irrigMethodEl) {
-                cfg.irrigation = {
+                _sections.irrigation = {
                     method:            irrigMethodEl.value || '',
                     efficiency:        irrigEffEl   && irrigEffEl.value   !== '' ? parseInt(irrigEffEl.value, 10)   : null,
                     effectiveRainfall: irrigRainEl  && irrigRainEl.value  !== '' ? parseInt(irrigRainEl.value, 10)  : null,
@@ -305,7 +348,7 @@
             var wxSoilEl     = siteForm.querySelector('#stg-wx-soiltemp');
             var wxEt0El      = siteForm.querySelector('#stg-wx-et0');
             if (wxTminEl) {
-                cfg.weatherOverride = {
+                _sections.weatherOverride = {
                     tmin:     wxTminEl.value !== '' ? parseFloat(wxTminEl.value) : null,
                     tmax:     wxTmaxEl && wxTmaxEl.value !== '' ? parseFloat(wxTmaxEl.value) : null,
                     humidity: wxHumEl  && wxHumEl.value  !== '' ? parseFloat(wxHumEl.value)  : null,
@@ -320,24 +363,16 @@
 
             Promise.all([
                 apiFetch('PATCH', '/sites/' + siteId, payload),
-                apiFetch('PUT', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', { config: cfg }),
+                patchGaipConfig(_sections),
             ])
                 .then(function (results) {
                     var data = results[0];
                     if (data && data.data && data.data.name) {
-                        D.gaipConfig = cfg;
-                        // Mirror location to localStorage so LocationPreloader and
-                        // the old hub iframe use the updated coordinates immediately.
-                        if (_locUpdate.lat && _locUpdate.lon) {
-                            try {
-                                var _cfgKey = 'gilba_hub_site_configs';
-                                var _cfgs = {};
-                                try { _cfgs = JSON.parse(localStorage.getItem(_cfgKey) || '{}'); } catch (_) {}
-                                if (!_cfgs[siteId]) _cfgs[siteId] = {};
-                                _cfgs[siteId].location = Object.assign({}, _cfgs[siteId].location || {}, _locUpdate);
-                                localStorage.setItem(_cfgKey, JSON.stringify(_cfgs));
-                            } catch (_) {}
-                        }
+                        // GH-442 (GH-439 stage 3): no mirror. This wrote the
+                        // new coordinates into gilba_hub_site_configs so
+                        // location-preloader.js and the hidden /hub iframe
+                        // would pick them up; the preloader is gone (stage 2)
+                        // and every page reads the config the server sends.
                         _checkAfterSave('stg-site-form');
                         setMsg(siteMsg, 'Saved.', 'ok');
                         // Update topbar to reflect saved values without page reload
@@ -800,41 +835,22 @@
                 };
             }
 
-            // Merge into existing gaip config — preserve all fields not shown in this form
-            // (aaTexture, overseedSpecies, summerIntent, trafficEnabled, wizard, pgr, etc.)
-            var cfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));
-            // New sites initialise config as [] (PHP empty array → JSON array).
-            // Array properties are silently dropped by JSON.stringify, so convert to object.
-            if (Array.isArray(cfg)) cfg = {};
-            cfg.turf = Object.assign({}, cfg.turf || {}, turf);
-
-            // GH-371 follow-up (independent review): same reasoning as the
-            // site form's save handler above -- this form doesn't touch
-            // nutrition-programme data either, so a possibly-stale
-            // D.gaipConfig clone must never carry these three keys back in.
-            delete cfg.nutritionProgram;
-            delete cfg.nutritionCalendarProgram;
-            delete cfg.nutritionProgramCoords;
-
-            // soil_texture_override lives on the site model, not gaip config — save separately
+            // GH-440 (GH-439 stage 1): the turf section alone. Merging into
+            // a page-load clone and sending the result is what let this form
+            // undo edits made elsewhere; the server merges now, field by
+            // field, and everything this form does not name is left alone --
+            // including the three programme keys that used to be deleted from
+            // the clone by hand (GH-371).
             var saves = [
-                apiFetch('PUT', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', { config: cfg }),
+                patchGaipConfig({ turf: turf }),
                 apiFetch('PATCH', '/sites/' + encodeURIComponent(siteId), { soil_texture_override: soilTexture }),
             ];
 
             Promise.all(saves)
                 .then(function () {
-                    D.gaipConfig = cfg;
-                    // Mirror to localStorage so the hub engine picks up the new values
-                    // without requiring a manual re-run or page reload.
-                    try {
-                        var configsKey = 'gilba_hub_site_configs';
-                        var allConfigs = {};
-                        try { allConfigs = JSON.parse(localStorage.getItem(configsKey) || '{}'); } catch (_) {}
-                        if (!allConfigs[siteId]) allConfigs[siteId] = {};
-                        allConfigs[siteId].turf = Object.assign({}, allConfigs[siteId].turf || {}, turf);
-                        localStorage.setItem(configsKey, JSON.stringify(allConfigs));
-                    } catch (_) {}
+                    // GH-442 (GH-439 stage 3): no mirror -- the hub engine
+                    // reads the site config the server returned from the save
+                    // above, not a copy written beside it.
                     _checkAfterSave('stg-turf-form');
                     setMsg(turfMsg, 'Saved.', 'ok');
                     updateTrafficTabVisibility(turf.turfType);
@@ -1619,40 +1635,21 @@
         // (nutrition-calendar.js) compare the programme's stamped
         // meta.species/methodology against the restored turf and refuse the
         // stale copy, showing the regenerate state instead.
-        tasks.push(apiFetch('PUT', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', {
-            config: { turf: t, location: cfg.location || {}, pgr: cfg.pgr || {} }
+        // GH-440 (GH-439 stage 1): the three sections the bundle carries,
+        // as a patch. As a whole-object write this deleted every section the
+        // bundle happened not to mention -- traffic, irrigation, alerts, the
+        // wizard record -- from a site the owner was only importing turf and
+        // location into.
+        tasks.push(patchGaipConfig({
+            turf: t,
+            location: cfg.location || {},
+            pgr: cfg.pgr || {},
         }));
 
-        // 3. Update gilba_hub_site_configs (SiteConfigPersistence key) — force-overwrites so
-        //    the seed guard ("skip if species already set") doesn't prevent using fresh data
-        try {
-            var configsKey = 'gilba_hub_site_configs';
-            var allConfigs = {};
-            try { allConfigs = JSON.parse(localStorage.getItem(configsKey) || '{}'); } catch (_) {}
-            if (!allConfigs[siteId]) allConfigs[siteId] = {};
-            allConfigs[siteId].turf = Object.assign({}, allConfigs[siteId].turf || {}, {
-                species:      t.species      || '',
-                variety:      t.variety      || '',
-                turfType:     t.turfType     || '',
-                subCategory:  t.subCategory  || '',
-                construction: t.construction || '',
-                drainage:     t.drainage     || '',
-                hoc:          t.hoc          || '',
-                nProgram:     t.nProgram     || '',
-                methodology:  t.methodology  || '',
-                poaPercent:     t.poaPercent     || '0',
-                c3Cover:        t.c3Cover        || '0',
-                warmBase:       t.warmBase       || '',
-                coolOverseed:     t.coolOverseed     || '',
-                overseedStatus:   t.overseedStatus   || 'none',
-                aaTexture:        t.aaTexture        || '',
-                companionSpecies: t.companionSpecies || '',
-            });
-            if (loc && typeof loc.lat === 'number') {
-                allConfigs[siteId].location = { lat: loc.lat, lon: loc.lon, name: loc.name || '' };
-            }
-            localStorage.setItem(configsKey, JSON.stringify(allConfigs));
-        } catch (_) {}
+        // GH-442 (GH-439 stage 3): the third mirror is gone too. An import
+        // wrote its turf and location into gilba_hub_site_configs so the hub
+        // engine would use the fresh values immediately; the engine reads the
+        // server's config now, and the patch above is what makes it fresh.
 
         return Promise.all(tasks);
     }
@@ -1746,22 +1743,13 @@
             // DOM on hub pages, so a turf field with no DOM twin is dropped on
             // the first site switch. That same file's carry-forward list gained
             // `traffic` in this ticket for exactly the same reason.
-            var _tcfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));
-            // New sites initialise config as [] (PHP empty array -> JSON array).
-            if (Array.isArray(_tcfg)) _tcfg = {};
-            _tcfg.traffic = { schedule: state, savedAt: new Date().toISOString() };
-            // Same reasoning as the turf and site forms above: this form does
-            // not touch nutrition-programme data, so a possibly-stale
-            // D.gaipConfig clone must not carry these three keys back in.
-            delete _tcfg.nutritionProgram;
-            delete _tcfg.nutritionCalendarProgram;
-            delete _tcfg.nutritionProgramCoords;
-
             setSaving(trafficSaveBtn, true);
             setMsg(trafficMsg, '', '');
-            apiFetch('PUT', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', { config: _tcfg })
+            // GH-440 (GH-439 stage 1): the traffic section alone; nothing this
+            // form does not own travels with it, so there is no clone to strip
+            // the programme keys out of.
+            patchGaipConfig({ traffic: { schedule: state, savedAt: new Date().toISOString() } })
                 .then(function () {
-                    D.gaipConfig = _tcfg;
                     _checkAfterSave('stg-traffic-form');
                     setMsg(trafficMsg, 'Saved.', 'ok');
                     setTimeout(function () { setMsg(trafficMsg, '', ''); }, 2000);

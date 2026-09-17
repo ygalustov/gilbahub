@@ -44,6 +44,48 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        // GH-441 (GH-439 stage 2): every db-shell page gets the active site's
+        // stored config and wizard record, the same way /hub has always had
+        // them.
+        //
+        // Without this, the pages that run the legacy engine (Reports, the
+        // morning briefing, the stadium view) started with no configuration at
+        // all and filled the gap from localStorage: the setup wizard decided
+        // whether to appear by reading `gilba_wizard_complete` in the browser,
+        // so a clean browser showed it on a site that had completed it, and
+        // location-preloader.js wrote coordinates from the same copy over the
+        // server's own.
+        View::composer('layouts.db-shell', function ($view) {
+            $activeSite = Auth::check() ? Auth::user()?->activeSite : null;
+
+            $gaipConfig = [];
+            if ($activeSite) {
+                $record = $activeSite->configs()->where('namespace', 'gaip')->first();
+                $gaipConfig = is_array($record?->config) ? $record->config : [];
+            }
+
+            $wizardState = is_array($gaipConfig['wizard'] ?? null) ? $gaipConfig['wizard'] : [];
+
+            $view->with([
+                'injectedGaipConfig' => $gaipConfig,
+                'injectedWizardState' => $wizardState,
+                // GH-450: a wizard deliberately skipped is a wizard that has
+                // been answered. The record can say `complete` or `skipped`
+                // (site-setup-wizard.js writes the second when the user
+                // dismisses it), and the client code has always read both --
+                // but only after a save, never on load. The injected flag read
+                // `complete` alone, which no one noticed while the
+                // localStorage profile gate was still suppressing the overlay.
+                // GH-439 stage 4b removes that gate, so this is the answer.
+                'injectedWizardAnswered' => (bool) (($wizardState['complete'] ?? false) || ($wizardState['skipped'] ?? false)),
+                'injectedSavedLocation' => [
+                    'name' => $activeSite?->location_name ?? '',
+                    'lat' => $activeSite?->latitude ?? '',
+                    'lon' => $activeSite?->longitude ?? '',
+                ],
+            ]);
+        });
+
         View::composer('partials.sidebar', function ($view) {
             if (! Auth::check()) {
                 $view->with('pendingRequestsCount', 0);

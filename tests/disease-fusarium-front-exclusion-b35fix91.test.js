@@ -35,6 +35,7 @@ const fs   = require('fs');
 const path = require('path');
 
 const DiseaseEnginePure = require(path.join(__dirname, '../assets/disease-engine-pure.js'));
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 global.DiseaseEnginePure = DiseaseEnginePure;
 require(path.join(__dirname, '../assets/disease-stress-climate-coupling.js'));
 
@@ -133,9 +134,7 @@ describe('disease-analysis.js — Fusarium excluded from the Active Threats list
     const src = fs.readFileSync(path.join(__dirname, '../assets/disease-analysis.js'), 'utf8');
 
     test('filterDiseases() excludes fusarium (drives the Active Threats list + alert banner)', () => {
-        const fnPos = src.indexOf('function filterDiseases(');
-        expect(fnPos).toBeGreaterThan(-1);
-        const fnBody = src.slice(fnPos, src.indexOf('\n    }', fnPos));
+        const fnBody = anchoredSlice(src, 'function filterDiseases(', '\n    }');
         expect(fnBody).toContain("d.disease !== 'fusarium'");
     });
 
@@ -151,8 +150,7 @@ describe('disease-analysis.js — Fusarium excluded from the Active Threats list
         // broader (also catches Large Patch) — that's correct and untouched.
         // filterDiseases() must NOT pick up that broader check; it should stay
         // scoped to Fusarium by key.
-        const fnPos = src.indexOf('function filterDiseases(');
-        const fnBody = src.slice(fnPos, src.indexOf('\n    }', fnPos));
+        const fnBody = anchoredSlice(src, 'function filterDiseases(', '\n    }');
         expect(fnBody).not.toMatch(/validationStatus\s*!==\s*['"]unvalidated['"]/);
     });
 });

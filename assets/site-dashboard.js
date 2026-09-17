@@ -154,6 +154,17 @@
             return SC ? SC.getConfig(siteId) : null;
         },
 
+        /**
+         * GH-474: the site's place, from the row that owns it. The copy in
+         * `config.location.name` is written by the server from this column;
+         * reading the owner is one write path closer to the truth.
+         */
+        getSiteLocationName: function(siteId) {
+            var SC = global.GAIP_SiteConfig;
+            var row = (SC && typeof SC.getSite === 'function') ? SC.getSite(siteId) : null;
+            return (row && row.location_name) || '';
+        },
+
         exportSite: function(siteId) {
             var SM = global.GAIP_SampleManager;
             var SC = global.GAIP_SiteConfig;
@@ -349,7 +360,14 @@
     function buildSiteCardHTML(site, isActive, breakdown) {
         var config = StorageAdapter.getSiteConfig(site.id);
         var turf = (config && config.turf) || {};
-        var location = (config && config.location) || {};
+        // GH-477: the place and the coordinates from the site row, which owns
+        // them. What is PRINTED when there is no name is a separate question —
+        // 10.8(12), the owner's — and is unchanged here.
+        var _row = (global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getSite === 'function')
+            ? global.GAIP_SiteConfig.getSite(site.id) : null;
+        var location = _row
+            ? { name: _row.location_name, lat: _row.latitude, lon: _row.longitude }
+            : {};
         var savedAt = config ? config.savedAt : site.createdAt;
 
         var speciesText = '';
@@ -478,7 +496,8 @@
         for (var i = 0; i < sites.length; i++) {
             var s = sites[i];
             var config = StorageAdapter.getSiteConfig(s.id);
-            var locName = (config && config.location && config.location.name) || '';
+            // GH-474: the place comes from the site row, which owns it.
+            var locName = StorageAdapter.getSiteLocationName(s.id);
             var species = (config && config.turf && config.turf.species) || '';
             if (s.label.toLowerCase().indexOf(q) !== -1 ||
                 locName.toLowerCase().indexOf(q) !== -1 ||
@@ -507,7 +526,8 @@
             var isActive = site.id === activeId;
             var isHighlighted = i === _searchHighlight;
             var config = StorageAdapter.getSiteConfig(site.id);
-            var locName = (config && config.location && config.location.name) || '';
+            // GH-474: the place comes from the site row, which owns it.
+            var locName = StorageAdapter.getSiteLocationName(s.id);
             var species = (config && config.turf) ? formatSpeciesName(config.turf.species) : '';
             var savedAt = config ? config.savedAt : site.createdAt;
             var breakdown = StorageAdapter.getSampleBreakdown(site.id);

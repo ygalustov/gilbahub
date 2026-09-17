@@ -217,7 +217,8 @@ describe('GH-379 word-export-combined.js normalises the methodology at the per-s
     // page goes through the same function. The raw spelling is handed to the
     // adapter as sample.methodology and never assigned onward unfolded.
     test('perSampleInputs.methodology is the adapter\'s folded key, not the raw upper-cased stamp', () => {
-        const assigned = src.indexOf('perSampleInputs.methodology = _siteInputs.methodology;');
+        const cal = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-calendar.js'), 'utf8');
+        const assigned = cal.indexOf('methodology: prog.methodology');
         expect(assigned).toBeGreaterThan(-1);
         expect(src).not.toMatch(/perSampleInputs\.methodology = r\.data\.soil\.methodology;/);
         const adapterSrc = fs.readFileSync(path.join(__dirname, '../assets/nutrition-program-inputs.js'), 'utf8');
@@ -225,7 +226,8 @@ describe('GH-379 word-export-combined.js normalises the methodology at the per-s
     });
 
     test('the Prebble P-deficiency threshold reads perSampleInputs.methodology AFTER that hand-off, so it sees the folded key', () => {
-        const handoff = src.indexOf('perSampleInputs.methodology = _siteInputs.methodology;');
+        const cal = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-calendar.js'), 'utf8');
+        const handoff = cal.indexOf('methodology: prog.methodology');
         const threshold = src.indexOf('var _pThreshold = ');
         expect(handoff).toBeGreaterThan(-1);
         expect(threshold).toBeGreaterThan(handoff);
@@ -265,10 +267,18 @@ describe('GH-379 the export\'s per-sample calendar sees the same texture / CEC i
         // GH-383: no overlay any more — the per-sample calendar inputs ARE the
         // adapter's resolution for that sample's own site, so there is nothing
         // left to overlay onto a facility snapshot that could disagree.
-        expect(src).toMatch(/perSampleInputs\.soilTexture = _siteInputs\.soilTexture;/);
-        expect(src).toMatch(/perSampleInputs\.CEC = _siteInputs\.CEC;/);
-        expect(src).toMatch(/soilTexture: \(r\.data\.engineInputs && r\.data\.engineInputs\.soilTexture\) \|\| undefined,/);
-        expect(src.indexOf('perSampleInputs.soilTexture = _siteInputs.soilTexture'))
+        const cal2 = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-calendar.js'), 'utf8');
+        expect(cal2).toMatch(/soilTexture: prog\.soilTexture/);
+        expect(cal2).toMatch(/CEC: prog\.CEC/);
+        // GH-470: the per-sample resolution is the resolver's own, inside
+        // resolveExportInputs, so the texture and CEC the calendar sees are
+        // the ones that resolved the ANR ranges by construction rather than by
+        // being passed along a second path.
+        const cal = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-calendar.js'), 'utf8');
+        expect(cal).toMatch(/soilTexture: prog\.soilTexture/);
+        // The object is built before it is handed to computeProgram, and it
+        // is frozen, so "before" is no longer an ordering somebody maintains.
+        expect(src.indexOf('inputsForSite(r.data._exportInputs)'))
             .toBeLessThan(src.indexOf('computeProgram(perSampleInputs)'));
     });
 });

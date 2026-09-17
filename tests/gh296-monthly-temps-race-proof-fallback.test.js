@@ -36,6 +36,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 const srcPath = path.join(__dirname, '../assets/nutrition-summary-integration.js');
 const src = fs.readFileSync(srcPath, 'utf8');
@@ -45,10 +46,7 @@ describe('GH-296 — nutrition-summary-integration.js survives climateMetrics be
         expect(src).toMatch(/function _resolvedNormals\(\)/);
         expect(src).toMatch(/function _readCoordsForNormals\(\)/);
 
-        const fnIdx = src.indexOf('function extractMonthlyTemps() {');
-        expect(fnIdx).toBeGreaterThan(-1);
-        const fnEnd = src.indexOf('\n    }', fnIdx);
-        const body = src.slice(fnIdx, fnEnd);
+        const body = anchoredSlice(src, 'function extractMonthlyTemps() {', '\n    }');
 
         expect(body).toMatch(/global\.climateMetrics\?\.monthlyTemps/);
         expect(body).toMatch(/state\?\.climate\?\.monthlyTemps/);

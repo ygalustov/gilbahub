@@ -36,6 +36,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 // ─────────────────────────────────────────────────────────────────────────
 // Shared DOM/window scaffolding (same shape as gh371's tests)
@@ -657,88 +658,12 @@ describe('GH-377 — site-config-persistence.js: restoreConfig() refuses to rest
 // 5. snapshotConfig()'s carry-forward (site-config-persistence.js)
 // ─────────────────────────────────────────────────────────────────────────
 
-describe('GH-377 — site-config-persistence.js: snapshotConfig() drops a known-stale cached programme, but never on a transient DOM read', () => {
-    function setup(domValues) {
-        resetSandbox(domValues);
-        loadSpeciesController();
-        loadCalendar();
-        global.window.GAIP_SampleManager = { getActiveSiteId: function () { return 'site-1'; } };
-        const SiteConfig = loadSiteConfig();
-        return SiteConfig;
-    }
-    function seed(SiteConfig, site, turfOverrides) {
-        SiteConfig.mergeConfig('site-1', {
-            turf: Object.assign({}, site.turf, turfOverrides || {}),
-            nutritionCalendarProgram: programFor(site),
-            nutritionProgram: { monthly: [{ N: 16 }] },
-            nutritionProgramCoords: { lat: site.location.lat, lon: site.location.lon },
-        });
-    }
-    const burns = REAL_SITES[0];
-    const burnsDom = { '.gaip-lat': String(burns.location.lat), '.gaip-lon': String(burns.location.lon) };
-
-    test('unchanged (DOM and saved identity both match the stamp): carried forward, stamp intact', () => {
-        const SiteConfig = setup(Object.assign({ '.gaip-species': 'Creeping Bentgrass (Greens)', '.gaip-soil-methodology': 'mlsn' }, burnsDom));
-        seed(SiteConfig, burns);
-        const snap = SiteConfig.snapshot();
-        expect(snap.nutritionCalendarProgram).toBeTruthy();
-        expect(snap.nutritionProgram).toBeTruthy();
-        expect(snap.nutritionProgramCoords).toEqual({ lat: burns.location.lat, lon: burns.location.lon });
-    });
-
-    test('known-stale (DOM AND the previously saved identity both disagree with the stamp): both programmes and the stamp are dropped, like a coordinate move', () => {
-        const SiteConfig = setup(Object.assign({ '.gaip-species': 'Perennial Ryegrass', '.gaip-soil-methodology': 'mlsn' }, burnsDom));
-        seed(SiteConfig, burns, { species: 'Perennial Ryegrass' }); // saved identity already moved on
-        const snap = SiteConfig.snapshot();
-        expect(snap.nutritionCalendarProgram).toBeUndefined();
-        expect(snap.nutritionProgram).toBeUndefined();
-        expect(snap.nutritionProgramCoords).toBeUndefined();
-        expect(snap.turf.species).toBe('Perennial Ryegrass');
-    });
-
-    test('methodology known-stale the same way', () => {
-        const SiteConfig = setup(Object.assign({ '.gaip-species': 'Creeping Bentgrass (Greens)', '.gaip-soil-methodology': 'slan' }, burnsDom));
-        seed(SiteConfig, burns, { methodology: 'slan' });
-        const snap = SiteConfig.snapshot();
-        expect(snap.nutritionCalendarProgram).toBeUndefined();
-    });
-
-    test('transient DOM (the b35fix504 cross-site cascade race: DOM still shows another site\'s species, saved identity matches the stamp): carried forward, NOT dropped', () => {
-        const SiteConfig = setup(Object.assign({ '.gaip-species': 'Perennial Ryegrass', '.gaip-soil-methodology': 'mlsn' }, burnsDom));
-        seed(SiteConfig, burns); // saved identity still Creeping Bentgrass = the stamp
-        const snap = SiteConfig.snapshot();
-        expect(snap.nutritionCalendarProgram).toBeTruthy();
-        expect(snap.nutritionProgram).toBeTruthy();
-    });
-
-    test('empty DOM species (select not yet populated): carried forward', () => {
-        const SiteConfig = setup(Object.assign({ '.gaip-species': '', '.gaip-soil-methodology': '' }, burnsDom));
-        seed(SiteConfig, burns);
-        expect(SiteConfig.snapshot().nutritionCalendarProgram).toBeTruthy();
-    });
-
-    test('while a restore cascade is in flight (isRestoring), no input-based drop happens even if everything disagrees', () => {
-        const SiteConfig = setup(Object.assign({ '.gaip-species': 'Perennial Ryegrass', '.gaip-soil-methodology': 'slan' }, burnsDom));
-        seed(SiteConfig, burns, { species: 'Perennial Ryegrass', methodology: 'slan' });
-        SiteConfig.restore({ turf: { species: 'Perennial Ryegrass' }, location: burns.location }, 'site-1'); // sets _isRestoring until its cascade ends
-        expect(SiteConfig.isRestoring()).toBe(true);
-        expect(SiteConfig.snapshot().nutritionCalendarProgram).toBeTruthy();
-    });
-
-    test('legacy stamp-less meta: carried forward regardless of the turf', () => {
-        const SiteConfig = setup(Object.assign({ '.gaip-species': 'Couch', '.gaip-soil-methodology': 'slan' }, burnsDom));
-        SiteConfig.mergeConfig('site-1', {
-            turf: { species: 'Couch', methodology: 'slan' },
-            nutritionCalendarProgram: { meta: {}, annual_totals: { N: 200 } },
-        });
-        expect(SiteConfig.snapshot().nutritionCalendarProgram).toBeTruthy();
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────
-// 6. word-export.js + settings-init.js — structural pins (this repo's
-//    established convention for these two DOM-heavy modules, see gh371)
-// ─────────────────────────────────────────────────────────────────────────
+// GH-441 (GH-439 stage 2): these cases tested snapshotConfig()'s
+// species/methodology staleness rule, which existed because a DOM snapshot
+// could write a programme back next to a turf block it no longer matched. The
+// snapshot is gone -- see the note in gh371-d01-coordinate-invalidation.test.js
+// -- and the same rule still runs everywhere it is read: restoreConfig()
+// (below, unchanged), restoreFromPersisted() and word-export.js.
 
 describe('GH-377 — word-export.js: the Monthly Schedule / Nutrition Program read gains the species/methodology check next to GH-371\'s coordinate one', () => {
     let src;
@@ -781,11 +706,14 @@ describe('GH-377 — settings-init.js: the import-bundle flow still hand-builds 
         src = fs.readFileSync(path.join(__dirname, '../assets/settings-init.js'), 'utf8');
     });
 
-    test('applySiteConfig() PUTs exactly { turf, location, pgr } — a turf change with no fresh stamp, which the server answers by carrying the DB programme forward', () => {
-        const fnIdx = src.indexOf('function applySiteConfig(bundle)');
-        expect(fnIdx).toBeGreaterThan(-1);
-        const body = src.slice(fnIdx, src.indexOf('return Promise.all(tasks);', fnIdx));
-        expect(body).toMatch(/config: \{ turf: t, location: cfg\.location \|\| \{\}, pgr: cfg\.pgr \|\| \{\} \}/);
+    test('applySiteConfig() patches exactly { turf, location, pgr } — a turf change with no fresh stamp, which the server answers by carrying the DB programme forward', () => {
+        // GH-440 (GH-439 stage 1): the same three sections, now as a patch.
+        // As a whole-object write this deleted every section the bundle did
+        // not mention; as a patch it states the three it carries and the rest
+        // of the site is left alone.
+        const body = anchoredSlice(src, 'function applySiteConfig(bundle)', 'return Promise.all(tasks);');
+        expect(body).toMatch(/patchGaipConfig\(\{[\s\S]*?turf: t,[\s\S]*?location: cfg\.location \|\| \{\},[\s\S]*?pgr: cfg\.pgr \|\| \{\},[\s\S]*?\}\)/);
+        expect(body).not.toMatch(/'PUT'/);
         expect(body).not.toMatch(/nutritionProgram(?!Coords)\b/);
         expect(body).toMatch(/GH-377/); // the closure is documented at the site of the hazard
     });
@@ -924,7 +852,14 @@ describe('GH-377 (review fix) — site-config-persistence.js: pullConfigsFromSer
             NC.collectProgramInputCandidates({ turfs: cfg.turf, lat: cfg.location.lat, lon: cfg.location.lon }))).toEqual([]);
     });
 
-    test('the "server is newer" rule itself is unchanged: an OLDER server savedAt leaves the local turf alone (methodology included) while the programme keys are still taken from the server', async () => {
+    test('GH-441 (stage 2): there is no "server is newer" negotiation left — the server replaces the cache, older savedAt included', async () => {
+        // This case used to assert the opposite: a local copy with a newer
+        // savedAt kept its own turf and took only the programme keys from the
+        // server. That rule existed because the cache was also a source of
+        // writes, so it could legitimately be ahead of the database. It cannot
+        // be any more -- every write is a PATCH that takes its answer back from
+        // the response -- and a cache that can outrank the database is exactly
+        // how a stale tab's methodology survived a Settings change.
         const local = {
             turf: Object.assign({}, NT.turf, { methodology: 'mlsn' }),
             location: Object.assign({}, NT.location),
@@ -932,14 +867,48 @@ describe('GH-377 (review fix) — site-config-persistence.js: pullConfigsFromSer
             savedAt: NEW_SAVED_AT,
         };
         const server = {
-            turf: Object.assign({}, NT.turf),                       // 'slan', but older
+            turf: Object.assign({}, NT.turf),                       // 'slan', and older
             location: Object.assign({}, NT.location),
             nutritionCalendarProgram: calendarProgram(NT, { methodology: 'MLSN', generated: 'server-copy' }),
             savedAt: OLD_SAVED_AT,
         };
         const SiteConfig = await bootWithServer(local, server);
         const cfg = SiteConfig.getConfig(SITE);
-        expect(cfg.turf.methodology).toBe('mlsn');                                     // local wins, as before
-        expect(cfg.nutritionCalendarProgram.meta.generated).toBe('server-copy');      // programme keys: server, as before
+        expect(cfg.turf.methodology).toBe('slan');
+        expect(cfg.nutritionCalendarProgram.meta.generated).toBe('server-copy');
+        expect(cfg.savedAt).toBe(OLD_SAVED_AT);
+    });
+
+    test('GH-441 (stage 2): a site the server does not mention is dropped from the cache', async () => {
+        // The cache is the server's answer, whole. A leftover entry for a site
+        // this login can no longer see used to survive here and was pushed
+        // back on the next background sync.
+        jest.useFakeTimers();
+        resetSandbox({});
+        loadSpeciesController();
+        loadCalendar();
+        global.localStorage = localStorageStub({
+            gilba_hub_site_configs: JSON.stringify({
+                [SITE]: { turf: Object.assign({}, NT.turf), location: Object.assign({}, NT.location) },
+                'site-gone': { turf: { species: 'Ghost' } },
+            }),
+        });
+        global.window.GAIP_HUB_CONFIG = { restUrl: '/api/', activeSiteId: SITE, csrfToken: 't' };
+        global.window.GAIP_SampleManager = {
+            getActiveSiteId: () => SITE,
+            getSiteList: () => [{ id: SITE, label: 'Site 1' }],
+        };
+        global.fetch = jest.fn((url) => {
+            const body = /\/sites$/.test(String(url))
+                ? { data: [{ id: SITE, name: 'Site 1', configs: { gaip: { config: { turf: Object.assign({}, NT.turf) } } } }] }
+                : {};
+            return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(body)) });
+        });
+        const SiteConfig = loadSiteConfig();
+        jest.advanceTimersByTime(500);
+        for (let i = 0; i < 25; i++) await Promise.resolve();
+
+        expect(SiteConfig.getConfig('site-gone')).toBeNull();
+        expect(SiteConfig.getConfig(SITE)).not.toBeNull();
     });
 });

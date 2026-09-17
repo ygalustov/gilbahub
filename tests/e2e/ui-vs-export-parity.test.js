@@ -83,6 +83,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
+// GH-455: reading one Monthly Schedule cell — the rate and the tolerance its
+// own printed precision earns. Its rules are unit-tested in
+// tests/gh455-schedule-cell.test.js, which this harness cannot do itself.
+const { scheduleEntries } = require('./schedule-cell');
 
 // GH-390: credentials come from a local, git-ignored file by default, so the
 // run command is the constant `npm run test:e2e` with nothing in front of it.
@@ -393,6 +397,17 @@ function isCatalogueName(name, catalogue) {
  * of a failed run needs — a bare toBeLessThanOrEqual loses the context.
  */
 function numericMismatches(rows, tol) {
+    // GH-455: a tolerance that never arrived used to mean "compare nothing".
+    // `Math.abs(a - b) > undefined` is false for every pair of numbers, so a
+    // broken wiring of the per-row tolerance below would have returned an empty
+    // list -- a GREEN run reporting that both surfaces agree, on a comparison
+    // that never happened. Every caller here passes a number; one that does not
+    // is a fault in this file and says so.
+    if (typeof tol !== 'number' || !isFinite(tol) || tol < 0) {
+        throw new Error('numericMismatches() needs a numeric tolerance, got ' +
+            (typeof tol) + ' ' + JSON.stringify(tol) + ' for rows: ' +
+            JSON.stringify(rows.map((r) => r.what)));
+    }
     return rows.filter((r) => {
         const a = r.plan, b = r.export;
         if (typeof a !== 'number' || typeof b !== 'number' || isNaN(a) || isNaN(b)) return true;
@@ -501,6 +516,24 @@ function summariseCalendar(p) {
         annual_totals_range_source: j(p.annual_totals_range_source),
         missing_soil_data: j(p.missing_soil_data),
         tissue_gate_applied: p.tissue_gate_applied,
+        // GH-452: the tissue inputs the Plan page actually computed with.
+        // computeProgram() has stamped these since GH-425; this summary simply
+        // never carried them, which is why the tissue rows below had nothing
+        // from Plan to compare and fell back to the fixture's own snapshot.
+        tissue_percent: j(p.tissue_percent),
+        // GH-459: the monthly series — the GP curve, the temperatures it was
+        // computed from and the nitrogen spread across it.
+        //
+        // This summary carried none of it, so no check in this file compared a
+        // single month. A whole year of another site's climate could reach the
+        // document and every one of the 22 stayed green, because the annual
+        // total is normalised to the target and reconciles whatever curve it
+        // was spread along. That is how the defect was reported by the owner
+        // from a real export instead of by a run: Test5's programme printed on
+        // Christchurch temperatures, with the year's total correct.
+        monthly: (((p.program && p.program.monthly) || [])).map(function (m) {
+            return { month_num: m.month_num, month_name: m.month_name, gp: m.gp, temp: m.temp, N: m.N };
+        }),
         meta: p.meta ? {
             methodology: p.meta.methodology, species: p.meta.species, speciesDisplay: p.meta.speciesDisplay,
             surfaceType: p.meta.surfaceType, generated: p.meta.generated, lat: p.meta.lat, lon: p.meta.lon
@@ -532,6 +565,14 @@ function installExportHooks(arg) {
         NC.computeProgram = function (inputs) {
             const out = orig.apply(this, arguments);
             try {
+                // GH-470: the WHOLE shape, by the calendar's own key list, not
+                // fourteen names. Fourteen names is how 24 empty fields passed
+                // 23 parity assertions: the ones nobody compares —
+                // annualNBase, monthlyTempsPeriod, inputSources, overseedConfig
+                // and the rest — were never looked at.
+                const keys = (NC.CALENDAR_INPUT_KEYS || []);
+                const whole = {};
+                if (inputs) keys.forEach(function (k) { whole[k] = j(inputs[k]); });
                 cap.calendar.push({
                     inputs: inputs ? {
                         methodology: inputs.methodology, species: inputs.species, speciesDisplay: inputs.speciesDisplay,
@@ -541,6 +582,7 @@ function installExportHooks(arg) {
                         clippingManagement: inputs.clippingManagement, traffic: inputs.traffic,
                         distribution: inputs.distribution, surfaceType: inputs.surfaceType
                     } : null,
+                    whole: inputs ? whole : null,
                     out: summariseCalendar(out)
                 });
             } catch (e) { cap.calendar.push({ captureError: String(e) }); }
@@ -694,9 +736,14 @@ if (!ENABLED) {
         jest.setTimeout(240000);
 
         const SITE_ID = fixture.site.id;
+        let harnessBuilt = null;
         const SAMPLE_LABEL = fixture.soilSample.label;
         const SAMPLE_UID = SITE_ID + '::' + fixture.soilSample.clientId;
-        const FX = fixture.currentInputs;
+        // GH-456: `fixture.currentInputs` has no reader here any more. The
+        // numbers stay in the fixture files, where they document the scenario
+        // each one is written for and are checked for that by
+        // tests/fixtures-scenario-consistency.test.js; nothing in this run
+        // compares a live surface against them.
         const evalArg = { summariseProgramSrc: summariseProgram.toString(), summariseCalendarSrc: summariseCalendar.toString() };
 
         let browser, page, docxPath;
@@ -892,6 +939,24 @@ if (!ENABLED) {
                 page.waitForEvent('download', { timeout: 180000 }),
                 page.locator('button:has-text("Generate & Download")').last().click()
             ]);
+            // GH-470: the same object, built on the page by the same adapter
+            // for the same site — product against product. A fixture would
+            // only say what the numbers were on the day it was written.
+            harnessBuilt = await page.evaluate(({ siteId, sampleId }) => {
+                const NC = window.GilbaNutritionCalendar;
+                const NPI = window.GAIP_NutritionProgramInputs;
+                if (!NC || !NPI || typeof NC.inputsForSite !== 'function') return null;
+                const built = NC.inputsForSite(NPI.resolveExportInputs({
+                    siteId: siteId, soilSampleId: sampleId
+                }));
+                const out = {};
+                (NC.CALENDAR_INPUT_KEYS || []).forEach((k) => {
+                    try { out[k] = built[k] == null ? null : JSON.parse(JSON.stringify(built[k])); }
+                    catch (e) { out[k] = String(built[k]); }
+                });
+                return out;
+            }, { siteId: SITE_ID, sampleId: fixture.soilSample.clientId });
+
             docxPath = path.join(os.tmpdir(), 'gilba-e2e-' + Date.now() + '.docx');
             await download.saveAs(docxPath);
             capture = await page.evaluate(() => window.__gilbaE2E);
@@ -1102,17 +1167,58 @@ if (!ENABLED) {
             if (!t) return null;
             return t.slice(1).map((r) => ({ month: r[0].trim(), gp: r[1], granular: r[2], liquid: r[3], notes: r[4] }));
         }
-        /** The export's per-sample calendar call for the fixture sample (last one wins). */
-        function exportCalendarCall() {
-            const calls = (capture.calendar || []).filter((c) => c.inputs && c.inputs.soilPpm &&
-                num(c.inputs.soilPpm.K) === FX.soilPpm.K && num(c.inputs.soilPpm.P) === FX.soilPpm.P);
-            return calls.length ? calls[calls.length - 1] : null;
+        /**
+         * GH-454: the export's call for the sample under test, SELECTED without
+         * the fixture's numbers.
+         *
+         * Both of these used to filter the captured calls by
+         * `num(c.inputs.soilPpm.K) === FX.soilPpm.K` — the soil reading written
+         * into the fixture on the day it was captured. That is the same
+         * "fixture as the expectation" construction GH-452 took out of the
+         * tissue rows and GH-453 took out of the soil preconditions, one level
+         * deeper: not in a comparison, but in the selection that feeds every
+         * comparison. Moving the sample in the database — even within the state
+         * the fixture declares — made both selectors return null and six tests
+         * fail on `not.toBeNull()`, with no number on screen to say why.
+         *
+         * What identifies the right call is the sample the picker ticked, and
+         * the export run is cleared down to that one sample (`checkedCount === 1`
+         * above) before the capture starts. So: prefer the last call whose soil
+         * reading matches what the PLAN page resolved — product against product
+         * — and otherwise fall back to the last call of that kind, printing the
+         * numbers that did not line up. The fallback is deliberate: a divergence
+         * between the two surfaces is the defect this file exists to catch, and
+         * it has to arrive as a numeric mismatch in the comparison rows, not as
+         * a null selector that hides which number moved.
+         */
+        function planSoilPpm() {
+            return (plan && plan.program && plan.program.soil && plan.program.soil.ppm) || null;
         }
-        /** The export's requirement-engine call for the fixture sample (the last one feeds the printed tables). */
+        function sameReading(a, b) {
+            return typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) <= 0.001;
+        }
+        function pickSampleCall(list, readSoil, what) {
+            const calls = (list || []).filter((c) => readSoil(c));
+            if (!calls.length) return null;
+            const ppm = planSoilPpm();
+            if (ppm) {
+                const matching = calls.filter((c) => sameReading(num(readSoil(c).K), num(ppm.K))
+                    && sameReading(num(readSoil(c).P), num(ppm.P)));
+                if (matching.length) return matching[matching.length - 1];
+                const seen = calls.map((c) => 'K=' + num(readSoil(c).K) + ' P=' + num(readSoil(c).P)).join(', ');
+                process.stdout.write('[e2e] GH-454: no ' + what + ' call carries the Plan page\'s soil reading (K='
+                    + num(ppm.K) + ' P=' + num(ppm.P) + '); the export ran ' + calls.length + ' of them: ' + seen
+                    + '. Falling back to the last one, so the comparison rows below report the difference.\n');
+            }
+            return calls[calls.length - 1];
+        }
+        /** The export's per-sample calendar call (last one wins). */
+        function exportCalendarCall() {
+            return pickSampleCall(capture.calendar, (c) => c.inputs && c.inputs.soilPpm, 'calendar');
+        }
+        /** The export's requirement-engine call (the last one feeds the printed tables). */
         function exportEngineCall() {
-            const calls = (capture.engine || []).filter((c) => c.inputs && c.inputs.soil &&
-                num(c.inputs.soil.K) === FX.soilPpm.K && num(c.inputs.soil.P) === FX.soilPpm.P);
-            return calls.length ? calls[calls.length - 1] : null;
+            return pickSampleCall(capture.engine, (c) => c.inputs && c.inputs.soil, 'engine');
         }
         function exportRecommenderCall() {
             const calls = (capture.recommender || []).filter((c) => c.out && c.out.products);
@@ -1146,27 +1252,95 @@ if (!ENABLED) {
             const planPpm = plan.program.soil.ppm;
             const anr = exportAnrRow();
             expect(anr).not.toBeNull();
+            // GH-453: the soil sample is checked the way the tissue one is --
+            // against the state the fixture declares, and between the two
+            // surfaces -- not against the number it held on the day of capture.
+            //
+            // These four rows were the last of the old shape: "Plan against the
+            // fixture" and "the printed ANR row against the fixture", which
+            // pass or fail on whether anyone has edited the sample since. That
+            // is the mechanism that kept a parity run red for three weeks over
+            // a deliberate change to a test site; leaving it on soil would have
+            // kept it alive on the other half of the inputs.
+            //
+            // What matters here is (a) both surfaces received the same sample,
+            // which is Plan against the export's own ANR row, and (b) the site
+            // is in the state this fixture is written for, which is the
+            // declared scenario.
             const identity = numericMismatches([
-                { what: 'soil K ppm on Plan vs fixture', plan: num(planPpm.K), export: FX.soilPpm.K },
-                { what: 'soil P ppm on Plan vs fixture', plan: num(planPpm.P), export: FX.soilPpm.P }
-            ], 0.01).concat(
                 // The ANR table PRINTS soil ppm rounded to a whole number
                 // (Math.round in the renderer), so a fractional reading such as
                 // 23.81 appears as 24. That is a rendering precision, not an
                 // input difference — the input itself is compared exactly, per
                 // nutrient, against both engines' received values in the "same
                 // inputs reached both surfaces" test below.
-                numericMismatches([
-                    { what: 'soil K ppm printed in the export ANR row vs fixture', plan: anr.K_ppm, export: FX.soilPpm.K },
-                    { what: 'soil P ppm printed in the export ANR row vs fixture', plan: anr.P_ppm, export: FX.soilPpm.P }
-                ], 0.5));
-            // If this fails the fixture's currentInputs have drifted from the DB
-            // (someone edited the sample) — update the fixture, this is not a
-            // parity failure.
+                { what: 'soil K ppm: Plan vs the export ANR row', plan: num(planPpm.K), export: anr.K_ppm },
+                { what: 'soil P ppm: Plan vs the export ANR row', plan: num(planPpm.P), export: anr.P_ppm }
+            ], 0.5);
             expect(identity).toEqual([]);
+
+            // And the declared soil states hold for what the page resolved.
+            const soilScenarios = Object.keys((fixture.scenario || {}))
+                .filter((key) => key.indexOf('soil') === 0)
+                .map((key) => ({ key: key, nutrient: key.slice(4), entry: fixture.scenario[key] }))
+                .filter((s) => s.entry && s.entry.state && s.entry.state !== 'irrelevant'
+                    && typeof planPpm[s.nutrient] !== 'undefined');
+
+            soilScenarios.forEach(({ key, nutrient, entry }) => {
+                const live = num(planPpm[nutrient]);
+                const range = plan.program.annual_totals_range && plan.program.annual_totals_range[nutrient];
+                const floor = range && typeof range.min === 'number' ? range.min : null;
+                const ceiling = range && typeof range.max === 'number' ? range.max : null;
+
+                process.stdout.write('[e2e] precondition: ' + key + ' ' + live
+                    + ' ppm on the page, declared ' + entry.state
+                    + ', resolved floor ' + floor + ' ceiling ' + ceiling + '\n');
+
+                const holds = entry.state === 'deficient'
+                    ? (floor !== null && live < floor)
+                    : (floor !== null && live >= floor);
+
+                expect({ key: key, state: entry.state, live: live, holds: holds })
+                    .toEqual({ key: key, state: entry.state, live: live, holds: true });
+            });
             expect(exportCalendarCall()).not.toBeNull();
             expect(exportEngineCall()).not.toBeNull();
             expect(exportRecommenderCall()).not.toBeNull();
+
+            // GH-452: the tissue sample is checked against the SCENARIO the
+            // fixture declares, not against the number it held on the day it
+            // was captured.
+            //
+            // A test site's sample is moved from one state to another on
+            // purpose -- this one has been sufficient, deficient and normal in
+            // three weeks -- and a check that pins the number turns each of
+            // those legitimate changes into a red parity run. What the harness
+            // needs is that the site is in the state the fixture is written
+            // for, so a deficiency scenario stays a deficiency scenario
+            // whether the value is 1.05 or 1.2.
+            const tissueScenario = (fixture.scenario || {}).tissueK;
+            if (tissueScenario && typeof plan.program.tissue_percent?.K === 'number') {
+                const live = num(plan.program.tissue_percent.K);
+                const band = tissueScenario.band || {};
+                const holds = {
+                    deficient: () => typeof band.criticalBelow === 'number'
+                        ? live < band.criticalBelow
+                        : live < band.lo,
+                    normal: () => live >= band.lo && live <= band.hi,
+                    sufficient: () => live >= band.lo,
+                    irrelevant: () => true,
+                }[tissueScenario.state];
+
+                process.stdout.write('[e2e] precondition: tissue K ' + live
+                    + ' in the database, declared ' + tissueScenario.state
+                    + ', band ' + JSON.stringify(band) + '\n');
+
+                expect({
+                    declared: tissueScenario.state,
+                    live: live,
+                    holds: holds ? holds() : 'unknown state',
+                }).toEqual({ declared: tissueScenario.state, live: live, holds: true });
+            }
 
             // Meaningfulness: above the ceiling every engine returns 0 and the
             // two surfaces cannot be told apart. The run only counts when the
@@ -1258,6 +1432,22 @@ if (!ENABLED) {
             expect(sources.filter((s) => s.plan !== s.export)).toEqual([]);
         });
 
+        test('GH-470: the whole calendar input shape, product against product', () => {
+            // Not fourteen names and not the fixture: every key of
+            // CALENDAR_INPUT_KEYS, compared between what the export actually
+            // handed computeProgram and what the same adapter builds on the
+            // page for the same site and sample. `null` against a value is a
+            // difference like any other — which is the case that went unseen
+            // while 24 of 35 fields were empty.
+            const cal = exportCalendarCall();
+            expect(harnessBuilt).toBeTruthy();
+            expect(cal.whole).toBeTruthy();
+            const differing = Object.keys(harnessBuilt)
+                .filter((k) => JSON.stringify(cal.whole[k]) !== JSON.stringify(harnessBuilt[k]))
+                .map((k) => ({ key: k, export: cal.whole[k], harness: harnessBuilt[k] }));
+            expect({ differing: differing }).toEqual({ differing: [] });
+        });
+
         test('same inputs reached both surfaces: species, annual N, soil ppm, tissue, bulk density / depth', () => {
             const cal = exportCalendarCall();
             const eng = exportEngineCall();
@@ -1280,15 +1470,42 @@ if (!ENABLED) {
                 rows.push({ what: 'soil ' + n + ' ppm: Plan vs export calendar', plan: num(plan.program.soil.ppm[n]), export: num(cal.inputs.soilPpm[n]) });
                 rows.push({ what: 'soil ' + n + ' ppm: Plan vs export engine', plan: num(plan.program.soil.ppm[n]), export: num(eng.inputs.soil[n]) });
             });
-            // A fixture site with no tissue sample on file declares nulls; the
-            // rows below would then compare "absent" against "absent" and
-            // numericMismatches() reports any non-number as a mismatch. Assert
-            // the absence explicitly instead of skipping it silently.
-            const fixtureHasTissue = ['N', 'P', 'K'].every((n) => typeof FX.tissuePercent[n] === 'number');
-            if (fixtureHasTissue) {
+            // GH-452: Plan against the export, like every other row here.
+            //
+            // These two compared FX.tissuePercent -- a number written into the
+            // fixture on the day it was captured -- against the export's
+            // input. That is not a parity check: Plan never entered it, and
+            // what it actually asserted was "the database still holds the
+            // reading it held that day". It went red when the owner changed
+            // the sample to a different scenario, which is a legitimate thing
+            // to do to a test site and no defect at all. The soil rows above
+            // were always built correctly (plan.program.soil.ppm against
+            // cal.inputs.soilPpm); these now match them.
+            //
+            // The fixture's own tissue numbers are not an expectation any
+            // more. They document the scenario the site is meant to be in, and
+            // the precondition below checks the database against that
+            // scenario, not against a number.
+            //
+            // GH-456: and whether there is a tissue reading at all is decided
+            // from the PLAN PAGE, not from the fixture. `FX.tissuePercent` was
+            // the last live place in this file where a number captured on one
+            // day stood in for what the product currently does: add a tissue
+            // reading to a site whose fixture has none and these rows are
+            // skipped, while the branch below demands both gates be off -- a
+            // red run produced by editing data, which is the construction the
+            // three fixes before this one removed from the comparisons, the
+            // preconditions and the call selection.
+            const planTissue = plan.program.tissue_percent || null;
+            const planHasTissue = !!planTissue && ['N', 'P', 'K'].every((n) => num(planTissue[n]) !== null);
+            process.stdout.write('[e2e] tissue rows: the Plan page '
+                + (planHasTissue ? 'carries a tissue reading (N/P/K), comparing it against the export'
+                                 : 'carries no tissue reading, asserting the gate is off on both surfaces') + '\n');
+            if (planHasTissue) {
                 ['N', 'P', 'K'].forEach((n) => {
-                    rows.push({ what: 'tissue ' + n + ' %: fixture vs export calendar', plan: FX.tissuePercent[n], export: cal.inputs.tissuePercent && num(cal.inputs.tissuePercent[n]) });
-                    rows.push({ what: 'tissue ' + n + ' %: fixture vs export engine', plan: FX.tissuePercent[n], export: eng.inputs.tissuePercent && num(eng.inputs.tissuePercent[n]) });
+                    const planValue = num(planTissue[n]);
+                    rows.push({ what: 'tissue ' + n + ' %: Plan vs export calendar', plan: planValue, export: cal.inputs.tissuePercent && num(cal.inputs.tissuePercent[n]) });
+                    rows.push({ what: 'tissue ' + n + ' %: Plan vs export engine', plan: planValue, export: eng.inputs.tissuePercent && num(eng.inputs.tissuePercent[n]) });
                 });
             } else {
                 expect({ planGate: plan.program.tissue_gate_applied, exportGate: cal.out.tissue_gate_applied })
@@ -1312,6 +1529,39 @@ if (!ENABLED) {
                     rows.push({ what: n + ' annual_removal', plan: plan.program.annual_removal[n], export: cal.out.annual_removal && cal.out.annual_removal[n] });
                     rows.push({ what: n + ' annual_lift', plan: plan.program.annual_lift[n], export: cal.out.annual_lift && cal.out.annual_lift[n] });
                 }
+            });
+            expect(numericMismatches(rows, 0.05)).toEqual([]);
+        });
+
+        test('the monthly series agrees month by month: GP, the temperature behind it, and the nitrogen spread along it', () => {
+            // GH-459: until this test, nothing here compared a single month.
+            // The annual totals above are normalised to the target, so they
+            // reconcile against ANY curve — a document computed on another
+            // site's climate reconciled perfectly and printed twelve wrong
+            // months, and all 22 checks stayed green. The owner found it in a
+            // delivered report.
+            //
+            // Temperature is the input, GP is what the curve makes of it, and
+            // N is what the programme spreads along the curve; a leak in the
+            // site's identity moves all three, and each names itself here.
+            const cal = exportCalendarCall();
+            const planMonths = plan.program.monthly || [];
+            const exportMonths = cal.out.monthly || [];
+            expect({ plan: planMonths.length, export: exportMonths.length })
+                .toEqual({ plan: 12, export: 12 });
+
+            const rows = [];
+            planMonths.forEach((pm, i) => {
+                const em = exportMonths[i] || {};
+                const month = pm.month_name || ('month ' + (i + 1));
+                expect({ month: month, exportMonth: em.month_name || null })
+                    .toEqual({ month: month, exportMonth: pm.month_name || null });
+                // 0.05 on GP and temperature is the rounding computeProgram()
+                // already applies (2dp and 1dp); anything wider would hide a
+                // different climate, which is the whole point of the row.
+                rows.push({ what: month + ' GP %: Plan vs export calendar', plan: pm.gp, export: em.gp });
+                rows.push({ what: month + ' mean temp °C: Plan vs export calendar', plan: pm.temp, export: em.temp });
+                rows.push({ what: month + ' N kg/ha: Plan vs export calendar', plan: pm.N, export: em.N });
             });
             expect(numericMismatches(rows, 0.05)).toEqual([]);
         });
@@ -1566,7 +1816,33 @@ if (!ENABLED) {
         test('the Plan\'s "Total Delivered" footer prints the programme\'s delivered vector, not its targets', () => {
             const footer = productFooterFromPlanText(plan.text);
             const prog = plan.products;
-            if (!prog || !prog.delivered || !footer.delivered) return;
+            // GH-457: which surfaces publish an annual delivered vector is
+            // stated, not skipped over.
+            //
+            // `if (!prog.delivered || !footer.delivered) return` made this test
+            // assert nothing on the New Zealand fixture, and the reason is a
+            // property of the REGION, measured on both fixtures: the AU
+            // recommender returns `{ targets, delivered, balance }` on its
+            // programme (au-fertiliser-products.js) and the UK integration
+            // publishes the same pair, while on this site the programme comes
+            // from nutrition-nz-fertiliser-integration.js (which overwrites
+            // the standalone Prebble one on the shared global) and carries
+            // neither -- the Prebble programme object it is built from is
+            // `{ meta, monthly, annualSummary }`. NZ
+            // delivery is not missing -- the Plan page prints a full "Total
+            // Delivered" footer on this very fixture (N 245.5, P 32.2,
+            // K 100.1) -- it is computed at render time from the shared
+            // accumulator instead of being stamped on the programme. So the
+            // comparison below genuinely cannot run here, and that is now an
+            // assertion a reader can disagree with: it goes red the day the NZ
+            // recommender starts publishing the vector, or the AU one stops.
+            const region = fixture.region || 'nz';
+            expect({ region: region, programmePublishesDeliveredVector: !!(prog && prog.delivered) })
+                .toEqual({ region: region, programmePublishesDeliveredVector: region !== 'nz' });
+            // The footer itself is printed by every region, so its presence is
+            // asserted for all of them rather than used as a silent gate.
+            expect(footer.delivered).toBeTruthy();
+            if (!prog || !prog.delivered) return;
             const rows = [];
             ['N', 'P', 'K'].forEach((k) => {
                 if (prog.delivered[k] == null || footer.delivered[k] == null) return;
@@ -1694,17 +1970,63 @@ if (!ENABLED) {
                 expect(plan.text).toContain(pp.name);
             });
             expect(numericMismatches(renderedRows, 1)).toEqual([]);
+            // GH-455: the Monthly Schedule is compared as a quantity, not as a
+            // rendered string.
+            //
+            // This built `g.name + ' @ ' + g.rateKgHa + ' kg/ha'` and looked for
+            // that literal text in the export's cell. Both surfaces print a
+            // greens rate in g/m² -- GH-406/GH-409 settled that a fine-turf rate
+            // is grams per square metre whatever the region, and GH-434 carried
+            // the Monthly Schedule over to it -- so on `burns` and `slan` the
+            // harness was searching a cell reading "8.3 g/m²" for the string
+            // "83 kg/ha" and reporting the export. The export is right; the
+            // expectation was the half of GH-409 that stayed behind here.
+            //
+            // The two surfaces do not even format the same unit identically
+            // (the Plan panel writes "8.3g/m²", the document "8.3 g/m²"), which
+            // is why this compares the NUMBER and not the text.
+            //
+            // The tolerance comes from the cell, one row at a time: half of the
+            // rate's own last printed digit, carried into kg/ha. A flat 1 kg/ha
+            // stood here first, borrowed from the rendered-rows check above. It
+            // hid nothing -- the same programme is compared object against
+            // object at 0.05 elsewhere in this file, with no rendering in
+            // between -- but it was not a number this cell had earned: one
+            // decimal of g/m² earns 0.5, whole g/m² would earn 5, and whole
+            // kg/ha earns 0.5, so a single constant is right only for the
+            // documents that happen to be in the fixture set. On the smallest
+            // rate those fixtures produce (15 kg/ha) it was 6.7%.
             const schedule = exportMonthlyRows();
-            const missingFromSchedule = [];
+            const scheduleMismatches = [];
             plan.products.monthly.forEach((pm, i) => {
+                const row = schedule && schedule[i];
+                const cell = row && row.granular;
+                const monthName = pm.month || (row && row.month) || ('month #' + (i + 1));
+                const printed = scheduleEntries(cell);
                 pm.granular.forEach((g) => {
-                    const expected = g.name + ' @ ' + g.rateKgHa + ' kg/ha';
-                    if (!schedule[i] || schedule[i].granular.indexOf(expected) === -1) {
-                        missingFromSchedule.push({ month: pm.month, expected, exportCell: schedule[i] && schedule[i].granular });
+                    const entry = printed.filter((e) => e.name === g.name)[0];
+                    if (!entry) {
+                        scheduleMismatches.push({ month: monthName, missingFromSchedule: g.name, exportCell: cell });
+                        return;
                     }
+                    // A rate the reader refused is reported as itself. Reading
+                    // it loosely would put a number here that nobody printed.
+                    if (entry.unreadable) {
+                        scheduleMismatches.push({
+                            month: monthName, product: g.name,
+                            unreadableRate: entry.rateText, exportCell: cell
+                        });
+                        return;
+                    }
+                    numericMismatches([{
+                        what: monthName + ' ' + g.name + ' rate, kg/ha: Plan vs export Monthly Schedule',
+                        plan: g.rateKgHa, export: entry.rateKgHa
+                    }], entry.tolKgHa).forEach((m) => scheduleMismatches.push(Object.assign({
+                        printedAs: entry.rateText, toleranceKgHa: entry.tolKgHa
+                    }, m)));
                 });
             });
-            expect(missingFromSchedule).toEqual([]);
+            expect(scheduleMismatches).toEqual([]);
         });
 
         test('"Balance" means different things on the two surfaces — each is consistent with its own definition', () => {

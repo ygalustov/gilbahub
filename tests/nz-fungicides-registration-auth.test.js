@@ -190,24 +190,105 @@ describe('R0 — Ippon 500SC vs Defence (iprodione label divergence)', () => {
 // R1 — multi-site classification
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * GH-457: every disease that has a rotation, built from the database's own
+ * target lists — 18 of them. Three of the products below appear in none of
+ * them, and the tests say so against this list rather than against one
+ * disease, so that the promise in the comment and the assertion under it are
+ * the same statement.
+ */
+const ALL_ROTATION_DISEASES = (function () {
+    const out = {};
+    Object.keys(db).forEach((k) => (db[k].targets || []).forEach((d) => { out[d] = true; }));
+    return Object.keys(out);
+})();
+
+function rotationsContaining(trade) {
+    return ALL_ROTATION_DISEASES.filter((d) => api.getRotationForDisease(d).some((r) => r.trade === trade));
+}
+
 describe('R1 — multi-site classification in rotation', () => {
     test('Taratek 5F (M05+1) is NOT classified as multi-site in rotation', () => {
         const rot = api.getRotationForDisease('dollarSpot');
         const taratek = rot.find(r => r.trade === 'Taratek 5F');
-        // If present, must not carry the multi-site reason
-        if (taratek) {
-            expect(taratek.reason).not.toBe('Multi-site (low resistance risk)');
-        }
+        // GH-457: the claim holds whether the product is in this rotation or
+        // not, so it is asserted either way. `if (taratek) { expect(...) }`
+        // asserted nothing at all, because Taratek 5F is not in the dollar
+        // spot rotation today — the test could not have gone red if the
+        // classification were wrong for every product in the file.
+        const reason = taratek ? taratek.reason : null;
+        expect(reason).not.toBe('Multi-site (low resistance risk)');
+        // GH-457: and the reason the line above cannot go red today is
+        // asserted, not left to a comment. Taratek 5F is in no rotation for
+        // any of the 18 diseases: selection takes one product per FRAC group
+        // and four steps, of which the two multi-site slots are held by Balear
+        // 720SC and Supamanz. So the classification could be wrong for this
+        // product and nothing here would notice.
+        //
+        // The day it enters, THIS line fails — which is the signal to read the
+        // assertion above again, on a product the test can finally see.
+        //
+        // Why it is absent, and why this line stands.
+        //
+        // Absent because a rotation offers ONE product per FRAC group
+        // over four steps, and Taratek 5F is not the one its group
+        // sends. That rule is deliberate and settled — resistance
+        // management turns on changing the GROUP, not the trade name, so a
+        // second product from a group already in the rotation adds nothing
+        // to it (owner's decision, 16.09.2026; the rule has stood unchanged
+        // since the first commit, while GH-188, GH-197 and GH-200 changed
+        // only classification and sequence checking). Showing the other
+        // candidates in a group is a thing to do on request — when the
+        // product on the shelf has run out — not something this selection
+        // is missing.
+        //
+        // The line stands so that a change in selection is NOTICED. It
+        // pins today's state so that the day Taratek 5F enters a
+        // rotation, this fails and sends the reader back to the assertion
+        // above it, on a product the test can finally see.
+        expect(rot.map((r) => r.trade)).not.toContain('Taratek 5F');
+        expect(rotationsContaining('Taratek 5F')).toEqual([]);
     });
 
     test('Taratek 5F does not appear as multi-site for any disease in its targets', () => {
-        for (const disease of db.chlorothalonilThiophanate.targets) {
-            const rot = api.getRotationForDisease(disease);
-            const taratek = rot.find(r => r.trade === 'Taratek 5F');
-            if (taratek) {
-                expect(taratek.reason).not.toBe('Multi-site (low resistance risk)');
-            }
-        }
+        // GH-457: the loop asserted nothing on any disease where the product
+        // is absent from the rotation, and nothing at all if the target list
+        // were empty. Both are now stated: the product has targets, and across
+        // all of them none carries the multi-site reason.
+        const targets = db.chlorothalonilThiophanate.targets;
+        expect(targets.length).toBeGreaterThan(0);
+        const multiSite = targets.filter((disease) => {
+            const taratek = api.getRotationForDisease(disease).find(r => r.trade === 'Taratek 5F');
+            return taratek && taratek.reason === 'Multi-site (low resistance risk)';
+        });
+        expect(multiSite).toEqual([]);
+        // GH-457: and across all six targets the subject is not in any
+        // rotation today, so the line above cannot go red either — the same
+        // blindness as the three single-disease tests, spread over six
+        // diseases instead of one. Asserted, so that the first target Taratek
+        // 5F enters fails here and names it.
+        //
+        // Why it is absent, and why this line stands.
+        //
+        // Absent because a rotation offers ONE product per FRAC group
+        // over four steps, and Taratek 5F is not the one its group
+        // sends. That rule is deliberate and settled — resistance
+        // management turns on changing the GROUP, not the trade name, so a
+        // second product from a group already in the rotation adds nothing
+        // to it (owner's decision, 16.09.2026; the rule has stood unchanged
+        // since the first commit, while GH-188, GH-197 and GH-200 changed
+        // only classification and sequence checking). Showing the other
+        // candidates in a group is a thing to do on request — when the
+        // product on the shelf has run out — not something this selection
+        // is missing.
+        //
+        // The line stands so that a change in selection is NOTICED. It
+        // pins today's state so that the day Taratek 5F enters a
+        // rotation, this fails and sends the reader back to the assertion
+        // above it, on a product the test can finally see.
+        const present = targets.filter((disease) =>
+            api.getRotationForDisease(disease).some(r => r.trade === 'Taratek 5F'));
+        expect(present).toEqual([]);
     });
 
     test('Balear 720SC (M05, true multi-site) IS classified as multi-site in rotation', () => {
@@ -218,19 +299,79 @@ describe('R1 — multi-site classification in rotation', () => {
     });
 
     test('Clarity (BM02 biological) is NOT classified as multi-site in rotation', () => {
+        // GH-457: the reason is read off the entry or off `null` when the
+        // product is absent, so the claim is asserted either way. The
+        // `if (product) { expect(...) }` this replaced asserted nothing at
+        // all, because the product is not in this rotation.
         const rot = api.getRotationForDisease('dollarSpot');
         const clarity = rot.find(r => r.trade === 'Clarity');
-        if (clarity) {
-            expect(clarity.reason).not.toBe('Multi-site (low resistance risk)');
-        }
+        expect(clarity ? clarity.reason : null).not.toBe('Multi-site (low resistance risk)');
+        // GH-457: Clarity is in no rotation for any of the 18 diseases either,
+        // so the line above cannot go red today. Both halves of that are
+        // asserted — this rotation, and every rotation there is — because a
+        // comment promising eighteen over an assertion checking one is the
+        // same gap in smaller print: Clarity appearing in the fusarium
+        // rotation would have dropped nothing.
+        //
+        // Why it is absent, and why this line stands.
+        //
+        // Absent because a rotation offers ONE product per FRAC group
+        // over four steps, and Clarity is not the one its group
+        // sends. That rule is deliberate and settled — resistance
+        // management turns on changing the GROUP, not the trade name, so a
+        // second product from a group already in the rotation adds nothing
+        // to it (owner's decision, 16.09.2026; the rule has stood unchanged
+        // since the first commit, while GH-188, GH-197 and GH-200 changed
+        // only classification and sequence checking). Showing the other
+        // candidates in a group is a thing to do on request — when the
+        // product on the shelf has run out — not something this selection
+        // is missing.
+        //
+        // The line stands so that a change in selection is NOTICED. It
+        // pins today's state so that the day Clarity enters a
+        // rotation, this fails and sends the reader back to the assertion
+        // above it, on a product the test can finally see.
+        expect(rot.map((r) => r.trade)).not.toContain('Clarity');
+        expect(rotationsContaining('Clarity')).toEqual([]);
     });
 
     test('Fostonic (P07 phosphonate) is NOT classified as multi-site in rotation', () => {
+        // GH-457: the reason is read off the entry or off `null` when the
+        // product is absent, so the claim is asserted either way. The
+        // `if (product) { expect(...) }` this replaced asserted nothing at
+        // all, because the product is not in this rotation.
         const rot = api.getRotationForDisease('pythium');
         const fostonic = rot.find(r => r.trade === 'Fostonic');
-        if (fostonic) {
-            expect(fostonic.reason).not.toBe('Multi-site (low resistance risk)');
-        }
+        expect(fostonic ? fostonic.reason : null).not.toBe('Multi-site (low resistance risk)');
+        // GH-457: Fostonic is in no rotation for any of the 18 diseases, and
+        // stays out even when every rotation entry is forced to carry the
+        // multi-site reason — the pythium rotation is Ventura, Atlantis Flo,
+        // Procura, Phosgard. Both halves asserted, this rotation and all of
+        // them, so that the promise and the check are one statement.
+        //
+        // It is a pythium candidate all along (P07, targets ["pythium"]); the
+        // P07 slot is simply taken by Phosgard first, with Aliette WG third.
+        //
+        // Why it is absent, and why this line stands.
+        //
+        // Absent because a rotation offers ONE product per FRAC group
+        // over four steps, and Fostonic is not the one its group
+        // sends. That rule is deliberate and settled — resistance
+        // management turns on changing the GROUP, not the trade name, so a
+        // second product from a group already in the rotation adds nothing
+        // to it (owner's decision, 16.09.2026; the rule has stood unchanged
+        // since the first commit, while GH-188, GH-197 and GH-200 changed
+        // only classification and sequence checking). Showing the other
+        // candidates in a group is a thing to do on request — when the
+        // product on the shelf has run out — not something this selection
+        // is missing.
+        //
+        // The line stands so that a change in selection is NOTICED. It
+        // pins today's state so that the day Fostonic enters a
+        // rotation, this fails and sends the reader back to the assertion
+        // above it, on a product the test can finally see.
+        expect(rot.map((r) => r.trade)).not.toContain('Fostonic');
+        expect(rotationsContaining('Fostonic')).toEqual([]);
     });
 
     test('Supamanz (M03, true multi-site) IS multi-site in rotation', () => {

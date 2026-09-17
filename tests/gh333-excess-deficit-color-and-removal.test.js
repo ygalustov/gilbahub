@@ -40,6 +40,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 function extractBlock(src, startMarker, maxLen) {
     const idx = src.indexOf(startMarker);
@@ -76,9 +77,7 @@ describe.each([
     // route through it -- pinned here -- and the mapping itself is executed
     // below rather than matched as text.
     test('statusVisualClass() delegates to the shared classifier module', () => {
-        const idx = src.indexOf('function statusVisualClass(statusClass) {');
-        expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, idx + 500);
+        const block = anchoredWindow(src, 'function statusVisualClass(statusClass) {', 500);
         expect(block).toMatch(/_balanceModel\.visualClass\(statusClass\)/);
     });
 

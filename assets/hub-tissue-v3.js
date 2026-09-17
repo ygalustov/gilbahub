@@ -906,11 +906,22 @@ function getClimateMetricsWithFallback(e, t) {
                 min: a,
                 soil: r.soil || null,
             },
-            growth: {
-                c3: calcC3GrowthPotential(o),
-                c4: calcC4GrowthPotential(o),
-                weighted: (calcC3GrowthPotential(o) + calcC4GrowthPotential(o)) / 2,
-            },
+            growth: (function () {
+                // GH-510: a mean of two answers is an answer only if both were
+                // given. `calcC3/C4GrowthPotential` return null where the engine
+                // could not compute, and `(null + null) / 2` is 0 in JavaScript
+                // — so the null the leaves now carry became a nought again one
+                // line above them, and every consumer of `weighted` read it as
+                // a measurement. The reviewer's mutation, restoring `: 0` in
+                // the leaf, was invisible for exactly this reason.
+                var _c3 = calcC3GrowthPotential(o);
+                var _c4 = calcC4GrowthPotential(o);
+                return {
+                    c3: _c3,
+                    c4: _c4,
+                    weighted: (_c3 == null || _c4 == null) ? null : (_c3 + _c4) / 2,
+                };
+            })(),
             moisture: {
                 // b35fix345: null when manual humidity unset (was `|| 65`).
                 // Pre-fix planted 65 indistinguishably from real data on the
@@ -2089,29 +2100,54 @@ function getAverageTemperature(e, t) {
     );
 }
 
+// GH-498: "not computed" is not zero.
+//
+// The engine answers null when it cannot compute — no temperature, or one
+// outside the model's range. Both of these turned that null into the number 0,
+// and 0 is a growth potential a client reads as a statement about his turf:
+// "Current growth potential (0%) severely restricts the turf's ability to
+// recover from damage" is what the document printed for the first report of
+// every export, beside its own Monthly Schedule saying 13%.
+//
+// Null now travels. The gate downstream drops the sentence rather than
+// printing a nought, and the availability registry gets the row.
+//
+// Both, not one: C4 is couch and buffalograss, which is where the Australian
+// sites are.
 function calcC3GrowthPotential(e) {
     var GPE = window && window.GilbaGrowthPotentialEngine;
     var gp = GPE ? GPE.compute(e, { model: 'pace', species: 'c3' }) : null;
-    return gp != null ? Math.max(0, Math.min(100, gp * 100)) : 0;
+    return gp != null ? Math.max(0, Math.min(100, gp * 100)) : null;
 }
 
 function calcC4GrowthPotential(e) {
     var GPE = window && window.GilbaGrowthPotentialEngine;
     var gp = GPE ? GPE.compute(e, { model: 'pace', species: 'c4' }) : null;
-    return gp != null ? Math.max(0, Math.min(100, gp * 100)) : 0;
+    return gp != null ? Math.max(0, Math.min(100, gp * 100)) : null;
 }
 
 function calcMixedGrowthPotential(e, t, r) {
     var n = calcC3GrowthPotential(e),
         i = calcC4GrowthPotential(e),
-        a = t * n + r * i;
+        // GH-510: same rule as the mean above — a blend of two answers needs
+        // both of them. `t * null + r * null` is 0, which is a growth potential
+        // a client reads as a statement about his turf.
+        a = (n == null || i == null) ? null : t * n + r * i;
     return {
         c3potential: n,
         c4potential: i,
         weighted: a,
         temperature: e,
         dominant: t > r ? "C3" : r > t ? "C4" : "Mixed",
-        status: a >= 80 ?
+        // GH-511: the verdict is built from the same value as `weighted`, so it
+        // needs the same guard. Every comparison against null is false, so the
+        // ladder fell through to its last rung and answered
+        // "Minimal/dormant - temperature limiting" — a statement about the
+        // client's turf, made where nothing was computed. `weighted` and
+        // `status` are the only two properties of this object derived from `a`;
+        // `c3potential`/`c4potential` are the leaves themselves, `temperature`
+        // is the input, and `dominant` is decided by the two fractions.
+        status: a == null ? null : (a >= 80 ?
             "Optimal growth conditions" :
             a >= 60 ?
             "Good growth conditions" :
@@ -2119,7 +2155,7 @@ function calcMixedGrowthPotential(e, t, r) {
             "Moderate growth - suboptimal temp" :
             a >= 20 ?
             "Slow growth - temperature stress" :
-            "Minimal/dormant - temperature limiting",
+            "Minimal/dormant - temperature limiting"),
     };
 }
 
@@ -7459,6 +7495,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function triggerAutoRun() {
         if (_autoRunFired) return;
+        // GH-441 (GH-439 stage 2, review): one rule, checked wherever a run
+        // can start. Without the site's settings the DOM holds form defaults,
+        // and an analysis built on those is indistinguishable on screen from
+        // a real one.
+        if (window.GAIP_SITE_CONFIG_FAILED) {
+            console.warn("[GAIP] Auto-run cancelled — site settings could not be loaded");
+            return;
+        }
         // All three conditions must be met: persistence restored, site-config
         // applied, AND the DOM forms confirmed to match the active site. This
         // ensures gaip_build_state() reads the correct species/turfType/samples
@@ -7545,6 +7589,15 @@ document.addEventListener("DOMContentLoaded", function() {
     // GP stuck wrong). So: no shortcuts — just wait long enough for the real event.
     document.addEventListener("DOMContentLoaded", function() {
         setTimeout(function() {
+            // GH-441 (GH-439 stage 2, review): this fallback exists because
+            // site-config-applied can be late. It must not fire when that
+            // event is never coming BECAUSE the settings could not be read --
+            // that is the one case where running "now" means running on the
+            // form's defaults, which is what the whole stage removes.
+            if (window.GAIP_SITE_CONFIG_FAILED) {
+                console.warn("[GAIP] Auto-run safety fallback skipped — site settings could not be loaded");
+                return;
+            }
             if (!_autoRunFired) {
                 console.warn("[GAIP] Auto-run safety fallback: site-config-applied not received, running now");
                 _siteConfigApplied = true;
@@ -7645,6 +7698,13 @@ document.addEventListener("DOMContentLoaded", function() {
             if (!_pendingSiteRun) return;
             // Guard against page-load config restore still in flight.
             // Note: this IIFE has no 'global' param — use window directly
+            // GH-441 (GH-439 stage 2, review): same rule as the orchestrator
+            // -- FAILED is not "wait longer", it is "do not run".
+            if (window.GAIP_SITE_CONFIG_FAILED) {
+                console.warn("[GAIP] Site switch run cancelled — site settings could not be loaded");
+                _pendingSiteRun = false;
+                return;
+            }
             if (window.GAIP_SITE_CONFIG_PENDING) {
                 console.log("[GAIP] Site switch fallback deferred, config restore pending, delegating to site-config-applied");
                 return; // site-config-applied listener will handle it

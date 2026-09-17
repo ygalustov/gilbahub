@@ -27,6 +27,7 @@
 const vm = require('vm');
 const fs = require('fs');
 const path = require('path');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 function loadSharedFile() {
     const src = fs.readFileSync(path.join(__dirname, '../assets/k-reconciliation-decision.js'), 'utf8');
@@ -90,9 +91,7 @@ describe('GH-292 — word-export.js delegates to the shared file instead of keep
     });
 
     test('_synthesiseKReconDecision is a thin wrapper calling window.GAIP_KReconDecision.synthesiseDecision', () => {
-        const idx = src.indexOf('function _synthesiseKReconDecision(soilData, kRequired, kDelivered, opts) {');
-        expect(idx).toBeGreaterThan(-1);
-        const body = src.slice(idx, idx + 250);
+        const body = anchoredWindow(src, 'function _synthesiseKReconDecision(soilData, kRequired, kDelivered, opts) {', 250);
         expect(body).toMatch(/window\.GAIP_KReconDecision\.synthesiseDecision\(/);
         // The old two-gate implementation (BALANCE_THRESHOLD/NEAR_FLOOR_BUFFER
         // constants) must be gone from word-export.js -- it now lives only in

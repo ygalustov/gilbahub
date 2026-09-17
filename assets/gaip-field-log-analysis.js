@@ -7,7 +7,7 @@
  * Runs WITHOUT the full Hub asset stack (no gilba-hub-v2.js, no hub-tissue-v3.js).
  *
  * WHAT IT DOES:
- *   1. Reads saved site location from localStorage (gilba_hub_site_configs)
+ *   1. Reads the site's saved location from the server (GH-442)
  *   2. Fetches Open-Meteo forecast for that location
  *   3. Computes growth potential via GilbaGrowthPotentialEngine (PACE)
  *   4. Runs DiseaseEnginePure.analyse() — loaded as a dependency
@@ -89,16 +89,29 @@
     }
 
     // -------------------------------------------------------------------------
-    // SITE CONFIG  — read saved turf profile + location from localStorage
+    // SITE CONFIG  — read the site's turf profile + location from the server
     // -------------------------------------------------------------------------
+
+    // GH-442 (GH-439 stage 3): what the pre-flight fetch returned, for the life
+    // of this page. Nothing here writes to storage.
+    var _serverConfigs = {};
     function getSavedSiteConfig(siteId) {
         try {
-            // 1. Try hub site configs (written by site-config-persistence.js)
-            var raw = _ls.getItem('gilba_hub_site_configs');
-            if (raw) {
-                var configs = JSON.parse(raw);
-                if (configs[siteId]) { return configs[siteId]; }
-            }
+            // GH-442 (GH-439 stage 3): the site's own config, from whichever
+            // server-fed source this page has -- the in-memory cache when
+            // site-config-persistence.js is loaded, or the config the page was
+            // rendered with. It used to come out of gilba_hub_site_configs,
+            // which is where a copy of some earlier session sat.
+            var cached = global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getConfig === 'function'
+                ? global.GAIP_SiteConfig.getConfig(siteId)
+                : null;
+            if (cached) return cached;
+
+            var hub = global.GAIP_HUB_CONFIG || {};
+            if (hub.activeSiteId === siteId && hub.gaipConfig) return hub.gaipConfig;
+
+            var fetched = _serverConfigs[siteId];
+            if (fetched) return fetched;
 
             // 2. Try disease cache — it was written for this siteId so location
             //    must have been known at write time. Extract location from it.
@@ -561,7 +574,7 @@
 
     /**
      * Fetch site configs from server and merge into localStorage.
-     * Used as a pre-flight on fresh devices where gilba_hub_site_configs is empty.
+     * Used as a pre-flight when this page holds no config for the site.
      * @param {function} onComplete  called when done (merged: true/false)
      */
     function fetchConfigsFromServer(onComplete) {
@@ -583,32 +596,13 @@
                 if (Object.keys(serverConfigs).length === 0) {
                     onComplete(false); return;
                 }
-                // Merge into localStorage — server wins for species/identity
-                var existing = {};
-                try {
-                    var raw = _ls.getItem('gilba_hub_site_configs');
-                    if (raw) existing = JSON.parse(raw);
-                } catch(e) {}
-                var identityFields = ['turfType', 'subCategory', 'species', 'variety', 'grassSpecies'];
-                Object.keys(serverConfigs).forEach(function(siteId) {
-                    var srv = serverConfigs[siteId];
-                    if (!srv || !srv.turf) return;
-                    if (!existing[siteId]) {
-                        existing[siteId] = srv;
-                    } else {
-                        var srvTime = srv.savedAt     ? new Date(srv.savedAt).getTime()             : 0;
-                        var locTime = existing[siteId].savedAt ? new Date(existing[siteId].savedAt).getTime() : 0;
-                        if (srvTime > locTime) {
-                            identityFields.forEach(function(f) {
-                                if (srv.turf[f] !== undefined) existing[siteId].turf[f] = srv.turf[f];
-                            });
-                        }
-                    }
-                });
-                try {
-                    _ls.setItem('gilba_hub_site_configs', JSON.stringify(existing));
-                    log('Pre-flight: merged site configs from server');
-                } catch(e) {}
+                // GH-442 (GH-439 stage 3): held for this page only. This
+                // used to merge into gilba_hub_site_configs under a
+                // savedAt-versus-savedAt rule -- the same negotiation stage 2
+                // removed everywhere else, and for the same reason: there is
+                // nothing for the server's answer to negotiate with.
+                _serverConfigs = serverConfigs;
+                log('Pre-flight: loaded site configs from server');
                 onComplete(true);
             })
             .catch(function() { onComplete(false); });
@@ -617,72 +611,20 @@
     function run(siteId) {
         var activeSiteId = siteId || getActiveSiteId();
 
-        // b35fix137: one-time cleanup for pgr bleed (mirrors site-config-persistence cleanup).
-        // Runs on the field log page which doesn't load site-config-persistence.
-        (function() {
-            // b35fix137d: final pass — also catch bled entries with complete pgr but
-            // same applicationDate shared across multiple sites (impossible legitimately).
-            var cleanupKey = 'gilba_pgr_bleed_cleanup_b35fix137d';
-            if (_ls.getItem(cleanupKey)) return;
-            try {
-                var raw = _ls.getItem('gilba_hub_site_configs');
-                if (!raw) return;
-                var cfgs = JSON.parse(raw);
-                var dirty = false;
+        // GH-442 (GH-439 stage 3): the PGR bleed cleanup that stood here is
+        // gone. It repaired gilba_hub_site_configs -- damage done by the DOM
+        // snapshots, which stage 2 removed -- and the key itself no longer
+        // exists. Its twin in site-config-persistence.js went with them.
 
-                // Build map: applicationDate -> [siteIds that have it]
-                var dateMap = {};
-                Object.keys(cfgs).forEach(function(id) {
-                    var d = cfgs[id] && cfgs[id].pgr && cfgs[id].pgr.applicationDate;
-                    if (d) { if (!dateMap[d]) dateMap[d] = []; dateMap[d].push(id); }
-                });
+        // Pre-flight: fetch the configs unless this page already holds the
+        // active site's, either in the shared cache or in what the server
+        // rendered into it. (GH-442: this used to look in localStorage.)
+        var hub = global.GAIP_HUB_CONFIG || {};
+        var hasConfig = !!(global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getConfig === 'function'
+                && global.GAIP_SiteConfig.getConfig(activeSiteId))
+            || !!(hub.activeSiteId === activeSiteId && hub.gaipConfig);
 
-                Object.keys(cfgs).forEach(function(id) {
-                    var cfg = cfgs[id];
-                    if (!cfg || !cfg.pgr || !cfg.pgr.productType) return;
-                    var isBleed = false;
-                    var reason = '';
-                    // Case 1: no applicationDate
-                    if (!cfg.pgr.applicationDate) { isBleed = true; reason = 'no applicationDate'; }
-                    // Case 2: _savedForSite mismatch
-                    if (cfg.pgr._savedForSite && cfg.pgr._savedForSite !== id) {
-                        isBleed = true; reason = 'savedForSite=' + cfg.pgr._savedForSite;
-                    }
-                    // Case 3: same applicationDate shared with another site (bled snapshot)
-                    var sharedWith = cfg.pgr.applicationDate && dateMap[cfg.pgr.applicationDate]
-                        ? dateMap[cfg.pgr.applicationDate].filter(function(x) { return x !== id; })
-                        : [];
-                    if (sharedWith.length > 0) {
-                        // Keep the site that explicitly saved (has _savedForSite == id), clear the rest
-                        if (!cfg.pgr._savedForSite || cfg.pgr._savedForSite !== id) {
-                            isBleed = true; reason = 'date shared with ' + sharedWith.join(',');
-                        }
-                    }
-                    if (isBleed) {
-                        console.log('[FieldAnalysis] PGR bleed cleanup: clearing pgr for', id,
-                            '(' + reason + ')');
-                        cfg.pgr = { productType: '', applicationDate: null, rateLperHa: null, enabled: false };
-                        dirty = true;
-                    }
-                });
-                if (dirty) _ls.setItem('gilba_hub_site_configs', JSON.stringify(cfgs));
-                else { console.log('[FieldAnalysis] PGR bleed cleanup: no bleed detected'); }
-                _ls.setItem(cleanupKey, '1');
-            } catch(e) { /* ignore */ }
-        })();
-
-        // Pre-flight: if gilba_hub_site_configs is missing or doesn't have this site,
-        // fetch from server before running. Handles fresh devices and cross-device updates.
-        var hasLocalConfig = false;
-        try {
-            var raw = _ls.getItem('gilba_hub_site_configs');
-            if (raw) {
-                var localCfgs = JSON.parse(raw);
-                hasLocalConfig = !!(localCfgs && localCfgs[activeSiteId]);
-            }
-        } catch(e) {}
-
-        if (!hasLocalConfig) {
+        if (!hasConfig) {
             return fetchConfigsFromServer(function() {
                 runWithConfig(activeSiteId);
             });
@@ -692,7 +634,14 @@
 
     function runWithConfig(activeSiteId) {
         var siteConfig   = getSavedSiteConfig(activeSiteId);
-        var location     = siteConfig && siteConfig.location;
+        // GH-477: the coordinates and the place come from the site row, which
+        // owns them; the copy in the config is written by the server FROM that
+        // row, so reading it is being one write path behind for no gain.
+        var _row         = (global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getSite === 'function')
+            ? global.GAIP_SiteConfig.getSite(activeSiteId) : null;
+        var location     = _row
+            ? { lat: _row.latitude, lon: _row.longitude, name: _row.location_name }
+            : null;
 
         if (!location || !location.lat || !location.lon) {
             warn('No saved location for site "' + activeSiteId + '" — skipping analysis');

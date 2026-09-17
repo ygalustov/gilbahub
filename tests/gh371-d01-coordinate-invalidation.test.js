@@ -33,6 +33,7 @@
  */
 
 'use strict';
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 // ─────────────────────────────────────────────────────────────────────────
 // Shared DOM/window scaffolding
@@ -238,15 +239,28 @@ describe('GH-371 — nutrition-calendar.js: persistSiteConfigPatch() is the real
         }));
     });
 
-    test('Plan-page path (GAIP_SiteConfig absent, the exact regression the live run found): the direct-PUT body carries nutritionProgramCoords too', () => {
+    test('Plan-page path (GAIP_SiteConfig absent, the exact regression the live run found): the PATCH body carries nutritionProgramCoords too', () => {
+        // GH-440 (GH-439 stage 1): the body is the patch, not the page's
+        // whole config. The stamp still has to be in it -- that is what this
+        // test was written for -- and nothing else may be, which is what the
+        // second half asserts: the tab's own copy of turf/location stays out
+        // of a write about a programme.
         const NC = setupWindow(false);
-        global.fetch = jest.fn(() => Promise.resolve({ text: () => Promise.resolve('{}') }));
+        global.fetch = jest.fn(() => Promise.resolve({ ok: true, text: () => Promise.resolve('{}') }));
+        global.window.GAIP_SITE_CONFIG = {
+            turf: { species: 'Stale species', methodology: 'slan' },
+            location: { name: 'Stale location', lat: 1, lon: 2 },
+        };
         NC.persistSiteConfigPatch({
             nutritionCalendarProgram: { meta: { lat: -36.85, lon: 174.76 }, annual_totals: {} },
         });
         expect(global.fetch).toHaveBeenCalled();
-        const putBody = JSON.parse(global.fetch.mock.calls[0][1].body);
-        expect(putBody.config.nutritionProgramCoords).toEqual({ lat: -36.85, lon: 174.76 });
+        expect(global.fetch.mock.calls[0][1].method).toBe('PATCH');
+        const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+        expect(body.patch.nutritionProgramCoords).toEqual({ lat: -36.85, lon: 174.76 });
+        expect(body.config).toBeUndefined();
+        expect(body.patch.turf).toBeUndefined();
+        expect(body.patch.location).toBeUndefined();
     });
 
     test('a patch with no real coordinates on nutritionCalendarProgram.meta does not add a nutritionProgramCoords key at all', () => {
@@ -264,94 +278,16 @@ describe('GH-371 — nutrition-calendar.js: persistSiteConfigPatch() is the real
     });
 });
 
-describe('GH-371 — site-config-persistence.js: snapshotConfig() drops cached programmes on a coordinate mismatch, carries them forward on a match', () => {
-    let SiteConfig;
-
-    function setup() {
-        jest.resetModules();
-        global.window = {};
-        global.console = { log: function () {}, warn: function () {}, error: function () {}, info: function () {} };
-        global.localStorage = { getItem: function () { return null; }, setItem: function () {}, removeItem: function () {} };
-        global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) }));
-    }
-
-    test('coordinates unchanged since the cached programme was generated — carried forward', () => {
-        setup();
-        global.document = makeDomStub({ '.gaip-lat': '-36.85', '.gaip-lon': '174.76' });
-        global.window.GAIP_SampleManager = { getActiveSiteId: function () { return 'site-1'; } };
-        require('../assets/site-config-persistence.js');
-        SiteConfig = global.window.GAIP_SiteConfig;
-
-        SiteConfig.mergeConfig('site-1', {
-            nutritionCalendarProgram: { meta: { lat: -36.85, lon: 174.76 }, annual_totals: { N: 200 } },
-            nutritionProgram: { monthly: [{ N: 16 }] },
-            // Computed upstream by persistSiteConfigPatch() in real use (see
-            // its own dedicated describe block) — supplied directly here
-            // since this block is testing snapshotConfig(), not the stamp
-            // computation itself.
-            nutritionProgramCoords: { lat: -36.85, lon: 174.76 },
-        });
-
-        const snapshot = SiteConfig.snapshot();
-        expect(snapshot.nutritionCalendarProgram).toBeTruthy();
-        expect(snapshot.nutritionProgram).toBeTruthy();
-        expect(snapshot.nutritionProgramCoords).toEqual({ lat: -36.85, lon: 174.76 });
-    });
-
-    test('coordinates changed since the cached programme was generated — dropped, not carried forward (the D01 regression case)', () => {
-        setup();
-        // Programme was generated for Auckland; the DOM (this snapshot's own
-        // fresh read) now shows Canberra — a real site-record coordinate
-        // write happened in between, same as the audit's E2->E3 delta.
-        global.document = makeDomStub({ '.gaip-lat': '-35.2809', '.gaip-lon': '149.1300' });
-        global.window.GAIP_SampleManager = { getActiveSiteId: function () { return 'site-1'; } };
-        require('../assets/site-config-persistence.js');
-        SiteConfig = global.window.GAIP_SiteConfig;
-
-        SiteConfig.mergeConfig('site-1', {
-            nutritionCalendarProgram: { meta: { lat: -36.8508827, lon: 174.7644881 }, annual_totals: { N: 200 } },
-            nutritionProgram: { monthly: [{ N: 16 }] },
-            nutritionProgramCoords: { lat: -36.8508827, lon: 174.7644881 },
-        });
-
-        const snapshot = SiteConfig.snapshot();
-        expect(snapshot.nutritionCalendarProgram).toBeUndefined();
-        expect(snapshot.nutritionProgram).toBeUndefined();
-        expect(snapshot.nutritionProgramCoords).toBeUndefined();
-    });
-
-    test('a sub-0.01-degree drift (rounding noise, not a real move) is still carried forward', () => {
-        setup();
-        global.document = makeDomStub({ '.gaip-lat': '-36.8509', '.gaip-lon': '174.7645' }); // ~0.0001 off
-        global.window.GAIP_SampleManager = { getActiveSiteId: function () { return 'site-1'; } };
-        require('../assets/site-config-persistence.js');
-        SiteConfig = global.window.GAIP_SiteConfig;
-
-        SiteConfig.mergeConfig('site-1', {
-            nutritionCalendarProgram: { meta: { lat: -36.8508827, lon: 174.7644881 }, annual_totals: { N: 200 } },
-            nutritionProgramCoords: { lat: -36.8508827, lon: 174.7644881 },
-        });
-
-        const snapshot = SiteConfig.snapshot();
-        expect(snapshot.nutritionCalendarProgram).toBeTruthy();
-    });
-
-    test('no stamp on the cached programme (legacy data, saved before this fix) is trusted as-is — forward-looking guard, not retroactive', () => {
-        setup();
-        global.document = makeDomStub({ '.gaip-lat': '-35.2809', '.gaip-lon': '149.1300' });
-        global.window.GAIP_SampleManager = { getActiveSiteId: function () { return 'site-1'; } };
-        require('../assets/site-config-persistence.js');
-        SiteConfig = global.window.GAIP_SiteConfig;
-
-        // Simulate legacy stored data with no nutritionProgramCoords at all —
-        // written by mergeConfig() directly bypassing the stamp (as if from
-        // before GH-371 shipped).
-        SiteConfig.mergeConfig('site-1', { nutritionCalendarProgram: { meta: {}, annual_totals: { N: 200 } } });
-
-        const snapshot = SiteConfig.snapshot();
-        expect(snapshot.nutritionCalendarProgram).toBeTruthy();
-    });
-});
+// GH-441 (GH-439 stage 2): snapshotConfig() is gone, and with it the block
+// of tests that lived here. It read the legacy form and wrote the result back
+// as the site's configuration, carrying the cached programme forward or
+// dropping it on a coordinate mismatch along the way. Nothing snapshots the
+// DOM any more, so there is no write path left for that rule to guard: the
+// programme is written by NutritionCalendar alone, stamped with the
+// coordinates it was computed against, and the server refuses a stamp that is
+// not where the site is (GH439SiteConfigPatchTest, and the stale-tab path test
+// added in GH-440). The read-side guards below are untouched and are what stop
+// a stale programme reaching the page.
 
 describe('GH-371 — site-config-persistence.js: restoreConfig() refuses to restore a coordinate-mismatched cached programme', () => {
     function setup() {
@@ -533,63 +469,47 @@ describe('GH-371 follow-up (independent review) — settings-init.js: neither Se
         src = fs.readFileSync(path.join(__dirname, '../assets/settings-init.js'), 'utf8');
     });
 
-    test('the site form clones D.gaipConfig, then strips all three cache keys before building the location update', () => {
-        const cloneIdx = src.indexOf("var cfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));");
-        expect(cloneIdx).toBeGreaterThan(-1);
-        const putIdx = src.indexOf("apiFetch('PUT', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', { config: cfg }),");
-        expect(putIdx).toBeGreaterThan(cloneIdx);
-        const between = src.slice(cloneIdx, putIdx);
-        expect(between).toMatch(/delete cfg\.nutritionProgram;/);
-        expect(between).toMatch(/delete cfg\.nutritionCalendarProgram;/);
-        expect(between).toMatch(/delete cfg\.nutritionProgramCoords;/);
+    // GH-440 (GH-439 stage 1): there is no clone to strip any more. Both
+    // handlers send only the sections they own, so the three cache keys
+    // cannot ride along in the first place -- which is what the deletions
+    // below used to arrange by hand. What has to hold now is that no handler
+    // sends a whole config at all.
+    test('neither Settings handler sends a whole config', () => {
+        expect(src).not.toMatch(/apiFetch\('PUT',\s*'\/sites\//);
+        expect(src).not.toMatch(/config:\s*cfg\b/);
+        expect(src).not.toMatch(/config:\s*_tcfg\b/);
     });
 
-    test('both config/gaip PUT call sites built from a D.gaipConfig clone are preceded by the strip (site form and turf form)', () => {
-        const cloneMarker = "var cfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));";
-        // Both handlers PUT `{ config: cfg }` where cfg traces back to the
-        // nearest preceding D.gaipConfig clone — walk each clone site
-        // forward to its own PUT call and assert the strip sits between.
-        const cloneSites = [];
-        let from = 0;
-        while (true) {
-            const idx = src.indexOf(cloneMarker, from);
-            if (idx === -1) break;
-            cloneSites.push(idx);
-            from = idx + cloneMarker.length;
-        }
-        expect(cloneSites.length).toBe(2); // site form + turf form
+    test('the site form sends location, irrigation and weatherOverride, and nothing else', () => {
+        const handlerIdx = src.indexOf("var _sections = { location: _locUpdate };");
+        expect(handlerIdx).toBeGreaterThan(-1);
+        const patchIdx = src.indexOf('patchGaipConfig(_sections)', handlerIdx);
+        expect(patchIdx).toBeGreaterThan(handlerIdx);
 
-        cloneSites.forEach(function (cloneIdx) {
-            const putIdx = src.indexOf('config: cfg }', cloneIdx);
-            expect(putIdx).toBeGreaterThan(cloneIdx);
-            const between = src.slice(cloneIdx, putIdx);
-            expect(between).toMatch(/delete cfg\.nutritionProgram;/);
-            expect(between).toMatch(/delete cfg\.nutritionCalendarProgram;/);
-            expect(between).toMatch(/delete cfg\.nutritionProgramCoords;/);
-        });
+        const handler = src.slice(handlerIdx, patchIdx);
+        expect(handler).toMatch(/_sections\.irrigation\s*=/);
+        expect(handler).toMatch(/_sections\.weatherOverride\s*=/);
+        expect(handler).not.toMatch(/_sections\.(turf|nutrition[A-Za-z]*|traffic|wizard)\s*=/);
     });
 
-    test('the strip runs unconditionally in BOTH handlers (not gated behind a coordinate-changed check) — these keys are never legitimately needed by either form', () => {
-        // Regression coverage for a real gap an independent review found in
-        // the first cut of this test: indexOf() alone only ever finds the
-        // FIRST occurrence (the site form's), so this assertion silently
-        // never covered the turf form's own strip at all. Walk every
-        // occurrence explicitly instead.
-        const marker = 'delete cfg.nutritionProgram;';
-        const occurrences = [];
-        let from = 0;
-        while (true) {
-            const idx = src.indexOf(marker, from);
-            if (idx === -1) break;
-            occurrences.push(idx);
-            from = idx + marker.length;
-        }
-        expect(occurrences.length).toBe(2); // site form + turf form
+    test('the turf form sends the turf section alone', () => {
+        expect(src).toMatch(/patchGaipConfig\(\{\s*turf:\s*turf\s*\}\)/);
+    });
 
-        occurrences.forEach(function (idx) {
-            const precedingLines = src.slice(0, idx).split('\n').slice(-6).join('\n');
-            expect(precedingLines).not.toMatch(/if\s*\(/);
-        });
+    test('an unset number travels as clear, never as null', () => {
+        // The route refuses null outright, so every form field that can be
+        // empty (irrigation efficiency, the weather overrides, elevation)
+        // reaches the server as a named clear instead.
+        const helper = anchoredSlice(src, 'function patchGaipConfig(sections)');
+        expect(helper).toMatch(/clear\.push\(key\)/);
+        expect(helper).toMatch(/clear\.push\(path\)/);
+        expect(helper).toMatch(/body\.clear = clear/);
+        // An empty text box counts as unset too: Laravel turns "" into null
+        // before the route sees it, so sending it as a value is a 422.
+        expect(helper).toMatch(/typeof value === 'string' && value\.trim\(\) === ''/);
+        // Except for the fields a site cannot work without, which are simply
+        // not mentioned when the control is empty.
+        expect(helper).toMatch(/GAIP_IDENTITY_FIELDS\.indexOf\(path\) !== -1/);
     });
 });
 

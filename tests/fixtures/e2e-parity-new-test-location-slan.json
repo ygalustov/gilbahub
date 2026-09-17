@@ -1,5 +1,5 @@
 {
-  "_purpose": "GH-384 (D31 stage 2) third E2E fixture: a SLAN site genuinely below the Carrow 2004 floor on more than one nutrient, so the SLAN branch \u2014 including the Spencer pH-ladder P floor GH-382 added and GH-384 made live on the Plan page \u2014 is actually exercised.",
+  "_purpose": "GH-384 (D31 stage 2) third E2E fixture: a SLAN site genuinely below the Carrow 2004 floor on more than one nutrient, so the SLAN branch — including the Spencer pH-ladder P floor GH-382 added and GH-384 made live on the Plan page — is actually exercised.",
   "_whyThisSample": "New test - location 'Putter Green' (sample 123) reads P 23.81 against the pH-adjusted SLAN P floor of 27 at pH 6.21, and K 19.31 against the SLAN K floor of 75. Federal Golf's Green 1, the obvious SLAN candidate, is inside the range on both P and K and would prove nothing.",
   "_knownDiscrepancy": "samples.methodology_snapshot for this sample reads 'mlsn' while the site config's turf.methodology is 'slan'. The harness's methodology row reports which one each surface actually resolved; that is a finding to record, not something to paper over.",
   "_source": "docker exec gilba_mysql mysql -ugilba: sites.id, samples.id=123 (soil, client_uid Soil_1_3cbn), site_configs(gaip).turf, read 2026-09-09.",
@@ -40,5 +40,19 @@
     "P",
     "K"
   ],
-  "region": "au"
+  "region": "au",
+  "scenario": {
+    "soilP": {
+      "state": "deficient",
+      "rule": "below the Carrow 2004 floor (mustBeBelowFloor)",
+      "value": 23.81,
+      "why": "GH-384: a SLAN site below the floor on more than one nutrient."
+    },
+    "soilK": {
+      "state": "deficient",
+      "rule": "below the Carrow 2004 floor (mustBeBelowFloor)",
+      "value": 19.31,
+      "why": "GH-384: the second below-floor nutrient on the same site."
+    }
+  }
 }

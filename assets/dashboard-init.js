@@ -385,7 +385,22 @@
             var gpBar = el('db-gp-bar');
             if (gpBar) {
                 gpBar.style.width = gp + '%';
-                gpBar.style.background = window.GAIP_GPStatus ? window.GAIP_GPStatus.getColorPct(gp) : (gp >= 70 ? '#16a34a' : (gp >= 40 ? '#d97706' : '#dc2626'));
+                // GH-458: the shared palette, or none. This carried its own
+                // copy of the GP colours beside the module call. The numbers
+                // matched the module's on the day it was written and still do,
+                // which is exactly why it survived: a second palette costs
+                // nothing until it drifts, and then this bar and the panel
+                // beside it disagree on the same page in front of a client.
+                //
+                // A missing module is a load order defect, not a data
+                // condition, so it is reported and the bar keeps its own
+                // styling rather than being painted from an invented scale.
+                if (window.GAIP_GPStatus) {
+                    gpBar.style.background = window.GAIP_GPStatus.getColorPct(gp);
+                } else {
+                    console.error('[DashboardInit] GH-458: gp-status.js is not loaded — leaving the GP bar ' +
+                        'uncoloured rather than colouring it from a second palette.');
+                }
             }
 
             // GP footer: season type + 8-day avg (main number is today's GP)

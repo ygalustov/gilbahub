@@ -44,6 +44,14 @@ class SettingsController extends Controller
 
         $activeSiteRole = $activeSite ? $user?->roleOnSite($activeSite) : null;
 
+        // GH-440 (GH-439 stage 1, contract 2.5): what the site's time zone
+        // would be if taken from its coordinates. The Timezone select offers
+        // it as "Auto", so the field reads as the override it now is.
+        $timezoneDerived = self::timezoneFromCoordinates(
+            $latitude  !== null ? (float) $latitude  : null,
+            $longitude !== null ? (float) $longitude : null
+        );
+
         return view('settings', [
             'title'            => 'Settings',
             'activeSite'       => $activeSite,
@@ -56,6 +64,7 @@ class SettingsController extends Controller
             'isNewZealand'     => $isNewZealand,
             'analysisCache'    => $analysisCache,
             'activeSiteRole'   => $activeSiteRole,
+            'timezoneDerived'  => $timezoneDerived,
         ]);
     }
 }

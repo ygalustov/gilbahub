@@ -87,33 +87,50 @@ function computeWith(texture, tissuePercent) {
 }
 
 describe('GH-414 (D-2) — the site override outranks the import-day snapshot', () => {
-    test('the override wins over a snapshot that disagrees with it', () => {
+    test('the site\'s setting is the answer, and the snapshot that disagrees with it is not consulted', () => {
+        // The measurement this test was written on stands: Russley's soil rows
+        // all carry their import-day stamp 'loam' while the site's own setting
+        // says 'sand', and the two surfaces resolved different certificates.
+        // GH-482 settles it the way the owner decided (10.8(17)): the stamp is
+        // not a link in this chain at all, at any position.
         const tex = NPI.resolveSoilTexture({
-            sampleTextureSnapshot: FIX.sample.soilTextureSnapshot,
             siteTextureOverride: FIX.site.soilTextureOverride,
-            soil: null,
-            turf: {}
+            accountTexture: 'loam'
         });
         expect(tex.value).toBe(FIX.expected.soilTexture);
-        expect(tex.source).toBe(FIX.expected.soilTextureSource);
+        expect(tex.source).toBe('site-override');
     });
 
-    test('with no override the snapshot is still the answer — nothing else in the chain moved', () => {
-        const tex = NPI.resolveSoilTexture({
-            sampleTextureSnapshot: FIX.sample.soilTextureSnapshot,
-            siteTextureOverride: null,
-            soil: null,
-            turf: {}
-        });
-        expect(tex.value).toBe('loam');
-        expect(tex.source).toBe('sample-snapshot');
+    test('with no setting of its own the site takes the account\'s, not the sample\'s stamp', () => {
+        const tex = NPI.resolveSoilTexture({ siteTextureOverride: null, accountTexture: 'clay' });
+        expect(tex.value).toBe('clay');
+        expect(tex.source).toBe('account');
     });
 
-    test('the override is only ever this page\'s own site — never borrowed across sites', () => {
-        global.window.GAIP_HUB_CONFIG = { activeSiteId: FIX.site.id, soilTexture: 'sand' };
-        expect(NPI.siteTextureOverrideFor(FIX.site.id)).toBe('sand');
-        expect(NPI.siteTextureOverrideFor('some-other-site-id')).toBeNull();
-        delete global.window.GAIP_HUB_CONFIG;
+    test('the setting is read from the row that owns it, per site, and never borrowed', () => {
+        // GH-482: this used to read the page's own copy
+        // (`GAIP_HUB_CONFIG.soilTexture`), which could only answer for the
+        // site the page was rendered for — every other site in a combined
+        // export fell through to its import-day snapshot. The column was
+        // always there; `/api/sites` simply never returned it. It does now,
+        // with the account's setting as the second link, which is the rule the
+        // server applies to itself.
+        global.window.GAIP_SiteConfig = {
+            getSite: (id) => (id === FIX.site.id
+                ? { id: FIX.site.id, soil_texture_override: 'sand', account_soil_texture: 'loam' }
+                : (id === 'site-with-no-setting'
+                    ? { id: 'site-with-no-setting', soil_texture_override: null, account_soil_texture: 'loam' }
+                    : null))
+        };
+        expect(NPI.siteTextureSettingFor(FIX.site.id))
+            .toEqual({ siteTextureOverride: 'sand', accountTexture: 'loam' });
+        // the second link, for a site that has not set one of its own
+        expect(NPI.siteTextureSettingFor('site-with-no-setting'))
+            .toEqual({ siteTextureOverride: null, accountTexture: 'loam' });
+        // and a site this store does not know is not answered for at all
+        expect(NPI.siteTextureSettingFor('some-other-site-id'))
+            .toEqual({ siteTextureOverride: null, accountTexture: null });
+        delete global.window.GAIP_SiteConfig;
     });
 
     test('sand resolves the S279 certificate; loam falls to the generic band the document was using', () => {

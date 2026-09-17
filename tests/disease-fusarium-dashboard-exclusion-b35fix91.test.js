@@ -43,6 +43,7 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 const hubPersistenceSrc = fs.readFileSync(path.join(__dirname, '../assets/hub-persistence.js'), 'utf8');
 const dashboardInitSrc  = fs.readFileSync(path.join(__dirname, '../assets/dashboard-init.js'), 'utf8');
@@ -50,11 +51,7 @@ const diseaseAnalysisSrc = fs.readFileSync(path.join(__dirname, '../assets/disea
 
 describe('hub-persistence.js — dashboard forecast metrics exclude Fusarium', () => {
     function extractCollectDashboardMetrics() {
-        const start = hubPersistenceSrc.indexOf('function collectDashboardMetrics()');
-        expect(start).toBeGreaterThan(-1);
-        const end = hubPersistenceSrc.indexOf('function getCachedResults()', start);
-        expect(end).toBeGreaterThan(start);
-        return hubPersistenceSrc.slice(start, end);
+        return anchoredSlice(hubPersistenceSrc, 'function collectDashboardMetrics()');
     }
 
     test('forecastPeak/forecastDisease/peakDay are recomputed from _fc.diseases with fusarium excluded, not trusted from _fc.summary directly', () => {
@@ -110,8 +107,7 @@ describe('hub-persistence.js — dashboard forecast metrics exclude Fusarium', (
 
 describe('dashboard-init.js — side panel ("Disease Breakdown") excludes Fusarium', () => {
     function extractBuildDiseasePanel() {
-        const start = dashboardInitSrc.indexOf('function buildDiseasePanel(');
-        expect(start).toBeGreaterThan(-1);
+        const start = anchorIndex(dashboardInitSrc, 'function buildDiseasePanel(');
         const end = dashboardInitSrc.indexOf('\n    function buildStressPanel', start);
         expect(end).toBeGreaterThan(start);
         return dashboardInitSrc.slice(start, end);

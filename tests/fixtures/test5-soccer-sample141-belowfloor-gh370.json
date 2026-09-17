@@ -194,5 +194,22 @@
         "annualRequirement": 40.9
       }
     }
+  },
+  "scenario": {
+    "soilK": {
+      "state": "deficient",
+      "rule": "below the floor of the resolved certificate range (the case GH-370 is about)",
+      "value": 40
+    },
+    "tissueK": {
+      "state": "deficient",
+      "band": {
+        "lo": 2.0,
+        "hi": 3.42,
+        "criticalBelow": 1.6
+      },
+      "value": 1.05,
+      "why": "A K-deficiency scenario set by hand on the test site, not a client reading (the client figure is 3.05, Hoxton). It is declared because the expected outputs in this fixture — removal 57.4 K / 33.9 P, requirement 84.1 K — were computed through this tissue ratio: change the state and those numbers stop meaning anything."
+    }
   }
 }

@@ -1,0 +1,16 @@
+{
+    "_why": "Who owns each fact about a site: a column on `sites`, or the config when no column exists for it. Generated from App\\Support\\FieldOwners by `php artisan sites:export-field-owners` so that the browser side cannot drift from the server's declaration.",
+    "_generated": "2026-09-17",
+    "owners": {
+        "location.name": "location_name",
+        "location.lat": "latitude",
+        "location.lon": "longitude",
+        "location.elevation": null,
+        "timezone": "timezone"
+    },
+    "derivedCopies": [
+        "location.name",
+        "location.lat",
+        "location.lon"
+    ]
+}

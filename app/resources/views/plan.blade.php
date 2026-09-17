@@ -26,6 +26,15 @@
         tissuePercent:   @json($tissuePercent ?? null),
     });
     window.GAIP_SITE_CONFIG = @json($gaipConfig ?? null);
+    // GH-469 (PLAN-GH439 section 10.6, eighth refinement): the config carries
+    // the id of the site it was rendered for, frozen. nutrition-program-inputs.js
+    // used to decide whether this object answers for a given site by comparing
+    // that site to the page's LIVE pointer — and the pointer moves while the
+    // object does not, so the comparison could be true about a third site. An
+    // object that says which site it is about cannot be mistaken for another's.
+    Object.defineProperty(window, 'GAIP_SITE_CONFIG_SITE_ID', {
+        value: @json($activeSite?->id), writable: false, configurable: false
+    });
 
     // Bridge: populate GAIP_STATE for nutrition-calendar.js from plan page data sources.
     // nutrition-calendar.js reads from GAIP_STATE (hub format); plan page has

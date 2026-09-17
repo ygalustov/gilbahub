@@ -48,10 +48,20 @@ describe('GH-322 follow-up — restoreFromPersisted() dispatches gaip:nutrition-
         expect(dispatchIdx).toBeGreaterThan(programAssignIdx);
     });
 
-    test('dispatch uses the same detail shape (program) as the live generate() dispatch', () => {
+    test('dispatch carries the program, and says it was restored', () => {
+        // GH-444: the two dispatches used to be identical, which is why the
+        // regional integrations could not tell a programme they had just
+        // computed from one read back out of the database -- and wrote the
+        // restored one back on every plain page load. The payload still
+        // carries `program` for every consumer that renders from it; what is
+        // new is `restored`, and the two dispatch sites must disagree on it.
         const block = extractBlock('NutritionCalendar.restoreFromPersisted = function() {',
             "document.dispatchEvent(new CustomEvent('gaip:nutrition-calendar-generated'", 200);
-        expect(block).toMatch(/detail:\s*\{\s*program:\s*this\.program\s*\}/);
+        expect(block).toMatch(/detail:\s*\{\s*program:\s*this\.program,\s*restored:\s*true\s*\}/);
+
+        const src = require('fs').readFileSync(
+            require('path').join(__dirname, '../assets/nutrition-calendar.js'), 'utf8');
+        expect(src).toMatch(/detail:\s*\{\s*program:\s*this\.program,\s*restored:\s*false\s*\}/);
     });
 
     test('early-return branches (already has a program, or nothing persisted) do not dispatch', () => {

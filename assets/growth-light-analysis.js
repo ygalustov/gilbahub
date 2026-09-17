@@ -44,13 +44,23 @@
 
     function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
-    // GH-257: canonical GP colour thresholds — see gp-status.js.
+    // The grey this page already paints anything it has no reading for — see
+    // dliColor() below. It is the absence of a band, not one of the bands.
+    var NO_READING_GREY = '#9ca3af';
+
+    // GH-458: the canonical GP colours come from gp-status.js and from nowhere
+    // else. This function held the whole palette — three bands and the grey —
+    // written over several lines, which is why no check saw it until today. The
+    // numbers agreed with the module's, and the module already answers for a
+    // missing reading: getColorPct(null) returns its own "unknown" colour, so
+    // the null branch was a second copy of that answer too.
     function gpColor(pct) {
-        return window.GAIP_GPStatus ? window.GAIP_GPStatus.getColorPct(pct) : (
-            pct === null || pct === undefined ? '#9ca3af' :
-            pct >= 70 ? '#16a34a' :
-            pct >= 40 ? '#d97706' : '#dc2626'
-        );
+        if (!window.GAIP_GPStatus) {
+            console.error('[GrowthLightAnalysis] GH-458: gp-status.js is not loaded — using this page\'s ' +
+                '"no reading" grey rather than a second GP palette.');
+            return NO_READING_GREY;
+        }
+        return window.GAIP_GPStatus.getColorPct(pct);
     }
 
     function dliColor(status) {

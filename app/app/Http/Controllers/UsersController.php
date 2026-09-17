@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\Invitation;
 use App\Models\Site;
 use App\Models\SiteConfig;
+use App\Support\SiteConfigWriter;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -183,12 +184,8 @@ class UsersController extends Controller
             'modified_by_user_id' => $request->user()->id,
         ]);
 
-        SiteConfig::query()->create([
-            'site_id' => $site->id,
-            'namespace' => 'gaip',
-            'config' => (object)[],
-            'synced_at' => now(),
-        ]);
+        // GH-447: the empty starting row, through the one writer.
+        SiteConfigWriter::createEmpty($site->id);
 
         // Attach user as manager
         $target->sites()->attach($site->id, ['role' => 'manager']);

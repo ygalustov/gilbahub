@@ -622,6 +622,214 @@
         }
     };
 
+    /**
+     * The extractant a methodology implies, for the methodologies whose
+     * extractant nothing else in this file states.
+     *
+     * The rule is the one `_traceExtractant()` below already applies on its
+     * last rung: a methodology that is not ammonium acetate means Mehlich-3
+     * (this file's own header: "MLSN guidelines are calibrated for Mehlich-3
+     * extractant, not NH4OAc"). GH-481 states it once, here, so that the value
+     * a document PRINTS and the ranges it classifies against cannot come from
+     * two different rules.
+     *
+     * Ammonium acetate is deliberately NOT answered here: the AA branch of the
+     * soil block writes that field itself, with the fuller wording it owns
+     * ("Olsen P + NH4OAc (pH 8.1)") and the Hill Labs label beside it.
+     * Answering it here as well would put two statements of the same fact in
+     * the file, and the one that reaches the document would be whichever ran
+     * last — measured: the AA branch always runs for an AA site, readings or
+     * none, so this rung would be dead code claiming to be a rule.
+     *
+     * A methodology nobody set derives nothing: the answer is null, the field
+     * stays empty, and the document keeps saying the extraction method was not
+     * specified. What to print in that case is a domain question and the
+     * owner's; it is not answered by inventing a lab method here.
+     */
+    function _extractantForMethodology(methodology) {
+        var m = String(methodology || '').toUpperCase();
+        if (!m) return null;
+        if (m.indexOf('AMMONIUM') >= 0) return null;
+        return 'Mehlich-3';
+    }
+
+    /**
+     * GH-484 — how many samples of this kind the site has on file.
+     *
+     * Read out of the per-site store by id, the same store the resolver reads
+     * the sample itself from. It exists so that "no reading" can be told apart
+     * from "readings on file that nobody selected": the document states which
+     * of the two it is, instead of printing nothing and leaving the reader to
+     * guess — or, as it did until today, quietly printing someone else's.
+     */
+    /**
+     * GH-484 — the line a section prints INSTEAD of itself when there is no
+     * selected sample of that kind.
+     *
+     * Three states, and the document says which one it is in: nothing on file
+     * at all (nothing is printed, the section simply does not exist); records
+     * on file that nobody has selected (said out loud, with the count, so a
+     * reader knows the laboratory work exists and which step is missing); and
+     * a selected sample (the section). What it never does is take the latest
+     * record on its own — the choice belongs to whoever selects a sample.
+     */
+    /**
+     * GH-486 — the outcome map every "not included" in this document is built
+     * from, and the two writers that read it.
+     *
+     * The field is an OUTCOME, not a sentence (twenty-eighth refinement): the
+     * block that knows what happened records `{ field, where, outcome, reason,
+     * sections }`, and the text is written here, by the consumer. A sentence
+     * written at the place of the read would be a second place for the same
+     * fact, and the reader of the document would have no way to tell which
+     * places had been checked at all.
+     *
+     * GH-484 recorded two of these as strings (`resultsOmitted`) and built no
+     * consumer, so four things — Limiting Nutrients, Classification, Sodium
+     * Hazard, Salinity Hazard — left the document with nothing said in their
+     * place. That is what this closes.
+     */
+    /**
+     * GH-488 — where an outcome BELONGS, derived from the PAIR it is: its
+     * outcome and its reason together.
+     *
+     * GH-487 derived it from the reason alone and read a missing reason as the
+     * empty string, which was declared legitimate — so an entry that simply
+     * forgot its reason became a statement about the site, silently, in the
+     * one place built to make silence impossible. The reviewer showed it with
+     * a mutation: drop `reason` from the tissue verdict and the row moves out
+     * of the version note and into the site's table, with no complaint. The
+     * pair closes that: an empty reason is legal only with the outcome that
+     * means "legitimately absent", and every other outcome must name a reason
+     * from the list.
+     *
+     * Three scopes, not two. "Cannot be absent for any site" has two different
+     * answers underneath it, and printing them the same way hides which:
+     *   run     — the same for every site in THIS document and different
+     *             between documents: the load did not finish, the load failed,
+     *             a read threw. Printed once, at the top, because twelve
+     *             identical rows hide that the cause is one.
+     *   release — the same for every document until the code changes: layer II
+     *             is not built, or the API stopped returning a field. A note
+     *             about the version, or nothing, per 10.8(23).
+     *   site    — what can differ between sites: not set here, no record for
+     *             this id, a value that would not parse.
+     *
+     * `read-threw` is declared `run` on the reviewer's description. If the
+     * cross-check ever finds it present for one site and absent for another,
+     * it belongs in `site` — and that is the cross-check doing its work, not
+     * an error in it.
+     */
+    var SCOPE_RULES = {
+        // outcome -> reason -> scope. The empty reason appears once, under the
+        // outcome that is allowed to have none.
+        empty: { '': 'site' },
+        unavailable: {
+            'not-loaded': 'run',
+            'load-failed': 'run',
+            'read-threw': 'run',
+            'no-field': 'release',
+            'no-record': 'site',
+            'parse-failed': 'site'
+        },
+        omitted: { 'no-run-stamp': 'release' }
+    };
+
+    /** What the Status column says for each outcome. Declared, not inferred. */
+    var OUTCOME_STATUS = {
+        empty: 'Not set',
+        unavailable: 'Could not be read',
+        omitted: 'Not included'
+    };
+
+    /**
+     * The human half of each code. The code stays in the table — it is the
+     * thing we act on — and the sentence beside it is the thing a client acts
+     * on. One place, so a reason cannot mean two things in two sections.
+     */
+    var REASON_TEXT = {
+        'not-loaded': 'the export ran before the site data finished loading',
+        'load-failed': 'the site data could not be loaded in this session',
+        'no-record': 'this site was not among the records that loaded',
+        'no-field': 'the field is missing from the data the server returned',
+        'read-threw': 'reading the field raised an error',
+        'parse-failed': 'the stored value is not a number',
+        'no-run-stamp': 'the analysis run carries no site stamp in this version'
+    };
+
+    function _entryScope(entry) {
+        var outcome = entry ? entry.outcome : undefined;
+        var byReason = SCOPE_RULES[outcome];
+        if (!byReason) {
+            throw new Error('[WordExport] GH-488: no scope rule for availability outcome "' + outcome +
+                '". Declare the outcome in SCOPE_RULES.');
+        }
+        // A missing reason is NOT an empty reason: the empty string is a
+        // declared value meaning "legitimately absent", and reading a forgotten
+        // field as that value is the gap this replaces.
+        if (!entry || typeof entry.reason !== 'string') {
+            throw new Error('[WordExport] GH-488: availability entry "' + ((entry && entry.field) || '?') +
+                '" (' + outcome + ') carries no reason. An absent reason is not the empty reason.');
+        }
+        var scope = byReason[entry.reason];
+        if (!scope) {
+            throw new Error('[WordExport] GH-488: the pair (' + outcome + ', "' + entry.reason +
+                '") is not declared in SCOPE_RULES.');
+        }
+        return scope;
+    }
+
+    function _noteAvailability(data, entry) {
+        if (!data.availability) data.availability = [];
+        data.availability.push(entry);
+    }
+
+    /** The declared status for this outcome. */
+    function _availabilityStatus(entry) {
+        return OUTCOME_STATUS[entry.outcome] || 'Not included';
+    }
+
+    /**
+     * The line printed where a section, or a part of one, would have been.
+     * Two forms, because the two outcomes are two different messages: one is
+     * about the site, the other is about us.
+     */
+    function _notIncludedLine(entry) {
+        var what = entry.field.charAt(0).toLowerCase() + entry.field.slice(1);
+        // The dash rather than a verb: the same writer serves a singular field
+        // and a plural one, and "tissue readings is not set" would be the
+        // writer guessing at grammar it cannot know.
+        if (entry.outcome === 'unavailable') {
+            return 'Not included: ' + what + ' \u2014 could not be read (' + entry.reason + '). ' +
+                'This is not a statement about the site.' + (entry.extra ? ' ' + entry.extra : '');
+        }
+        return 'Not included: ' + what + ' \u2014 not set for this site (' + entry.where + ').' +
+            (entry.extra ? ' ' + entry.extra : '');
+    }
+
+    function _noSampleLine(kind, section) {
+        var state = section && section.state;
+        var onFile = (section && section.onFile) || 0;
+        if (state !== 'on-file-not-selected' || onFile < 1) return null;
+        return onFile + ' ' + kind + ' sample' + (onFile === 1 ? '' : 's') +
+            ' on file; none selected. Select one on the Data page to have it interpreted here.';
+    }
+
+    function _samplesOnFile(kind, inputs) {
+        try {
+            var siteId = inputs && inputs.site ? inputs.site.id : null;
+            var SM = window.GAIP_SampleManager;
+            if (!siteId || !SM || typeof SM.getAllSamples !== 'function') return 0;
+            var all = SM.getAllSamples();
+            var store = (all && all.allSites && all.allSites[siteId]) || null;
+            var bucket = store ? store[kind] : null;
+            if (!bucket) return 0;
+            return Array.isArray(bucket) ? bucket.length : Object.keys(bucket).length;
+        } catch (e) {
+            return 0;
+        }
+    }
+
     function _traceExtractant(soilData) {
         var ext = (soilData.extractant || '').toLowerCase();
         if (ext.indexOf('dtpa') >= 0)     return 'dtpa';
@@ -6442,8 +6650,18 @@
             // nutrition-calendar.js bug, just in the Word export instead.
             // Fixed by passing the raw fraction (m.gp) like every other
             // correct caller does.
-            var gpColor = (typeof GAIP_GPStatus !== 'undefined') ? GAIP_GPStatus.getColorDocxFrac(m.gp) : (gpPct >= 70 ? '16A34A' : gpPct >= 40 ? 'D97706' : 'DC2626');
             var mutedGrey = '9CA3AF';
+            // GH-458: the shared palette, or this document's own "no reading"
+            // grey. The fallback here held a second copy of the GP colours in
+            // the document spelling; its numbers matched the module's, and the
+            // cost of a copy is only ever paid later, when one of the two moves
+            // and the Word document disagrees with the Plan page it was
+            // generated from.
+            if (typeof GAIP_GPStatus === 'undefined') {
+                console.error('[WordExport] GH-458: gp-status.js is not loaded — the GP cell falls back to the ' +
+                    'muted grey this document already uses for "no reading", not to a second palette.');
+            }
+            var gpColor = (typeof GAIP_GPStatus !== 'undefined') ? GAIP_GPStatus.getColorDocxFrac(m.gp) : mutedGrey;
             var normalDark = '374151';
             var herbicideAmber = '854D0E';
 
@@ -7017,14 +7235,73 @@
     // .gaip-nutrition-annual-n, .gaip-n-program) are asserted gone by
     // tests/gh383-input-contract-guard.test.js.
     // =========================================================================
-    function _buildEngineInputs(data) {
+    function _buildEngineInputs(data, inputs) {
         if (!data) return;
 
-        var _state = window.GAIP_STATE || {};
-        var _stInputs = _state.inputs || {};
-        var _stTurf = _state.turf || {};
-        var _canon = window.GAIP_CANONICAL_STATE || {};
-        var _canonTurf = _canon.turf || {};
+        // GH-459: every calculation input this function assembles comes from
+        // the SITE of the sample being printed, resolved by id, and from that
+        // sample. None of it is read out of the page's current state.
+        //
+        // GAIP_STATE, GAIP_CANONICAL_STATE, GAIP_OVERSEED_STATE and the
+        // .gaip-* form fields all describe ONE site — whichever the page has
+        // finished switching to. The combined export switches sites in a loop
+        // and calls this function once per sample, so each of them is a race
+        // against a repaint, and each of them lost at least once: the owner's
+        // export printed Test5 on Christchurch temperatures (coordinates still
+        // the previous site's), and a run on the same tree printed Auckland
+        // temperatures with the previous site's warm-season SPECIES. Same
+        // defect, different field, and a fix for one would have left the other.
+        //
+        // Nothing here has a stamp saying which site it belongs to, so there is
+        // no version of "read it from the page" that can be checked. Read by
+        // site id, the question does not arise.
+        // GH-461: the same resolver collectData() builds the printed sections
+        // from. GH-459 gave this function its own read of the site config,
+        // which was right but made two borders where there should be one —
+        // two places to keep in agreement, and the report that started all of
+        // this came from two places disagreeing.
+        // GH-465: the resolver object collectData() was given, not a second
+        // resolve of its own. The line that stood here called
+        // resolveExportInputs({}) again, which answers for whichever site the
+        // PAGE is on. For the single and the combined export the two answers
+        // agree today, because both call collectData() with no argument — but
+        // "agree today" is the shape this whole section exists to remove, and
+        // it made the border two places wide where the comment above says one.
+        // Measured consequence of the old line: collectData(inputs) for a site
+        // with no species still produced a full engineInputs block for the
+        // page's site, so the empty-inputs guard below could not see it.
+        // GH-467: no fallback. The line that stood here read
+        // `inputs || resolveExportInputs({})`, and the `||` half resolves by
+        // the site the PAGE is active on — the leak this whole section exists
+        // to remove, standing in the file as a safety net. What it would mean
+        // if it ever ran is "the caller forgot to pass the inputs, so use the
+        // page's site", and layer I has no such meaning. Measured before
+        // removing: the branch cannot give a different answer today — the one
+        // caller always passes `inputs`, and when the inputs module is not
+        // loaded `resolveExportInputs` is unavailable and the fallback returns
+        // the same null. Replacing it with a throw left 2,668 tests green and
+        // the live export producing a file.
+        var _NPIsite = window.GAIP_NutritionProgramInputs;
+        if (!inputs) {
+            console.error('[WordExport] GH-467: _buildEngineInputs called without inputs — refusing to ' +
+                'resolve by page site. The nutrition sections are omitted rather than computed for ' +
+                'whichever site the page happens to be showing.');
+            data.engineInputs = null;
+            data.nutritionInputsUnavailable = true;
+            return;
+        }
+        var _exportInputs = inputs;
+        // GH-467: the id is the resolved inputs' site and has no second
+        // branch. The `: getActiveSiteId()` that stood here was the same
+        // fallback as the one removed above, one line further down and hidden
+        // behind a ternary that can no longer take that arm: past the refusal,
+        // _exportInputs is always the object the caller passed. It was found by
+        // the dataflow reader once its depth stopped running out mid-chain —
+        // `_species` traced back to `document` through this arm.
+        var _sampleSiteId = _exportInputs.site.id;
+        var _sampleSiteConfig = (_NPIsite && typeof _NPIsite.getSiteConfig === 'function')
+            ? _NPIsite.getSiteConfig(_sampleSiteId) : null;
+        var _siteTurf = _exportInputs.turf || (_sampleSiteConfig && _sampleSiteConfig.turf) || {};
 
         // b35fix367 — Per-sample turf profile override (multi-site turf mode).
         //
@@ -7092,26 +7369,24 @@
         //      cascade, so it's the earliest source of truth.
         //   4. NULL — hard-fail. Caller must handle missing engineInputs
         //      rather than silently getting 'perennialRyegrass'.
+        // GH-459: the sample's own override, then the site's own config. The
+        // chain that stood here — GAIP_CANONICAL_STATE, then GAIP_STATE, then
+        // the .gaip-species field — described the site the PAGE was on, and
+        // every one of those is rebuilt asynchronously after a site switch.
+        // It is how a Christchurch site's warm-season species reached an
+        // Auckland site's report while its coordinates were already correct.
+        //
+        // The hard-fail below is kept and now carries the whole weight: a site
+        // whose config has no species omits the nutrition sections and says
+        // so, which is this file's own rule (b35fix313/b35fix314) — a silent
+        // fallback is worse than a missing section, and a fallback to whatever
+        // the page last rendered is the worst of them, because it is another
+        // site's answer wearing this one's name.
         var _species =
             _sampleOverrideSpecies ||
-            _canonTurf.effectiveSpeciesKey ||
-            _canonTurf.speciesKey ||
-            (_stInputs.turf && _stInputs.turf.species) ||
-            _stTurf.species ||
-            _stTurf.grassSpecies ||
+            _siteTurf.species ||
+            _siteTurf.grassSpecies ||
             null;
-
-        if (!_species) {
-            // Last-resort DOM probe. The species <select> reflects what
-            // site-config-persistence wrote during restoreConfig, which
-            // happens 300ms after gaip:site-changed regardless of whether
-            // the async cascade has touched GAIP_STATE yet.
-            var _spEl = document.querySelector('.gaip-species');
-            if (_spEl && _spEl.value) {
-                var _opt = _spEl.options ? _spEl.options[_spEl.selectedIndex] : null;
-                _species = (_opt && _opt.text) || _spEl.value;
-            }
-        }
 
         if (!_species) {
             // Hard-fail: readiness check failed entirely. Signal to callers
@@ -7216,15 +7491,35 @@
         }
         var _userN = _programInputs.annualN;
 
-        // Latitude/longitude extraction — DOM input is authoritative for the
-        // CURRENTLY ACTIVE site. Combined export switches active site (and
-        // this DOM value) per sample before calling this function, so this
-        // correctly reflects that sample's own site, not just "whatever site
-        // the page opened on" (see b35fix313 in _buildEngineInputs' header).
-        var _latEl = document.querySelector('.gaip-lat');
-        var _lonEl = document.querySelector('.gaip-lon');
-        var _lat = _latEl ? parseFloat(_latEl.value) : NaN;
-        var _lon = _lonEl ? parseFloat(_lonEl.value) : NaN;
+        // GH-459: the coordinates of the SITE this sample belongs to, read
+        // from that site's own data. Not from a form field on the page.
+        //
+        // This read `.gaip-lat` / `.gaip-lon`, on the reasoning that the
+        // combined export switches the active site before each sample and the
+        // DOM follows. It does follow — eventually. setActiveSite() is
+        // synchronous in the app's state but the fields are repainted by
+        // site-config-persistence.js's restore, and the loop's 300 ms pause is
+        // the only thing between the switch and this read. When the repaint
+        // has not landed, the field still holds the PREVIOUS site's
+        // coordinates, and everything downstream is computed for the wrong
+        // place: the climate normals are fetched for it, the monthly GP curve
+        // follows those temperatures, the nitrogen distribution follows the
+        // curve, the product choice follows the distribution. The annual total
+        // still reconciles, because it is normalised to the target, so the
+        // document looks correct while every month in it is another site's.
+        // Reported from a real export: Test5 printed on Christchurch
+        // temperatures.
+        //
+        // The site's coordinates are not a thing the page decorates a field
+        // with — they belong to the site, and the same per-site source already
+        // warms the climate cache in the combined export's pre-pass
+        // (word-export-combined.js, GAIP_SiteConfig.getConfig(siteId).location).
+        // Reading them here from that source closes the question of who
+        // repainted what and when: there is nothing left to race.
+        var _coordLocation = (_exportInputs && _exportInputs.site && _exportInputs.site.location)
+            || (_sampleSiteConfig && _sampleSiteConfig.location) || null;
+        var _lat = _coordLocation ? parseFloat(_coordLocation.lat) : NaN;
+        var _lon = _coordLocation ? parseFloat(_coordLocation.lon) : NaN;
         // GH-367: track whether these are the site's real coordinates or the
         // Sydney-ish placeholder below. Consumers cannot tell the two apart
         // from the numbers alone, and at least one already needs to: the
@@ -7235,18 +7530,13 @@
         // the audit's D30 symptom and the exact case GH-362's "coordinates
         // unknown" branch was written for but could never reach.
         var _coordsDefaulted = false;
-        if (!isFinite(_lat)) {
-            _lat = (_stInputs.site && _stInputs.site.latitude) ||
-                   (_state.site && _state.site.latitude) ||
-                   (_state.location && _state.location.lat);
-            if (typeof _lat !== 'number' || isNaN(_lat)) { _lat = -33; _coordsDefaulted = true; }  // Sydney-ish default
-        }
-        if (!isFinite(_lon)) {
-            _lon = (_stInputs.site && _stInputs.site.longitude) ||
-                   (_state.site && _state.site.longitude) ||
-                   (_state.location && (_state.location.lon != null ? _state.location.lon : _state.location.lng));
-            if (typeof _lon !== 'number' || isNaN(_lon)) { _lon = 151; _coordsDefaulted = true; }  // Sydney-ish default
-        }
+        // GH-459: the page-state fallbacks that stood here (GAIP_STATE.site,
+        // GAIP_STATE.location) were the same leak one level down — this site's
+        // coordinates or the last site's, with nothing to tell which. A site
+        // with no saved coordinates now goes straight to the placeholder,
+        // which is what `coordinatesDefaulted` exists to announce.
+        if (!isFinite(_lat)) { _lat = -33; _coordsDefaulted = true; }   // Sydney-ish default
+        if (!isFinite(_lon)) { _lon = 151; _coordsDefaulted = true; }   // Sydney-ish default
 
         // GH-245 follow-up 2: monthly temps keyed by THIS sample's own
         // coordinates, not the single window.climateMetrics slot — combined
@@ -7280,15 +7570,33 @@
 
         // Overseed: null GAIP_OVERSEED_STATE = pure C4 / no overseed config
         // (explicitly cleared by overseed-climate-integration v1.2.3 for pure C4).
+        //
+        // GH-459: read from THIS SITE's config, not from GAIP_OVERSEED_STATE.
+        // That global is written by overseed-climate-integration.js for the
+        // site the page is showing and carries no site stamp at all, so in a
+        // multi-site export it is the previous site's answer until the cascade
+        // catches up — the same race as the species and the coordinates, on
+        // the input that decides whether a warm-season base is scored as
+        // overseeded at all.
         var _overseedConfig;
-        if (window.GAIP_OVERSEED_STATE) {
-            var _os = window.GAIP_OVERSEED_STATE;
+        var _siteOverseedSpecies = _siteTurf.overseedSpecies || _siteTurf.coolOverseed || null;
+        if (_siteOverseedSpecies) {
+            var _osBaseIsC4 = false;
+            try {
+                var _SC1 = window.SpeciesController;
+                if (_SC1 && typeof _SC1.isC4Species === 'function' && _species) {
+                    _osBaseIsC4 = _SC1.isC4Species(_species);
+                } else if (window.NutritionRequirementCore &&
+                           typeof window.NutritionRequirementCore._isC4Species === 'function') {
+                    _osBaseIsC4 = window.NutritionRequirementCore._isC4Species(_species);
+                }
+            } catch (e) { /* defensive: fall through to the cool-season base */ }
             _overseedConfig = {
-                isOverseed: !!(_os.isC4Base && _os.overseedSpecies),
-                baseSpecies: _os.baseSpecies || null,
-                overseedSpecies: _os.overseedSpecies || null,
-                summerIntent: _os.summerIntent || 'transition',
-                baseIsC4: !!_os.isC4Base
+                isOverseed: !!(_osBaseIsC4 && _siteOverseedSpecies),
+                baseSpecies: _species || null,
+                overseedSpecies: _siteOverseedSpecies,
+                summerIntent: _siteTurf.summerIntent || 'transition',
+                baseIsC4: _osBaseIsC4
             };
         } else {
             // GH-408: derive the base from the site's own species. This branch
@@ -7789,7 +8097,55 @@
     }
 
     // Collect data from DOM and window state
-    function collectData() {
+    /**
+     * GH-461 (PLAN-GH439 section 10, layer I) — the document's inputs come from
+     * the SITE, by id.
+     *
+     * `inputs` is what nutrition-program-inputs.js's resolveExportInputs()
+     * returned for the sample being printed. The identity fields the document
+     * prints about the site and its turf are BUILT from it and are not read
+     * from the page. The page's state carries no mark saying which site it
+     * describes, and during a switch it describes the previous one: that is how
+     * a Test5 report printed "Species: Couch" in Site Information and a
+     * Bermudagrass variety section, three paragraphs from its own sample header
+     * reading "Perennial Ryegrass".
+     *
+     * Called without an argument — the single-export path — it resolves the
+     * same object for the active site, so both paths cross one border instead
+     * of two kept in agreement by hand.
+     */
+    function collectData(inputs) {
+        // GH-468: no resolve of our own. What stood here called
+        // resolveExportInputs({}), which fell through to the page's active
+        // site — the site the page POINTS at, which during a combined export
+        // is a different site from the sample being printed on every iteration
+        // but the last. The caller names the site; there is one caller for
+        // which the page's site IS the document's site (exportToWord), and it
+        // says so explicitly.
+        if (!inputs || typeof inputs !== 'object' || !inputs.site || !inputs.turf) {
+            console.error('[WordExport] GH-468: collectData() was called without the resolver\'s inputs. ' +
+                'The site of the document is named by its caller — resolving here would answer for ' +
+                'whichever site the page points at. Refusing rather than printing another site\'s values.');
+            throw new Error('[WordExport] collectData: inputs are required (GH-468)');
+        }
+        // GH-467: say when the site's own config answered nothing.
+        //
+        // Removing the block that used to fill an empty species from the page
+        // also removed the only sign that anything was missing: the document
+        // now correctly prints "Not specified" instead of the previous site's
+        // grass, and correctly says nothing about why. This is a warn and not
+        // an error on purpose — an unresolved config is a legitimate state for
+        // a site nobody has finished setting up, and the export's smoke test
+        // holds console.error at zero for exactly that reason.
+        if (inputs && inputs.sources) {
+            var _unresolvedFields = Object.keys(inputs.sources)
+                .filter(function (k) { return inputs.sources[k] === 'unresolved'; });
+            if (_unresolvedFields.length) {
+                console.warn('[WordExport] site config unresolved for ' +
+                    ((inputs.site && inputs.site.id) || 'unknown site') + ': ' +
+                    _unresolvedFields.join(', '));
+            }
+        }
         var data = {
             site: {},
             turf: {},
@@ -7818,56 +8174,48 @@
             }
         };
         
-        // Site info - try multiple sources in priority order
-        var locationSearch = document.getElementById('gaip-location-search');
-        var locationStatus = document.getElementById('gaip-location-status');
-        var latInput = document.querySelector('.gaip-lat');
-        var lonInput = document.querySelector('.gaip-lon');
-
-        // Priority 1: SampleManager active site label (most reliable — site-scoped)
-        var smSiteLabel = (window.GAIP_SampleManager && typeof GAIP_SampleManager.getActiveSiteLabel === 'function')
-            ? GAIP_SampleManager.getActiveSiteLabel() : null;
-        if (smSiteLabel && smSiteLabel !== 'default' && smSiteLabel !== 'Default Site') {
-            data.site.name = smSiteLabel;
-        }
-
-        // Priority 2: saved config location name for this site (restored by site-config-persistence)
-        var activeSiteId = window.GAIP_SampleManager && window.GAIP_SampleManager.getActiveSiteId
-            ? window.GAIP_SampleManager.getActiveSiteId() : null;
-        var savedConfig = activeSiteId && window.GAIP_SiteConfig && window.GAIP_SiteConfig.getConfig
-            ? window.GAIP_SiteConfig.getConfig(activeSiteId) : null;
-        var savedLocationName = savedConfig && savedConfig.location && savedConfig.location.name
-            ? savedConfig.location.name : null;
-
-        // Priority 3: gaip-location-search input (restored by site-config-persistence on site switch)
-        var searchVal = locationSearch && locationSearch.value ? locationSearch.value.trim() : null;
-
-        // Priority 4: gaip-location-status (may be stale from previous site — use last)
-        var statusVal = locationStatus && locationStatus.textContent
-            ? locationStatus.textContent.replace(/^✓\s*/, '').trim() : null;
-
-        // Build location string: saved config name > search input > status > coords
-        data.site.location = savedLocationName || searchVal || statusVal
-            || (latInput && lonInput && latInput.value && lonInput.value
-                ? latInput.value + ', ' + lonInput.value : 'Not specified');
-
-        // Site name: SM label > saved location name > location string
-        if (!data.site.name) {
-            data.site.name = savedLocationName || searchVal || data.site.location;
-        }
+        // GH-461: the site's name and location, by id.
+        //
+        // What stood here was a four-step priority chain: the sample manager's
+        // active-site label, the site config's location name, the
+        // `gaip-location-search` input and the `gaip-location-status` text.
+        // The last two are the page's, and the comment on the fourth said as
+        // much in passing — "may be stale from previous site". They were tried
+        // in order until one was non-empty, which during a switch means the
+        // document takes the first field the previous site left filled.
+        //
+        // The resolver answers both by id.
+        //
+        // GH-471, the owner's decision (question 10.8(10), closed): the place
+        // is the name the site was given in its settings, and when there is no
+        // name the line is EMPTY. Not the coordinates, not "Not specified".
+        // What stood here printed "-35.2285452, 149.0022925" for a site whose
+        // name sat one key away, and the owner's words about the substitute
+        // were that printing something rather than nothing is the old hub's
+        // wrong logic: the product does not compute without coordinates
+        // anyway, so a site reaches this point with a location the user
+        // entered, and the name comes with it.
+        var _inSite = (inputs && inputs.site) || {};
+        var _inLoc = _inSite.location || {};
+        data.site.name = _inSite.name || _inLoc.name || '';
+        data.site.location = _inLoc.name || '';
+        if (!data.site.name) data.site.name = data.site.location;
         data.site.date = new Date().toLocaleDateString();
 
-        // b35fix311: area (ha) of the zone this sample represents.
-        // Read from the soil form input. Only set when populated so downstream
-        // Purchasing Summary logic can detect "missing area" reliably.
-        var areaInput = document.querySelector('.gaip-soil-area-ha');
-        if (areaInput && areaInput.value) {
-            var areaVal = parseFloat(areaInput.value);
-            if (isFinite(areaVal) && areaVal > 0) {
-                data.site.areaHa = areaVal;
-            }
+        // b35fix311: area (ha) of the zone this sample represents. Downstream
+        // Purchasing Summary detects "missing area" by its absence.
+        //
+        // GH-461: it was read from `.gaip-soil-area-ha`, a form field belonging
+        // to whichever site the page is showing. Where this value lives by id —
+        // on the soil sample's payload or in the site config — is question 2 of
+        // section 10.8 and is the owner's to answer, so until then the resolver
+        // returns null and the document takes the "missing area" branch it
+        // already has. A number from the previous site's form is worse than no
+        // number: it multiplies into every purchase quantity in the document.
+        if (_inSite.areaHa !== null && _inSite.areaHa !== undefined) {
+            data.site.areaHa = _inSite.areaHa;
         }
-        
+
         // ────────────────────────────────────────────────────────────────
         // b35fix442: turf shelf read prefers GAIP_STATE.inputs.turf.
         // ────────────────────────────────────────────────────────────────
@@ -7925,165 +8273,64 @@
         // populated but no analysis run AND no cotula activation, DOM-only
         // turf-type select on a fresh site).
         //
-        // Turf info - try inputs.turf first, then flat .turf shelf, then DOM
-        var _b35fix442_turf = (window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.turf)
-            || (window.GAIP_STATE && window.GAIP_STATE.turf)
-            || null;
-        if (_b35fix442_turf) {
-            var turf = _b35fix442_turf;
-            data.turf.type = turf.turfType || '';
-            data.turf.rawTurfType = turf.turfType || '';  // Keep raw value for internal checks
-            data.turf.subCategory = turf.subCategory || '';  // golf: greens/fairways/tees
-            data.turf.species = turf.grassSpecies || '';
-            data.turf.variety = turf.variety || 'generic';
-            data.turf.overseedVariety = turf.overseedVariety || '';
-            data.turf.construction = turf.construction || '';
-            data.turf.warmBase = turf.warmBase || '';
-            data.turf.coolOverseed = turf.coolOverseed || '';
-            data.turf.percentC3 = turf.percentC3Cover || turf.percentC3 || 0;
-            data.turf.hoc = turf.hoc || turf.heightOfCut || null;  // Height of cut
-            
-            // Also check for overseed species from species object or direct property
-            if (turf.species && typeof turf.species === 'object') {
-                // species might be an object with overseed info
-                if (turf.species.overseedSpecies) {
-                    data.turf.coolOverseed = turf.species.overseedSpecies;
-                }
-                if (turf.species.overseedVariety) {
-                    data.turf.overseedVariety = turf.species.overseedVariety;
-                }
-            }
-            
-            // Try to get overseed variety from the DOM dropdown if not in state
-            if (!data.turf.overseedVariety || data.turf.overseedVariety === 'generic') {
-                var overseedDropdown = document.querySelector('.gaip-overseed-variety, [name="overseed_variety"], #overseedVariety');
-                if (overseedDropdown && overseedDropdown.value && overseedDropdown.value !== 'generic') {
-                    data.turf.overseedVariety = overseedDropdown.value;
-                    // Try to get display name
-                    if (overseedDropdown.selectedOptions && overseedDropdown.selectedOptions[0]) {
-                        data.turf.overseedVarietyDisplay = overseedDropdown.selectedOptions[0].text;
-                    }
-                }
-            }
-            
-            // Access c3/c4 fractions - check multiple possible locations
-            // 1. Direct on turf object
-            // 2. In turf.species object (set by hub-tissue-v3.js)
-            // 3. From percentC3Cover calculation
-            if (typeof turf.c3Fraction === 'number') {
-                data.turf.c3Fraction = turf.c3Fraction;
-                data.turf.c4Fraction = turf.c4Fraction || 0;
-            } else if (turf.species && typeof turf.species === 'object' && typeof turf.species.c3Fraction === 'number') {
-                data.turf.c3Fraction = turf.species.c3Fraction;
-                data.turf.c4Fraction = turf.species.c4Fraction || 0;
-            } else if (turf.percentC3Cover > 0) {
-                // Derive from percentC3Cover
-                data.turf.c3Fraction = turf.percentC3Cover / 100;
-                data.turf.c4Fraction = 1 - data.turf.c3Fraction;
-            } else {
-                data.turf.c3Fraction = 0;
-                data.turf.c4Fraction = 0;
-            }
-            
-            // Sanity check: a pure C4 species with no overseed UI active should never
-            // have c3Fraction = 1.0 — that indicates stale persisted state.
-            // Check actual form value as ground truth.
-            var c3FormInput = document.querySelector('.gaip-c3-cover');
-            var c3FormValue = c3FormInput ? (parseFloat(c3FormInput.value) || 0) / 100 : null;
-            if (c3FormValue !== null && Math.abs(c3FormValue - data.turf.c3Fraction) > 0.1) {
-                // Form and state disagree by more than 10% — trust the form
-                console.warn('[WordExport] c3Fraction state/form mismatch, state:', data.turf.c3Fraction, 'form:', c3FormValue, ', using form value');
-                data.turf.c3Fraction = c3FormValue;
-                data.turf.c4Fraction = 1 - c3FormValue;
-            }
-        }
+        // GH-461: the turf identity, from the site, by id.
+        //
+        // What stood here read GAIP_STATE.inputs.turf. On the reviewer's tape
+        // that object is cleared at 1,346 ms and refilled with the PREVIOUS
+        // site's values at 2,323 ms, with the new site already active — so
+        // every field it filled could be another site's: species, variety,
+        // overseed, construction, type, subcategory, the C3 share, height of
+        // cut. A later read "only if empty" does not help, because during a
+        // leak the field is not empty.
+        //
+        // Absent stays absent. A default printed here is worse than a gap: a
+        // default and a leak look the same on the page.
+        var _inTurf = (inputs && inputs.turf) || {};
+        data.turf.type = _inTurf.type || '';
+        data.turf.rawTurfType = _inTurf.type || '';
+        data.turf.subCategory = _inTurf.subCategory || '';
+        data.turf.species = _inTurf.species || '';
+        data.turf.speciesKey = _inTurf.speciesKey || '';
+        data.turf.variety = _inTurf.variety || '';
+        data.turf.overseedVariety = _inTurf.overseedVariety || '';
+        data.turf.construction = _inTurf.construction || '';
+        data.turf.warmBase = _inTurf.warmBase || '';
+        data.turf.coolOverseed = _inTurf.coolOverseed || '';
+        data.turf.percentC3 = (_inTurf.percentC3 === null || _inTurf.percentC3 === undefined)
+            ? 0 : _inTurf.percentC3;
+        data.turf.hoc = (_inTurf.hoc === null || _inTurf.hoc === undefined) ? null : _inTurf.hoc;
+        data.turf.summerIntent = _inTurf.summerIntent || '';
+        // Derived by the resolver from the species, never carried beside it.
+        data.turf.isC4 = _inTurf.isC4;
+        data.turf.inputSources = (inputs && inputs.sources) || null;
         
-        // Fallback to DOM if state missing turf type
-        if (!data.turf.type) {
-            // ────────────────────────────────────────────────────────────────
-            // b35fix438 (C48): turf identity read from canonical controller
-            // ────────────────────────────────────────────────────────────────
-            // Pre-fix: GAIP_STATE.turf.turfType was the primary read at
-            // line ~7045 above, but that shelf is never written to by the
-            // site-settings panel or turf-profile-controller. The canonical
-            // writer is window.GaipTurfProfile.state.turfType (set by
-            // TurfProfileController.selectTurfType). Live UI top chip
-            // (hub-header-bar.js:188) reads from the same canonical
-            // controller path, which is why the chip displays "Sports
-            // Field" while the docx renders "Not specified" — two read
-            // paths, one writer, only one consumer wired correctly.
-            //
-            // Fallback DOM selectors below were ALSO stale:
-            //   - .gaip-turf-type-option.active: retired class name, no
-            //     element on page emits this in current production HTML
-            //   - .gaip-turf-type: legacy select element, also retired
-            // Current Site Settings panel emits .gaip-sp-turf-btn.active
-            // with data-type attribute (assets/site-settings-panel.js:678).
-            //
-            // Post-fix priority chain (most-canonical first):
-            //   1. window.GaipTurfProfile.state.turfType (controller state)
-            //   2. .gaip-sp-turf-btn.active data-type (current panel DOM)
-            //   3. .gaip-turf-type-option.active data-type (legacy DOM,
-            //      retained as defensive fallback for older skin builds)
-            //   4. .gaip-turf-type select (legacy select, retained as
-            //      defensive fallback)
-            //
-            // Also write turf.subCategory from same controller state because
-            // the docx uses turfType + subCategory together for the
-            // golf-class display label (line ~7172 below). Pre-fix the
-            // subCategory had its own state-read path that was likely
-            // also empty for non-golf surfaces; the controller is
-            // authoritative for both slots.
-            var tp = (typeof window !== 'undefined') ? window.GaipTurfProfile : null;
-            if (tp && tp.state && tp.state.turfType) {
-                data.turf.type = tp.state.turfType;
-                data.turf.rawTurfType = tp.state.turfType;
-                if (tp.state.subCategory && !data.turf.subCategory) {
-                    data.turf.subCategory = tp.state.subCategory;
-                }
-            }
-            // Try current panel button (b35fix438)
-            if (!data.turf.type) {
-                var activeSpBtn = document.querySelector('.gaip-sp-turf-btn.active');
-                if (activeSpBtn && activeSpBtn.dataset.type) {
-                    data.turf.type = activeSpBtn.dataset.type;
-                }
-            }
-            // DOM fallback for subCategory (golf greens/fairways/tees) when
-            // GaipTurfProfile.state was cleared during site-switch and the
-            // controller restore has set the DOM button but not yet the state.
-            if (data.turf.type === 'golf' && !data.turf.subCategory) {
-                var activeSubBtn = document.querySelector('.gaip-subcategory-option.active');
-                if (activeSubBtn) {
-                    data.turf.subCategory = activeSubBtn.dataset.surface || activeSubBtn.dataset.sport || '';
-                }
-            }
-            // Legacy panel button (defensive, older skins)
-            if (!data.turf.type) {
-                var activeTurfBtn = document.querySelector('.gaip-turf-type-option.active');
-                if (activeTurfBtn && activeTurfBtn.dataset.type) {
-                    data.turf.type = activeTurfBtn.dataset.type;
-                }
-            }
-            // Legacy select element
-            if (!data.turf.type) {
-                var turfTypeEl = document.querySelector('.gaip-turf-type');
-                if (turfTypeEl) {
-                    var selectedOption = turfTypeEl.options ? turfTypeEl.options[turfTypeEl.selectedIndex] : null;
-                    data.turf.type = selectedOption ? selectedOption.text : (turfTypeEl.value || '');
-                }
-            }
-        }
+        // GH-461: the turf type comes from the site's config through the
+        // resolver above, so the five-step chain that used to stand here —
+        // GaipTurfProfile.state, then three DOM buttons, then a legacy select —
+        // is gone. Each step of it described the site the page was showing; the
+        // comment above the chain even said the controller's state is "cleared
+        // during site-switch", which is the leak stated as a design note.
+        //
+        // No fallback replaces it. A site whose config carries no turf type
+        // prints the existing "not specified" wording rather than the type of
+        // whichever site was open before.
         
-        // Fallback to DOM if state missing species
-        if (!data.turf.species) {
-            var speciesEl = document.querySelector('.gaip-species');
-            if (speciesEl) {
-                var selectedOption = speciesEl.options ? speciesEl.options[speciesEl.selectedIndex] : null;
-                data.turf.species = selectedOption ? selectedOption.text : (speciesEl.value || '');
-            }
-        }
-        
+        // GH-461: the second pass that stood here is gone, not repaired.
+        //
+        // It was GH-460's "read by id and overwrite what the page put there",
+        // written before the resolver existed. Once the identity is BUILT from
+        // the resolver a few lines above, a second pass over the same fields
+        // is the shape layer I removes — a resolver plus something else on top
+        // is two sources again, and the one on top wins. It also broke the
+        // export outright: its two variables were declared in the site-name
+        // block the resolver replaced, so `_collectSiteCfg is not defined`
+        // threw out of collectData and no document was produced at all.
+        //
+        // Worth keeping in view: the full Jest suite was green through that —
+        // 2,639 tests — because nothing in it runs collectData in a browser.
+        // A layer I change is not finished until one live run has produced a
+        // file.
+
         // Format turf type nicely - combine type with subCategory for golf
         if (data.turf.type) {
             var typeMap = {
@@ -8152,18 +8399,28 @@
                                   data.turf.warmBase !== data.turf.coolOverseed;
         // Only infer overseed if C4 base, C3 fraction is significant, AND the overseed
         // UI toggle is actually enabled — prevents stale state from triggering ryegrass fallbacks
-        var overseedToggle = document.querySelector('.gaip-enable-overseed, [data-overseed-active]');
-        var overseedUIActive = overseedToggle ? (overseedToggle.checked || overseedToggle.getAttribute('data-overseed-active') === 'true') : false;
-        // Also check GAIP_STATE directly for overseed flag
-        var overseedStateActive = !!(window.GAIP_STATE && window.GAIP_STATE.turf && 
-            (window.GAIP_STATE.turf.overseedActive || window.GAIP_STATE.turf.hasOverseed));
-        var hasInferredOverseed = isC4 && data.turf.c3Fraction >= 0.2 && (overseedUIActive || overseedStateActive);
+        // GH-461: whether this SITE is oversown, from its own config. The two
+        // reads that stood here — an overseed checkbox in the page and
+        // GAIP_STATE.turf.overseedActive — belong to the site the page is
+        // showing. The comment beside them said they were there to prevent
+        // "stale state from triggering ryegrass fallbacks", which is the right
+        // worry aimed at the wrong half: the toggle is as stale as the state
+        // it was guarding, because both describe the previous site during a
+        // switch.
+        var overseedFromSite = !!((inputs && inputs.turf && inputs.turf.coolOverseed) ||
+            (inputs && inputs.turf && inputs.turf.overseedSpecies));
+        var hasInferredOverseed = isC4 && data.turf.c3Fraction >= 0.2 && overseedFromSite;
         var hasOverseed = hasExplicitOverseed || hasInferredOverseed;
         
         // If we detected overseed via fraction but don't have explicit species names, infer them
         if (hasOverseed && (!data.turf.warmBase || data.turf.warmBase.length === 0)) {
             // Get the base species - use grassSpecies from state or infer from species string
-            data.turf.warmBase = data.turf.species || 'Couch';
+            // GH-461: no default species name. A printed default and a leaked
+            // value look identical on the page, and this file has now produced
+            // both. Absent stays absent; the printing branches already handle
+            // an empty base (question 4 of section 10.8 confirms the wording
+            // with the owner).
+            data.turf.warmBase = data.turf.species || '';
             // Include base variety if available
             if (data.turf.variety && data.turf.variety !== 'generic') {
                 data.turf.warmBaseWithVariety = data.turf.warmBase + ' (' + data.turf.variety + ')';
@@ -8179,23 +8436,14 @@
         }
         
         // Try to get overseed variety from climate module result (it shows the selected overseed)
-        if (hasOverseed && (!data.turf.overseedVariety || data.turf.overseedVariety === 'generic')) {
-            // Check climate module result for variety info
-            var climateResult = window.GAIP_CLIMATE_V2_RESULT;
-            if (climateResult && climateResult.overseedVariety) {
-                data.turf.overseedVariety = climateResult.overseedVariety;
-            }
-            // Also try the variety dropdown directly
-            var varietyDropdown = document.querySelector('.gaip-variety-select, #gaip-variety');
-            if (varietyDropdown && varietyDropdown.value && varietyDropdown.value !== 'generic') {
-                // This might be the overseed variety when in overseed mode
-                if (isC4 && data.turf.c3Fraction >= 0.5) {
-                    data.turf.overseedVariety = varietyDropdown.value;
-                    if (varietyDropdown.selectedOptions && varietyDropdown.selectedOptions[0]) {
-                        data.turf.overseedVarietyDisplay = varietyDropdown.selectedOptions[0].text;
-                    }
-                }
-            }
+        // GH-464: the overseed variety and its label come from the site, by id,
+        // through the resolver — the block that stood here asked
+        // GAIP_CLIMATE_V2_RESULT first and a DOM select second, and both
+        // describe whichever site the page last painted. It ran only when the
+        // field was empty or 'generic', which is the "fill in what is missing"
+        // shape: during a leak the field is neither.
+        if (!data.turf.overseedVarietyDisplay && _inTurf.overseedVarietyDisplay) {
+            data.turf.overseedVarietyDisplay = _inTurf.overseedVarietyDisplay;
         }
         
         // CRITICAL: When C3 overseed is dominant (>50%), treat the entire surface as C3
@@ -8336,47 +8584,81 @@
             var soilInput = window.GAIP_STATE.soil;
             var mlsnResults = window.GAIP_STATE.mlsnResults;
             
-            // Capture sample identification metadata
-            // Priority: SampleManager active sample > manual DOM input > empty
-            var activeSoilSample = (window.GAIP_SampleManager && typeof GAIP_SampleManager.getActiveSample === 'function') 
-                ? GAIP_SampleManager.getActiveSample('soil') : null;
-            var soilLabelEl = document.querySelector('.gaip-soil-sample-label');
-            var soilLabRefEl = document.querySelector('.gaip-soil-lab-ref');
-            var soilDateEl = document.querySelector('.gaip-soil-date');
-            // Prefer DOM label input (shows human zone name), fall back to sample.label
-            // humanize: strip generated ID hash suffix (Soil_1_3cbn -> Soil 1)
-            var _rawSoilLabel = (soilLabelEl && soilLabelEl.value && soilLabelEl.value.trim())
-                ? soilLabelEl.value.trim()
-                : (activeSoilSample && activeSoilSample.label) ? activeSoilSample.label : '';
-            // Detect generated ID pattern: Word_N_XXXX (4-char alphanumeric suffix)
-            var _soilLabelCleaned = _rawSoilLabel.replace(/^([A-Za-z]+)_(\d+)_[A-Za-z0-9]{4}$/, function(m, type, num) {
-                return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase() + ' ' + num;
-            });
-            data.soil.sampleLabel = _soilLabelCleaned || _rawSoilLabel;
-            data.soil.labRef = (soilLabRefEl && soilLabRefEl.value) ? soilLabRefEl.value.trim() : '';
-            data.soil.testDate = (activeSoilSample && activeSoilSample.date) ? activeSoilSample.date :
-                (soilDateEl && soilDateEl.value) ? soilDateEl.value : '';
+            // GH-490: the sample's identification moved to the soil block
+            // below, where the sample this report is about is in hand. What
+            // stood here preferred `.gaip-soil-sample-label` and
+            // `.gaip-soil-lab-ref` — two form inputs the page fills for
+            // whichever sample it last loaded — over the record, and took the
+            // date off `getActiveSample('soil')`, the page's pointer rather
+            // than this report's site. The combined export knew it and wrote
+            // the label back over the top after every iteration
+            // (`word-export-combined.js:772`); that override is gone with it.
 
 
-            // Capture methodology (MLSN or SLAN)
-            if (soilInput && soilInput.methodology) {
-                data.soil.methodology = soilInput.methodology.toUpperCase();
-            } else {
-                // Try to detect from DOM
-                var methodEl = document.querySelector('.gaip-soil-methodology, [name="soil_methodology"]');
-                if (methodEl) {
-                    data.soil.methodology = (methodEl.value || 'MLSN').toUpperCase();
-                } else {
-                    data.soil.methodology = 'MLSN';  // Default
-                }
+            // The methodology, from the site config that owns it, resolved by
+            // this report's site id.
+            //
+            // GH-480: what stood here read `GAIP_STATE.soil.methodology` — a
+            // page object that is undefined throughout a real export, measured
+            // on the stand — then `.gaip-soil-methodology`, and failing both
+            // wrote 'MLSN'.
+            //
+            // That field exists on /reports/export (the page embeds the legacy
+            // hub form) and it is ONE field for a document that prints several
+            // sites: it holds whatever the page last computed, so it is right
+            // only while the switch has settled. Measured live over three
+            // sites it agreed with each config; agreement under a race is not
+            // a source. And 'MLSN' is a substitution, not a default: MLSN and
+            // Ammonium Acetate are different systems and this value decides
+            // which thresholds a client is shown.
+            var _programForMethod = (inputs && inputs.program) || null;
+            var _methodologySource = (_programForMethod && _programForMethod.sources
+                && _programForMethod.sources.methodology) || null;
+            // The resolver ends its own chain with `|| 'mlsn'` and records that
+            // step as source 'default'. Printing that would move the
+            // substitution one level down rather than remove it, so a
+            // methodology nobody set prints as nothing.
+            var _resolvedMethodology = (_programForMethod && _methodologySource !== 'default')
+                ? _programForMethod.methodology : null;
+            data.soil.methodology = _resolvedMethodology
+                ? String(_resolvedMethodology).toUpperCase()
+                : null;
+
+            // GH-481: the extractant the site's methodology implies.
+            //
+            // This field had exactly one writer outside the Ammonium Acetate
+            // branch — a read of `.gaip-soil-extractant`, an element no page
+            // renders — so for every site not on AA it has been unset since
+            // long before GH-480 removed that read (measured on the stand
+            // before and after: identical, `(unset)` for all three non-AA
+            // sites in one export). Unset, it leaves four consumers to derive
+            // their own answer: `_traceExtractant()` reaches its last rung and
+            // returns 'mehlich3', which chooses the trace-element sufficiency
+            // table and its printed caption; two more print the methodology in
+            // its place; and the soil block prints "Extraction method not
+            // specified".
+            //
+            // The owner of the answer is the site's methodology, already
+            // resolved by id above. A site whose methodology is unknown still
+            // derives nothing — no value is invented for it.
+            // The site's own soil texture, resolved by id. Read here, beside
+            // the methodology, because two blocks below need it: the Ammonium
+            // Acetate certificate derivation and the rootzone bucket.
+            var _resolvedTexture = (inputs && inputs.program && inputs.program.soilTexture) || null;
+
+            var _extractantFromMethodology = _extractantForMethodology(data.soil.methodology);
+            if (_extractantFromMethodology) {
+                data.soil.extractant = _extractantFromMethodology;
             }
             
-            // Capture extraction method
-            var extractantEl = document.querySelector('.gaip-soil-extractant');
-            if (extractantEl && extractantEl.value) {
-                data.soil.extractant = extractantEl.value;
-                data.soil.extractantLabel = extractantEl.options[extractantEl.selectedIndex]?.text || extractantEl.value;
-            } else if (window.gaip_getExtractantMethod) {
+            // Capture extraction method.
+            //
+            // GH-480: the `.gaip-soil-extractant` read that stood here is gone.
+            // No page renders that element — not the export page, not the
+            // hidden runner's markup, not any blade view — so it returned null
+            // on every export since it was written, and the branch behind it
+            // looked like a working source of the extractant name.
+            if (window.gaip_getExtractantMethod) {
                 data.soil.extractant = window.gaip_getExtractantMethod();
             }
             
@@ -8385,213 +8667,138 @@
                 data.soil.extractantWarning = window.gaip_getExtractantWarning();
             }
             
-            if (soilInput && soilInput.ppm) {
-                data.soil.P = soilInput.ppm.P;
-                data.soil.K = soilInput.ppm.K;
-                data.soil.Ca = soilInput.ppm.Ca;
-                data.soil.Mg = soilInput.ppm.Mg;
-                data.soil.S = soilInput.ppm.S;
-                data.soil.pH = soilInput.pH_water;
-                data.soil.Na = soilInput.ppm.Na;
+            // ─────────────────────────────────────────────────────────────
+            // Soil readings — the sample this report is about, by id.
+            // ─────────────────────────────────────────────────────────────
+            // GH-490, the last of layer I. What stood here read the page: the
+            // ppm block from `GAIP_STATE.soil` (undefined throughout a real
+            // export, measured), then CEC/EC/OM off the active sample the PAGE
+            // had loaded, then fifteen form fields through `soilFieldMappings`,
+            // then the traces off `[data-mlsn]`. Measured on the stand: twelve
+            // reports built on one page carried ONE set of thirteen soil
+            // numbers — the page's — including for four sites with no soil
+            // sample on file at all.
+            //
+            // The owner's decision, in her words: "чужое не надо показывать".
+            // Where three readings were measured, three are printed; where
+            // none were, the block is not printed and the registry says so.
+            // Nothing is filled in from anywhere else.
+            var _smS = window.GAIP_SampleManager;
+            var _soilSample = (inputs && inputs.samples) ? inputs.samples.soil : null;
+            var _soilReadings = (_smS && typeof _smS.readingsOf === 'function')
+                ? _smS.readingsOf('soil', _soilSample) : null;
+            var _soilRow = (_soilSample && (_soilSample.rawData || _soilSample.values)) || null;
 
-                // b35fix415: clean read of CEC/EC/OM from active sample's
-                // rawData. Six builds (b35fix409-414) chasing this through
-                // helpers, migrations, and proxy reads all failed in
-                // production despite passing unit tests. Console probe of
-                // every active sample confirms rawData carries canonical
-                // CEC/EC/OM. Read directly from there with no intermediary.
-                //
-                // PHP parser writes both canonical short keys (CEC, EC, OM)
-                // and verbose synonyms (CEC_meq100g, EC1_5, OM_Percent). Try
-                // canonical first, fall back to synonyms.
-                var _activeSample = (window.GAIP_SampleManager && typeof GAIP_SampleManager.getActiveSample === 'function')
-                    ? GAIP_SampleManager.getActiveSample('soil') : null;
-                var _raw = (_activeSample && _activeSample.rawData) || null;
-                if (_raw) {
-                    var _cec = _raw.CEC != null ? parseFloat(_raw.CEC)
-                             : _raw.CEC_meq100g != null ? parseFloat(_raw.CEC_meq100g)
-                             : null;
-                    if (_cec != null && !isNaN(_cec)) data.soil.CEC = _cec;
+            // The readings soil CAN carry come out of the store's own map, not
+            // out of a list kept here: a second list drifts from the first the
+            // day a nutrient is added, and then the report stays silent about
+            // a reading it should have named as missing.
+            var _soilKeys = (_smS && typeof _smS.readingKeysFor === 'function')
+                ? _smS.readingKeysFor('soil') : null;
 
-                    var _ec = _raw.EC != null ? parseFloat(_raw.EC)
-                            : _raw.EC1_5 != null ? parseFloat(_raw.EC1_5)
-                            : null;
-                    if (_ec != null && !isNaN(_ec)) data.soil.EC = _ec;
-
-                    var _om = _raw.OM != null ? parseFloat(_raw.OM)
-                            : _raw.OM_Percent != null ? parseFloat(_raw.OM_Percent)
-                            : null;
-                    if (_om != null && !isNaN(_om)) data.soil.OM = _om;
-
-                    // GH-370: soil bulk density (g/cm3) and sample depth (cm),
-                    // needed by NutritionRequirementEngine_Pure to convert a
-                    // ppm deficit into kg/ha (nutrition-requirement-engine.js's
-                    // _ppmToKgHaFactor). Both compute() call sites (this
-                    // file's single-export ANR block and word-export-combined.js's
-                    // ANR pass) already pass `soil: data.soil`/`soil: r.data.soil`
-                    // directly, so populating these two fields here is all that's
-                    // needed to reach both — no separate threading required, unlike
-                    // GH-369's tissuePercent (which isn't part of the soil object).
-                    // Same canonical field names hub-persistence.js already reads
-                    // from the same rawData shape for its own bulk-density/depth
-                    // use (`_smRaw.bulkDensity`, `_si.depthCm`).
-                    var _bd = _raw.bulkDensity != null ? parseFloat(_raw.bulkDensity) : null;
-                    if (_bd != null && !isNaN(_bd) && _bd > 0) data.soil.bulkDensity = _bd;
-                    var _sd = _raw.depthCm != null ? parseFloat(_raw.depthCm)
-                            : _raw.depth != null ? parseFloat(_raw.depth)
-                            : null;
-                    if (_sd != null && !isNaN(_sd) && _sd > 0) data.soil.depth = _sd;
-
-                    // b35fix427 (C34): measured ESP read from rawData if the
-                    // lab returned one. Estimation from Na+CEC happens AFTER
-                    // both DOM-fallback and canonical-state paths have run
-                    // (see post-DOM-fallback block below) so it works on
-                    // either path. Pre-fix this whole block was inside the
-                    // `if (_raw)` gate which never fired on Rockingham
-                    // production export — the export went through the DOM
-                    // fallback path. Moved out to ensure ESP is always
-                    // attempted regardless of which population path ran.
-                    if (_raw.ESP != null) {
-                        var _measuredESP = parseFloat(_raw.ESP);
-                        if (!isNaN(_measuredESP)) {
-                            data.soil.ESP = +_measuredESP.toFixed(1);
-                            data.soil._espSource = 'measured';
-                        }
-                    }
-                }
-
-                // Final fallback: DOM input values, in case the active sample
-                // has no rawData (e.g. user typed values manually without
-                // saving to a sample). Only fires when rawData read above
-                // didn't populate.
-                if (data.soil.CEC == null) {
-                    var _cecEl = document.querySelector('.gaip-cec');
-                    if (_cecEl && _cecEl.value) {
-                        var _cd = parseFloat(_cecEl.value);
-                        if (!isNaN(_cd)) data.soil.CEC = _cd;
-                    }
-                }
-                if (data.soil.EC == null) {
-                    var _ecEl = document.querySelector('.gaip-soil-ec');
-                    if (_ecEl && _ecEl.value) {
-                        var _ed = parseFloat(_ecEl.value);
-                        if (!isNaN(_ed)) data.soil.EC = _ed;
-                    }
-                }
-                if (data.soil.OM == null) {
-                    var _omEl = document.querySelector('.gaip-loi');
-                    if (_omEl && _omEl.value) {
-                        var _od = parseFloat(_omEl.value);
-                        if (!isNaN(_od)) data.soil.OM = _od;
-                    }
-                }
-
-                // GH-370: no dedicated DOM input exists for bulk density/depth
-                // (there's no `.gaip-bulk-density`/`.gaip-soil-depth` field on
-                // this page), so the fallback here is GAIP_STATE.inputs.soil —
-                // the same object nutrition-calendar.js's own live-page path
-                // (collectFromState()) reads `soil.bulkDensity`/`soil.depth`
-                // from. Absent even there, NutritionRequirementEngine_Pure
-                // falls back to the same 1.4 g/cm3 / 10cm default
-                // nutrition-calendar.js itself uses (see this engine's
-                // DEFAULT_BULK_DENSITY_G_CM3/DEFAULT_SOIL_DEPTH_CM) — never
-                // silently missing the conversion the way it did pre-GH-370.
-                if (data.soil.bulkDensity == null || data.soil.depth == null) {
-                    var _stateSoil = (window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil) || {};
-                    if (data.soil.bulkDensity == null) {
-                        var _stBd = parseFloat(_stateSoil.bulkDensity);
-                        if (!isNaN(_stBd) && _stBd > 0) data.soil.bulkDensity = _stBd;
-                    }
-                    if (data.soil.depth == null) {
-                        var _stSd = parseFloat(_stateSoil.depthCm != null ? _stateSoil.depthCm : _stateSoil.depth);
-                        if (!isNaN(_stSd) && _stSd > 0) data.soil.depth = _stSd;
-                    }
-                }
-
-                // Set hasData flag if we have any nutrient values
-                if (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg) {
-                    data.soil.hasData = true;
-                }
-            }
-
-            // b35fix372: read area from sample.rawData.areaHa (set by bulk area
-            // modal via SampleManager.updateSample) and copy to data.soil.areaHa
-            // so Zone Comparison table can access it. Without this, the bulk area
-            // modal stores area values correctly but they don't flow through to
-            // the combined export table — appears as em-dash in every row.
-            if (activeSoilSample && activeSoilSample.rawData && activeSoilSample.rawData.areaHa != null) {
-                data.soil.areaHa = activeSoilSample.rawData.areaHa;
-            }
-
-            // Always read trace elements (Fe/Mn/Zn/Cu/B) directly from DOM inputs —
-            // GAIP_STATE.soil.ppm does not carry traces so they are never in canonical state.
-            // This runs regardless of hasData so it works for all samples in combined export.
-            var traceSelectors = { Fe: '[data-mlsn="Fe"]', Mn: '[data-mlsn="Mn"]', Zn: '[data-mlsn="Zn"]', Cu: '[data-mlsn="Cu"]', B: '[data-mlsn="B"]' };
-            Object.keys(traceSelectors).forEach(function(t) {
-                var el = document.querySelector(traceSelectors[t]);
-                if (el && el.value && !isNaN(parseFloat(el.value))) {
-                    data.soil[t] = parseFloat(el.value);
-                }
-            });
-            
-            // DOM fallback - read from input fields if GAIP_STATE didn't have ppm data
-            if (!data.soil.hasData) {
-                
-                // Try various input field naming conventions
-                var soilFieldMappings = [
-                    // Format: [data property, [possible input selectors]]
-                    // Primary: data-mlsn attributes (used by actual UI inputs)
-                    ['P', ['[data-mlsn="P"]', '#gaip_soil_P', '#soil_P', '[name="soil_P"]', '.gaip-soil-P', '#P_ppm', '[data-nutrient="P"]']],
-                    ['K', ['[data-mlsn="K"]', '#gaip_soil_K', '#soil_K', '[name="soil_K"]', '.gaip-soil-K', '#K_ppm', '[data-nutrient="K"]']],
-                    ['Ca', ['[data-mlsn="Ca"]', '#gaip_soil_Ca', '#soil_Ca', '[name="soil_Ca"]', '.gaip-soil-Ca', '#Ca_ppm', '[data-nutrient="Ca"]']],
-                    ['Mg', ['[data-mlsn="Mg"]', '#gaip_soil_Mg', '#soil_Mg', '[name="soil_Mg"]', '.gaip-soil-Mg', '#Mg_ppm', '[data-nutrient="Mg"]']],
-                    ['S', ['[data-mlsn="S"]', '#gaip_soil_S', '#soil_S', '[name="soil_S"]', '.gaip-soil-S', '#S_ppm', '[data-nutrient="S"]']],
-                    ['Fe', ['[data-mlsn="Fe"]', '#gaip_soil_Fe', '#soil_Fe', '[name="soil_Fe"]', '.gaip-soil-Fe', '#Fe_ppm', '[data-nutrient="Fe"]']],
-                    ['Mn', ['[data-mlsn="Mn"]', '#gaip_soil_Mn', '#soil_Mn', '[name="soil_Mn"]', '.gaip-soil-Mn', '#Mn_ppm', '[data-nutrient="Mn"]']],
-                    ['Cu', ['[data-mlsn="Cu"]', '#gaip_soil_Cu', '#soil_Cu', '[name="soil_Cu"]', '.gaip-soil-Cu', '#Cu_ppm', '[data-nutrient="Cu"]']],
-                    ['Zn', ['[data-mlsn="Zn"]', '#gaip_soil_Zn', '#soil_Zn', '[name="soil_Zn"]', '.gaip-soil-Zn', '#Zn_ppm', '[data-nutrient="Zn"]']],
-                    ['pH', ['.gaip-soil-ph', '#gaip_soil_pH', '#soil_pH', '[name="soil_pH"]', '.gaip-soil-pH', '#pH_water']],
-                    // b35fix409 (C3+C5): added `.gaip-loi` (the actual UI
-                    // selector per sample-manager.js SOIL_FIELD_MAP). The
-                    // pre-fix list of `#gaip_soil_OM`, `#soil_OM`,
-                    // `[name="soil_OM"]`, `.gaip-soil-OM`, `#organic_matter`
-                    // does not match any element rendered by the plugin's
-                    // own UI, so this DOM fallback never produced a value.
-                    ['OM', ['.gaip-loi', '#gaip_soil_OM', '#soil_OM', '[name="soil_OM"]', '.gaip-soil-OM', '#organic_matter']],
-                    // b35fix416: added `.gaip-cec` and `.gaip-soil-ec` to the
-                    // CEC and EC entries. The pre-fix CEC list never matched
-                    // the actual UI element (`.gaip-cec`); EC had no entry
-                    // at all in soilFieldMappings, so the DOM fallback
-                    // never produced CEC or EC values for combined export
-                    // per-zone iteration. This was the root cause of the
-                    // b35fix409-415 saga: `soilInput.ppm` is null during
-                    // per-zone iteration in combined export (loadSample
-                    // doesn't fully populate the proxy chain), so the
-                    // entire `if (soilInput && soilInput.ppm)` block at
-                    // line 6494 is skipped, and the DOM fallback below is
-                    // the actual code path that runs. CEC and EC fields
-                    // weren't covered by the right selectors.
-                    ['CEC', ['.gaip-cec', '#gaip_soil_CEC', '#soil_CEC', '[name="soil_CEC"]', '.gaip-soil-CEC']],
-                    ['EC', ['.gaip-soil-ec', '#gaip_soil_EC', '#soil_EC', '[name="soil_EC"]', '.gaip-soil-EC']],
-                    ['Na', ['[data-mlsn="Na"]', '#gaip_soil_Na', '#soil_Na', '[name="soil_Na"]', '.gaip-soil-Na', '#Na_ppm', '[data-nutrient="Na"]']]
-                ];
-                
-                soilFieldMappings.forEach(function(mapping) {
-                    var prop = mapping[0];
-                    var selectors = mapping[1];
-                    for (var i = 0; i < selectors.length; i++) {
-                        var el = document.querySelector(selectors[i]);
-                        if (el && el.value && !isNaN(parseFloat(el.value))) {
-                            data.soil[prop] = parseFloat(el.value);
-                            break;
-                        }
-                    }
+            if (_soilReadings && _soilKeys) {
+                _soilKeys.forEach(function (k) {
+                    if (_soilReadings[k] !== undefined) data.soil[k] = _soilReadings[k];
                 });
-                
-                // Check if we got any data from DOM
-                if (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg) {
-                    data.soil.hasData = true;
+            }
+
+            // GH-370: bulk density and depth are not readings on the form and
+            // have no column in the reading map; they come off the same record,
+            // by id, because the engine's ppm → kg/ha conversion needs them.
+            if (_soilRow) {
+                var _bd = _soilRow.bulkDensity != null ? parseFloat(_soilRow.bulkDensity) : NaN;
+                if (!isNaN(_bd) && _bd > 0) data.soil.bulkDensity = _bd;
+                var _sd = _soilRow.depthCm != null ? parseFloat(_soilRow.depthCm)
+                        : (_soilRow.depth != null ? parseFloat(_soilRow.depth) : NaN);
+                if (!isNaN(_sd) && _sd > 0) data.soil.depth = _sd;
+                // b35fix427 (C34): a measured ESP, where the lab reported one.
+                if (_soilRow.ESP != null) {
+                    var _measuredESP = parseFloat(_soilRow.ESP);
+                    if (!isNaN(_measuredESP)) {
+                        data.soil.ESP = +_measuredESP.toFixed(1);
+                        data.soil._espSource = 'measured';
+                    }
                 }
+                // b35fix372: the zone's area, for the purchasing summary.
+                if (_soilRow.areaHa != null) data.soil.areaHa = _soilRow.areaHa;
+            }
+
+            // Which record answered, and what it calls itself. The generated-id
+            // suffix a label can carry (`Soil_1_3cbn`) is still tidied for
+            // print, which is what the DOM input used to hold pre-humanised.
+            data.soil.sampleLabel = _soilSample
+                ? String(_soilSample.label || '').replace(
+                    /^([A-Za-z]+)_(\d+)_[A-Za-z0-9]{4}$/,
+                    function (m, type, num) {
+                        return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase() + ' ' + num;
+                    })
+                : '';
+            data.soil.testDate = _soilSample ? (_soilSample.date || '') : '';
+            // The client record carries no laboratory reference — the column
+            // exists on the server (`samples.lab_ref`) and the store does not
+            // read it — so nothing is printed for it. The same answer GH-484
+            // gave for water, for the same reason.
+            data.soil.labRef = '';
+
+            // The same three states the other two kinds carry.
+            data.soil.onFile = _samplesOnFile('soil', inputs);
+            data.soil.state = _soilSample ? 'selected'
+                : (data.soil.onFile > 0 ? 'on-file-not-selected' : 'none-on-file');
+            data.soil.recordKey = _soilSample ? (_soilSample.id || null) : null;
+
+            // Truthiness, not presence — kept as it was on purpose. A reading of
+            // zero is a measurement, and a gate like this one drops it; that is
+            // the class the plan names "печать по истинности вместо наличия"
+            // (thirty-second refinement, point 2), and it is not this ticket's.
+            // Changing it here would move numbers nobody has asked to move.
+            if (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg) {
+                data.soil.hasData = true;
+            }
+
+            // What this sample does not carry is stated, not passed over: a
+            // report that prints three readings where fifteen are possible
+            // should say which twelve were never measured.
+            if (!_soilKeys) {
+                // The store did not answer, so neither the readings nor the
+                // list of the ones missing can be had. That is a run-scoped
+                // failure and is printed as one, not passed over in silence.
+                _noteAvailability(data, {
+                    field: 'Soil readings',
+                    where: 'Data \u203A Samples \u203A Soil',
+                    outcome: 'unavailable',
+                    reason: 'not-loaded',
+                    sections: ['Soil Nutrition']
+                });
+            } else if (_soilSample) {
+                var _absent = _soilKeys.filter(function (k) {
+                    return !_soilReadings || _soilReadings[k] === undefined;
+                });
+                if (_absent.length) {
+                    _noteAvailability(data, {
+                        field: 'Soil readings not in this sample (' + _absent.join(', ') + ')',
+                        where: 'Data \u203A Samples \u203A Soil',
+                        outcome: 'empty',
+                        reason: '',
+                        sections: ['Soil Nutrition']
+                    });
+                }
+            } else {
+                // The sections a document loses with its soil sample, measured
+                // rather than guessed: the sample was removed from the store,
+                // nothing else was changed, and the printed headings of the two
+                // documents were compared. These four stop being printed.
+                // (`Annual Nutrient Requirements` does not: it still prints,
+                // with figures from the page's own programme run. That is view
+                // II, named in the GH-490 report, not this ticket's to move.)
+                _noteAvailability(data, {
+                    field: 'Soil readings',
+                    where: 'Data \u203A Samples \u203A Soil',
+                    outcome: 'empty',
+                    reason: '',
+                    sections: ['Soil Nutrition', 'Cation Balance Analysis',
+                        'Annual Soil Amendments', 'Soil Amendment Recommendations'],
+                    extra: _noSampleLine('soil', data.soil) || ''
+                });
             }
 
             // ────────────────────────────────────────────────────────────────
@@ -8694,9 +8901,13 @@
                 // call it if available, fall through to the static floor as
                 // defensive degradation.
                 var _pFloor = _slanRanges.P.floor;
-                var _pHForSlanP = (soilInput && soilInput.pH_water) ||
-                                  (data.soil && data.soil.pH) ||
-                                  null;
+                // GH-490: `soilInput.pH_water` stood first here — the page's
+                // own soil object, so a report could take its P ladder from
+                // whatever pH the page last held. It is gone; the pH is this
+                // sample's, resolved by id a few hundred lines above. In a real
+                // export nothing changes: `GAIP_STATE.soil` is undefined
+                // throughout one, measured on the stand.
+                var _pHForSlanP = (data.soil && data.soil.pH) || null;
                 if (typeof window !== 'undefined' &&
                         window.NutritionRequirementEngine_Pure &&
                         typeof window.NutritionRequirementEngine_Pure._getSlanTargetP === 'function' &&
@@ -8757,23 +8968,49 @@
                 // Citation: each S-code entry in HillLabsSampleTypes.SAMPLE_TYPES
                 // carries its sourceCitation field (certificate lab number + date).
 
+                // GH-480: the `.gaip-aa-sample-type` read that stood second in
+                // this chain is gone. GH-290 established it was dead — the
+                // element exists in no blade view — and left it in place
+                // anyway, where it reads as a working source of the
+                // certificate code.
+                // GH-482: the rung that stood first here read
+                // `soilInput.aaSampleType` — `GAIP_STATE.soil`, the page's own
+                // state. GH-290 established in 2026 that nothing ever sets it
+                // and left it in place; with the page poisoned it is not
+                // merely dead but ACTIVE, answering the certificate from
+                // whatever the page holds. It is a read of the page in the
+                // chain that chooses a client's sufficiency ranges, so it goes
+                // with the other one this ticket removed.
                 var aaSampleType = null;
-                if (soilInput && soilInput.aaSampleType) {
-                    aaSampleType = String(soilInput.aaSampleType).toUpperCase();
-                } else {
-                    var aaCodeEl = document.querySelector('.gaip-aa-sample-type');
-                    if (aaCodeEl && aaCodeEl.value) {
-                        aaSampleType = String(aaCodeEl.value).toUpperCase();
-                    }
-                }
-                if (!aaSampleType && typeof window !== 'undefined' && window.HillLabsSampleTypes &&
+                if (typeof window !== 'undefined' && window.HillLabsSampleTypes &&
                         typeof window.HillLabsSampleTypes.deriveCode === 'function') {
+                    // GH-482: the texture the certificate is derived from is
+                    // the site's own, resolved by id. It used to be read from
+                    // `GAIP_STATE.soil.soilTexture` — the page's state, and
+                    // undefined throughout a real export (measured), so the
+                    // derivation ran with no texture at all and every AA site
+                    // fell through to the S277 default below regardless of its
+                    // rootzone. The certificate chooses the Ammonium Acetate
+                    // ranges themselves, so that default was the thresholds a
+                    // client was shown.
                     var _derivedAaCode = window.HillLabsSampleTypes.deriveCode(
                         (data.turf && (data.turf.grassSpecies || data.turf.species)) || null,
-                        (soilInput && soilInput.soilTexture) || null
+                        _resolvedTexture
                     );
                     if (_derivedAaCode) aaSampleType = _derivedAaCode;
                 }
+                // GH-482: whether this certificate was DERIVED from the
+                // site's own settings or fell to the standing default below.
+                // Nothing prints it; it exists so that "the site earned this
+                // certificate" and "nobody could derive one" are two states a
+                // check can tell apart, which they were not while both ended
+                // as a bare 'S277'.
+                //
+                // The default itself stays: removing it leaves an Ammonium
+                // Acetate report with no sufficiency ranges at all, and what
+                // such a report should show is a domain question nobody has
+                // answered. It is recorded here, not decided here.
+                data.soil.aaSampleTypeSource = aaSampleType ? 'derived' : 'default';
                 if (!aaSampleType) aaSampleType = 'S277';
 
                 var hlSSOT = (typeof window !== 'undefined') ? window.HillLabsSampleTypes : null;
@@ -8797,17 +9034,32 @@
                     }
                 }
 
-                // Preserve legacy aaSoilTexture metadata for backward compat
-                // (downstream readers may still consult it; the SSOT supersedes
-                // it as the threshold-selection axis but the texture hint is
-                // still useful diagnostic info).
-                var aaSoilTexture = 'others';
-                var aaTextureEl = document.querySelector('.gaip-aa-soil-texture');
-                if (aaTextureEl && aaTextureEl.value) {
-                    aaSoilTexture = aaTextureEl.value;
-                } else if (soilInput && soilInput.aaSoilTexture) {
-                    aaSoilTexture = soilInput.aaSoilTexture;
-                }
+                // The rootzone bucket the AA interpretation speaks about, from
+                // the site's own soil texture, resolved by this report's site
+                // id and bucketed by the resolver's own rule
+                // (nutrition-program-inputs.js `aaTextureKey`) so there is one
+                // implementation of "sands or others", not two.
+                //
+                // GH-480: what stood here read `.gaip-aa-soil-texture`, then
+                // `GAIP_STATE.soil.aaSoilTexture` — undefined throughout a real
+                // export, measured — and failing both it wrote 'others'.
+                //
+                // The element is real: /reports/export embeds the legacy hub
+                // form, and ammonium-acetate-methodology.js builds this select
+                // into it (measured on the stand: the field is present and
+                // held 'sands' for every site during a combined export). That
+                // is the point — it is ONE field on a page printing several
+                // sites, holding whatever the page last computed, so it is the
+                // page's answer and not the sample's. And 'others' is a
+                // substitution: it prints as a statement that sand thresholds
+                // were NOT applied, about a site nobody asked. A site with no
+                // texture resolves to nothing now and the sentence is absent.
+                var aaSoilTexture = _resolvedTexture
+                    ? (window.GAIP_NutritionProgramInputs
+                        && typeof window.GAIP_NutritionProgramInputs.aaTextureKey === 'function'
+                        ? window.GAIP_NutritionProgramInputs.aaTextureKey(_resolvedTexture)
+                        : null)
+                    : null;
 
                 data.soil.extractant = 'Olsen P + NH₄OAc (pH 8.1)';
                 data.soil.extractantLabel = 'Hill Labs NZ Method';
@@ -8976,75 +9228,50 @@
             
         }
         
-        // Tissue data
-        if (window.GAIP_STATE) {
-            ensureObject(data, 'tissue');  // Ensure tissue object exists
-            var tissueState = window.GAIP_STATE.tissue;
-            var tissueResults = window.GAIP_STATE.tissueResults;
-            
-            // Capture tissue sample identification metadata
-            // Priority: SampleManager active sample > manual DOM input > empty
-            var activeTissueSample = (window.GAIP_SampleManager && typeof GAIP_SampleManager.getActiveSample === 'function') 
-                ? GAIP_SampleManager.getActiveSample('tissue') : null;
-            var tissueLabelEl = document.querySelector('.gaip-tissue-sample-label');
-            var tissueDateEl = document.querySelector('.gaip-tissue-date');
-            data.tissue.sampleLabel = (activeTissueSample && activeTissueSample.label) ? activeTissueSample.label :
-                (tissueLabelEl && tissueLabelEl.value) ? tissueLabelEl.value.trim() : '';
-            data.tissue.testDate = (activeTissueSample && activeTissueSample.date) ? activeTissueSample.date :
-                (tissueDateEl && tissueDateEl.value) ? tissueDateEl.value : '';
+        // ─────────────────────────────────────────────────────────────────
+        // Tissue readings — the sample this report is about, by id.
+        // ─────────────────────────────────────────────────────────────────
+        // GH-484. What stood here read four page-level sources in turn:
+        // `GAIP_STATE.tissue`, the tissue form's `input[data-val]` fields, and
+        // `__GAIP_TISSUE_LAST__`. All three belong to the page, not to the
+        // sample being printed, and the measurement that ended them is in the
+        // trace of 17.09: twelve reports built on one page carried ONE set of
+        // tissue numbers, including for sites with no tissue sample on file at
+        // all. A client was shown another site's laboratory results under his
+        // own site's name.
+        //
+        // The readings now come from `inputs.samples.tissue`, which the
+        // resolver reads out of the per-site store by id (allActive[siteId]
+        // .tissue, or an id the caller named), and are normalised by the one
+        // function the form filling uses (GAIP_SampleManager.readingsOf).
+        // Nothing here reaches for a page field, and nothing takes "the last
+        // sample" when none is selected.
+        {
+            ensureObject(data, 'tissue');
+            var _smT = window.GAIP_SampleManager;
+            var _tissueSample = (inputs && inputs.samples) ? inputs.samples.tissue : null;
+            var _tissueReadings = (_smT && typeof _smT.readingsOf === 'function')
+                ? _smT.readingsOf('tissue', _tissueSample) : null;
 
-            // Tissue values are nested: state.tissue.tissue contains the actual values
-            var tissueInput = tissueState && tissueState.tissue ? tissueState.tissue : tissueState;
-            
-            if (tissueInput) {
-                data.tissue.N = tissueInput.N;
-                data.tissue.P = tissueInput.P;
-                data.tissue.K = tissueInput.K;
-                data.tissue.Ca = tissueInput.Ca;
-                data.tissue.Mg = tissueInput.Mg;
-                data.tissue.S = tissueInput.S;
-                data.tissue.Fe = tissueInput.Fe;
-                data.tissue.Mn = tissueInput.Mn;
-                data.tissue.Zn = tissueInput.Zn;
-                data.tissue.Cu = tissueInput.Cu;
-                data.tissue.B = tissueInput.B;
-                
-                // Set hasData flag
-                if (data.tissue.N || data.tissue.K || data.tissue.P) {
-                    data.tissue.hasData = true;
-                }
-            }
-            
-            // Fallback: read tissue values directly from DOM inputs if not in state
-            if (!data.tissue.N && !data.tissue.K) {
-                var tissueModule = document.querySelector('#gaipTissueModule, .gaip-tissue-module');
-                if (tissueModule) {
-                    var tissueInputs = tissueModule.querySelectorAll('input[data-val]');
-                    tissueInputs.forEach(function(input) {
-                        var nutrient = input.dataset.val;
-                        var value = parseFloat(input.value);
-                        if (nutrient && !isNaN(value) && value > 0) {
-                            data.tissue[nutrient] = value;
-                        }
-                    });
-                }
-            }
-            
-            // Also check __GAIP_TISSUE_LAST__ for computed results
-            if (window.__GAIP_TISSUE_LAST__ && window.__GAIP_TISSUE_LAST__.values) {
-                var lastValues = window.__GAIP_TISSUE_LAST__.values;
-                ['N', 'P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn', 'Zn', 'Cu', 'B'].forEach(function(n) {
-                    if (!data.tissue[n] && lastValues[n] !== undefined) {
-                        data.tissue[n] = lastValues[n];
-                    }
+            data.tissue.sampleLabel = _tissueSample ? (_tissueSample.label || '') : '';
+            data.tissue.testDate = _tissueSample ? (_tissueSample.date || '') : '';
+            // Which record answered, the same stamp every other read carries.
+            data.tissue.recordKey = _tissueSample ? (_tissueSample.id || null) : null;
+
+            if (_tissueReadings) {
+                ['N', 'P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn', 'Zn', 'Cu', 'B'].forEach(function (n) {
+                    if (_tissueReadings[n] !== undefined) data.tissue[n] = _tissueReadings[n];
                 });
             }
-            
-            // Set hasData flag if we have tissue data from any source
-            if (data.tissue.N || data.tissue.K || data.tissue.P) {
-                data.tissue.hasData = true;
-            }
-            
+            data.tissue.hasData = !!(data.tissue.N || data.tissue.K || data.tissue.P);
+            // Three states, carried rather than inferred from emptiness: a site
+            // with nothing on file and a site whose samples nobody selected are
+            // different things, and neither of them is "take the last one".
+            data.tissue.onFile = _samplesOnFile('tissue', inputs);
+            data.tissue.state = _tissueSample ? 'selected'
+                : (data.tissue.onFile > 0 ? 'on-file-not-selected' : 'none-on-file');
+        }
+        {
             // Add sufficiency ranges based on EFFECTIVE species
             // When overseed is dominant, use C3 ranges since that's what we're managing
             var speciesLower = (data.turf.effectiveSpecies || data.turf.species || '').toLowerCase();
@@ -9090,131 +9317,111 @@
                 };
             }
             
-            if (tissueResults) {
-                if (!data.tissue) data.tissue = {};  // Defensive init
-                data.tissue.hasResults = true;
-                data.tissue.status = tissueResults.status || {};
-                data.tissue.limitingNutrients = tissueResults.limitingNutrients || [];
+            // GH-484: `GAIP_STATE.tissueResults` — the page's own last run —
+            // used to be copied in here as this report's status and limiting
+            // nutrients. A run has no stamp saying which site it was for
+            // (layer II), so there is no way to tell a run of THIS sample from
+            // the run of whichever sample the page last computed. Until a run
+            // carries that stamp the section is not printed from it, and the
+            // document says so rather than showing another sample's verdict.
+            //
+            // The colour of every printed reading is a pure comparison against
+            // the ranges above and is unaffected: getTissueRangeColor() reads
+            // the value and the range, nothing else.
+            // GH-486: an OUTCOME, not a sentence. The registry after Site
+            // Information and the line inside the section below are both built
+            // from it.
+            _noteAvailability(data, {
+                field: 'Tissue analysis verdict',
+                where: 'Analysis run (Plan page)',
+                outcome: 'omitted',
+                reason: 'no-run-stamp',
+                sections: ['Tissue Analysis']
+            });
+            if (data.tissue.state !== 'selected') {
+                _noteAvailability(data, {
+                    field: 'Tissue readings',
+                    where: 'Data \u203A Samples \u203A Tissue',
+                    outcome: 'empty',
+                    reason: '',
+                    sections: ['Tissue Analysis'],
+                    extra: _noSampleLine('tissue', data.tissue) || ''
+                });
             }
         }
         
-        // Water data
-        if (window.GAIP_STATE) {
-            ensureObject(data, 'water');  // Ensure water object exists
+        // ─────────────────────────────────────────────────────────────────
+        // Water readings — the sample this report is about, by id.
+        // ─────────────────────────────────────────────────────────────────
+        // GH-484. What stood here walked four page-level sources for the ions:
+        // the hub store's `inputs.water`, the blender's live state,
+        // `window._GAIP_EXPORT_BLEND_WATER`, and `GAIP_STATE.water`, and then
+        // a DOM fallback over the water form. Every one of them belongs to the
+        // page. Measured on 17.09: twelve reports built on one page carried ONE
+        // set of water numbers, including for sites with no water sample on
+        // file — Westview and Test5 among them.
+        //
+        // The ions now come from `inputs.samples.water`, resolved by id, and
+        // are normalised by the function the form filling uses.
+        {
+            ensureObject(data, 'water');
+            var _smW = window.GAIP_SampleManager;
+            var _waterSample = (inputs && inputs.samples) ? inputs.samples.water : null;
+            var _waterReadings = (_smW && typeof _smW.readingsOf === 'function')
+                ? _smW.readingsOf('water', _waterSample) : null;
 
-            // b35fix139: read water from hub store directly (GAIP_STATE is a defineProperty getter
-            // in gilba-hub-v2.js — writing .water on the returned object has no effect)
-            // Priority: GilbaHub store → blender live state → GAIP_STATE legacy field
-            var waterInput = null;
-            try {
-                // Try hub store first (authoritative)
-                if (window.GilbaHub && window.GilbaHub.get) {
-                    waterInput = window.GilbaHub.get('inputs.water');
-                }
-                // If store has no water data, try blender
-                if ((!waterInput || !waterInput.ecw) && window.GAIP_WaterBlenderUI &&
-                    window.GAIP_WaterBlenderUI.getState) {
-                    var _bs2 = window.GAIP_WaterBlenderUI.getState();
-                    if (_bs2 && _bs2.blendResult && typeof GAIP_WaterBlender !== 'undefined') {
-                        waterInput = GAIP_WaterBlender.toHubWaterState(_bs2.blendResult);
-                        // Write into hub store so downstream reads also get it
-                        if (waterInput && window.GilbaHub && window.GilbaHub.set) {
-                            window.GilbaHub.set('inputs.water', waterInput);
-                        }
-                    }
-                }
-                // Last resort: pre-captured value stored on export object
-                if ((!waterInput || !waterInput.ecw) && window._GAIP_EXPORT_BLEND_WATER) {
-                    waterInput = window._GAIP_EXPORT_BLEND_WATER;
-                }
-            } catch(_we) {}
-            // Final fallback: legacy GAIP_STATE path
-            if (!waterInput) waterInput = window.GAIP_STATE ? window.GAIP_STATE.water : null;
-            var waterResults = window.GAIP_STATE ? window.GAIP_STATE.waterResults : null;
-            
-            // Capture water sample identification metadata
-            // Priority: SampleManager active sample > manual DOM input > empty
-            var activeWaterSample = (window.GAIP_SampleManager && typeof GAIP_SampleManager.getActiveSample === 'function') 
-                ? GAIP_SampleManager.getActiveSample('water') : null;
-            var waterSourceEl = document.querySelector('.gaip-water-source-label');
-            var waterLabRefEl = document.querySelector('.gaip-water-lab-ref');
-            var waterDateEl = document.querySelector('.gaip-water-date');
-            data.water.sourceLabel = (activeWaterSample && activeWaterSample.label) ? activeWaterSample.label :
-                (waterSourceEl && waterSourceEl.value) ? waterSourceEl.value.trim() : '';
-            data.water.labRef = (waterLabRefEl && waterLabRefEl.value) ? waterLabRefEl.value.trim() : '';
-            data.water.testDate = (activeWaterSample && activeWaterSample.date) ? activeWaterSample.date :
-                (waterDateEl && waterDateEl.value) ? waterDateEl.value : '';
+            data.water.sourceLabel = _waterSample ? (_waterSample.label || '') : '';
+            data.water.testDate = _waterSample ? (_waterSample.date || '') : '';
+            data.water.recordKey = _waterSample ? (_waterSample.id || null) : null;
+            data.water.labRef = '';
 
-            if (waterInput) {
-                data.water.EC = waterInput.ecw;
-                // b35fix434 / C43: pH writer is conditional. Pre-fix, pH=7 (or any other
-                // stale value retained in the bleed-through hub-store inputs.water slot)
-                // leaked into renderers as partial state. The C43 hub-orchestrator
-                // site-clear hook + clearWaterForm metadata clear close the bleed paths
-                // upstream; this gate is the renderer-side belt-and-braces.
-                if (waterInput.pH && waterInput.pH > 0) {
-                    data.water.pH = waterInput.pH;
-                }
-                // Check if this is blended water
-                data.water.isBlended = waterInput.isBlended || false;
-                data.water.sourceCount = waterInput.sourceCount || 1;
-                // Ion values are in the ions sub-object
-                var ions = waterInput.ions || {};
-                data.water.Na = ions.Na;
-                data.water.Ca = ions.Ca;
-                data.water.Mg = ions.Mg;
-                data.water.Cl = ions.Cl;
-                data.water.HCO3 = ions.HCO3;
-                data.water.B = ions.B;
-                data.water.K = ions.K;
-                data.water.SO4 = ions.SO4;
-                // Blend-specific fields for word export (b35fix139)
-                data.water.ccpi = waterInput.ccpi !== undefined ? waterInput.ccpi : null;
-                data.water.ccpiClassification = waterInput.ccpiClassification || null;
-                data.water.optimiserResult = waterInput.optimiserResult || null;
-                data.water.salinityClass = waterInput.salinityClass || null;
-                data.water.sodicityClass = waterInput.sodicityClass || null;
-                data.water.infiltrationClass = waterInput.infiltrationClass || null;
-                data.water.bicarbonateClass = waterInput.bicarbonateClass || null;
-                
-                // Set hasData flag
-                if (data.water.EC || data.water.Na || data.water.Ca) {
-                    data.water.hasData = true;
-                }
-            }
-            
-            // DOM fallback for water if GAIP_STATE didn't have it
-            if (!data.water.hasData) {
-                
-                var waterFieldMappings = [
-                    ['EC', ['#gaip_water_EC', '#water_EC', '[name="water_EC"]', '.gaip-water-EC', '#ECw']],
-                    ['pH', ['#gaip_water_pH', '#water_pH', '[name="water_pH"]', '.gaip-water-pH']],
-                    ['Na', ['#gaip_water_Na', '#water_Na', '[name="water_Na"]', '.gaip-water-Na']],
-                    ['Ca', ['#gaip_water_Ca', '#water_Ca', '[name="water_Ca"]', '.gaip-water-Ca']],
-                    ['Mg', ['#gaip_water_Mg', '#water_Mg', '[name="water_Mg"]', '.gaip-water-Mg']],
-                    ['Cl', ['#gaip_water_Cl', '#water_Cl', '[name="water_Cl"]', '.gaip-water-Cl']],
-                    ['HCO3', ['#gaip_water_HCO3', '#water_HCO3', '[name="water_HCO3"]', '.gaip-water-HCO3', '#water_bicarb']],
-                    ['B', ['#gaip_water_B', '#water_B', '[name="water_B"]', '.gaip-water-B']],
-                    ['SO4', ['#gaip_water_SO4', '#water_SO4', '[name="water_SO4"]', '.gaip-water-SO4']]
-                ];
-                
-                waterFieldMappings.forEach(function(mapping) {
-                    var prop = mapping[0];
-                    var selectors = mapping[1];
-                    for (var i = 0; i < selectors.length; i++) {
-                        var el = document.querySelector(selectors[i]);
-                        if (el && el.value && !isNaN(parseFloat(el.value))) {
-                            data.water[prop] = parseFloat(el.value);
-                            break;
-                        }
-                    }
+            if (_waterReadings) {
+                if (_waterReadings.EC !== undefined) data.water.EC = _waterReadings.EC;
+                if (_waterReadings.pH !== undefined && _waterReadings.pH > 0) data.water.pH = _waterReadings.pH;
+                ['Na', 'Ca', 'Mg', 'Cl', 'HCO3', 'CO3', 'B', 'K', 'SO4'].forEach(function (ion) {
+                    if (_waterReadings[ion] !== undefined) data.water[ion] = _waterReadings[ion];
                 });
-                
-                if (data.water.EC || data.water.Na || data.water.Ca) {
-                    data.water.hasData = true;
-                }
+                data.water.hasData = !!(data.water.EC || data.water.Na || data.water.Ca);
             }
-            
+
+            data.water.onFile = _samplesOnFile('water', inputs);
+            data.water.state = _waterSample ? 'selected'
+                : (data.water.onFile > 0 ? 'on-file-not-selected' : 'none-on-file');
+
+            // GH-484: the page's own run and its blender state — `waterResults`
+            // (classification, sodium and salinity hazard), `isBlended`,
+            // `sourceCount`, `ccpi` and the optimiser's output — are not copied
+            // in. A run carries no stamp saying which site it was for, and a
+            // blend is a thing the page holds, not a property of this sample.
+            // SAR, SARadj and RSC are still shown: the export computes all
+            // three from the ions above, which is a pure calculation on this
+            // sample's own readings.
+            data.water.isBlended = false;
+            data.water.sourceCount = 1;
+            // GH-486: outcomes, read by the registry and by the line inside the
+            // section below.
+            _noteAvailability(data, {
+                field: 'Water analysis verdict',
+                where: 'Analysis run (Plan page)',
+                outcome: 'omitted',
+                reason: 'no-run-stamp',
+                sections: ['Water Quality']
+            });
+            if (data.water.state !== 'selected') {
+                _noteAvailability(data, {
+                    field: 'Water readings',
+                    where: 'Data \u203A Samples \u203A Water',
+                    outcome: 'empty',
+                    reason: '',
+                    sections: ['Water Quality'],
+                    extra: _noSampleLine('water', data.water) || ''
+                });
+            }
+            // 10.8(20), OPEN and unchanged: where more than one water sample is
+            // on file and none is selected, the resolver's own choice is the
+            // last key of the store. Nothing here changes that; the state above
+            // says "on file, none selected" so the document can state it.
+
             // Water quality thresholds for charting
             data.water.thresholds = {
                 EC: { safe: 0.75, marginal: 1.5, max: 3.0, unit: 'dS/m' },
@@ -9226,22 +9433,17 @@
                 pH: { min: 6.0, optLo: 6.5, optHi: 7.5, max: 8.5 }
             };
             
-            if (waterResults) {
-                if (!data.water) data.water = {};  // Defensive init
-                data.water.hasResults = true;
-                data.water.SAR = waterResults.SAR;
-                data.water.SARadj = waterResults.SARadj;  // Adjusted SAR for bicarbonate effect
-                data.water.RSC = waterResults.RSC;
-                data.water.classification = waterResults.classification || waterResults.category;
-                data.water.sodiumHazard = waterResults.sodiumHazard;
-                data.water.salinityHazard = waterResults.salinityHazard;
-                // If engine ran and produced results, water data is present — ensure hasData reflects this
-                // (GAIP_STATE.water input may be absent during combined export even when engine has results)
-                if (!data.water.hasData && (waterResults.SAR || waterResults.EC)) {
-                    data.water.hasData = true;
-                }
-            }
-            
+            // GH-484: the `waterResults` copy that stood here is gone with the
+            // rest of the page's run — see the note above. The three figures it
+            // supplied that this file can derive itself (SAR, SARadj, RSC) are
+            // computed below from this sample's own ions; the ones it cannot
+            // (classification, sodium and salinity hazard) are not printed.
+            //
+            // Its last line also flipped `hasData` true whenever the engine had
+            // run, so a site with no water sample of its own printed a Water
+            // Quality section as long as SOMETHING had been computed on the
+            // page. That is the bleed this ticket is about, one field wide.
+
             // Calculate SAR if not provided but we have the necessary ion data
             if (!data.water.SAR && data.water.Na && data.water.Ca && data.water.Mg) {
                 var Na_meq = data.water.Na / 23;
@@ -10095,7 +10297,7 @@
         // which reflected only the last sample's site. Every prior report got
         // the last site's context. Now each report carries its own context
         // baked in during the loop iteration when its site was active.
-        _buildEngineInputs(data);
+        _buildEngineInputs(data, inputs);
         // b35fix314: _buildEngineInputs hard-fails to null when species can't
         // be resolved (readiness race). Gate the engine call on presence —
         // null means fall through to the legacy cache, not a null-deref crash.
@@ -10739,20 +10941,17 @@
                 // must come from current soil chemistry — computing lime/gypsum
                 // kg/ha from a 2-year-old sample is worse than silence.
                 // Respects the per-site `allowStaleRecommendations` opt-out.
-                var _amendSample = null;
-                var _amendSiteId = null;
+                // GH-490: the sample whose age decides this is the one the
+                // report is about, and the site whose opt-out is consulted is
+                // that report's site. Both used to come from the page — the
+                // active-sample pointer and `getAllSamples().currentSite` —
+                // so in a twelve-site run one sample's date and one site's
+                // opt-out decided the amendments printed for all twelve.
+                var _amendSample = (inputs && inputs.samples) ? inputs.samples.soil : null;
+                var _amendSiteId = (inputs && inputs.site) ? inputs.site.id : null;
                 var _amendFresh = true;
                 try {
                     var _sm = window.GAIP_SampleManager;
-                    if (_sm && typeof _sm.getActiveSample === 'function') {
-                        _amendSample = _sm.getActiveSample('soil');
-                    }
-                    if (_sm && typeof _sm.getAllSamples === 'function') {
-                        var _all = _sm.getAllSamples();
-                        // Derive current site id if possible (used by canDriveRecommendations
-                        // to check per-site opt-out)
-                        _amendSiteId = _all && _all.currentSite;
-                    }
                     if (_sm && typeof _sm.canDriveRecommendations === 'function' && _amendSample) {
                         _amendFresh = _sm.canDriveRecommendations(_amendSample, _amendSiteId);
                     }
@@ -10809,7 +11008,26 @@
             console.warn('[WordExport] Amendment engine error:', amendErr);
             data.amendment.hasData = false;
         }
-        
+
+        // GH-488: the surface the amendment rate caps are chosen by. It was
+        // written during printing (the old `data.soil.surfaceType = …` inside
+        // buildSections), which is how a value entered the document without
+        // passing anything that checks values.
+        if (data.soil && data.turf) {
+            data.soil.surfaceType = (data.turf.subCategory || data.turf.type || '').toLowerCase();
+        }
+
+        // GH-487: the outcome map is closed once it is complete. It is the one
+        // thing in this object that a reader must be able to trust as the
+        // record of what happened — a document whose registry can be edited
+        // after the fact says nothing. Frozen here rather than in the test,
+        // because a guarantee that exists only under a test is not one: the
+        // control that used to `delete data.availability` now throws.
+        if (data.availability) {
+            data.availability.forEach(function (entry) { Object.freeze(entry); });
+            Object.freeze(data.availability);
+        }
+
         return data;
     }
     
@@ -10892,9 +11110,86 @@
     }
     
     // Build document sections
-    function buildSections(data, charts) {
+    /**
+     * GH-488 — printing reads a copy, and the copy is frozen.
+     *
+     * The border between assembling a document and printing it was open: the
+     * printer wrote into the model it was given (`data.soil.surfaceType`, found
+     * by freezing), so a value could enter the document without passing
+     * anything that checks values. Now the printer is handed its own deeply
+     * frozen clone: a write throws, and the window closes by construction
+     * rather than by everyone remembering not to lean on it.
+     *
+     * A clone, not a freeze in place: `data` is assembled from objects the page
+     * still owns, and freezing those would freeze the page. `structuredClone`
+     * also refuses functions and cycles, and a model carrying either is a
+     * defect that surfaces here instead of somewhere quieter.
+     */
+    function _frozenCopy(model) {
+        // structuredClone was the first choice — it refuses functions and
+        // cycles, which would be defects worth surfacing here. It cannot be
+        // used: the poisoning harness that proves no page value reaches a
+        // document plants its sentinels as proxies over FUNCTIONS (a String
+        // wrapper throws on indexed access, GH-475), so cloning a poisoned
+        // model raises DataCloneError and the strongest guard in this area
+        // stops running. Measured on the stand: a real model carries no
+        // functions at all.
+        //
+        // So the copy is made here, carrying a function value by reference and
+        // refusing a cycle — the one thing that would turn this walk into a
+        // hang rather than a clone.
+        var seen = new Map();
+        function clone(value, path) {
+            if (!value || typeof value !== 'object') return value;
+            if (seen.has(value)) {
+                throw new Error('[WordExport] GH-488: the model contains a cycle at ' + path +
+                    '; a document cannot be printed from a model that refers back to itself.');
+            }
+            seen.set(value, true);
+            var out;
+            if (Array.isArray(value)) {
+                out = value.map(function (v, i) { return clone(v, path + '[' + i + ']'); });
+            } else if (value instanceof Date) {
+                out = new Date(value.getTime());
+            } else {
+                out = {};
+                Object.keys(value).forEach(function (k) { out[k] = clone(value[k], path + '.' + k); });
+            }
+            seen.delete(value);
+            return Object.freeze(out);
+        }
+        return clone(model, 'data');
+    }
+
+    function buildSections(model, charts) {
+        // GH-488: everything below reads `data`, and `data` is the frozen copy.
+        var data = _frozenCopy(model);
         charts = charts || {};
         var sections = [];
+
+        // GH-488: what went wrong with THIS RUN is said once, at the top, and
+        // not under each site. Twelve identical rows, one per site, hide that
+        // the cause is one — the load did not finish, or it failed, or a read
+        // threw — and none of them is a statement about the site it stands
+        // under.
+        var _runEntries = (data.availability || []).filter(function (e) { return _entryScope(e) === 'run'; });
+        if (_runEntries.length) {
+            sections.push(new Paragraph({
+                spacing: { after: 60 },
+                children: [new TextRun({ text: 'About this report run', bold: true, size: 22, color: '6B7280' })]
+            }));
+            sections.push(new Paragraph({
+                spacing: { after: 160 },
+                children: [new TextRun({
+                    text: 'Some site data could not be read while this report was produced: '
+                        + _runEntries.map(function (e) {
+                            return e.field + ' (' + (REASON_TEXT[e.reason] || e.reason) + ')';
+                        }).join('; ')
+                        + '. This affects every site in this report and is not a statement about any of them.',
+                    size: 20, italics: true, color: '6B7280'
+                })]
+            }));
+        }
         
         // Get branding info
         var logo = typeof GAIP_getReportLogo === 'function' ? GAIP_getReportLogo() : null;
@@ -11385,7 +11680,121 @@
         
         sections.push(createTable(siteRows));
         sections.push(new Paragraph({ children: [] }));
-        
+
+        // ─────────────────────────────────────────────────────────────────
+        // Data availability — printed in EVERY document, right after Site
+        // Information.
+        // ─────────────────────────────────────────────────────────────────
+        // GH-486. A section that simply disappears reads as a statement about
+        // the site: "this site has no water analysis". Often it is a statement
+        // about us instead — something we could not attribute or could not
+        // read. The registry says which, for every field whose outcome is not
+        // `present`, and says "All site data present" when there is nothing to
+        // report, so the reader learns what it looks like when all is well and
+        // a missing table is never silent.
+        //
+        // Its rows are the outcome map above, not sentences typed here: the
+        // status is derived from the outcome and the reason is printed
+        // literally, so `Could not be read` always carries a code and `Not set`
+        // never does.
+        sections.push(new Paragraph({
+            spacing: { before: 200, after: 100 },
+            children: [new TextRun({ text: 'Data availability', bold: true, size: 24, color: '1F2937' })]
+        }));
+        // GH-487: the table is about this site's data, so only outcomes whose
+        // scope is `site` stand in it. The scope comes from the reason, not
+        // from the entry.
+        var _availAll = data.availability || [];
+        var _avail = _availAll.filter(function (e) { return _entryScope(e) === 'site'; });
+        var _release = _availAll.filter(function (e) { return _entryScope(e) === 'release'; });
+        if (!_avail.length) {
+            sections.push(new Paragraph({
+                spacing: { after: 120 },
+                children: [new TextRun({ text: 'All site data present.', size: 22, color: '374151' })]
+            }));
+        } else {
+            var _availRows = [new TableRow({
+                tableHeader: true,
+                children: ['Field', 'Where it lives', 'Status', 'Reason', 'Sections affected'].map(function (h) {
+                    return new TableCell({
+                        shading: { fill: 'E5E7EB', type: ShadingType.CLEAR },
+                        children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: 20 })] })]
+                    });
+                })
+            })];
+            _avail.forEach(function (entry) {
+                // The code stays — it is what we act on — and the sentence from
+                // REASON_TEXT stands beside it, so the row is readable by the
+                // person holding the report and by the person fixing it.
+                var _reasonCell = '';
+                if (entry.outcome === 'unavailable' && entry.reason) {
+                    _reasonCell = entry.reason + (REASON_TEXT[entry.reason] ? ' \u2014 ' + REASON_TEXT[entry.reason] : '');
+                }
+                var cells = [
+                    entry.field,
+                    entry.where || '',
+                    _availabilityStatus(entry),
+                    _reasonCell,
+                    (entry.sections || []).join(', ')
+                ];
+                _availRows.push(new TableRow({
+                    children: cells.map(function (text) {
+                        return new TableCell({
+                            children: [new Paragraph({ children: [new TextRun({ text: String(text), size: 20 })] })]
+                        });
+                    })
+                }));
+            });
+            // Its own widths: createTable() is the two-column key/value shape
+            // this document uses everywhere else, and this table has five.
+            sections.push(new Table({
+                width: { size: 9360, type: WidthType.DXA },
+                columnWidths: [1900, 1900, 1400, 2360, 1800],
+                rows: _availRows
+            }));
+        }
+        // GH-487: what is true of every document this version produces is said
+        // once, as a note about the version — not as a row in twelve different
+        // sites' data tables. 10.8(23) asks the owner whether it should be
+        // printed at all before layer II lands; either answer is this one
+        // paragraph appearing or not, and nothing else moves.
+        if (_release.length) {
+            sections.push(new Paragraph({
+                spacing: { before: 120, after: 60 },
+                children: [new TextRun({ text: 'About this report version', bold: true, size: 22, color: '6B7280' })]
+            }));
+            sections.push(new Paragraph({
+                spacing: { after: 120 },
+                children: [new TextRun({
+                    text: 'Analysis verdicts for tissue and water are not yet attributed to a site in this '
+                        + 'version; they are omitted for every site.',
+                    size: 20, italics: true, color: '6B7280'
+                })]
+            }));
+        }
+        sections.push(new Paragraph({ children: [] }));
+
+        // GH-490: the same answer GH-486 gave for tissue and water, for the
+        // kind whose disappearance is the biggest: with no soil sample the
+        // document loses four sections, and until now it lost them without a
+        // word. The heading stays and the body is the line the outcome map
+        // already carries.
+        var _soilMissing = (data.availability || [])
+            .filter(function (e) { return _entryScope(e) === 'site'; })
+            .filter(function (e) { return (e.sections || []).indexOf('Soil Nutrition') >= 0; });
+        if (!(data.soil && (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg)) && _soilMissing.length) {
+            sections.push(new Paragraph({
+                heading: HeadingLevel.HEADING_1, keepNext: true,
+                children: [new TextRun('Soil Nutrition')]
+            }));
+            _soilMissing.forEach(function (e) {
+                sections.push(new Paragraph({
+                    spacing: { after: 120 },
+                    children: [new TextRun({ text: _notIncludedLine(e), size: 22, italics: true, color: '6B7280' })]
+                }));
+            });
+        }
+
         // Soil Nutrition section - use correct methodology label
         if (data.soil && (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg)) {
             var soilMethodLabel = data.soil.methodology || 'MLSN';
@@ -11401,7 +11810,17 @@
                 heading: HeadingLevel.HEADING_1, keepNext: true, 
                 children: [new TextRun(soilHeading)] 
             }));
-            
+
+            // GH-490: and where the section IS printed but this sample does not
+            // carry every reading, the ones it does not carry are named here,
+            // in the section they would have been printed in.
+            _soilMissing.forEach(function (e) {
+                sections.push(new Paragraph({
+                    spacing: { after: 120 },
+                    children: [new TextRun({ text: _notIncludedLine(e), size: 20, italics: true, color: '6B7280' })]
+                }));
+            });
+
             // Show sample metadata line (date, lab ref, area, species)
             var soilMetaParts = [];
             if (data.soil.testDate) {
@@ -11673,11 +12092,9 @@
                 phCecContext.forEach(function(el) { sections.push(el); });
             }
             
-            // Add soil interpretation and recommendations
-            // Inject surface context so generateFertiliserRecommendation can apply rate caps
-            if (data.soil && data.turf) {
-                data.soil.surfaceType = (data.turf.subCategory || data.turf.type || '').toLowerCase();
-            }
+            // GH-488: `data.soil.surfaceType` used to be written HERE, while
+            // the document was being printed. It is assembled in collectData
+            // now, with the rest of the model, so printing only reads.
 
             // b35fix320: build amendmentContext from engineInputs.overseedConfig.
             // Drives seedling-safe product selection (MAP-not-DAP for P, urea/DAP
@@ -12301,6 +12718,26 @@
             sections.push(new Paragraph({ children: [] }));
         }
         
+        // GH-484: records on file that nobody selected are stated, not passed
+        // over in silence — and not answered with the latest one either.
+        // GH-486: the heading stays and the body is one line, written from the
+        // outcome map — the same sentence the registry's row is built from.
+        var _tissueMissing = (data.availability || [])
+            .filter(function (e) { return _entryScope(e) === 'site'; })
+            .filter(function (e) { return (e.sections || []).indexOf('Tissue Analysis') >= 0; });
+        if (!(data.tissue && (data.tissue.N > 0 || data.tissue.K > 0)) && _tissueMissing.length) {
+            sections.push(new Paragraph({
+                heading: HeadingLevel.HEADING_1, keepNext: true,
+                children: [new TextRun('Tissue Analysis')]
+            }));
+            _tissueMissing.forEach(function (e) {
+                sections.push(new Paragraph({
+                    spacing: { after: 120 },
+                    children: [new TextRun({ text: _notIncludedLine(e), size: 22, italics: true, color: '6B7280' })]
+                }));
+            });
+        }
+
         // Tissue Analysis section
         if (data.tissue && (data.tissue.N > 0 || data.tissue.K > 0)) {
             // Build tissue header - indicate which species ranges are being used
@@ -12360,6 +12797,24 @@
             }
             
             sections.push(createTable(tissueRows));
+
+            // GH-486: the verdict this section used to carry — limiting
+            // nutrients — comes from a page run that carries no site stamp, so
+            // it is not printed. The heading and the readings stay and the
+            // document says what is missing and why, instead of the row simply
+            // not being there.
+            // GH-487: only what is about this site. The release note above
+            // carries what is about the version, once, instead of a line in
+            // every section of every document.
+            (data.availability || [])
+                .filter(function (e) { return _entryScope(e) === 'site'; })
+                .filter(function (e) { return (e.sections || []).indexOf('Tissue Analysis') >= 0; })
+                .forEach(function (e) {
+                    sections.push(new Paragraph({
+                        spacing: { after: 100 },
+                        children: [new TextRun({ text: _notIncludedLine(e), size: 20, italics: true, color: '6B7280' })]
+                    }));
+                });
             
             // Add tissue chart if generated
             if (charts.tissue) {
@@ -12961,6 +13416,23 @@
         // zero water samples, the gate fired on stale state. Post-fix gate
         // reads only real measurements: EC, SAR, Na, Ca. Na and Ca additions
         // cover ion-only lab panels with no EC reported (rare but legitimate).
+        var _waterMissing = (data.availability || [])
+            .filter(function (e) { return _entryScope(e) === 'site'; })
+            .filter(function (e) { return (e.sections || []).indexOf('Water Quality') >= 0; });
+        if (!(data.water && (data.water.EC > 0 || data.water.SAR > 0 || data.water.Na > 0 || data.water.Ca > 0))
+                && _waterMissing.length) {
+            sections.push(new Paragraph({
+                heading: HeadingLevel.HEADING_1, keepNext: true,
+                children: [new TextRun('Water Quality')]
+            }));
+            _waterMissing.forEach(function (e) {
+                sections.push(new Paragraph({
+                    spacing: { after: 120 },
+                    children: [new TextRun({ text: _notIncludedLine(e), size: 22, italics: true, color: '6B7280' })]
+                }));
+            });
+        }
+
         if (data.water && (data.water.EC > 0 || data.water.SAR > 0 || data.water.Na > 0 || data.water.Ca > 0)) {
             // Page break to ensure heading starts at top of new page
             sections.push(new Paragraph({ children: [new PageBreak()] }));
@@ -13021,6 +13493,21 @@
             if (data.water.salinityHazard) waterRows.push(createKeyValueRow('Salinity Hazard', data.water.salinityHazard, getStatusColor(data.water.salinityHazard)));
             
             sections.push(createTable(waterRows));
+
+            // GH-486: the verdicts this section used to carry — Classification,
+            // Sodium Hazard, Salinity Hazard, and the blend — come from a page
+            // run and a page blender, neither of which says which site it was
+            // for. The readings and the indices computed from them stay; what
+            // is missing is named here rather than silently absent.
+            (data.availability || [])
+                .filter(function (e) { return _entryScope(e) === 'site'; })
+                .filter(function (e) { return (e.sections || []).indexOf('Water Quality') >= 0; })
+                .forEach(function (e) {
+                    sections.push(new Paragraph({
+                        spacing: { after: 100 },
+                        children: [new TextRun({ text: _notIncludedLine(e), size: 20, italics: true, color: '6B7280' })]
+                    }));
+                });
 
             // ── BLENDED WATER DETAIL BLOCK (b35fix139) ──────────────────────────
             if (data.water.isBlended) {
@@ -15038,8 +15525,24 @@
                 await window.GilbaClimateNormalsService.ensureFromPage();
             }
 
+            // GH-468: the single export is the ONE place where the site the
+            // page points at is the site of the document, so it reads it here,
+            // by name, and hands the resolved inputs on. Everywhere else the
+            // caller already knows whose sample it is printing — the combined
+            // loop has entry.siteId — and a resolver that quietly fell back to
+            // the page put another site's species and programme into a client's
+            // report.
+            var _NPIexp = window.GAIP_NutritionProgramInputs;
+            if (!_NPIexp || typeof _NPIexp.resolveExportInputs !== 'function') {
+                throw new Error('[WordExport] GH-468: nutrition-program-inputs.js is not loaded — the ' +
+                    'document\'s site cannot be resolved by id, and nothing is read off the page instead.');
+            }
+            var _activeSiteId = typeof _NPIexp.getActiveSiteId === 'function'
+                ? _NPIexp.getActiveSiteId() : null;
+            var _exportInputsForDoc = _NPIexp.resolveExportInputs({ siteId: _activeSiteId });
+
             // Collect data - use GAIP_WordExport.collectData() to allow patch interception
-            var data = GAIP_WordExport.collectData();
+            var data = GAIP_WordExport.collectData(_exportInputsForDoc);
             
             // Capture charts (pass data for generating soil/tissue/water charts)
             var charts = await captureCharts(data);

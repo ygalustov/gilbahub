@@ -39,15 +39,28 @@
  * assets/nutrition-program-inputs.js's resolveSoilTexture(), the ONE resolver
  * both the Word export and the Plan page call — which is what the whole
  * GH-352..364 sequence was trying to achieve by keeping two copies in step.
- * The structural assertions below follow it there; the behavioural
- * reimplementation at the bottom is unchanged and still encodes the same
- * ordering.
+ *
+ * GH-482 ENDS the chain this file was written about. The owner's decision on
+ * question 10.8(17): a report is interpreted against the settings a user can
+ * see, and a mark recorded on a sample is not one of them — the methodology or
+ * the texture may have been changed in Settings after the row was written. So
+ * the snapshot is not in the chain at any position, and with it went the two
+ * rungs that stood below it: the texture off the sample's own soil object, and
+ * the bucket guessed from the construction type, which was a substitution
+ * rather than a setting anybody made. What remains is two links,
+ * `sites.soil_texture_override` and `accounts.soil_texture`, read from the row
+ * by id — the same rule the server applies to itself.
+ *
+ * The ordering tests below are replaced by tests of that rule; the standalone
+ * reimplementation of the old chain is gone, because the product no longer has
+ * a chain for it to reimplement.
  */
 
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 describe('GH-353/355/364/383 — nutrition-program-inputs.js: soilTexture resolution order', () => {
     let src;
@@ -62,81 +75,43 @@ describe('GH-353/355/364/383 — nutrition-program-inputs.js: soilTexture resolu
         expect(exportSrc).toMatch(/_resolvedSoilTexture = _programInputs \? _programInputs\.soilTexture : null;/);
     });
 
-    test('constructionTexture maps turf.construction sand_profile -> sand, matching hub-tissue-v3.js\'s own bucketing', () => {
-        const idx = src.indexOf('const constructionTexture =');
-        expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, idx + 220);
-        expect(block).toMatch(/turf\.construction === 'sand_profile' \|\| turf\.construction === 'sand profile'/);
-        expect(block).toMatch(/\? 'sand' : null;/);
+    test('GH-482: the construction guess is gone — a rootzone TYPE is not a texture measurement', () => {
+        expect(src).not.toMatch(/const constructionTexture =/);
+        expect(src).not.toMatch(/source: 'turf-construction'/);
     });
 
-    test('GH-364: this sample\'s own recorded texture first, then the sample soil object, then the site config value, and only then the construction guess', () => {
-        const idx = src.indexOf("if (sampleTexture) return { value: sampleTexture, source: 'sample-snapshot' };");
-        expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, src.indexOf("source: 'unresolved'", idx));
-        const sampleIdx = block.indexOf('sampleTexture');
-        const dataSoilIdx = block.indexOf('soil.soilTexture || soil.texture');
-        const hubConfigIdx = block.indexOf('GAIP_HUB_CONFIG');
-        const constructionIdx = block.indexOf('constructionTexture');
-        [sampleIdx, dataSoilIdx, hubConfigIdx, constructionIdx].forEach((i) => expect(i).toBeGreaterThan(-1));
-        expect(sampleIdx).toBeLessThan(dataSoilIdx);
-        expect(dataSoilIdx).toBeLessThan(hubConfigIdx);
-        expect(hubConfigIdx).toBeLessThan(constructionIdx);
+    test('GH-482: two links and nothing else — the site\'s column, then the account\'s setting', () => {
+        const block = anchoredWindow(src, 'function resolveSoilTexture(opts)', 400);
+        expect(block).toMatch(/if \(opts\.siteTextureOverride\) return \{ value: opts\.siteTextureOverride, source: 'site-override' \};/);
+        expect(block).toMatch(/if \(opts\.accountTexture\) return \{ value: opts\.accountTexture, source: 'account' \};/);
+        expect(block).toMatch(/return \{ value: null, source: 'unresolved' \};/);
+        // and nothing that used to stand between them
+        expect(block).not.toMatch(/sampleTexture/);
+        expect(block).not.toMatch(/GAIP_HUB_CONFIG/);
+        expect(block).not.toMatch(/constructionTexture/);
     });
 
-    test('GH-364: the per-sample source is samples.soil_texture_snapshot via SampleManager, read per sample rather than once per page', () => {
-        const idx = src.indexOf('let sampleTexture = opts.sampleTextureSnapshot || null;');
-        expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, src.indexOf('const soil = opts.soil || {};', idx));
-        expect(block).toMatch(/getActiveSample\('soil'\)/);
-        expect(block).toMatch(/soilTextureSnapshot/);
+    test('GH-482: the snapshot is not read anywhere in this resolver', () => {
+        expect(src).not.toMatch(/soilTextureSnapshot/);
+        expect(src).not.toMatch(/sampleTextureSnapshot/);
+    });
+
+    test('GH-482: the two links are read from the row that owns them, by id', () => {
+        const block = anchoredWindow(src, 'function siteTextureSettingFor(siteId)', 1400);
+        expect(block).toMatch(/SC\.getSite\(siteId\)/);
+        expect(block).toMatch(/row\.soil_texture_override/);
+        expect(block).toMatch(/row\.account_soil_texture/);
+        // Where there is no row — the Plan page does not load the site store —
+        // the same two links come from the server, which walked them for that
+        // page's own site (PageController.php:66). It is read for THAT site
+        // and no other, which is what makes it the same fact rather than a
+        // page-wide answer.
+        expect(block).toMatch(/hub\.activeSiteId && String\(hub\.activeSiteId\) !== String\(siteId\)/);
     });
 
     test('GH-383: deriveCode() and the sands/others bucket both read the ONE resolved texture, in the ONE resolver', () => {
-        const idx = src.indexOf('function resolveSufficiencyRanges(opts)');
-        expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, src.indexOf('if (methodology === \'slan\')', idx));
+        const block = anchoredSlice(src, 'function resolveSufficiencyRanges(opts)', 'if (methodology === \'slan\')');
         expect(block).toMatch(/aaTextureKey\(opts\.soilTexture\)/);
         expect(block).toMatch(/hlst\.deriveCode\(speciesForCode, opts\.soilTexture \|\| null\)/);
-    });
-});
-
-describe('GH-364 — standalone reimplementation: full fallback chain behaviour', () => {
-    function resolveSoilTexture(construction, dataSoil, hubConfig, sampleSnapshot) {
-        const constructionTexture = (construction === 'sand_profile' || construction === 'sand profile') ? 'sand' : null;
-        return (sampleSnapshot || null)
-            || (dataSoil && (dataSoil.soilTexture || dataSoil.texture))
-            || (hubConfig && hubConfig.soilTexture)
-            || constructionTexture
-            || null;
-    }
-
-    test('GH-364: this sample\'s own snapshot beats the active site\'s page-level value (the multi-site combined-export case)', () => {
-        // Site A is active when the page loads (hubConfig 'sand'), the export
-        // also covers site B whose sample was taken on clay.
-        expect(resolveSoilTexture('sand_profile', null, { soilTexture: 'sand' }, 'clay')).toBe('clay');
-    });
-
-    test('GH-364 regression: a hybrid site\'s real texture beats the sand_profile guess (this is the UI/export parity case)', () => {
-        expect(resolveSoilTexture('sand_profile', null, { soilTexture: 'clay_loam' })).toBe('clay_loam');
-        expect(resolveSoilTexture('sand_profile', { soilTexture: 'loam' }, { soilTexture: 'clay' })).toBe('loam');
-    });
-
-    test('construction still resolves when nothing measured is available', () => {
-        expect(resolveSoilTexture('sand_profile', null, null)).toBe('sand');
-        expect(resolveSoilTexture('sand_profile', {}, {})).toBe('sand');
-    });
-
-    test('non-sand construction + no data.soil texture -> falls to GAIP_HUB_CONFIG', () => {
-        expect(resolveSoilTexture('push_up', null, { soilTexture: 'loam' })).toBe('loam');
-    });
-
-    test('data.soil.soilTexture present -> used ahead of GAIP_HUB_CONFIG', () => {
-        expect(resolveSoilTexture(null, { soilTexture: 'clay' }, { soilTexture: 'sand' })).toBe('clay');
-    });
-
-    test('nothing resolves anywhere -> null (deriveCode() then returns null for a non-sand/empty texture, no default)', () => {
-        expect(resolveSoilTexture(null, {}, {})).toBeNull();
-        expect(resolveSoilTexture(undefined, null, null)).toBeNull();
     });
 });

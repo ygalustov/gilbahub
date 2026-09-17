@@ -88,12 +88,21 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
-        Route::post('/sites/sync', [SiteController::class, 'syncRegistry'])->name('sites.sync');
+        // GH-442 (GH-439 stage 3): POST /api/sites/sync is withdrawn. It
+        // existed to take the browser's own site registry as input; nothing in
+        // the product has called it since stage 2, and what it used to write --
+        // site names built from a label that fell back to the site ID -- is why
+        // a live site could end up named after its own UUID.
+
         Route::post('/sites', [SiteController::class, 'store'])->name('sites.store');
         Route::get('/sites/{site}', [SiteController::class, 'show'])->name('sites.show');
         Route::patch('/sites/{site}', [SiteController::class, 'update'])->name('sites.update');
         Route::delete('/sites/{site}', [SiteController::class, 'destroy'])->name('sites.destroy');
         Route::patch('/active-site', [SiteController::class, 'setActive'])->name('sites.active.update');
+        // GH-439: the only way a gaip config changes -- send the change, not
+        // the state. The whole-object PUT below still answers for as long as
+        // the hub pages send one; it is guarded, and goes away with them.
+        Route::patch('/sites/{site}/config/gaip', [SiteController::class, 'patchConfig'])->name('sites.config.patch');
         Route::put('/sites/{site}/config/{namespace?}', [SiteController::class, 'updateConfig'])->name('sites.config.update');
 
         Route::get('/samples', [SampleController::class, 'index'])->name('samples.index');

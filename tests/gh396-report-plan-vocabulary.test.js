@@ -68,6 +68,7 @@ const wordExport = A('word-export.js');
 const prebble = A('nutrition-prebble-integration.js');
 const auFert = A('nutrition-au-fertiliser-integration.js');
 const model = require('../assets/nutrient-balance-status.js');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 // ── (a) + (c): the table's shape ────────────────────────────────────────────
 
@@ -324,9 +325,7 @@ describe('GH-396 — Delivered comes from one accumulator for all three nutrient
     });
 
     test('it stays catalogue-only — an amendment is what Balance justifies, not part of the programme', () => {
-        const idx = wordExport.indexOf('function _computeProgrammeDelivered(productMapOrSummary, nutrient) {');
-        expect(idx).toBeGreaterThan(-1);
-        const block = wordExport.slice(idx, idx + 900);
+        const block = anchoredWindow(wordExport, 'function _computeProgrammeDelivered(productMapOrSummary, nutrient) {', 900);
         expect(block).toMatch(/if \(entry\._isAmendment\) return;/);
         expect(block).toMatch(/var v = parseFloat\(n\[nutrient\]\);/);
     });

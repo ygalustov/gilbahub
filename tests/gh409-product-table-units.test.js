@@ -41,6 +41,7 @@ const path = require('path');
 
 const delivery = require('../assets/nutrition-delivery-core.js');
 const fixture = require('./fixtures/gh409-product-rates.json');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 function readAsset(name) {
     return fs.readFileSync(path.join(__dirname, '../assets/', name), 'utf8');
@@ -195,9 +196,7 @@ describe('GH-409 — the columns are the Plan\'s three', () => {
     // The renderer is a browser module; the decision itself is a plain function
     // and is read out of the source rather than loading the whole export.
     const src = readAsset('word-export.js');
-    const fn = new Function('return ' + src.slice(
-        src.indexOf('function _detectActiveNutrientColumns'),
-        src.indexOf('function _rateDisplayOptions')).trim().replace(/\/\*\*[\s\S]*$/, ''))();
+    const fn = new Function('return ' + anchoredSlice(src, 'function _detectActiveNutrientColumns').trim().replace(/\/\*\*[\s\S]*$/, ''))();
 
     test('N, P and K, whatever the rows happen to carry', () => {
         const heavy = [{ N: 100, P: 20, K: 80, Ca: 210, Mg: 115, S: 60 }];
@@ -243,14 +242,12 @@ describe('GH-409 — the renderers print through the shared helper', () => {
     });
 
     test('the surface comes from the programme the Plan drew, then the site record', () => {
-        const at = single.indexOf('function _rateDisplayOptions');
-        const body = single.slice(at, at + 1200);
+        const body = anchoredWindow(single, 'function _rateDisplayOptions', 1200);
         expect(body).toMatch(/meta\.surfaceType \|\| soil\.surfaceType \|\| turf\.subCategory/);
     });
 
     test('an unresolvable surface is reported, not quietly printed as kg/ha', () => {
-        const at = single.indexOf('function _rateDisplayOptions');
-        const body = single.slice(at, at + 2000);
+        const body = anchoredWindow(single, 'function _rateDisplayOptions', 2000);
         expect(body).toMatch(/console\.error\('\[WordExport\] GH-409: no surface type/);
     });
 

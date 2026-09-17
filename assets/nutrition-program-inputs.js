@@ -275,72 +275,63 @@
     }
 
     // ==========================================================================
-    // Soil texture — ONE chain. GH-364's order put this sample's own recorded
-    // snapshot first; GH-414 (decision D-2) puts the SITE'S OVERRIDE above it.
+    // Soil texture — ONE chain, two links: the site's own column, then the
+    // account's setting. Nothing else.
     //
-    // Why the order changed. `samples.soil_texture_snapshot` is stamped
-    // automatically at import (SampleController.php:389 copies the site's
-    // override, or the account's texture, onto every row as it is created) —
-    // it is a record of what the site was configured as on the day the file
-    // landed, not an observation of that sample. `sites.soil_texture_override`
-    // is what somebody chose by hand in Settings, and it is the value the Plan
-    // page has always shown. With the snapshot on top, one green could be
-    // computed against two textures on the two surfaces: Russley's soil rows
-    // all carry `loam` (their import-day stamp) while the site override says
-    // `sand`, so the Plan resolved the AA sand certificate (P 7-21) and the
-    // document the generic "others" band (P 16.8-39.2) — different ranges,
-    // different requirements and different products for one sample.
+    // GH-482, closing question 10.8(17) with the owner's decision: the sample's
+    // recorded snapshot is NOT in this chain, at any position. Her reason is
+    // that the mark on a sample can be wrong — the methodology or the texture
+    // may have been changed in Settings after the row was written — and what a
+    // report interprets against is what the settings say now. The same reason
+    // that ruled out the snapshot rules out the other two rungs that used to
+    // stand below it: a texture off the sample's own soil object, and a bucket
+    // guessed from the construction type ('sand_profile' read as 'sand'),
+    // which was a substitution rather than a setting anybody made.
     //
-    // The override is read from GAIP_HUB_CONFIG, which PHP renders ONCE for
-    // the page's own active site, so it is only applied when the site being
-    // resolved IS that site (`opts.siteTextureOverride`, resolved by
-    // resolveSiteProgramInputs against GAIP_HUB_CONFIG.activeSiteId — the id
-    // rendered in the same block as the texture). For any other site in a
-    // multi-site Combined export the chain is exactly what it was, snapshot
-    // first: borrowing the page's texture for another site would be the same
-    // cross-site leak this adapter exists to prevent.
+    // What replaced the page-wide read: `sites.soil_texture_override` has
+    // existed since the initial schema and the PATCH endpoint accepts it, but
+    // `/api/sites` never returned it, so there was nothing to read by id and
+    // the resolver took the page's own copy — the texture of whatever site the
+    // page was rendered for. The column is returned now, with the account's
+    // setting beside it as the second link, which is the rule the server
+    // applies to itself (`$site->soil_texture_override ?: $site->account->soil_texture`).
     // ==========================================================================
     function resolveSoilTexture(opts) {
         opts = opts || {};
-        const w = _win();
-        let sampleTexture = opts.sampleTextureSnapshot || null;
-        if (!sampleTexture) {
-            try {
-                const SM = w.GAIP_SampleManager;
-                const active = (SM && typeof SM.getActiveSample === 'function') ? SM.getActiveSample('soil') : null;
-                sampleTexture = (active && active.soilTextureSnapshot) || null;
-            } catch (e) {
-                console.warn('[NutritionInputs] per-sample soil texture read failed:', e && e.message);
-            }
-        }
-        const soil = opts.soil || {};
-        const turf = opts.turf || {};
-        const constructionTexture = (turf.construction === 'sand_profile' || turf.construction === 'sand profile')
-            ? 'sand' : null;
-
-        // GH-414 (D-2): hand-set site override first.
         if (opts.siteTextureOverride) return { value: opts.siteTextureOverride, source: 'site-override' };
-        if (sampleTexture) return { value: sampleTexture, source: 'sample-snapshot' };
-        const fromSoil = soil.soilTexture || soil.texture || null;
-        if (fromSoil) return { value: fromSoil, source: 'sample-soil' };
-        const fromHub = (w.GAIP_HUB_CONFIG && w.GAIP_HUB_CONFIG.soilTexture) || null;
-        if (fromHub) return { value: fromHub, source: 'site-config' };
-        if (constructionTexture) return { value: constructionTexture, source: 'turf-construction' };
+        if (opts.accountTexture) return { value: opts.accountTexture, source: 'account' };
         return { value: null, source: 'unresolved' };
     }
 
     /**
-     * The site texture override this page carries, and only for the site the
-     * page was rendered for. GH-414 (D-2).
+     * The texture settings of a site, read from the row that owns them: the
+     * site's own column and the account's setting, the two links the server
+     * itself uses. GH-482 (was GH-414's read of the page's copy, which could
+     * only answer for the page's own site).
      */
-    function siteTextureOverrideFor(siteId) {
-        const hub = _win().GAIP_HUB_CONFIG || {};
-        if (!hub.soilTexture) return null;
-        // No id rendered (older layout, or a test harness) — the page config
-        // can only describe one site, so treat it as the active one.
-        if (!hub.activeSiteId) return hub.soilTexture;
-        if (!siteId || String(siteId) === String(hub.activeSiteId)) return hub.soilTexture;
-        return null;
+    function siteTextureSettingFor(siteId) {
+        const none = { siteTextureOverride: null, accountTexture: null };
+        if (!siteId) return none;
+        const w = _win();
+        const SC = w.GAIP_SiteConfig;
+        const row = (SC && typeof SC.getSite === 'function') ? SC.getSite(siteId) : null;
+        if (row) {
+            return {
+                siteTextureOverride: row.soil_texture_override || null,
+                accountTexture: row.account_soil_texture || null
+            };
+        }
+        // The Plan page does not load the site store, so there is no row to
+        // read there. What it does have is the SAME two links, already walked
+        // by the server for that page's own site: PageController.php:66 renders
+        // `$site->soil_texture_override ?: $site->account->soil_texture` into
+        // GAIP_HUB_CONFIG.soilTexture. Reading it is reading the same owner
+        // through a different transport — and only ever for the site the page
+        // was rendered for, because that is the only site it describes.
+        const hub = w.GAIP_HUB_CONFIG || {};
+        if (!hub.soilTexture) return none;
+        if (hub.activeSiteId && String(hub.activeSiteId) !== String(siteId)) return none;
+        return { siteTextureOverride: hub.soilTexture, accountTexture: null };
     }
 
     function aaTextureKey(soilTexture) {
@@ -556,10 +547,26 @@
             const cfg = w.GAIP_SiteConfig.getConfig(siteId);
             if (cfg) return cfg;
         }
-        if (siteId && siteId === getActiveSiteId() && w.GAIP_SITE_CONFIG) {
+        // GH-469: the server's injected config, used only when it says it is
+        // about the site being asked about.
+        //
+        // What stood here compared the asked-for id with the page's LIVE
+        // pointer — GAIP_SampleManager's, then GAIP_HUB_CONFIG.activeSiteId,
+        // which is rewritten in place by the setup wizard and by Account. The
+        // object itself is written once, when the page is rendered, and never
+        // changes. So the comparison could be true while the object described
+        // a third site: the pointer had moved to the site being asked about,
+        // and the config was still the one the page was drawn with.
+        //
+        // The object now carries its own stamp, the same idea as a run stamp
+        // in layer II, and the comment "this is a COMPARISON, not a
+        // substitution" is true.
+        if (siteId && w.GAIP_SITE_CONFIG && siteId === w.GAIP_SITE_CONFIG_SITE_ID) {
             return w.GAIP_SITE_CONFIG;
         }
-        if (!siteId && w.GAIP_SITE_CONFIG) return w.GAIP_SITE_CONFIG;
+        // GH-468: the `!siteId` arm is gone. It answered for the page's site
+        // whenever the caller had not named one — the substitution this
+        // refinement removes, one level down from the two resolvers.
         return null;
     }
 
@@ -641,6 +648,106 @@
     }
 
     /**
+     * GH-471 (PLAN-GH439 section 10.6, eleventh refinement) — where every
+     * resolved field is read from, as a path in a named store object.
+     *
+     * This table IS the document about what comes from where. Each entry is
+     * `[source, path]`; the resolver reads by the path and writes the source
+     * itself, so a source cannot be claimed that the read does not support.
+     *
+     * `notInStore` marks a path no live site actually has — checked against
+     * tests/fixtures/store-shapes.json, which is the union of every site this
+     * login carries. Three of them are recorded rather than removed, because
+     * removing a read changes what a site that grew the key would get:
+     *
+     *   timezone  — no config carries it; the server derives it (section 2.5)
+     *   areaHa    — lives in the /hub DOM only; question 2 of section 10.8
+     *   warmBase  — zero of twelve configs have it, measured in the database
+     *
+     * The keys this table stopped reading are the other half of the same
+     * measurement: `turf.grassSpecies`, `turf.percentC3` and
+     * `cfg.locationName` exist on no site at all, and each was the right-hand
+     * side of an `||` that made the read agree with any store.
+     */
+    const FIELD_PATHS = Object.freeze({
+        // GH-473: the facts about the SITE come from the site row, which owns
+        // them. All three write paths reach those columns — site creation,
+        // PATCH /api/sites/{id}, and the mirror out of a config patch — while
+        // the copy in `config.location` is reached by one. A site created
+        // through store() has the column filled and the config empty by
+        // construction, so a resolver reading the copy is a write path behind
+        // on every new site; that is the state Russley was found in.
+        siteName: ['site-row', 'name'],
+        locationName: ['site-row', 'location_name'],
+        lat: ['site-row', 'latitude'],
+        lon: ['site-row', 'longitude'],
+        timezone: ['site-row', 'timezone'],
+        // GH-474: no column exists for it, so the config owns it — which is
+        // not an exception to the rule but the other half of it. A field with
+        // no column has one owner too; it simply is not a column.
+        // Not in the config of any site today — nobody has saved one — but
+        // the Settings form sends it and the config is its owner, so the read
+        // stays and the absence is recorded rather than mistaken for a
+        // decision. Checked in the owner's own shape, which is the only shape
+        // it could be in.
+        elevation: ['site-config', 'location.elevation', 'notInStore'],
+        // The zone area is in no store at all: not on the site row, not in the
+        // config, not on a sample — checked against every shape recorded in
+        // store-shapes.json, not against one of them. It lives in the /hub DOM
+        // and where it belongs by id is question 2 of section 10.8.
+        areaHa: ['site-row', 'area_ha', 'notInStore'],
+        species: ['site-config', 'turf.species'],
+        turfType: ['site-config', 'turf.turfType'],
+        subCategory: ['site-config', 'turf.subCategory'],
+        variety: ['site-config', 'turf.variety'],
+        construction: ['site-config', 'turf.construction'],
+        hoc: ['site-config', 'turf.hoc'],
+        percentC3: ['site-config', 'turf.c3Cover'],
+        // Likewise in no store: zero of twelve configs carry it, and it is not
+        // a column either. Kept as a read so that a site which grows the key
+        // is answered for, and recorded here so that nobody mistakes the
+        // silence for a decision.
+        warmBase: ['site-config', 'turf.warmBase', 'notInStore'],
+        coolOverseed: ['site-config', 'turf.coolOverseed'],
+        overseedSpecies: ['site-config', 'turf.overseedSpecies'],
+        overseedVariety: ['site-config', 'turf.overseedVariety'],
+        // A lookup of the two above in the variety table, not a key of its own.
+        overseedVarietyDisplay: ['site-config', 'turf.overseedVariety', 'derived'],
+        summerIntent: ['site-config', 'turf.summerIntent'],
+        soilSample: ['sample', 'soil'],
+        tissueSample: ['sample', 'tissue'],
+        waterSample: ['sample', 'water']
+    });
+
+    /**
+     * GH-468 — the site a resolver answers for is always named by its caller.
+     *
+     * Both resolvers used to end `opts.siteId || getActiveSiteId()`. The
+     * fallback is not a convenience: `getActiveSiteId()` answers for the site
+     * the PAGE currently points at, and during a combined export that is a
+     * different site from the one whose sample is being printed on every
+     * iteration but the last. Measured on the stand: with the page pointing at
+     * a Christchurch site while a Test5 sample was exported, the document said
+     * "Species: Couch" in seven places and carried no nutrition programme table
+     * at all. The refusal added in GH-467 does not catch this — inputs DID
+     * arrive, they were simply another site's.
+     *
+     * A throw rather than a null, because every caller of these two has a site
+     * id in hand: the combined loop has `entry.siteId`, and the single export
+     * reads the active site deliberately, at the one point where the page's
+     * site IS the document's site.
+     */
+    function _requiredSiteId(opts, fn) {
+        const siteId = opts && opts.siteId;
+        if (siteId === undefined || siteId === null || siteId === '') {
+            throw new Error('[NutritionInputs] ' + fn + ': siteId is required. ' +
+                'Resolving by the page\'s active site would answer for whichever site the page ' +
+                'happens to point at, which is not the site of the sample being printed.');
+        }
+        return siteId;
+    }
+
+    /**
      * resolveSiteProgramInputs({ siteId, siteConfig?, sample?, planForm? })
      *
      * Returns every programme-level input both surfaces need, plus a
@@ -658,7 +765,7 @@
         const core = _core();
         if (!core) throw new Error('[NutritionInputs] resolveSiteProgramInputs: nutrition-requirement-core.js is not loaded');
 
-        const siteId = opts.siteId || getActiveSiteId();
+        const siteId = _requiredSiteId(opts, 'resolveSiteProgramInputs');
         const cfg = opts.siteConfig || getSiteConfig(siteId);
         if (!cfg) {
             throw new Error('[NutritionInputs] no gaip site config resolved for site ' + siteId +
@@ -704,12 +811,7 @@
         const methodology = normalizeMethodology(rawMethodology) || 'mlsn';
 
         // ── texture / CEC / pH ──
-        const tex = resolveSoilTexture({
-            sampleTextureSnapshot: sample.soilTexture || null,
-            siteTextureOverride: siteTextureOverrideFor(siteId),
-            soil: opts.soil || null,
-            turf: turf
-        });
+        const tex = resolveSoilTexture(siteTextureSettingFor(siteId));
         sources.soilTexture = tex.source;
         const CEC = (sample.CEC != null) ? sample.CEC
             : ((opts.soil && (opts.soil.CEC != null ? opts.soil.CEC : opts.soil.cec)) != null
@@ -841,23 +943,302 @@
         };
     }
 
+    // ==========================================================================
+    // GH-461 — every input a document needs about a site, resolved BY ID
+    // ==========================================================================
+    //
+    // Section 10 of PLAN-GH439: a document about site X was assembled out of
+    // the page's state, and the page's state carries no mark saying which site
+    // it describes. Coordinates, species, variety, overseed, the turf type —
+    // all of them exist independently of any page, keyed by the site id, and
+    // all of them were being read off whatever the browser had last painted.
+    // The owner's report printed one site's programme on another's climate;
+    // the same document printed "Species: Couch" three paragraphs from its own
+    // sample header reading "Perennial Ryegrass".
+    //
+    // This is the single border for those inputs. The export BUILDS its site
+    // and turf sections from what this returns; it does not read them
+    // anywhere else and then patch them here. Patching was tried and it is the
+    // wrong shape twice over: the page's value arrives first and any field not
+    // in the patch list stays leaked, and a guard like `if (!data.turf.species)`
+    // is false exactly during a leak, because the field is not empty — it is
+    // full of the other site's answer.
+    //
+    // What is NOT here: results of a calculation (mlsnResults, climateMetrics,
+    // tissueResults and the rest). Those do not exist by id — they exist only
+    // as the output of a run — and they need a run stamp instead, which is a
+    // separate layer.
+    //
+    // Absent is `null` with `sources.<field> === 'unresolved'`. No default
+    // species, no default variety, no 'generic' standing in for an answer: a
+    // name printed by default is indistinguishable from a name that leaked.
+    function resolveExportInputs(opts) {
+        opts = opts || {};
+        const w = _win();
+        const siteId = _requiredSiteId(opts, 'resolveExportInputs');
+        const cfg = getSiteConfig(siteId);
+        const turf = (cfg && cfg.turf) || {};
+        const sources = {};
+        const provenance = {};
+
+        // GH-471 (eleventh refinement): the source of a field is WORKED OUT
+        // from the read, never written beside it.
+        //
+        // `take(field, value, 'site-config')` let the author declare where a
+        // value came from, and nothing checked the claim. It cost a client a
+        // printed line: `take('locationName', cfg.locationName, 'site-config')`
+        // reads a key no site config has — the name lives at `location.name` —
+        // so the map recorded a documented key with the legal value
+        // 'unresolved', the completeness test stayed green, and the document
+        // printed "Location: -35.2285452, 149.0022925" instead of the place.
+        //
+        // Now each read goes through a path in one named object. The source is
+        // the object the path was read from; 'unresolved' means the path was
+        // absent or the value empty, and nothing else can be written there.
+        const readPath = (obj, dotted) => {
+            let cur = obj;
+            const parts = String(dotted).split('.');
+            for (let i = 0; i < parts.length; i++) {
+                if (cur === null || cur === undefined || typeof cur !== 'object') return undefined;
+                if (!Object.prototype.hasOwnProperty.call(cur, parts[i])) return undefined;
+                cur = cur[parts[i]];
+            }
+            return cur;
+        };
+        const record = (field, value, from) => {
+            const empty = value === undefined || value === null || value === '';
+            sources[field] = empty ? 'unresolved' : from;
+            return empty ? null : value;
+        };
+        // Each reader answers for its own store, and refuses a field the table
+        // says belongs to another one: the table and the read cannot disagree
+        // about where a value came from, which is the whole point of the
+        // table. GH-471.
+        // The site row, chosen by the id this call was given.
+        let siteRow = null;
+        try {
+            const SC = w.GAIP_SiteConfig;
+            siteRow = (SC && typeof SC.getSite === 'function') ? SC.getSite(siteId) : null;
+        } catch (e) { siteRow = null; }
+
+        // GH-473: a read operation takes an IDENTIFIER and picks the record
+        // itself, then says which record it read — `provenance[field].recordKey`.
+        //
+        // `fromSiteList(field, row)` took the row as an argument, so it proved
+        // which STORE a value came from and nothing about which RECORD: hand
+        // it another site's row and every check still passed. Choosing the
+        // record inside the operation makes that mutation impossible to write,
+        // and the recordKey makes a wrong choice inside the operation visible.
+        const readerFor = (field, source, id, obj) => {
+            const entry = FIELD_PATHS[field];
+            if (!entry) throw new Error('[NutritionInputs] no path recorded for ' + field);
+            if (entry[0] !== source) {
+                throw new Error('[NutritionInputs] ' + field + ' is recorded as coming from ' +
+                    entry[0] + ', but is being read from ' + source);
+            }
+            const value = record(field, readPath(obj, entry[1]), source);
+            provenance[field] = {
+                source: sources[field],
+                path: entry[1],
+                recordKey: obj ? (obj.id != null ? obj.id : id) : null
+            };
+            return value;
+        };
+        const fromConfig = (field) => readerFor(field, 'site-config', siteId, cfg);
+        const fromSite = (field) => readerFor(field, 'site-row', siteId, siteRow);
+
+
+        const latRaw = fromSite('lat');
+        const lonRaw = fromSite('lon');
+        const lat = parseFloat(latRaw);
+        const lon = parseFloat(lonRaw);
+        const hasCoords = isFinite(lat) && isFinite(lon);
+
+        let climateNormals = null;
+        let climateReason = 'no-coordinates';
+        if (hasCoords) {
+            const svc = w.GilbaClimateNormalsService;
+            if (svc && typeof svc.getResolvedSync === 'function') {
+                const resolved = svc.getResolvedSync(lat, lon);
+                climateNormals = resolved || null;
+                climateReason = resolved ? null
+                    : ((typeof svc.getReason === 'function') ? svc.getReason(lat, lon) : 'unresolved');
+            } else {
+                climateReason = 'service-unavailable';
+            }
+        }
+
+        // Samples by id, out of the manager's own per-site stores — not out of
+        // whichever sample the page currently has loaded in its form.
+        const samples = { soil: null, tissue: null, water: null };
+        try {
+            const SM = w.GAIP_SampleManager;
+            const all = (SM && typeof SM.getAllSamples === 'function') ? SM.getAllSamples() : null;
+            const store = (all && all.allSites && all.allSites[siteId]) || null;
+            const active = (all && all.allActive && all.allActive[siteId]) || {};
+            ['soil', 'tissue', 'water'].forEach((kind) => {
+                const wanted = opts[kind + 'SampleId'] || active[kind] || null;
+                const bucket = (store && store[kind]) || null;
+                if (!bucket || !wanted) return;
+                samples[kind] = Array.isArray(bucket)
+                    ? (bucket.filter((x) => x && (x.id === wanted || x.clientId === wanted))[0] || null)
+                    : (bucket[wanted] || null);
+            });
+        } catch (e) { /* leaves nulls, reported through sources below */ }
+        // GH-474: a sample records WHICH sample, like every other read. The
+        // three lines that stood here wrote only the store's name, so nothing
+        // said which record answered — and the check that was meant to say it
+        // compared the key with the id of the sample the resolver had just
+        // chosen, out of a basket holding one.
+        ['soil', 'tissue', 'water'].forEach((kind) => {
+            const field = kind + 'Sample';
+            sources[field] = samples[kind] ? 'sample' : 'unresolved';
+            provenance[field] = {
+                source: sources[field],
+                path: FIELD_PATHS[field][1],
+                recordKey: samples[kind] ? samples[kind].id : null
+            };
+        });
+
+        let program = null;
+        try {
+            program = resolveSiteProgramInputs({
+                siteId: siteId,
+                siteConfig: cfg,
+                // GH-471: the one key the live store has. `values || payload
+                // || samples.soil` agreed with any store, which is what made a
+                // stub written from memory undetectable.
+                soil: (samples.soil && samples.soil.values) || null,
+                sample: {},
+                // GH-470: never the Plan page's live form. This is the EXPORT's
+                // border; the export's own page has no such form, and a hidden
+                // legacy input carrying the same class is the cross-site read
+                // this whole section exists to remove. The Plan page resolves
+                // through resolveSiteProgramInputs directly and keeps its form.
+                planForm: null
+            });
+        } catch (e) {
+            program = null;
+        }
+
+        const speciesRaw = fromConfig('species');
+
+        return Object.freeze({
+            site: Object.freeze({
+                id: siteId || null,
+                name: fromSite('siteName'),
+                location: Object.freeze({
+                    // GH-471: `location.name`, which is where every site's name
+                    // for its place actually is. What to print when a site has
+                    // none is question 10 of section 10.8 and unchanged here.
+                    name: fromSite('locationName'),
+                    // GH-471: read — and therefore recorded — in both cases.
+                    // The provenance of these two used to be written only when
+                    // the site had NO coordinates, so a site that had them had
+                    // no entry in the map at all: a field whose source is
+                    // recorded sometimes is a field whose source is unchecked.
+                    lat: hasCoords ? lat : latRaw,
+                    lon: hasCoords ? lon : lonRaw
+                }),
+                timezone: fromSite('timezone'),
+                elevation: fromConfig('elevation'),
+                // Zone area lives only in the /hub DOM today; where it belongs
+                // by id is question 2 of section 10.8 and is the owner's to
+                // answer. Until then it is absent, and the document takes its
+                // existing "missing area" branch rather than a number off a
+                // form belonging to another site.
+                areaHa: fromSite('areaHa')
+            }),
+            turf: Object.freeze({
+                type: fromConfig('turfType'),
+                subCategory: fromConfig('subCategory'),
+                species: speciesRaw,
+                speciesKey: speciesRaw ? resolveSpeciesKey(speciesRaw) : null,
+                speciesDisplay: speciesRaw ? resolveSpeciesDisplay(speciesRaw) : null,
+                variety: fromConfig('variety'),
+                construction: fromConfig('construction'),
+                hoc: fromConfig('hoc'),
+                percentC3: fromConfig('percentC3'),
+                warmBase: fromConfig('warmBase'),
+                coolOverseed: fromConfig('coolOverseed'),
+                overseedSpecies: fromConfig('overseedSpecies'),
+                overseedVariety: fromConfig('overseedVariety'),
+                // GH-464: the label printed beside the key. A pure lookup in
+                // the variety table the page already carries, falling back to
+                // the key itself when the table has no name for it — which is
+                // question 9 of section 10.8 and the owner's to settle. It
+                // lives here rather than in the export because the export read
+                // it off a DOM select and off GAIP_CLIMATE_V2_RESULT, both of
+                // which describe whichever site the page last painted.
+                overseedVarietyDisplay: record('overseedVarietyDisplay',
+                    _varietyDisplay(readPath(cfg, FIELD_PATHS.overseedSpecies[1]),
+                        readPath(cfg, FIELD_PATHS.overseedVariety[1])), 'site-config'),
+                summerIntent: fromConfig('summerIntent'),
+                // Derived, never a source of its own: the curve follows the
+                // species, and two independent inputs is how a report came to
+                // print the right grass on the wrong curve.
+                isC4: speciesRaw ? _isC4FromSpecies(speciesRaw) : null
+            }),
+            program: program,
+            samples: Object.freeze(samples),
+            climateNormals: climateNormals,
+            climateReason: climateReason,
+            sources: Object.freeze(sources),
+            provenance: Object.freeze(provenance)
+        });
+    }
+
+    /** The variety table's own name for a key, or the key when it has none. */
+    function _varietyDisplay(species, variety) {
+        if (!variety) return null;
+        const w = _win();
+        try {
+            const table = w.GAIP_VarietyTraits;
+            if (table && typeof table.getVarietyTraits === 'function') {
+                const traits = table.getVarietyTraits(species || null, variety);
+                if (traits && (traits.displayName || traits.name)) return traits.displayName || traits.name;
+            }
+        } catch (e) { /* the key is the answer below */ }
+        return variety;
+    }
+
+    /** The C3/C4 answer of whichever engine is loaded — never a local table. */
+    function _isC4FromSpecies(species) {
+        const w = _win();
+        try {
+            if (w.NutritionCalendar && typeof w.NutritionCalendar.isC4Species === 'function') {
+                return !!w.NutritionCalendar.isC4Species(w.NutritionCalendar.normalizeSpecies(species));
+            }
+            if (w.GilbaNutritionCalendar && typeof w.GilbaNutritionCalendar.isC4Species === 'function') {
+                return !!w.GilbaNutritionCalendar.isC4Species(
+                    w.GilbaNutritionCalendar.normalizeSpecies(species));
+            }
+            if (w.SpeciesController && typeof w.SpeciesController.isC4Species === 'function') {
+                return !!w.SpeciesController.isC4Species(species);
+            }
+        } catch (e) { /* fall through */ }
+        return null;
+    }
+
     const API = {
         VERSION: VERSION,
         TRAFFIC_MODIFIERS: TRAFFIC_MODIFIERS,
         DEFAULT_MAX_N_PER_MONTH: DEFAULT_MAX_N_PER_MONTH,
         DEFAULT_DISTRIBUTION_MODE: DEFAULT_DISTRIBUTION_MODE,
         resolveSiteProgramInputs: resolveSiteProgramInputs,
+        resolveExportInputs: resolveExportInputs,
         resolveSufficiencyRanges: resolveSufficiencyRanges,
         deriveTrafficIntensity: deriveTrafficIntensity,
         resolveAnnualN: resolveAnnualN,
         validateSampleInputs: validateSampleInputs,
         getSiteConfig: getSiteConfig,
         getActiveSiteId: getActiveSiteId,
+        FIELD_PATHS: FIELD_PATHS,
         normalizeMethodology: normalizeMethodology,
         resolveSpeciesKey: resolveSpeciesKey,
         resolveSpeciesDisplay: resolveSpeciesDisplay,
         resolveSoilTexture: resolveSoilTexture,
-        siteTextureOverrideFor: siteTextureOverrideFor,
+        siteTextureSettingFor: siteTextureSettingFor,
         zoneKeyFor: zoneKeyFor,
         buildZoneMap: buildZoneMap,
         matchSampleToZone: matchSampleToZone,

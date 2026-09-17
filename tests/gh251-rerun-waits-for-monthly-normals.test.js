@@ -28,6 +28,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 const src = fs.readFileSync(path.join(__dirname, '../assets/hub-persistence.js'), 'utf8');
 
@@ -46,8 +47,7 @@ describe('GH-251 — _doRerunSync awaits bounded climate-normals resolution', ()
 
     test('the wait is bounded via Promise.race with a timeout, not a bare await', () => {
         expect(src).toMatch(/function _withTimeout\(promise, ms\)/);
-        const idx = src.indexOf('function _withTimeout(promise, ms)');
-        const body = src.slice(idx, idx + 250);
+        const body = anchoredWindow(src, 'function _withTimeout(promise, ms)', 250);
         expect(body).toMatch(/Promise\.race\(/);
         expect(body).toMatch(/setTimeout\(resolve, ms\)/);
     });

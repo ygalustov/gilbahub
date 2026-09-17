@@ -17,15 +17,14 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 describe('GH-299 — nutrition-summary-integration.js resolves aaRanges', () => {
     const srcPath = path.join(__dirname, '../assets/nutrition-summary-integration.js');
     const src = fs.readFileSync(srcPath, 'utf8');
 
     test('_resolveAARanges() is gated on methodology being AA before touching HillLabsSampleTypes', () => {
-        const idx = src.indexOf('function _resolveAARanges(soilValues, species) {');
-        expect(idx).toBeGreaterThan(-1);
-        const body = src.slice(idx, src.indexOf('\n    }', idx));
+        const body = anchoredSlice(src, 'function _resolveAARanges(soilValues, species) {', '\n    }');
         expect(body).toMatch(/if \(m !== 'AA' && m !== 'AMMONIUM_ACETATE'\) return null;/);
         // The methodology check must come BEFORE any HillLabsSampleTypes read.
         const methodologyCheckIdx = body.indexOf("if (m !== 'AA'");
@@ -41,8 +40,11 @@ describe('GH-299 — nutrition-summary-integration.js resolves aaRanges', () => 
     });
 
     test('extractFromSoilData() carries methodology/soilTexture/CEC through (previously dropped, so soil.methodology never reached the engine at all)', () => {
-        const idx = src.indexOf('function extractFromSoilData(soil) {');
-        const body = src.slice(idx, src.indexOf('\n            }', idx) + 20);
+        // GH-468: the whole function, by brace balance. The end anchor here
+        // was '\n            }', which occurs twice in the body — the guard
+        // was reading 1,140 characters of a 1,312-character function and
+        // nothing said so.
+        const body = anchoredSlice(src, 'function extractFromSoilData(soil) {');
         expect(body).toMatch(/methodology:\s*soil\.methodology/);
         expect(body).toMatch(/soilTexture:\s*soil\.soilTexture/);
     });
@@ -138,9 +140,7 @@ describe('GH-299 — word-export.js resolves and threads aaRanges', () => {
     // its own and still threads the resolved ones onward.
     test('the AA methodology gate lives in the shared adapter, and is checked before HillLabsSampleTypes is touched', () => {
         const adapterSrc = fs.readFileSync(path.join(__dirname, '../assets/nutrition-program-inputs.js'), 'utf8');
-        const idx = adapterSrc.indexOf('function resolveSufficiencyRanges(opts)');
-        expect(idx).toBeGreaterThan(-1);
-        const body = adapterSrc.slice(idx, adapterSrc.indexOf('// Site config access', idx));
+        const body = anchoredSlice(adapterSrc, 'function resolveSufficiencyRanges(opts)');
         const gateIdx = body.indexOf("if (methodology === 'ammonium_acetate') {");
         const hlstIdx = body.indexOf('w.HillLabsSampleTypes');
         expect(gateIdx).toBeGreaterThan(-1);
@@ -151,8 +151,27 @@ describe('GH-299 — word-export.js resolves and threads aaRanges', () => {
         // _buildEngineInputs() itself must not resolve ranges any more.
         // (word-export.js still reads HillLabsSampleTypes elsewhere, for the
         // Soil section's sample-type CODE label — a different concern.)
-        const fnStart = src.indexOf('function _buildEngineInputs(data)');
-        const fnBody = src.slice(fnStart, src.indexOf('\n    }', src.indexOf('data.engineInputs = {', fnStart)));
+        // GH-466: the anchor is the function NAME, and it is asserted to have
+        // been found. It used to carry the whole signature, `(data)` included,
+        // and when a second parameter was added it matched nothing: indexOf
+        // returned -1, slice(-1, …) handed back the file's last character, and
+        // the three assertions below passed against a one-character string.
+        // A guard that cannot fail is not weaker than no guard, it is worse,
+        // because the row it prints says the thing was checked.
+        const fnStart = src.indexOf('function _buildEngineInputs(');
+        expect(fnStart).toBeGreaterThan(-1);
+        const engineIdx = src.indexOf('data.engineInputs = {', fnStart);
+        expect(engineIdx).toBeGreaterThan(fnStart);
+        const fnEnd = src.indexOf('\n    }', engineIdx);
+        expect(fnEnd).toBeGreaterThan(engineIdx);
+        const fnBody = src.slice(fnStart, fnEnd);
+        // The body is what the three assertions below are about, so its size
+        // is asserted rather than assumed: a slice that collapses again fails
+        // here instead of passing three times over nothing. The figure is a
+        // floor well under the function's real length (~4,000 characters at
+        // the time of writing), not a pin on it.
+        expect(fnBody.length).toBeGreaterThan(1000);
+        expect(fnBody).toContain('function _buildEngineInputs(');
         expect(fnBody).not.toMatch(/deriveCode\(/);
         expect(fnBody).not.toMatch(/HillLabsSampleTypes/);
         expect(fnBody).not.toMatch(/AmmoniumAcetateMethodology/);

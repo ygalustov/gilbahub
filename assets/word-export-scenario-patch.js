@@ -289,9 +289,13 @@
         // =====================================================================
         // Patch collectData() - Add scenario data to export payload
         // =====================================================================
-        global.GAIP_WordExport.collectData = function(options) {
-            options = options || {};
-            const data = originalCollectData ? originalCollectData.call(global.GAIP_WordExport, options) : {};
+        // GH-468: the argument goes through untouched. `options = options || {}`
+        // turned a call with no inputs into a call with an empty object, which
+        // reads as "inputs were given" at the border and defeats the refusal
+        // there; and it renamed the resolver's object into something called
+        // `options`, which is how a wrapper stops looking like a pass-through.
+        global.GAIP_WordExport.collectData = function(inputs) {
+            const data = originalCollectData ? originalCollectData.call(global.GAIP_WordExport, inputs) : {};
             
             // Defensive: ensure we have an object
             if (typeof data !== 'object' || data === null) {

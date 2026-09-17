@@ -519,20 +519,41 @@
         container.innerHTML = html;
     }
 
+    // GH-445: inline SVG, in the style the db-shell pages already use for
+    // their tab icons (see analysis.blade.php) -- 13x13, currentColor, 2.5
+    // stroke. The emoji that stood here render differently on every platform
+    // and are not something the rest of the product uses.
+    var TYPE_ICONS = {
+        spray: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6m-3 0v4m-2 0h4l2 5v9a1 1 0 01-1 1H9a1 1 0 01-1-1v-9l2-5z"/>',
+        disease: '<path stroke-linecap="round" stroke-linejoin="round" d="M10 3v6.5L5.5 17a2 2 0 001.7 3h9.6a2 2 0 001.7-3L14 9.5V3m-5 0h6M8.5 13h7"/>',
+        tdr: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5s5.5 6 5.5 9.5a5.5 5.5 0 11-11 0C6.5 9.5 12 3.5 12 3.5z"/>',
+        mowing: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 6.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zm0 11a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zM7.8 8.2L20 19M7.8 15.8L20 5"/>',
+        note: '<path stroke-linecap="round" stroke-linejoin="round" d="M16 4h2a1 1 0 011 1v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5a1 1 0 011-1h2m0 0a2 2 0 014 0m-4 0h4M9 12h6M9 16h4"/>',
+        other: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 4h8a1 1 0 011 1v14a1 1 0 01-1 1H8a1 1 0 01-1-1V5a1 1 0 011-1zm2 5h4m-4 4h4m-4 4h2"/>',
+    };
+
+    function typeIconSvg(type, size) {
+        var path = TYPE_ICONS[type] || TYPE_ICONS.other;
+        var px = size || 16;
+        return '<svg width="' + px + '" height="' + px + '" viewBox="0 0 24 24" fill="none" '
+            + 'stroke="currentColor" stroke-width="2.5" aria-hidden="true" focusable="false" '
+            + 'style="flex-shrink:0;display:block;">' + path + '</svg>';
+    }
+
     function renderTypeNav(container) {
         var types = [
-            { id: 'spray',   icon: '🧪', label: 'Spray'   },
-            { id: 'disease', icon: '🔬', label: 'Disease' },
-            { id: 'tdr',     icon: '💧', label: 'TDR'     },
-            { id: 'mowing',  icon: '✂️',  label: 'Mowing'  },
-            { id: 'note',    icon: '📝', label: 'Note'    }
+            { id: 'spray',   label: 'Spray'   },
+            { id: 'disease', label: 'Disease' },
+            { id: 'tdr',     label: 'TDR'     },
+            { id: 'mowing',  label: 'Mowing'  },
+            { id: 'note',    label: 'Note'    }
         ];
 
         var html = '';
         types.forEach(function (t) {
             html += '<button class="gaip-fl-type-btn' + (t.id === _state.activeType ? ' active' : '') + '" '
                   + 'data-type="' + t.id + '" aria-pressed="' + (t.id === _state.activeType) + '">'
-                  + '<span class="gaip-fl-type-icon">' + t.icon + '</span>'
+                  + '<span class="gaip-fl-type-icon">' + typeIconSvg(t.id, 18) + '</span>'
                   + '<span class="gaip-fl-type-label">' + t.label + '</span>'
                   + '</button>';
         });
@@ -716,7 +737,13 @@
         return '<div class="gaip-fl-field">'
              + '<label class="gaip-fl-label">Photo</label>'
              + '<label class="gaip-fl-photo-btn" for="gaip-fl-photo">'
-             + '<span>📷 Take / choose photo</span>'
+             // GH-445: same inline-SVG treatment as the type icons above.
+             + '<span style="display:inline-flex;align-items:center;gap:6px;">'
+             + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+             + 'stroke-width="2.5" aria-hidden="true" focusable="false" style="flex-shrink:0;">'
+             + '<path stroke-linecap="round" stroke-linejoin="round" d="M3 8.5A1.5 1.5 0 014.5 7h2.2l1.2-2h8.2l1.2 2h2.2A1.5 1.5 0 0121 8.5v9A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5v-9z"/>'
+             + '<circle cx="12" cy="13" r="3.2"/>'
+             + '</svg>Take / choose photo</span>'
              + '<input type="file" id="gaip-fl-photo" accept="image/*" capture="environment" class="gaip-fl-photo-input">'
              + '</label>'
              + '<div id="gaip-fl-photo-preview" class="gaip-fl-photo-preview"></div>'
@@ -746,8 +773,7 @@
             var html = '<ul class="gaip-fl-recent-list">';
             obs.forEach(function (o) {
                 var date    = (o.observed_at || o.created_at || o.created || '').slice(0, 10);
-                var typeMap = { spray: '🧪', disease: '🔬', tdr: '💧', mowing: '✂️', note: '📝' };
-                var icon    = typeMap[o.type] || '📋';
+                var icon    = typeIconSvg(o.type, 16);
                 var summary = buildSummary(o);
 
                 html += '<li class="gaip-fl-recent-item">'

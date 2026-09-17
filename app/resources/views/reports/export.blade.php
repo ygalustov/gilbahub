@@ -235,7 +235,7 @@
         'uk-variety-traits.js','scanturf-variety-traits.js','geves-variety-traits.js',
         'bsa-variety-traits.js','japan-variety-traits.js','scandinavia-variety-traits.js',
         'nz-fine-fescue-traits.js','gilba-storage-ns.js','gaip-site-context.js',
-        'gilba-storage-migrate.js','location-preloader.js','turf-profile-controller.js',
+        'gilba-storage-migrate.js','turf-profile-controller.js',
         'nitrogen-validator.js','wear-recovery-engine-pure.js','wear-recovery-integration.js',
         'overseed-multiplier.js','overseed-climate-integration.js','shade-engine-pure.js',
         'shade-integration.js','dli-recovery-bridge.js','gaip-classification-constants.js',

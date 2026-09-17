@@ -22,8 +22,16 @@
     "sampleDate": "2026-07-01"
   },
   "otherZones": [
-    { "id": 103, "label": "Green 1", "sampleType": "soil" },
-    { "id": 104, "label": "Green 13", "sampleType": "soil" }
+    {
+      "id": 103,
+      "label": "Green 1",
+      "sampleType": "soil"
+    },
+    {
+      "id": 104,
+      "label": "Green 13",
+      "sampleType": "soil"
+    }
   ],
   "inputs": {
     "methodology": "ammonium_acetate",
@@ -47,8 +55,14 @@
     "soilTextureSource": "site-override",
     "certificateCode": "S279",
     "ranges": {
-      "P": { "min": 5, "max": 15 },
-      "K": { "min": 78.2, "max": 195.5 }
+      "P": {
+        "min": 5,
+        "max": 15
+      },
+      "K": {
+        "min": 78.2,
+        "max": 195.5
+      }
     },
     "rangeKgHa": {
       "P": "7–21",
@@ -74,9 +88,27 @@
       "_note": "What the document printed before D-2: no S279 certificate for browntop on a non-sand rootzone, so the generic ammonium-acetate 'others' band, and with it a P 'Deficit (-54%)' on a green the Plan called On Track.",
       "certificateCode": null,
       "ranges": {
-        "P": { "min": 12, "max": 28 },
-        "K": { "min": 100, "max": 235 }
+        "P": {
+          "min": 12,
+          "max": 28
+        },
+        "K": {
+          "min": 100,
+          "max": 235
+        }
       }
+    }
+  },
+  "scenario": {
+    "tissueK": {
+      "state": "irrelevant",
+      "value": 2.5,
+      "why": "Russley's own sample 142, captured 11.09. This fixture asserts that one green is computed from one texture and one tissue sample on both surfaces; the value only has to be present for tissueGateApplied to be true. (thresholds for reference: deficient below 1.6, normal 2.0-3.42)"
+    },
+    "soilK": {
+      "state": "irrelevant",
+      "value": 156.4,
+      "why": "GH-414 is about one green being computed from one texture and one tissue sample on both surfaces; the readings are replayed, not asserted as a state."
     }
   }
 }

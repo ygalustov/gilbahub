@@ -994,18 +994,29 @@ function calculateC3C4Fractions(turf) {
  * Calculate mixed growth potential
  */
 function calcMixedGrowthPotential(temp, c3frac, c4frac) {
+    // GH-512: the same rule as GH-498/GH-510, moved into the copy that runs.
+    // This file and hub-tissue-v3.js each declare a top-level function of this
+    // name; both are classic scripts, so on every page that loads both — which
+    // is every page that can build a document — the later declaration owns the
+    // global name, and that is this one. Measured: twelve calls on one combined
+    // export, all of them arriving here.
+    //
+    // Where the engine cannot compute, it answers null, and null is not a
+    // growth potential of nought. Note `Math.round(null)` is 0, so each of the
+    // three values has to refuse the null itself rather than lean on the leaf.
     var GPE = window.GilbaGrowthPotentialEngine;
-    var c3GP = 0, c4GP = 0;
+    var c3GP = null, c4GP = null;
     if (GPE) {
         var r3 = GPE.compute(temp, { model: 'pace', species: 'c3' });
         var r4 = GPE.compute(temp, { model: 'pace', species: 'c4' });
-        c3GP = r3 != null ? r3 * 100 : 0;
-        c4GP = r4 != null ? r4 * 100 : 0;
+        c3GP = r3 != null ? r3 * 100 : null;
+        c4GP = r4 != null ? r4 * 100 : null;
     }
     return {
-        c3: Math.round(c3GP),
-        c4: Math.round(c4GP),
-        weighted: Math.round(c3frac * c3GP + c4frac * c4GP)
+        c3: c3GP == null ? null : Math.round(c3GP),
+        c4: c4GP == null ? null : Math.round(c4GP),
+        weighted: (c3GP == null || c4GP == null) ? null
+            : Math.round(c3frac * c3GP + c4frac * c4GP)
     };
 }
 

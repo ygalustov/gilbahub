@@ -142,29 +142,35 @@ describe('GH-383 — resolveSufficiencyRanges(): one resolver for all three meth
 // ─────────────────────────────── texture chain ───────────────────────────────
 
 describe('GH-383 — resolveSoilTexture(): ONE chain, GH-364\'s order', () => {
-    test('the sample\'s own snapshot beats everything else', () => {
-        withGlobals({ GAIP_HUB_CONFIG: { soilTexture: 'clay_loam' } }, () => {
-            const t = Inputs.resolveSoilTexture({
-                sampleTextureSnapshot: 'sand', soil: { soilTexture: 'silt' }, turf: { construction: 'sand_profile' }
-            });
-            expect(t).toEqual({ value: 'sand', source: 'sample-snapshot' });
-        });
+    test('the site\'s own column is the answer when it is set', () => {
+        // GH-482, owner's decision on 10.8(17): the sample's recorded snapshot
+        // is not in this chain at any position — a mark on a sample can be out
+        // of date, and a report is interpreted against the settings a user can
+        // see. Nor is the page's copy, nor a guess from the construction type.
+        const t = Inputs.resolveSoilTexture({ siteTextureOverride: 'sand', accountTexture: 'loam' });
+        expect(t).toEqual({ value: 'sand', source: 'site-override' });
+    });
+
+    test('the account\'s setting is the second link, and the only other one', () => {
+        expect(Inputs.resolveSoilTexture({ siteTextureOverride: null, accountTexture: 'loam' }))
+            .toEqual({ value: 'loam', source: 'account' });
     });
 
     test('the site\'s configured texture beats the construction bucket (GH-364 — a measured value outranks a guess)', () => {
-        withGlobals({ GAIP_HUB_CONFIG: { soilTexture: 'clay_loam' } }, () => {
-            const t = Inputs.resolveSoilTexture({ turf: { construction: 'sand_profile' } });
-            expect(t).toEqual({ value: 'clay_loam', source: 'site-config' });
+        // GH-482: the setting is passed in from the row that owns it, by id
+        // (`siteTextureSettingFor`), instead of being read here out of the
+        // page's own copy — which could only ever describe one site and
+        // answered for every site it was asked about.
+        const t = Inputs.resolveSoilTexture({
+            siteTextureOverride: 'clay_loam', turf: { construction: 'sand_profile' }
         });
+        expect(t).toEqual({ value: 'clay_loam', source: 'site-override' });
     });
 
-    test('construction is the last resort, and an unresolved texture says so instead of guessing sand', () => {
-        withGlobals({ GAIP_HUB_CONFIG: {} }, () => {
-            expect(Inputs.resolveSoilTexture({ turf: { construction: 'sand_profile' } }))
-                .toEqual({ value: 'sand', source: 'turf-construction' });
-            expect(Inputs.resolveSoilTexture({ turf: {} }))
-                .toEqual({ value: null, source: 'unresolved' });
-        });
+    test('with neither link set the texture is unresolved — nothing is guessed in its place', () => {
+        expect(Inputs.resolveSoilTexture({})).toEqual({ value: null, source: 'unresolved' });
+        expect(Inputs.resolveSoilTexture({ siteTextureOverride: null, accountTexture: null }))
+            .toEqual({ value: null, source: 'unresolved' });
     });
 
     test('the AA sands/others bucketing is the same substring rule deriveCode() uses', () => {
@@ -264,7 +270,17 @@ const CFG_TEST5 = {
 
 describe('GH-383 — resolveSiteProgramInputs(): source of truth per field, with provenance', () => {
     function run(extra) {
-        return withGlobals({ GAIP_HUB_CONFIG: { activeSiteId: SITE, soilTexture: 'sand' } }, () =>
+        // GH-482: the site's texture setting comes from the row that owns it,
+        // read by id, so the harness supplies a row instead of the page-wide
+        // `GAIP_HUB_CONFIG.soilTexture` it used to render for one site.
+        return withGlobals({
+            GAIP_HUB_CONFIG: { activeSiteId: SITE },
+            GAIP_SiteConfig: {
+                getSite: (id) => (id === SITE
+                    ? { id: SITE, soil_texture_override: 'sand', account_soil_texture: 'loam' }
+                    : null)
+            }
+        }, () =>
             Inputs.resolveSiteProgramInputs(Object.assign({
                 siteId: SITE, siteConfig: CFG_TEST5, planForm: null
             }, extra || {})));
@@ -391,10 +407,33 @@ describe('GH-383 — getSiteConfig() fails loud rather than borrowing another si
         });
     });
 
-    test('the Plan page\'s server-rendered config is used ONLY for the active site', () => {
-        withGlobals({ GAIP_HUB_CONFIG: { activeSiteId: SITE }, GAIP_SITE_CONFIG: CFG_TEST5 }, () => {
+    test('the Plan page\'s server-rendered config is used ONLY for the site it was rendered for', () => {
+        // GH-469: the deciding value is the config's own stamp, not the page's
+        // live pointer. The pointer is rewritten in place by the setup wizard
+        // and by Account while the injected object never changes, so a
+        // comparison against the pointer could be true about a third site.
+        withGlobals({ GAIP_HUB_CONFIG: { activeSiteId: SITE }, GAIP_SITE_CONFIG: CFG_TEST5,
+            GAIP_SITE_CONFIG_SITE_ID: SITE }, () => {
             expect(Inputs.getSiteConfig(SITE)).toBe(CFG_TEST5);
             expect(Inputs.getSiteConfig('some-other-site')).toBeNull();
+        });
+    });
+
+    test('the pointer moving does not make the injected config answer for the new site', () => {
+        // The defect in one line: the page was rendered for SITE, the pointer
+        // now says somewhere else, and the config still describes SITE.
+        withGlobals({ GAIP_HUB_CONFIG: { activeSiteId: 'moved-here-after-load' },
+            GAIP_SITE_CONFIG: CFG_TEST5, GAIP_SITE_CONFIG_SITE_ID: SITE }, () => {
+            expect(Inputs.getSiteConfig('moved-here-after-load')).toBeNull();
+            expect(Inputs.getSiteConfig(SITE)).toBe(CFG_TEST5);
+        });
+    });
+
+    test('an injected config with no stamp answers for nobody', () => {
+        // A page that injects the object and not the stamp gets no answer from
+        // it, rather than an answer about whichever site the pointer names.
+        withGlobals({ GAIP_HUB_CONFIG: { activeSiteId: SITE }, GAIP_SITE_CONFIG: CFG_TEST5 }, () => {
+            expect(Inputs.getSiteConfig(SITE)).toBeNull();
         });
     });
 

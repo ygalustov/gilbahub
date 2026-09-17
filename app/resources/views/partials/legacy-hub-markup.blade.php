@@ -56,14 +56,11 @@
                     padding: 6px 12px; border: 1px solid #ced4da; border-radius: 6px;
                     background: white; cursor: pointer; font-size: 16px;
                 ">+</button>
-                <button type="button" id="gaip-site-rename-top" title="Rename site" style="
-                    padding: 6px 12px; border: 1px solid #ced4da; border-radius: 6px;
-                    background: white; cursor: pointer; font-size: 14px;
-                ">✎</button>
-                <button type="button" id="gaip-site-save-top" title="Save current site configuration" style="
-                    padding: 6px 12px; border: 1px solid #28a745; border-radius: 6px;
-                    background: #28a745; color: white; cursor: pointer; font-size: 13px; font-weight: 600;
-                ">💾 Save Site</button>
+                {{-- GH-441 (GH-439 stage 2, decision 9): Rename and Save removed.
+                     Rename wrote the site name through POST /api/sites/sync, which
+                     no longer writes names; Save stored a snapshot of this form as
+                     the site's configuration, which is the write path this stage
+                     removes. Both live in Settings. --}}
                 <button type="button" id="gaip-site-delete-top" title="Delete site" style="
                     padding: 6px 12px; border: 1px solid #dc3545; border-radius: 6px;
                     background: white; color: #dc3545; cursor: pointer; font-size: 14px;

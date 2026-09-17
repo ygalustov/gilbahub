@@ -36,6 +36,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 function loadMulders() {
     const src = fs.readFileSync(path.join(__dirname, '../assets/mulders-interaction-checker.js'), 'utf8');
@@ -128,13 +129,7 @@ describe('GH-392 — the conversion cannot come back unnoticed', () => {
     });
 
     test('the function body itself carries no methodology branch', () => {
-        const start = src.indexOf('function normaliseToBasis(nutrients) {');
-        expect(start).toBeGreaterThan(-1);
-        // The body runs to the first line that closes the function at its own
-        // indentation — two spaces, matching this file's IIFE-scoped style.
-        const end = src.indexOf('\n  }', start);
-        expect(end).toBeGreaterThan(start);
-        const body = src.slice(start, end);
+        const body = anchoredSlice(src, 'function normaliseToBasis(nutrients) {', '\n  }');
         expect(body).not.toMatch(/ammonium_acetate/i);
         expect(body).not.toMatch(/methodology/);
         expect(body).not.toMatch(/isAA/);

@@ -498,11 +498,12 @@ describe('GH-369 — word-export.js buildSections(): real rendering-level proof 
 });
 
 describe('GH-369 — word-export-combined.js: structural pins for the shared-SSOT routing', () => {
-    let src;
+    let src, calSrc;
     beforeAll(() => {
         const fs = require('fs');
         const path = require('path');
         src = fs.readFileSync(path.join(__dirname, '../assets/word-export-combined.js'), 'utf8');
+        calSrc = fs.readFileSync(path.join(__dirname, '../assets/nutrition-calendar.js'), 'utf8');
     });
 
     // Structural pins, matching this repo's established convention for
@@ -545,8 +546,18 @@ describe('GH-369 — word-export-combined.js: structural pins for the shared-SSO
     });
 
     test('bug 6 fix: the calendar tissue overlay routes through the shared helper and no longer unconditionally overwrites with an all-null object', () => {
-        expect(src).toMatch(/_resolvedSampleTissue = \(window\.GAIP_WordExport && window\.GAIP_WordExport\._tissuePercentFromData\)/);
-        expect(src).toMatch(/if \(_resolvedSampleTissue\) \{\s*\n\s*perSampleInputs\.tissuePercent = _resolvedSampleTissue;/);
+        // GH-470: the shared helper is no longer the route — the sample's own
+        // tissue is resolved once, by id, inside inputsForSite(). What the
+        // original protected (one parse, not a second inline copy) is asserted
+        // by there being no inline parse here at all.
+        expect(src).not.toMatch(/r\.data\.tissue\.[A-Z]/);
+        // GH-470: the overlay is gone. The property it protected — this
+        // sample's own tissue, and never an all-null object clobbering a real
+        // reading — now holds by construction: the value is resolved once,
+        // from samples-by-id, inside inputsForSite(), and the object is frozen.
+        expect(calSrc).toMatch(/tissuePercent: validated\.tissuePercent/);
+        expect(calSrc).toMatch(/tissuePercent: readings\(samples\.tissue\)/);
+        expect(src).not.toMatch(/perSampleInputs\.tissuePercent = /);
     });
 
     test('bug 8 fix: the K Reconciliation table\'s explanatory caption is gated on at least one row actually having tissue data', () => {

@@ -196,8 +196,11 @@ describe('GH-398 — the export files render the series, they do not compute it'
     });
 
     test('word-export-combined.js resolves the cap and the mode per site, from the adapter', () => {
-        expect(combined).toMatch(/perSampleInputs\.maxNPerMonth = _siteInputs\.maxNPerMonth;/);
-        expect(combined).toMatch(/perSampleInputs\.distribution = _siteInputs\.distributionMode;/);
+        // GH-470: built in nutrition-calendar.js's inputsForSite(), from the
+        // programme the sample's own site resolved.
+        const cal = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-calendar.js'), 'utf8');
+        expect(cal).toMatch(/maxNPerMonth: prog\.maxNPerMonth/);
+        expect(cal).toMatch(/distribution: prog\.distributionMode/);
         // The two private reads it used to make are gone — a per-site read is
         // still a second resolution when the same concept has a resolver.
         expect(combined).not.toMatch(/_siteCfg\.maxNPerMonth/);

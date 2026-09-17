@@ -362,16 +362,22 @@ describe.each(AU_SITES)('GH-401 — %s, on its real persisted requirements', (sl
             expect(m.volume).not.toBe(m.wasVolume);
         });
 
-        // No product outside the list moved. `applications > 1` on an entry is
-        // the only thing that can move a volume, so every product whose count
-        // now exceeds its month count must be named above.
-        const listed = moves.map((m) => m.name);
-        Object.values(acc.products).forEach((p) => {
+        // Exactly the products in the list moved, and no others. `applications
+        // > 1` on an entry is the only thing that can move a volume, so the set
+        // of products whose count exceeds its month count IS the list.
+        //
+        // GH-457: this was a loop of `if (moved) expect(listed).toContain(...)`
+        // over a list that is empty by design on burns, inside a test whose
+        // first loop is also empty there — so the burns case asserted nothing
+        // at all and would have stayed green if every volume on the site had
+        // doubled. Stated as a set comparison, it runs on every site including
+        // the one with no moves, where it says "nothing moved" out loud.
+        const listed = moves.map((m) => m.name).sort();
+        const moved = Object.values(acc.products).filter((p) => {
             const monthsUsed = acc.applications.filter((a) => a.id === p.id).length;
-            if (p.applications !== monthsUsed) {
-                expect(listed).toContain(p.name);
-            }
-        });
+            return p.applications !== monthsUsed;
+        }).map((p) => p.name).sort();
+        expect(moved).toEqual(listed);
     });
 });
 

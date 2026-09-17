@@ -259,6 +259,11 @@
         });
     }
 
+    // GH-441 (GH-439 stage 2, review): the settings-unavailable banner moved
+    // to settings-unavailable-banner.js. This file is loaded only by db-shell,
+    // and /morning-briefing -- a page a client opens -- sits on layouts.app,
+    // so the failure was invisible there. The shared file is loaded by both.
+
     function boot() {
         initSiteSwitcher();
         healAutoSiteLabels();

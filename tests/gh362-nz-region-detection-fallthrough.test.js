@@ -55,26 +55,40 @@ function loadIntegration(dom, windowExtras) {
 // detectRegionFromHub() stands in for the real one: it returns its
 // 'uk_ireland' default whenever the DOM coordinates are unusable, exactly as
 // regional-profiles.js:1312-1322 does.
-function regionalProfilesStub(dom) {
+/**
+ * GH-476: the region is derived from the SITE's coordinates, by id, so the
+ * stub answers the way the real function does — out of a site store — and the
+ * DOM plays no part. The property this file protects is unchanged: an answer
+ * that cannot be derived must not stop the later methods from being asked.
+ * What changed is that there is no longer a 'uk_ireland' default to swallow —
+ * an underivable region is `null`, which is what "unknown" should always have
+ * looked like.
+ */
+function regionalProfilesStub(siteRow) {
     return {
-        detectRegionFromHub: function () {
-            var latEl = dom.querySelector('.gaip-lat');
-            var lonEl = dom.querySelector('.gaip-lon');
-            if (!latEl || !lonEl) return 'uk_ireland';
-            var lat = parseFloat(latEl.value);
-            var lon = parseFloat(lonEl.value);
-            if (isNaN(lat) || isNaN(lon)) return 'uk_ireland';
+        activeSiteId: function () { return siteRow ? siteRow.id : null; },
+        detectRegionForSite: function (siteId) {
+            if (!siteRow || siteId !== siteRow.id) return null;
+            var lat = parseFloat(siteRow.latitude);
+            var lon = parseFloat(siteRow.longitude);
+            if (isNaN(lat) || isNaN(lon)) return null;
+            if (lat === 0 && lon === 0) return null;
             if (lon >= 166 && lon <= 179 && lat >= -47 && lat <= -34) return 'new_zealand';
             return 'australia';
         },
     };
 }
 
-describe('GH-362 — isNewZealand() no longer swallows detectRegionFromHub()\'s uk_ireland default', function () {
+/** A site row with the coordinates under test, or without any. */
+function siteAt(latitude, longitude) {
+    return { id: 'site-under-test', latitude: latitude, longitude: longitude };
+}
+
+describe('GH-362/GH-476 — a region that cannot be derived does not stop the later methods', function () {
     test('empty coordinate inputs + NZ region in GAIP_STATE -> true (Method 2 is now reached)', function () {
         var dom = makeDom('', '');
         var integration = loadIntegration(dom, {
-            GAIP_RegionalProfiles: regionalProfilesStub(dom),
+            GAIP_RegionalProfiles: regionalProfilesStub(siteAt(null, null)),
             GAIP_STATE: { location: { region: 'new_zealand' } },
         });
         expect(integration.isNewZealand()).toBe(true);
@@ -83,24 +97,25 @@ describe('GH-362 — isNewZealand() no longer swallows detectRegionFromHub()\'s 
     test('missing coordinate inputs entirely + NZ coordinates on GAIP_HUB_CONFIG -> true (Method 3 is now reached)', function () {
         var dom = makeDom(null, null);
         var integration = loadIntegration(dom, {
-            GAIP_RegionalProfiles: regionalProfilesStub(dom),
+            GAIP_RegionalProfiles: regionalProfilesStub(siteAt(null, null)),
             GAIP_HUB_CONFIG: { savedLocation: { lat: '-36.8508827', lon: '174.7644881' } },
         });
         expect(integration.isNewZealand()).toBe(true);
     });
 
     test('populated NZ coordinate inputs -> true via Method 1, unchanged behaviour', function () {
-        var dom = makeDom('-36.8508827', '174.7644881');
+        // The coordinates are the SITE's; the DOM holds nothing relevant.
+        var dom = makeDom('', '');
         var integration = loadIntegration(dom, {
-            GAIP_RegionalProfiles: regionalProfilesStub(dom),
+            GAIP_RegionalProfiles: regionalProfilesStub(siteAt(-36.8508827, 174.7644881)),
         });
         expect(integration.isNewZealand()).toBe(true);
     });
 
     test('populated AU coordinate inputs -> false via Method 1, and the NZ fallbacks must NOT override a real answer', function () {
-        var dom = makeDom('-33.8688', '151.2093');
+        var dom = makeDom('', '');
         var integration = loadIntegration(dom, {
-            GAIP_RegionalProfiles: regionalProfilesStub(dom),
+            GAIP_RegionalProfiles: regionalProfilesStub(siteAt(-33.8688, 151.2093)),
             // A stale NZ region left in state must not win over this sample's
             // real Sydney coordinates -- the inverse leak (AU site served the
             // NZ catalogue) the audit also asks to be asserted.
@@ -110,9 +125,9 @@ describe('GH-362 — isNewZealand() no longer swallows detectRegionFromHub()\'s 
     });
 
     test('0,0 coordinates are treated as unusable, not as a real location', function () {
-        var dom = makeDom('0', '0');
+        var dom = makeDom('', '');
         var integration = loadIntegration(dom, {
-            GAIP_RegionalProfiles: regionalProfilesStub(dom),
+            GAIP_RegionalProfiles: regionalProfilesStub(siteAt(0, 0)),
             GAIP_STATE: { location: { region: 'new_zealand' } },
         });
         expect(integration.isNewZealand()).toBe(true);
@@ -121,7 +136,7 @@ describe('GH-362 — isNewZealand() no longer swallows detectRegionFromHub()\'s 
     test('no coordinates anywhere and no region anywhere -> false, unchanged conservative default', function () {
         var dom = makeDom('', '');
         var integration = loadIntegration(dom, {
-            GAIP_RegionalProfiles: regionalProfilesStub(dom),
+            GAIP_RegionalProfiles: regionalProfilesStub(siteAt(null, null)),
         });
         expect(integration.isNewZealand()).toBe(false);
     });

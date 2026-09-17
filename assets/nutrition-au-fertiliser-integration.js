@@ -60,6 +60,8 @@
                     this.hideRecommendations();
                     return;
                 }
+                // GH-444: a restored programme is one the database already has.
+                this._calendarWasRestored = !!(e.detail && e.detail.restored);
                 this.lastCalendarData = e.detail.program;
                 this.generateAndRender(e.detail.program);
             });
@@ -74,6 +76,7 @@
             // (present there from the start; this file never had it).
             const _existingCalendar = window.GilbaNutritionCalendar;
             if (_existingCalendar && _existingCalendar.program && this.isAustralia()) {
+                this._calendarWasRestored = true; // GH-444: it was there before this script loaded
                 this.lastCalendarData = _existingCalendar.program;
                 setTimeout(() => this.generateAndRender(_existingCalendar.program), 200);
             }
@@ -95,8 +98,10 @@
          */
         isAustralia: function() {
             // Method 1: Check RegionalProfiles detection
-            if (window.GAIP_RegionalProfiles?.detectRegionFromHub) {
-                const region = window.GAIP_RegionalProfiles.detectRegionFromHub();
+            if (window.GAIP_RegionalProfiles?.detectRegionForSite) {
+                // GH-476: by the site's own coordinates.
+                const region = window.GAIP_RegionalProfiles.detectRegionForSite(
+                    window.GAIP_RegionalProfiles.activeSiteId());
                 return region && region.startsWith('australia');
             }
             
@@ -119,10 +124,19 @@
             try {
                 var SC = window.GAIP_SiteConfig || window.GAIP_SiteContext;
                 var siteId = window.GAIP_SiteContext ? window.GAIP_SiteContext.getSiteId() : null;
-                if (SC && siteId && typeof SC.getConfig === 'function') {
-                    var cfg = SC.getConfig(siteId);
-                    var cfgLat = cfg && cfg.location && cfg.location.lat;
-                    var cfgLon = cfg && cfg.location && cfg.location.lon;
+                // GH-474: the coordinates come from the SITE ROW, which owns
+                // them. What stood here read `getConfig(id).location`, a copy
+                // written by whichever client last saved a config — and
+                // `PATCH /api/sites/{id}` moves a site without touching it, so
+                // a site that moved between countries kept its old recommender
+                // and its old product catalogue until somebody happened to
+                // save a config. This decides which country's catalogue a
+                // client is given, so being a write path behind is not a
+                // cosmetic difference.
+                if (SC && siteId && typeof SC.getSite === 'function') {
+                    var row    = SC.getSite(siteId);
+                    var cfgLat = row && row.latitude != null ? parseFloat(row.latitude) : null;
+                    var cfgLon = row && row.longitude != null ? parseFloat(row.longitude) : null;
                     if (cfgLat && cfgLon) {
                         return (cfgLon >= 113 && cfgLon <= 154 && cfgLat >= -44 && cfgLat <= -10);
                     }
@@ -419,7 +433,30 @@
                 // (window.GAIP_NUTRITION_PROGRAM would otherwise be empty there).
                 if (_nc && typeof _nc.persistSiteConfigPatch === 'function'
                         && program._generatedForSite !== 'unknown') {
-                    _nc.persistSiteConfigPatch({ nutritionProgram: program });
+                    // GH-440 (review): say where this programme came from. It is
+                    // built from the calendar in hand, so its coordinates are that
+                    // calendar's own stamp -- the server checks that against where
+                    // the site actually is and refuses a programme computed for
+                    // somewhere else. A stale tab reaches here with a calendar the
+                    // server has already refused; unstamped, this write used to be
+                    // accepted anyway and left a programme for one location beside
+                    // a calendar for another.
+                    var _programPatch = { nutritionProgram: program };
+                    var _programCoords = typeof _nc.coordsFromCalendar === 'function'
+                        ? _nc.coordsFromCalendar(calendarData)
+                        : null;
+                    if (_programCoords) _programPatch.nutritionProgramCoords = _programCoords;
+                // GH-444: only a freshly computed programme is written. A
+                // restored one came from the database a moment ago, and
+                // sending it back is the page returning state it was given --
+                // it moved savedAt on every plain page load and, if the
+                // restore had rebuilt it from anything stale, would have
+                // stored that too.
+                if (this._calendarWasRestored) {
+                    console.log('[NutritionIntegration] restored programme — not written back');
+                } else {
+                    _nc.persistSiteConfigPatch(_programPatch);
+                }
                 }
 
                 this.renderProductRecommendations(program);

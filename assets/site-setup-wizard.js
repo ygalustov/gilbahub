@@ -20,7 +20,6 @@
 
 
     const WIZARD_VERSION = '1.0.0';
-    const WIZARD_STORAGE_KEY = 'gilba_wizard_complete';
 
     function getWizardConfig() {
         return window.GAIP_WIZARD_CONFIG || {};
@@ -137,22 +136,23 @@
                 }
             }
 
-            // Fallback: check localStorage for non-logged-in users
-            if (_ls.getItem(WIZARD_STORAGE_KEY)) {
-                return;
-            }
-
-            // Also skip if user already has saved profiles (returning user)
-            const existingProfiles = _ls.getItem('gilba_turf_profiles');
-            if (existingProfiles) {
-                try {
-                    const profiles = JSON.parse(existingProfiles);
-                    if (Object.keys(profiles).length > 0) {
-                        return;
-                    }
-                } catch(e) { /* ignore parse errors */ }
-            }
-
+            // GH-451 (GH-439 stage 4b): the database decides, and nothing
+            // else. Two localStorage checks stood here and are gone.
+            //
+            // The first read `gilba_wizard_complete`, a per-browser copy of
+            // the same answer the server already sends. The second skipped the
+            // wizard whenever `gilba_turf_profiles` held any profile at all --
+            // a plugin-era heuristic for "returning user", written before the
+            // record existed in the database. That key is written by
+            // turf-profile-controller.js on any hub-page load and is one key
+            // for every site, so in a browser that had opened a hub page once,
+            // the wizard was suppressed on every site whether the database
+            // said it was done or not. Measured twice on dev: /reports/export
+            // with no wizard record at all, no overlay.
+            //
+            // The profiles themselves stay where they are -- they are the
+            // legacy controller's storage, and the decision about Profile
+            // Save/Load was taken elsewhere. They simply stop being a gate.
             this.show();
         },
 
@@ -1214,8 +1214,13 @@
                     name: siteName,
                     location_name: location.name || '',
                     latitude: location.lat || null,
-                    longitude: location.lon || null,
-                    timezone: 'Australia/Sydney'
+                    longitude: location.lon || null
+                    // GH-440 (GH-439 stage 1, contract 2.5): no timezone. The
+                    // hardcoded Australia/Sydney that used to be here is how
+                    // New Zealand and UK sites ended up on Sydney time; the
+                    // server derives the zone from the coordinates, and a site
+                    // created without them simply has none until Settings sets
+                    // a location.
                 })
             }).then(function(payload) {
                 var site = payload && payload.data ? payload.data : null;
@@ -1251,35 +1256,37 @@
             });
         },
 
-        buildMergedSiteConfig: function(siteId, wizardState) {
-            var existing = (window.GAIP_SiteConfig && typeof window.GAIP_SiteConfig.getConfig === 'function')
-                ? (window.GAIP_SiteConfig.getConfig(siteId) || {})
-                : {};
-            var next = JSON.parse(JSON.stringify(existing || {}));
-
-            if (!next.turf) next.turf = {};
-            if (!next.location) next.location = {};
+        /**
+         * GH-440 (GH-439 stage 1): what the wizard collected, and nothing
+         * else.
+         *
+         * This used to read the page's own copy of the config, merge the
+         * wizard's answers into it and send the result -- so whatever that
+         * copy had wrong (or had from another site) was written back as the
+         * site's configuration, and every section the copy lacked was deleted.
+         * The server merges now; the wizard states its three sections.
+         */
+        buildWizardPatch: function(wizardState) {
+            var patch = { turf: {}, wizard: Object.assign({}, wizardState || {}) };
 
             if (this.data.location) {
-                next.location = Object.assign({}, next.location, {
-                    name: this.data.location.name || next.location.name || '',
+                patch.location = {
+                    name: this.data.location.name || '',
                     lat: this.data.location.lat,
                     lon: this.data.location.lon
-                });
+                };
             }
 
-            next.turf = Object.assign({}, next.turf, {
-                turfType: this.data.turfType || next.turf.turfType || '',
-                subCategory: this.data.subCategory || next.turf.subCategory || '',
-                species: this.data.species || next.turf.species || '',
-                variety: this.data.variety || next.turf.variety || '',
-                methodology: this.data.methodology || next.turf.methodology || ''
-            });
+            // Only the answers actually given: an empty answer would be this
+            // page offering its own blank as a value, which is the shape of
+            // the defect this stage exists to remove.
+            ['turfType', 'subCategory', 'species', 'variety', 'methodology'].forEach(function(field) {
+                if (this.data[field]) patch.turf[field] = this.data[field];
+            }, this);
 
-            next.wizard = Object.assign({}, next.wizard || {}, wizardState || {});
-            next.savedAt = new Date().toISOString();
+            if (!Object.keys(patch.turf).length) delete patch.turf;
 
-            return next;
+            return patch;
         },
 
         persistWizardState: function(wizardState) {
@@ -1304,11 +1311,9 @@
                 }
 
                 tasks.push(apiFetchJson(apiBase + 'sites/' + encodeURIComponent(siteId) + '/config/gaip', {
-                    method: 'PUT',
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        config: self.buildMergedSiteConfig(siteId, wizardState)
-                    })
+                    body: JSON.stringify({ patch: self.buildWizardPatch(wizardState) })
                 }));
 
                 return Promise.all(tasks).then(function() {
@@ -1356,7 +1361,9 @@
                 version: WIZARD_VERSION
             };
 
-            _ls.setItem(WIZARD_STORAGE_KEY, JSON.stringify(completionState));
+            // GH-451: not written. The completion lives in the site's config
+            // (persistWizardState below), which is what the next page load
+            // reads.
             this.persistWizardState(Object.assign({ complete: true, skipped: false }, completionState));
         },
 
@@ -1367,7 +1374,9 @@
                 version: WIZARD_VERSION,
                 skipped: true
             };
-            _ls.setItem(WIZARD_STORAGE_KEY, JSON.stringify(skippedState));
+            // GH-451: not written -- see markComplete(). A skipped wizard is
+            // recorded on the site as `wizard.skipped`, and the server's
+            // injected flag reads it (GH-450).
             this.persistWizardState(Object.assign({ complete: false }, skippedState));
             this.close();
         },
@@ -1414,7 +1423,9 @@
          * Usage: GaipSetupWizard.reset(); GaipSetupWizard.show();
          */
         reset: function() {
-            _ls.removeItem(WIZARD_STORAGE_KEY);
+            // GH-451: the key is no longer written, so there is nothing to
+            // remove. Resetting the wizard for a site means clearing the
+            // record on the site itself.
         },
 
         /**

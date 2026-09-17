@@ -70,54 +70,68 @@
      * Return all configured sites from SampleManager.
      * @returns {Array<{id, label}>}
      */
-    function getSiteList() {
-        // GAIP sample-manager uses storageKey 'gilba_hub_samples' (with hub_ infix).
-        // Build GSSH site ID set so we can reject any samples key that contains
-        // only stadium/venue sites (userId-suffixed keys can contain GSSH data).
-        var gsshSiteIds = {};
-        var gsshKeys = ['gilba_gssh_gilba_hub_samples', 'gilba_gssh_gilba_hub_samples_1', 'gilba_gssh_gilba_samples'];
-        gsshKeys.forEach(function(k) {
-            var d = safeParse(safeGet(k));
-            if (d && d.sites) {
-                Object.keys(d.sites).forEach(function(id) { gsshSiteIds[id] = true; });
-            }
-        });
+    // GH-444: the sites this login has, as the server lists them.
+    //
+    // getSiteList() used to walk four localStorage keys of sample snapshots,
+    // then SampleManager, then fall back to a placeholder called "My Site".
+    // On /morning-briefing none of those exist -- the page does not load
+    // sample-persistence.js -- so a client with a fully configured site was
+    // shown "My Site / Species not set" while /field-log, same login, showed
+    // the real site. One GET of /api/sites answers both questions this page
+    // has: what the sites are called, and what their configs hold.
+    var _serverSites = null;   // [{ id, label }]
+    var _serverConfigs = null; // { siteId: config }
+    var _sitesError = false;
 
-        function isGaipSiteList(ids) {
-            // Accept if at least one non-default site is NOT in the GSSH set
-            var nonDefault = ids.filter(function(id) { return id !== 'default'; });
-            if (nonDefault.length === 0) return false;
-            return nonDefault.some(function(id) { return !gsshSiteIds[id]; });
-        }
+    function loadSitesFromServer() {
+        var base = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) || '/api/';
+        if (typeof fetch !== 'function') return Promise.resolve(false);
 
-        var uid = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.userId) || 0;
-        var candidates = [
-            'gilba_gaip_gilba_hub_samples' + (uid ? '_' + uid : ''),
-            'gilba_gaip_gilba_hub_samples',
-            'gilba_hub_samples' + (uid ? '_' + uid : ''),
-            'gilba_hub_samples'
-        ];
-        for (var i = 0; i < candidates.length; i++) {
-            var data = safeParse(safeGet(candidates[i]));
-            if (data && data.sites) {
-                var ids = Object.keys(data.sites);
-                if (ids.length > 1 && isGaipSiteList(ids)) {
-                    log('getSiteList: using key', candidates[i], '-', ids.length, 'sites');
-                    return ids.map(function (id) {
-                        return { id: id, label: (data.sites[id].label || id) };
-                    });
-                } else if (ids.length > 1) {
-                    log('getSiteList: skipping', candidates[i], ', all GSSH sites');
+        return fetch(base.replace(/\/?$/, '/') + 'sites', {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+        })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (payload) {
+                var rows = (payload && payload.data) || [];
+                _serverSites = rows.map(function (site) {
+                    return { id: site.id, label: site.name || site.id };
+                });
+                _serverConfigs = {};
+                rows.forEach(function (site) {
+                    var cfg = site && site.configs && site.configs.gaip && site.configs.gaip.config;
+                    if (site && site.id && cfg && typeof cfg === 'object' && !Array.isArray(cfg)) {
+                        _serverConfigs[site.id] = cfg;
+                    }
+                });
+                _sitesError = false;
+                log('Loaded ' + _serverSites.length + ' sites from the server');
+                return true;
+            })
+            .catch(function (err) {
+                // GH-444: no invented list. The page says the data could not be
+                // read instead of naming a site that is not there.
+                warn('Could not load the site list:', err && err.message);
+                _sitesError = true;
+                _serverSites = [];
+                _serverConfigs = {};
+                if (global.GilbaSettingsUnavailable && typeof global.GilbaSettingsUnavailable.show === 'function') {
+                    global.GilbaSettingsUnavailable.show({ reason: 'sites-list' });
                 }
-            }
-        }
-        // Fallback: SampleManager if already initialised
-        var SM = global.GAIP_SampleManager;
-        if (SM && typeof SM.getSiteList === 'function') {
-            var list = SM.getSiteList();
-            if (list && list.length > 0) return list;
-        }
-        return [{ id: 'default', label: 'My Site' }];
+                return false;
+            });
+    }
+
+    function getSiteList() {
+        if (_serverSites) return _serverSites;
+
+        // Before the fetch resolves, the one site the page was rendered with.
+        var hub = global.GAIP_HUB_CONFIG || {};
+        if (hub.activeSiteId) return [{ id: hub.activeSiteId, label: hub.siteName || '' }];
+        return [];
     }
 
     /**
@@ -130,25 +144,37 @@
     }
 
     /**
-     * Return all saved site configs from gilba_hub_site_configs.
+     * GH-442 (GH-439 stage 3): every site's config, from the server.
+     *
+     * GAIP_SiteConfig fills its cache from GET /api/sites (this page loads
+     * site-config-persistence.js), and the page itself is rendered with the
+     * active site's config. The localStorage fallback that stood here -- two
+     * keys, bare and namespaced, merged by precedence -- is gone with the copy
+     * it read: on a browser carrying an old one, this page showed a briefing
+     * built from another session's settings and said nothing about it.
+     *
      * @returns {Object}  { siteId: { turf, location, pgr, savedAt } }
      */
     function getAllSiteConfigs() {
-        // SiteConfig exposes getAllConfigs() after init — use it if available
+        // GH-444: the same GET that gave the site list.
+        if (_serverConfigs && Object.keys(_serverConfigs).length) return _serverConfigs;
+
         if (global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getAllConfigs === 'function') {
-            return global.GAIP_SiteConfig.getAllConfigs();
+            var cached = global.GAIP_SiteConfig.getAllConfigs();
+            if (cached && Object.keys(cached).length) return cached;
         }
-        // site-config-persistence.js writes to bare 'gilba_hub_site_configs' (no namespace).
-        // Namespaced variants only contain GSSH/default entries on merged installs.
-        // Merge all sources — bare key wins for any site that appears in multiple keys.
-        var bare     = safeParse(safeGet('gilba_hub_site_configs')) || {};
-        var nsGaip   = safeParse(safeGet('gilba_gaip_gilba_hub_site_configs')) || {};
-        var merged   = {};
-        // Start with namespaced (lower priority), overwrite with bare (higher priority)
-        Object.keys(nsGaip).forEach(function(id) { merged[id] = nsGaip[id]; });
-        Object.keys(bare).forEach(function(id)   { merged[id] = bare[id];   });
-        log('getAllSiteConfigs: bare=' + Object.keys(bare).length + ' ns=' + Object.keys(nsGaip).length + ' merged=' + Object.keys(merged).length);
-        return merged;
+
+        // Before that module has finished loading, the one config the server
+        // rendered into this page is what there is.
+        var hub = global.GAIP_HUB_CONFIG || {};
+        if (hub.activeSiteId && hub.gaipConfig) {
+            var only = {};
+            only[hub.activeSiteId] = hub.gaipConfig;
+            return only;
+        }
+
+        log('getAllSiteConfigs: no server config available yet');
+        return {};
     }
 
     /**
@@ -382,10 +408,32 @@
         return '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.78em;font-weight:600;' + style + '">' + text + '</span>';
     }
 
+    // GH-445: inline SVG in place of the emoji that were here, matching the
+    // 24-box, currentColor, 2.5-stroke shapes the db-shell pages use. Three
+    // marks carry the three meanings the levels have: a warning, a clock, and
+    // a tick.
+    var LEVEL_ICONS = {
+        warning: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h16.9a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/>',
+        clock: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+        tick: '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>',
+    };
+
+    var LEVEL_ICON_FOR = {
+        high: 'warning', severe: 'warning', poor: 'warning',
+        due: 'clock', overdue: 'clock', moderate: 'clock',
+        low: 'tick', good: 'tick', ok: 'tick', active: 'tick',
+    };
+
+    function levelIconSvg(level) {
+        var path = LEVEL_ICONS[LEVEL_ICON_FOR[level] || 'tick'];
+        return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            + 'stroke-width="2.5" aria-hidden="true" focusable="false" '
+            + 'style="flex-shrink:0;display:inline-block;vertical-align:-2px;">' + path + '</svg>';
+    }
+
     function actionRowHTML(decision) {
         if (!decision) return '';
-        var icon = { high: '⚠', severe: '⛔', moderate: '⚡', due: '⏰', overdue: '⏰', low: '✓', good: '✓', ok: '✓', active: '●', poor: '▼' };
-        var i = icon[decision.level] || '●';
+        var i = levelIconSvg(decision.level);
         var style = (decision.level === 'high' || decision.level === 'severe' || decision.level === 'overdue' || decision.level === 'poor')
             ? 'color:#991b1b;font-weight:600;'
             : (decision.level === 'moderate' || decision.level === 'due')
@@ -419,17 +467,44 @@
         var label      = site.label || siteId;
         var turf       = (config && config.turf)     || {};
         var pgr        = (config && config.pgr)      || {};
-        var location   = (config && config.location) || {};
+        // GH-477: the place and the coordinates come from the site row, which
+        // owns them. This card was the reader the previous guard could not
+        // see: the config arrives as a PARAMETER, and the guard looked for a
+        // `getConfig(` call standing next to the read.
+        var _row       = (global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getSite === 'function')
+            ? global.GAIP_SiteConfig.getSite(siteId) : null;
+        var location   = _row
+            ? { name: _row.location_name, lat: _row.latitude, lon: _row.longitude }
+            : {};
 
         var species    = speciesLabel(turf.species);
         var turfType   = turfTypeLabel(turf.turfType, turf.subCategory);
-        var locName    = location.name || (location.lat ? location.lat.toFixed(3) + ',' + location.lon.toFixed(3) : '');
+        // The coordinates printed in place of a missing name are UNCHANGED
+        // here, deliberately: what a card should say when a site has no name
+        // for its place is question 10.8(12), the owner's, and it is in the
+        // substitution inventory below (tests/gh477-…). The owner has already
+        // said the report's Location line prints nothing rather than
+        // coordinates (10.8(10)); whether the card follows is hers to say.
+        var locName    = location.name || (location.lat ? Number(location.lat).toFixed(3) + ',' + Number(location.lon).toFixed(3) : '');
 
-        // Priority score drives header colour
+        // Priority score drives header colour.
+        //
+        // GH-443: a card with no analysis behind it gets no verdict colour.
+        // Green here means "nothing needs attention", and it was shown for a
+        // site whose data had simply not been read -- next to a banner saying
+        // the settings could not be loaded. Grey says what is true: unknown.
+        var hasData    = !!metrics || vwc !== null || !!pgr.applicationDate;
         var score      = computePriorityScore(metrics, config);
-        var headerBg   = score >= 60 ? 'var(--gaip-critical-bg)' : score >= 35 ? 'var(--gaip-warning-bg)' : 'var(--gaip-good-bg)';
-        var headerBorder = score >= 60 ? '#fca5a5' : score >= 35 ? 'var(--gaip-warning-border)' : '#86efac';
-        var headerDot  = score >= 60 ? '#ef4444' : score >= 35 ? '#f59e0b' : '#22c55e';
+        // Literal colours for the no-data case: this page also renders on the
+        // old layout, where the design-system custom properties are not
+        // defined, and an undefined var() resolves to transparent -- which is
+        // how a grey card would lose its border and its dot entirely.
+        var headerBg   = !hasData ? '#f3f4f6'
+            : score >= 60 ? 'var(--gaip-critical-bg)' : score >= 35 ? 'var(--gaip-warning-bg)' : 'var(--gaip-good-bg)';
+        var headerBorder = !hasData ? '#d1d5db'
+            : score >= 60 ? '#fca5a5' : score >= 35 ? 'var(--gaip-warning-border)' : '#86efac';
+        var headerDot  = !hasData ? '#9ca3af'
+            : score >= 60 ? '#ef4444' : score >= 35 ? '#f59e0b' : '#22c55e';
 
         // Computed metric pills
         var pillsHTML = '';
@@ -485,8 +560,12 @@
         }
 
         // No-data state for non-active sites
-        var noDataHTML = (!metrics && vwc === null && !pgr.applicationDate)
-            ? '<div style="font-size:0.85em;color:var(--gaip-text-muted);padding:4px 0;">No analysis data on this device, open site in hub to run.</div>'
+        // GH-443: no analysis, and no instruction to open the old hub. /hub is
+        // the plugin-era interface: no client opens it and nothing links to
+        // it. What this state means is that the site has not been analysed
+        // yet, and the Dashboard is where that happens.
+        var noDataHTML = !hasData
+            ? '<div style="font-size:0.85em;color:var(--gaip-text-muted);padding:4px 0;">No analysis for this site yet.</div>'
             : '';
 
         // Header meta line
@@ -530,7 +609,8 @@
 
             // Link to open site in hub
             + '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--gaip-surface-hover);">'
-            + '<a href="#" style="font-size:0.82em;color:#3b82f6;text-decoration:none;" onclick="window.GAIP_Briefing._openSite(\'' + siteId + '\');return false;">Open in hub →</a>'
+            // GH-443: opens the site on the Dashboard, not the old hub.
+            + '<a href="#" style="font-size:0.82em;color:#3b82f6;text-decoration:none;" onclick="window.GAIP_Briefing._openSite(\'' + siteId + '\');return false;">Open site →</a>'
             + '</div>'
 
             + '</div>'  // body
@@ -550,7 +630,11 @@
         var activeSite = getActiveSiteId();
 
         if (!sites.length) {
-            container.innerHTML = '<div style="padding:20px;color:var(--gaip-text-secondary);font-size:0.9em;">No sites configured. Set up a site in the hub first.</div>';
+            // GH-444: two different situations, said apart. Neither mentions
+            // the old hub, which is not a page a client opens.
+            container.innerHTML = _sitesError
+                ? '<div style="padding:20px;color:#7f1d1d;font-size:0.9em;">Your sites could not be loaded. Reload the page; if this keeps happening, the server is not answering.</div>'
+                : '<div style="padding:20px;color:var(--gaip-text-secondary);font-size:0.9em;">No sites yet. Add one in Settings.</div>';
             return;
         }
 
@@ -651,20 +735,22 @@
         },
 
         _openSite: function (siteId) {
-            // Switch active site in SampleManager then redirect to hub if on different page
+            // GH-443: switch the active site and go to the Dashboard. This used
+            // to navigate to GAIP_HUB_CONFIG.hubUrl -- the old plugin
+            // interface, which is a calculation runner and not a page anyone is
+            // meant to open.
             var SM = global.GAIP_SampleManager;
             if (SM && typeof SM.switchToSite === 'function') {
                 SM.switchToSite(siteId);
             }
-            // If there's a hub URL configured, navigate to it
-            var hubUrl = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.hubUrl) || null;
-            if (hubUrl) {
-                window.location.href = hubUrl;
-            }
+
+            var base = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteUrl) || '';
+            window.location.href = base.replace(/\/?$/, '') + '/dashboard';
         },
 
         _refresh: function () {
-            render();
+            // GH-444: Refresh re-reads the sites, not just the screen.
+            loadSitesFromServer().then(render, render);
         },
 
         render: render
@@ -711,13 +797,17 @@
     // BOOT
     // =========================================================================
 
+    // GH-444: the sites come from the server before anything is drawn. The old
+    // 1200 ms wait was for SampleManager to finish reading localStorage, which
+    // is no longer where any of this comes from.
+    function boot() {
+        loadSitesFromServer().then(init, init);
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () {
-            // 1200ms: enough for SampleManager to load gilba_samples on a standalone page
-            setTimeout(init, 1200);
-        });
+        document.addEventListener('DOMContentLoaded', boot);
     } else {
-        setTimeout(init, 1200);
+        boot();
     }
 
 }(window));

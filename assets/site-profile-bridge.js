@@ -7,7 +7,7 @@
  *   Three independent storage systems exist:
  *   1. SiteSelectorUI (top bar) — saves sites via WP backend + SampleManager
  *   2. SiteConfigPersistence — saves turf config per siteId in localStorage
- *      key: 'gilba_hub_site_configs'
+ *      source: the server-fed site-config cache (GH-442)
  *   3. TurfProfileController — saves named profiles in localStorage
  *      key: 'gaip_turf_profiles'
  *
@@ -34,7 +34,6 @@
 
     var VERSION = '1.1.0';
     var TURF_PROFILES_KEY = 'gaip_turf_profiles';
-    var SITE_CONFIGS_KEY  = 'gilba_hub_site_configs';
     var DELETED_PROFILES_KEY = 'gilba_hub_deleted_profiles';
     var DEBUG = false;
 
@@ -84,16 +83,27 @@
     }
 
     /**
-     * Read SiteConfigPersistence's configs from localStorage
+     * GH-442 (GH-439 stage 3): the site configs, from the server-fed cache.
+     *
+     * This read gilba_hub_site_configs, so the TPC profiles it generates were
+     * built from whatever copy this browser happened to hold -- including a
+     * site the login can no longer see. The profiles themselves are out of
+     * scope (the Profile Save/Load decision covers those); their source is
+     * not.
      */
     function getSiteConfigs() {
-        try {
-            var raw = localStorage.getItem(SITE_CONFIGS_KEY);
-            return raw ? JSON.parse(raw) : {};
-        } catch (e) {
-            warn('Failed to read site configs:', e);
-            return {};
+        if (global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getAllConfigs === 'function') {
+            return global.GAIP_SiteConfig.getAllConfigs();
         }
+
+        var hub = global.GAIP_HUB_CONFIG || {};
+        if (hub.activeSiteId && hub.gaipConfig) {
+            var only = {};
+            only[hub.activeSiteId] = hub.gaipConfig;
+            return only;
+        }
+
+        return {};
     }
 
     /**

@@ -39,6 +39,7 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 const orchestratorSrc = fs.readFileSync(path.join(__dirname, '../assets/hub-orchestrator.js'), 'utf8');
 const persistenceSrc  = fs.readFileSync(path.join(__dirname, '../assets/hub-persistence.js'), 'utf8');
@@ -148,11 +149,7 @@ describe('hub-orchestrator.js — Step 9 computes the canonical 7-day forecast o
 describe('hub-persistence.js — dashboard forecast metrics read the orchestrator-computed forecast, not the legacy global', () => {
 
     test('collectDashboardMetrics() no longer reads window.GAIP_DISEASE_FORECAST', () => {
-        const start = persistenceSrc.indexOf('function collectDashboardMetrics()');
-        expect(start).toBeGreaterThan(-1);
-        const end = persistenceSrc.indexOf('function getCachedResults()', start);
-        expect(end).toBeGreaterThan(start);
-        const body = persistenceSrc.slice(start, end);
+        const body = anchoredSlice(persistenceSrc, 'function collectDashboardMetrics()');
         expect(body).not.toContain('global.GAIP_DISEASE_FORECAST');
         expect(body).toMatch(/global\.GaipOrchestrator[\s\S]{0,150}getState\(\)\?\.computed\?\.forecast/);
     });

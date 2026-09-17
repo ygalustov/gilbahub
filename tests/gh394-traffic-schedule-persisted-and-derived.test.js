@@ -301,8 +301,10 @@ describe('GH-394 — the Combined export applies it once too', () => {
     // this test then feeds computeProgram(). Hand-copying the wiring would let
     // the file drift back to the already-scaled N with this test still green.
     const combined = read('word-export-combined.js');
-    const nField = (combined.match(/perSampleInputs\.annualNOverride = _siteInputs\.(\w+);/) || [])[1];
-    const modField = (combined.match(/perSampleInputs\.trafficModifier = _siteInputs\.(\w+);/) || [])[1];
+    // GH-470: built in nutrition-calendar.js's inputsForSite(), one place.
+    const calSrc = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-calendar.js'), 'utf8');
+    const nField = (calSrc.match(/annualNOverride: prog\.(\w+)/) || [])[1];
+    const modField = (calSrc.match(/trafficModifier: prog\.(\w+)/) || [])[1];
 
     test('driving computeProgram() with the fields that file really passes lands on the adapter\'s own annualN', () => {
         expect(nField).toBeDefined();
@@ -331,13 +333,15 @@ describe('GH-394 — the Combined export applies it once too', () => {
 // ───────────────────────────── persistence wiring ───────────────────────────
 
 describe('GH-394 — the schedule reaches the server and survives a site switch', () => {
-    test('Settings > Traffic & Wear PUTs config.traffic and keeps the localStorage mirror', () => {
+    test('Settings > Traffic & Wear patches config.traffic and keeps the localStorage mirror', () => {
+        // GH-440 (GH-439 stage 1): the schedule travels as the traffic
+        // section alone. There is no clone of the page's config to strip the
+        // three programme keys out of any more -- they simply are not in what
+        // is sent, and neither is anything else the form does not own.
         const s = read('settings-init.js');
-        expect(s).toMatch(/_tcfg\.traffic = \{ schedule: state, savedAt: new Date\(\)\.toISOString\(\) \};/);
-        expect(s).toMatch(/apiFetch\('PUT', '\/sites\/' \+ encodeURIComponent\(siteId\) \+ '\/config\/gaip', \{ config: _tcfg \}\)/);
+        expect(s).toMatch(/patchGaipConfig\(\{ traffic: \{ schedule: state, savedAt: new Date\(\)\.toISOString\(\) \} \}\)/);
         expect(s).toMatch(/localStorage\.setItem\(getTrafficStateKey\(\), JSON\.stringify\(state\)\)/);
-        // the three programme keys must not ride along on a possibly-stale clone
-        expect(s).toMatch(/delete _tcfg\.nutritionCalendarProgram;/);
+        expect(s).not.toMatch(/_tcfg/);
     });
 
     test('the form reloads from the config first, so a second device sees the schedule', () => {
@@ -346,18 +350,15 @@ describe('GH-394 — the schedule reaches the server and survives a site switch'
         expect(s).toMatch(/var saved = getTrafficSchedule\(\) \|\| \{\};/);
     });
 
-    test('`traffic` is in snapshotConfig()\'s carry-forward list — without it the first site switch wipes it', () => {
+    test('GH-441 (stage 2): the schedule needs no carry-forward rule, because nothing snapshots the DOM', () => {
+        // Both cases here described snapshotConfig(): `traffic` had to be in
+        // its carry-forward list (the section has no field in the legacy form,
+        // so a snapshot would drop it on the first site switch), and the
+        // programme-drop rule had to skip it. The snapshot is gone in GH-439
+        // stage 2, so the schedule survives for the plainest reason available:
+        // nothing overwrites a site's config with a reading of the page.
         const p = read('site-config-persistence.js');
-        const carry = p.match(/\['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth', 'nzDistributor', 'traffic'\]/g);
-        // one in the server-pull merge, one in snapshotConfig()
-        expect(carry).not.toBeNull();
-        expect(carry.length).toBe(2);
-    });
-
-    test('a coordinate or species drift drops the cached programmes but NOT the schedule', () => {
-        const p = read('site-config-persistence.js');
-        // isProgram gates the drop and is false for 'traffic'
-        expect(p).toMatch(/var isProgram = \(key === 'nutritionProgram' \|\| key === 'nutritionCalendarProgram'\);/);
+        expect(p).not.toMatch(/function snapshotConfig\(/);
     });
 
     test('the Plan page\'s Recovery section reads the persisted schedule, not only localStorage', () => {

@@ -1981,25 +1981,22 @@
                 } else if (global.HubOrchestrator && typeof global.HubOrchestrator.computeAll === 'function') {
                     global.HubOrchestrator.computeAll();
                 }
-                // Write companionSpecies directly to localStorage — bypasses all timing guards.
-                // GAIP_SiteConfig event system has too many race conditions for this use case.
+                // GH-440 (GH-439 stage 1): the selection goes to the server as
+                // one field. It used to be written straight into the
+                // localStorage copy, which is a source for reads only -- the
+                // value reached the database later, as part of whatever whole
+                // config a background push happened to send, carrying
+                // everything else in that copy with it. setCompanionSpecies()
+                // is the same direct write this needed (no timing guards, no
+                // event round-trip) and it sends one field.
                 var value = sel.value || '';
                 var siteId = global.GAIP_SiteContext
                     ? global.GAIP_SiteContext.getSiteId()
                     : (global.GAIP_SampleManager ? global.GAIP_SampleManager.getActiveSiteId() : null);
-                if (siteId && siteId !== 'default') {
-                    try {
-                        var _ls = window.GilbaStorageNS ? window.GilbaStorageNS.get() : localStorage;
-                        var raw = _ls.getItem('gilba_hub_site_configs');
-                        var configs = raw ? JSON.parse(raw) : {};
-                        if (!configs[siteId]) configs[siteId] = { turf: {} };
-                        if (!configs[siteId].turf) configs[siteId].turf = {};
-                        configs[siteId].turf.companionSpecies = value;
-                        _ls.setItem('gilba_hub_site_configs', JSON.stringify(configs));
-                        console.log('[companion] saved "' + value + '" for site', siteId);
-                    } catch(e) {
-                        console.warn('[companion] save failed:', e);
-                    }
+                if (siteId && siteId !== 'default'
+                    && global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.setCompanionSpecies === 'function') {
+                    global.GAIP_SiteConfig.setCompanionSpecies(siteId, value);
+                    console.log('[companion] saved "' + value + '" for site', siteId);
                 }
             });
         }

@@ -33,14 +33,14 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 const srcPath = path.join(__dirname, '../assets/nutrition-summary-integration.js');
 const src = fs.readFileSync(srcPath, 'utf8');
 
 describe('GH-297 — extractSoilValues() falls back to GAIP_SampleManager', () => {
     test('extractSoilValues() references GAIP_SampleManager between the cache check and the DOM fallback', () => {
-        const fnIdx = src.indexOf('function extractSoilValues() {');
-        expect(fnIdx).toBeGreaterThan(-1);
+        const fnIdx = anchorIndex(src, 'function extractSoilValues() {');
         const cacheIdx = src.indexOf('GAIP_NUTRITION_SOIL_CACHE', fnIdx);
         const domFallbackIdx = src.indexOf("const values = {};", fnIdx);
         const sampleManagerIdx = src.indexOf('GAIP_SampleManager', fnIdx);

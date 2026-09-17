@@ -59,7 +59,13 @@ class SiteApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.name', 'Training Ground')
-            ->assertJsonPath('data.configs.gaip.config', []);
+            // GH-474: a new site is born with the copy of the column-owned
+            // fields already derived, so its config is not empty. That is the
+            // point: the state a site used to be created in — column filled,
+            // config empty — is the one Russley was found in.
+            ->assertJsonPath('data.configs.gaip.config.location.name', 'Sydney, NSW')
+            ->assertJsonPath('data.configs.gaip.config.location.lat', -33.8688)
+            ->assertJsonPath('data.configs.gaip.config.location.lon', 151.2093);
 
         $site = Site::query()->where('name', 'Training Ground')->firstOrFail();
 
@@ -112,40 +118,11 @@ class SiteApiTest extends TestCase
         ]);
     }
 
-    public function test_authenticated_user_can_sync_legacy_site_registry_ids(): void
-    {
-        $user = User::factory()->create();
-
-        $this->actingAs($user)
-            ->withSession(['_token' => 'test-token'])
-            ->postJson('/api/sites/sync', [
-                '_token' => 'test-token',
-                'sites' => [
-                    'federal_golf_club_greens' => [
-                        'label' => 'Federal Golf Club',
-                    ],
-                ],
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.saved', 1);
-
-        $this->assertDatabaseHas('sites', [
-            'id' => 'federal_golf_club_greens',
-            'name' => 'Federal Golf Club',
-        ]);
-        $this->assertDatabaseHas('site_user', [
-            'site_id' => 'federal_golf_club_greens',
-            'user_id' => $user->id,
-            // GH-359: see comment above at the site-create assertion --
-            // 'owner' is a retired role value; the legacy-sync path also
-            // correctly assigns 'manager'.
-            'role' => 'manager',
-        ]);
-        $this->assertDatabaseHas('site_configs', [
-            'site_id' => 'federal_golf_club_greens',
-            'namespace' => 'gaip',
-        ]);
-    }
+    /*
+     * GH-442 (GH-439 stage 3): the legacy registry sync case went with its
+     * route. POST /api/sites/sync is withdrawn; what answers on that path now
+     * is asserted in GH439PutGuardTest::test_the_registry_sync_route_is_gone.
+     */
 
     public function test_authenticated_user_can_set_active_site(): void
     {
@@ -174,11 +151,13 @@ class SiteApiTest extends TestCase
             'slug' => 'default-site',
         ]);
 
+        // GH-442 (GH-439 stage 3): the whole-object PUT answers 410; a config
+        // change is a PATCH of the section that changed.
         $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
-            ->putJson('/api/sites/'.$site->id.'/config/gaip', [
+            ->patchJson('/api/sites/'.$site->id.'/config/gaip', [
                 '_token' => 'test-token',
-                'config' => [
+                'patch' => [
                     'turf' => ['species' => 'couch'],
                 ],
             ])
@@ -193,26 +172,38 @@ class SiteApiTest extends TestCase
 
     public function test_authenticated_user_can_update_site_config_for_legacy_string_site_id(): void
     {
+        // Sites from the plugin era have string IDs rather than UUIDs. They
+        // are no longer created by /api/sites/sync (GH-439), but the ones
+        // already in the database still have to answer on every route.
         $user = User::factory()->create();
+        $account = Account::query()->firstOrCreate(
+            ['owner_user_id' => $user->id],
+            [
+                'display_name' => $user->name,
+                'created_by_user_id' => $user->id,
+                'modified_by_user_id' => $user->id,
+            ]
+        );
+
+        // `id` is not fillable (HasUuids generates one), so a plugin-era row
+        // is built the way syncRegistry() used to build it.
+        $site = new Site();
+        $site->forceFill([
+            'id' => 'my_site',
+            'account_id' => $account->id,
+            'name' => 'My Site',
+            'slug' => 'my-site',
+            'site_type' => 'precinct',
+            'created_by_user_id' => $user->id,
+            'modified_by_user_id' => $user->id,
+        ])->save();
+        $site->users()->attach($user->id, ['role' => 'manager']);
 
         $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
-            ->postJson('/api/sites/sync', [
+            ->patchJson('/api/sites/my_site/config/gaip', [
                 '_token' => 'test-token',
-                'sites' => [
-                    'my_site' => [
-                        'label' => 'My Site',
-                    ],
-                ],
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.saved', 1);
-
-        $this->actingAs($user)
-            ->withSession(['_token' => 'test-token'])
-            ->putJson('/api/sites/my_site/config/gaip', [
-                '_token' => 'test-token',
-                'config' => [
+                'patch' => [
                     'turf' => ['species' => 'couch'],
                 ],
             ])

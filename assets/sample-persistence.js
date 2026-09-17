@@ -287,11 +287,12 @@
                 log('Auto-saved (' + reason + '): ' + count + ' samples across ' + 
                     siteKeys.length + ' sites [batch #' + batchId + ']');
 
-                // Sync site registry before samples so imported/restored site IDs
-                // exist in MySQL before sample rows reference them.
-                return syncSiteListToServer(snapshot.sites || {}).then(function() {
-                    return syncSamplesToServer(snapshot);
-                }).then(function() {
+                // GH-441 (GH-439 stage 2): the site registry is not pushed.
+                // It is the browser's own list, and its label falls back to the
+                // site ID -- which is how a live site came to be named after
+                // its own UUID. The registry is built from GET /api/sites and
+                // travels in one direction only.
+                return syncSamplesToServer(snapshot).then(function() {
                     document.dispatchEvent(new CustomEvent('gaip:samples-persistence-saved', {
                         detail: {
                             sampleCount: count,
@@ -485,39 +486,9 @@
      * Fire-and-forget — never blocks the save path, never retries.
      * @param {object} sites  { siteId: { label, createdAt } }
      */
-    function syncSiteListToServer(sites) {
-        // Never push site labels to the server from inside the hidden /hub
-        // re-run iframe: that page has no topbar/site-switcher DOM, so any
-        // locally-created site record there can only carry a placeholder
-        // label — syncing it would overwrite the real sites.name on the
-        // server. Mirrors the iframe guard in site-config-persistence.js.
-        if (global.top !== global.self) return Promise.resolve(false);
-
-        var base = getApiBaseUrl();
-        if (!base || typeof fetch === 'undefined') return Promise.resolve(false);
-
-        // Only sync non-default sites — 'default' always exists client-side
-        var toSync = {};
-        Object.keys(sites).forEach(function(id) {
-            if (id !== 'default') toSync[id] = sites[id];
-        });
-
-        if (Object.keys(toSync).length === 0) return Promise.resolve(false);
-
-        return apiFetchJson(base.replace(/\/?$/, '/') + 'sites/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sites: toSync })
-        })
-            .then(function(data) {
-                log('Site list synced to MySQL (' + ((data && data.data && data.data.saved) || 0) + ' sites)');
-                return true;
-            })
-            .catch(function(err) {
-                warn('Server site sync failed:', err.message);
-                throw err;
-            });
-    }
+    // GH-441 (GH-439 stage 2): syncSiteListToServer() is gone -- see the save
+    // path above for why. POST /api/sites/sync has no caller left in the new
+    // hub; the route itself is withdrawn in stage 3.
 
     /**
      * Fetch site list from MySQL and merge into SampleManager.
@@ -535,7 +506,7 @@
             .then(function(data) {
                 var rows = (data && data.data) || [];
                 if (!rows.length) {
-                    onComplete(false);
+                    onComplete(true);
                     return;
                 }
 
@@ -575,9 +546,19 @@
                     } catch(e) { /* quota — ignore */ }
                 }
 
-                onComplete(added > 0);
+                onComplete(true);
             })
-            .catch(function() {
+            .catch(function(err) {
+                // GH-441 (GH-439 stage 2): the site list is the server's, and
+                // if it cannot be read the page says so. It used to carry on,
+                // and what filled the gap was the registry rebuilt from the
+                // browser's own samples and config copy -- entries whose label
+                // falls back to the site ID, which is what POST /api/sites/sync
+                // then wrote as the site's name.
+                warn('Could not load the site list from the server:', err && err.message);
+                document.dispatchEvent(new CustomEvent('gaip:samples-persistence-error', {
+                    detail: { error: err && err.message, reason: 'sites-list' }
+                }));
                 onComplete(false);
             });
     }
@@ -626,46 +607,17 @@
             }));
         }
 
-        function recoverSitesFromLegacyConfig() {
-            try {
-                var configsRaw = _ls.getItem('gilba_hub_site_configs');
-                if (configsRaw) {
-                    var configs = JSON.parse(configsRaw);
-                    var siteIds = Object.keys(configs);
-                    if (siteIds.length > 0 && global.GAIP_SampleManager) {
-                        var SM = global.GAIP_SampleManager;
-                        var recovered = 0;
-                        siteIds.forEach(function(siteId) {
-                            if (siteId === 'default') return;
-                            var cfg = configs[siteId];
-                            var label = (cfg.location && cfg.location.name)
-                                      || (cfg.turf && (cfg.turf.species || cfg.turf.turfType))
-                                      || siteId.replace(/_/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
-                            var existing = SM.getSiteList ? SM.getSiteList() : [];
-                            var exists = existing.some(function(site) { return site.id === siteId; });
-                            if (!exists && typeof SM.addSiteWithId === 'function') {
-                                SM.addSiteWithId(siteId, label);
-                                recovered++;
-                            }
-                        });
-                        if (recovered > 0) {
-                            log('RECOVERY: Rebuilt ' + recovered + ' sites from gilba_hub_site_configs');
-                            var snap = SM.getAllSamples();
-                            _ls.setItem(CONFIG.storageKey, JSON.stringify(snap));
-                        }
-                    }
-                }
-            } catch (e) {
-                warn('Site recovery failed:', e.message);
-            }
-        }
+        // GH-441 (GH-439 stage 2): recoverSitesFromLegacyConfig() is gone. It
+        // rebuilt the site registry out of gilba_hub_site_configs -- a copy in
+        // this browser -- and invented a label from whatever that copy held,
+        // falling back to the site id prettified. Those labels were then
+        // pushed as site names. The registry comes from GET /api/sites.
 
         function restoreFromLocalFallback() {
             StorageAdapter.load(CONFIG.storageKey)
                 .then(function(data) {
                     if (!data) {
                         log('No local sample snapshot found after server restore miss');
-                        recoverSitesFromLegacyConfig();
                         finishReady({ restored: false, count: 0, samplesFromServer: false });
                         return;
                     }
@@ -690,7 +642,17 @@
         }
 
         log('Attempting server-first sample restore');
-        fetchSiteListFromServer(function() {
+        fetchSiteListFromServer(function(siteListLoaded) {
+            if (!siteListLoaded) {
+                // GH-441 (GH-439 stage 2): without the server's site list there
+                // is no registry to put samples into, and building one from the
+                // samples themselves is how sites acquired ID-shaped names. The
+                // page reports the failure (dispatched above) and stops here
+                // rather than showing a list it made up.
+                finishReady({ restored: false, count: 0, samplesFromServer: false, error: 'sites-list' });
+                return;
+            }
+
             fetchSamplesFromServer(function(restoredFromServer) {
                 if (restoredFromServer) {
                     var serverSnap = global.GAIP_SampleManager.getAllSamples();

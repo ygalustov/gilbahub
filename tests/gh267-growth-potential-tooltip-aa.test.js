@@ -13,6 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
 describe('GH-267 — methodology-aware Growth Potential tooltip', () => {
     let src;
@@ -51,7 +52,7 @@ describe('GH-267 — methodology-aware Growth Potential tooltip', () => {
 
     describe('behavioural — renderPageHeader chooses the right info key per methodology', () => {
         function extractRenderPageHeader() {
-            const start = src.indexOf('function renderPageHeader(sn) {');
+            const start = anchorIndex(src, 'function renderPageHeader(sn) {');
             let depth = 0;
             let i = src.indexOf('{', start);
             const bodyStart = i;

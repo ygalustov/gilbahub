@@ -54,6 +54,16 @@
      * Check all preconditions for auto-refresh
      */
     function canAutoRefresh() {
+        // GH-441 (GH-439 stage 2, review): the site's settings could not be
+        // read, so the legacy form holds its own defaults and nothing else.
+        // An analysis run from here would produce a Growth Potential, a
+        // disease risk and a stress score that look measured and are not. The
+        // page shows the settings-unavailable banner instead.
+        if (window.GAIP_SITE_CONFIG_FAILED) {
+            log('Skipping, site settings could not be loaded');
+            return false;
+        }
+
         // Already fired this page load
         if (_hasFired) {
             log('Skipping, already fired this session');

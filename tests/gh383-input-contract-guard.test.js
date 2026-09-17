@@ -46,7 +46,7 @@ describe('GH-383 — the export no longer reads programme inputs from its own si
     const wordExport = read('word-export.js');
     // Everything from the function's opening line to the object literal it
     // produces — i.e. all of its input resolution.
-    const body = code(fnBody(wordExport, 'function _buildEngineInputs(data)', '\n        data.engineInputs = {'));
+    const body = code(fnBody(wordExport, 'function _buildEngineInputs(data', '\n        data.engineInputs = {'));
 
     test('the clippings boolean, which never had a writer, is gone', () => {
         expect(body).not.toMatch(/GAIP_STATE\.turf\.clippingsCollected/);
@@ -90,31 +90,49 @@ describe('GH-383 — the Combined export resolves per site, not from a facility 
 
     test('the `|| 0` soil-ppm block is gone — a missing reading is null, not maximally deficient', () => {
         expect(combined).not.toMatch(/parseFloat\(r\.data\.soil\.[A-Za-z]+\)\s*\|\|\s*0/);
-        expect(combined).toMatch(/_NPI\.validateSampleInputs\(\{/);
+        // GH-470: the validator is called once, inside inputsForSite(), from
+        // the sample resolved by id — not here with the page's own soil object.
+        const cal = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-calendar.js'), 'utf8');
+        expect(cal).toMatch(/npi\.validateSampleInputs\(\{/);
     });
 
     test('the annual N comes from the adapter keyed by r.siteId, not from the facility DOM snapshot', () => {
-        expect(combined).toMatch(/resolveSiteProgramInputs\(\{\s*\n\s*siteId: r\.siteId,/);
+        // GH-470: the programme comes from the object the document was built
+        // from, whose own resolver resolved it by this sample's site id. The
+        // second call that stood here was a second border onto one question.
+        expect(combined).toMatch(/r\.data\._exportInputs && r\.data\._exportInputs\.program/);
+        expect(combined).toMatch(/resolveExportInputs\(\{\s*\n\s*siteId: entry\.siteId,/);
         // GH-394: the PRE-traffic base plus the modifier, because
         // computeProgram() applies the modifier itself. Handing it
         // `_siteInputs.annualN` (already scaled) applied it twice.
-        expect(combined).toMatch(/perSampleInputs\.annualNOverride = _siteInputs\.annualNBase;/);
-        expect(combined).toMatch(/perSampleInputs\.trafficModifier = _siteInputs\.trafficModifier;/);
-        expect(combined).not.toMatch(/perSampleInputs\.annualNOverride = _siteInputs\.annualN;/);
+        // GH-470: the per-sample object is built in one place now, so the
+        // property lives in nutrition-calendar.js's inputsForSite(). The
+        // assertion is the same one: the PRE-traffic base, never the already
+        // scaled annualN, and the modifier beside it.
+        const cal = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-calendar.js'), 'utf8');
+        expect(cal).toMatch(/annualNOverride: prog\.annualNBase/);
+        expect(cal).toMatch(/trafficModifier: prog\.trafficModifier/);
+        expect(cal).not.toMatch(/annualNOverride: prog\.annualN[,\s]/);
         expect(combined).not.toMatch(/_persistedCal\.adjustments\.target_n/);
         // and it must never be allowed to read this page's hidden legacy input
-        expect(combined).toMatch(/planForm: null/);
+        // GH-470: the refusal to read the Plan form moved to the resolver's
+        // own programme call, which is the export's single border now.
+        const npi = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-program-inputs.js'), 'utf8');
+        expect(npi).toMatch(/planForm: null/);
     });
 
     test('clipping, traffic, species, methodology and texture all come from that same call', () => {
+        // GH-470: "that same call" is now the resolver's own, and the fields
+        // are read off its `program` in one place.
+        const cal = fs.readFileSync(path.join(__dirname, '..', 'assets', 'nutrition-calendar.js'), 'utf8');
         [
-            'perSampleInputs.clippingManagement = _siteInputs.clippingManagement;',
-            'perSampleInputs.traffic = _siteInputs.trafficIntensity;',
-            'perSampleInputs.species = _siteInputs.speciesKey || perSampleInputs.species;',
-            'perSampleInputs.methodology = _siteInputs.methodology;',
-            'perSampleInputs.soilTexture = _siteInputs.soilTexture;',
-            'perSampleInputs.CEC = _siteInputs.CEC;'
-        ].forEach((line) => expect(combined).toContain(line));
+            'clippingManagement: prog.clippingManagement',
+            'traffic: prog.trafficIntensity',
+            'species: prog.speciesKey',
+            'methodology: prog.methodology',
+            'soilTexture: prog.soilTexture',
+            'CEC: prog.CEC'
+        ].forEach((line) => expect(cal).toContain(line));
     });
 
     test('a site whose inputs cannot be resolved is SKIPPED, never computed on another site\'s configuration', () => {

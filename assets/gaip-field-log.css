@@ -219,7 +219,7 @@
     font-weight:  700;
 }
 
-.gaip-fl-type-icon { font-size: 1.3rem; line-height: 1; }
+.gaip-fl-type-icon { line-height: 0; display: inline-flex; } /* GH-445: holds an inline SVG */
 .gaip-fl-type-label { font-size: 0.72rem; }
 
 /* ============================================================
@@ -417,10 +417,11 @@
 .gaip-fl-recent-item:last-child { border-bottom: none; }
 
 .gaip-fl-recent-icon {
-    font-size:  1.3rem;
-    line-height: 1;
+    /* GH-445: an inline SVG, not a glyph. */
+    line-height: 0;
     flex-shrink: 0;
-    margin-top:  2px;
+    margin-top:  3px;
+    color: var(--gaip-text-secondary, #555);
 }
 
 .gaip-fl-recent-body  { flex: 1; min-width: 0; }

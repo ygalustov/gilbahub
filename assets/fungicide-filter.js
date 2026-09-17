@@ -307,8 +307,9 @@
             if (profile.getCurrentRegion) {
                 return profile.getCurrentRegion();
             }
-            if (profile.detectRegionFromHub) {
-                return profile.detectRegionFromHub();
+            if (profile.detectRegionForSite) {
+                // GH-476: by the site's own coordinates.
+                return profile.detectRegionForSite(options.siteId || profile.activeSiteId());
             }
         }
 
