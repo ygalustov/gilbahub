@@ -786,20 +786,33 @@
             // not comparable to anything.
             if (isNZ) {
                 const _beforeCount = methods.length;
+                // GH-521: ammonium acetate ALONE on a New Zealand site, the
+                // same narrowing as its twin in onboarding-wizard.js.
                 for (let _i = methods.length - 1; _i >= 0; _i--) {
-                    if (methods[_i].id === 'mlsn') methods.splice(_i, 1);
+                    if (methods[_i].id !== 'ammonium_acetate') methods.splice(_i, 1);
                 }
                 this._mlsnHiddenForNZ = methods.length < _beforeCount;
                 // A selection made on an earlier visit to this step, before the
                 // location was set to NZ, must not survive as a value with no
                 // button to show it.
-                if (this.data.methodology === 'mlsn') {
-                    this.data.methodology = 'ammonium_acetate';
-                    this._mlsnNormalisedForNZ = true;
+                if (this.data.methodology && this.data.methodology !== 'ammonium_acetate') {
+                    // GH-521: cleared, not rewritten. The twin of this step in
+                    // onboarding-wizard.js carried the same substitution and
+                    // lost it in the same delivery: a value with no button to
+                    // show it is removed, and the step asks. Writing AA in the
+                    // user's place is how a site ends up "choosing" something
+                    // nobody picked.
+                    // GH-521: the cleared value is remembered so the note can name
+                    // it. The old flag was _mlsnNormalisedForNZ and the note said
+                    // "MLSN is not offered" — correct while MLSN was the only
+                    // thing removed, wrong once the list narrowed to ammonium
+                    // acetate alone and a SLAN choice was being cleared too.
+                    this._methodClearedForNZ = this.data.methodology;
+                    this.data.methodology = null;
                 }
             }
 
-            if (!isNZ) { this._mlsnHiddenForNZ = false; this._mlsnNormalisedForNZ = false; }
+            if (!isNZ) { this._mlsnHiddenForNZ = false; this._methodClearedForNZ = null; }
 
             // Auto-suggest methodology based on turf type + region
             if (!this.data.methodology) {
@@ -845,10 +858,13 @@
             // GH-407: say it plainly when we took a choice away, rather than
             // letting the button vanish between one visit to this step and the
             // next with no explanation. Same shape as the Settings notice.
-            if (this._mlsnNormalisedForNZ) {
-                noteEl.textContent = 'MLSN is not offered for New Zealand locations and the methodology ' +
-                    'has been set to Ammonium Acetate. NZ soil labs report Olsen P and ammonium-acetate ' +
-                    'extractions, and MLSN\u2019s thresholds are not defined against those numbers.';
+            if (this._methodClearedForNZ) {
+                const _clearedLabel = ({ mlsn: 'MLSN', slan: 'SLAN', ammonium_acetate: 'Ammonium Acetate' })[
+                    this._methodClearedForNZ] || this._methodClearedForNZ;
+                noteEl.textContent = _clearedLabel + ' is not offered for New Zealand locations, so that ' +
+                    'choice has been cleared and Ammonium Acetate is selected. NZ soil labs report Olsen P ' +
+                    'and ammonium-acetate extractions, and other methodologies\u2019 thresholds are not ' +
+                    'defined against those numbers.';
                 noteEl.style.display = 'block';
             } else if (isNZ && this.data.methodology !== 'ammonium_acetate') {
                 noteEl.textContent = 'Note: Most NZ soil labs (Hill Labs) use ammonium acetate extraction. ' +

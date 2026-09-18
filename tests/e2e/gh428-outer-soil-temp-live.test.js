@@ -33,7 +33,9 @@
  *   4. THAT NOTHING MOVED. A full snapshot of each site's programme — the
  *      delivery summary table, every monthly product row with its rate, the
  *      annual product tally and the delivery totals — compared against
- *      tests/fixtures/gh428-nz-plan-snapshot.json, recorded before the change.
+ *      tests/fixtures/gh428-nz-plan-snapshot-2026-09-18.json (the 09-11 file of
+ *      the same name is kept unread, as the record of what these programmes
+ *      were before this week), recorded before the change.
  *
  * Record the baseline (before the change):
  *   GILBA_E2E=1 GILBA_GH428_RECORD=1 npx jest tests/e2e/gh428-outer-soil-temp-live.test.js \
@@ -45,10 +47,25 @@
 
 const fs = require('fs');
 const path = require('path');
+const { guardStand, fillOwnAnnualN } = require('./lib/stand-guard');
+let standGuard = null;
 
 const ENABLED = process.env.GILBA_E2E === '1';
 const RECORD = process.env.GILBA_GH428_RECORD === '1';
-const SNAPSHOT = path.join(__dirname, '..', 'fixtures', 'gh428-nz-plan-snapshot.json');
+// GH-525: two files, and the older one is never written to.
+//
+// HISTORICAL — recorded 2026-09-11, before this week's work. It is the only
+// surviving record of what the New Zealand programmes looked like then, so it
+// is kept and read by nothing: overwriting it would destroy the evidence and
+// leave a file that merely agrees with today.
+const SNAPSHOT_2026_09_11 = path.join(__dirname, '..', 'fixtures', 'gh428-nz-plan-snapshot.json');
+// CURRENT — what the comparison below uses, and the only file RECORD mode
+// writes. Re-pinned because GH-482 moved a requirement, not because anything
+// broke: the certificate is now derived from the site's OWN soil texture, which
+// took Test5's ammonium-acetate K range from 109.5-273.7 to 78.2-195.5
+// (tests/gh482-certificate-follows-the-site.test.js:94) and with it the
+// potassium the programme delivers.
+const SNAPSHOT = path.join(__dirname, '..', 'fixtures', 'gh428-nz-plan-snapshot-2026-09-18.json');
 
 let credentials = {};
 try {
@@ -208,6 +225,9 @@ describe('GH-428 live — the outer soil temperature and the trace block', () =>
 
         browser = await chromium.launch();
         page = await browser.newPage();
+        // GH-519: nothing this run writes reaches an existing site. See
+        // tests/e2e/lib/stand-guard.js for what is held and what is not.
+        standGuard = await guardStand(page);
         page.on('pageerror', (e) => out('pageerror: ' + (e && e.message)));
 
         await page.goto(BASE_URL + '/login', { waitUntil: 'domcontentloaded' });
@@ -260,6 +280,9 @@ describe('GH-428 live — the outer soil temperature and the trace block', () =>
                     window.__gh428ctx = (e && e.detail && e.detail.context) || window.__gh428ctx;
                 });
             });
+            // GH-519: the target comes from the site's own config, not from a
+            // programme an earlier run of this suite left behind.
+            await fillOwnAnnualN(page);
             await page.click('#plan-nut-generate-btn');
             await page.waitForFunction(() => window.__gh428 > 0
                 && document.querySelectorAll('tr.gilba-nut-row').length === 12, null, { timeout: 90000 });
@@ -294,6 +317,10 @@ describe('GH-428 live — the outer soil temperature and the trace block', () =>
                 sites: {},
             };
             Object.keys(RESULTS).forEach((k) => { payload.sites[k] = RESULTS[k].snapshot; });
+            if (SNAPSHOT === SNAPSHOT_2026_09_11) {
+                throw new Error('GH-525: refusing to overwrite the 2026-09-11 baseline — it is the '
+                    + 'only record of what these programmes were before this week.');
+            }
             fs.writeFileSync(SNAPSHOT, JSON.stringify(payload, null, 1));
             out('');
             out('recorded baseline -> ' + SNAPSHOT);
@@ -356,11 +383,24 @@ describe('GH-428 live — the outer soil temperature and the trace block', () =>
     });
 
     test('nothing in any programme moved', () => {
+        const base = JSON.parse(fs.readFileSync(SNAPSHOT, 'utf8'));
         if (RECORD) {
-            out('baseline recorded — comparison skipped on this run');
+            // GH-525: a RECORD run says what it wrote, instead of returning in
+            // silence. The line that stood here — `out(...); return;` — is the
+            // same mechanism as the three early returns this delivery removes:
+            // a run that recorded nothing, or recorded an empty payload, ended
+            // this test with no assertion and reported a pass.
+            //
+            // Not the comparison, which cannot be made against a baseline this
+            // same run has just written. What is checked is that the file on
+            // disk now holds a snapshot for every site that was walked.
+            out('baseline recorded — comparison skipped, contents asserted instead');
+            expect(Object.keys(base.sites).sort()).toEqual(NZ_SITES.map((s) => s.key).sort());
+            NZ_SITES.forEach((s) => {
+                expect(base.sites[s.key]).toEqual(RESULTS[s.key].snapshot);
+            });
             return;
         }
-        const base = JSON.parse(fs.readFileSync(SNAPSHOT, 'utf8'));
         NZ_SITES.forEach((s) => {
             expect(RESULTS[s.key].snapshot).toEqual(base.sites[s.key]);
         });

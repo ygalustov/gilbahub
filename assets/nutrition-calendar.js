@@ -969,10 +969,17 @@
         const _soilDepthDefaulted = !(parseFloat(soil.depth) > 0);
         
         // Methodology
-        // Cotula/bowls: force ammonium_acetate regardless of what soil.methodology says.
-        // The HubStore initialises inputs.soil.methodology as 'mlsn' and it may not
-        // be updated by the time the calendar runs. Read from DOM select directly
-        // as the reliable source for NZ sites with AA auto-selected.
+        // GH-521: one rule, the owner's, 18.09.2026 — the methodology is taken
+        // from the site's SAVED SETTING as it stands. Coordinates determine
+        // exactly one thing: which options the Settings list offers, where a New
+        // Zealand site is offered ammonium acetate alone. They determine nothing
+        // else — not here, not on the pages, not in the document, not in the
+        // stamp. Neither the surface, nor the sample, nor a field on the page
+        // affects it.
+        // The two lines that used to stand here said the opposite and are gone:
+        // "cotula/bowls: force ammonium_acetate regardless of what
+        // soil.methodology says" and "read from the DOM select directly as the
+        // reliable source".
         // GH-377: track whether ANY real source actually supplied the
         // methodology, or whether the 'mlsn' below is purely the default this
         // chain lands on when nothing did. The resolution order and every
@@ -983,39 +990,58 @@
         // indistinguishable from "not loaded yet". The stale-cache check in
         // restoreFromPersisted() must treat an unresolved methodology as
         // "unknown, trust the cached programme", never as "changed to MLSN".
-        let _methodologyResolved = !!(soil.methodology && String(soil.methodology).toLowerCase() !== 'mlsn');
-        let methodology = (soil.methodology || 'mlsn').toLowerCase();
+        // GH-521: MLSN is now a value like any other. The test used to be "set,
+        // and not MLSN", because the store seeded MLSN before anything loaded
+        // (gilba-hub-v2.js) and the two were indistinguishable. The store now
+        // starts null, so "set" is the whole question — and a site that really
+        // is MLSN is resolved instead of being treated as unknown.
+        let _methodologyResolved = soil.methodology != null && String(soil.methodology) !== '';
+        let methodology = _methodologyResolved ? String(soil.methodology).toLowerCase() : null;
         // Map cotula_s78 to ammonium_acetate
         if (methodology === 'cotula_s78' || methodology === 'cotula') {
             methodology = 'ammonium_acetate';
         }
-        // If turfType is bowls or cotula is active, force AA regardless
-        if (methodology === 'mlsn') {
-            const _tpc = window.GaipTurfProfile?.state || window.gaipTurfProfile?.state || {};
-            const _gt  = window.GAIP_STATE?.turf || {};
-            if (_tpc.turfType === 'bowls' || _gt.turfType === 'bowls' || _gt.cotula === true) {
-                methodology = 'ammonium_acetate';
+        // GH-521: the bowls/cotula fold is gone entirely, not narrowed.
+        //
+        // It read `GaipTurfProfile.state.turfType`, `GAIP_STATE.turf.turfType`
+        // and `GAIP_STATE.turf.cotula` and turned a site's saved 'mlsn' into
+        // ammonium_acetate. This delivery first narrowed it to fire on 'mlsn'
+        // alone, which was still a surface deciding what a setting means. The
+        // owner settled it on 18.09.2026: the methodology is whatever is set in
+        // Settings, "никаких других зависимостей" — no other dependencies. A
+        // bowls surface is a surface; it is not an answer to this question.
+        //
+        // What stays, three lines above, is the mapping of the VALUE
+        // 'cotula_s78'/'cotula' to ammonium_acetate. That is a saved setting
+        // written in a Hill Labs sample-type spelling, normalised to the key the
+        // engine branches on — the setting answering for itself, not the surface
+        // answering for the setting.
+        // GH-521: the fallbacks below used to sit INSIDE the `=== 'mlsn'` branch
+        // above, as its else-arm. That was right while 'mlsn' meant "the store
+        // has not loaded anything yet" — the store seeded it, so overriding it
+        // from the page was overriding nothing. The store now starts null, so
+        // 'mlsn' means MLSN, and leaving the fallbacks where they were would
+        // have this function quietly replace a site's real MLSN setting with
+        // whatever the page's select happens to be showing. They now fire on an
+        // UNRESOLVED methodology and on nothing else.
+        if (!_methodologyResolved) {
+            const _ms = document.querySelector('.gaip-soil-methodology');
+            if (_ms && _ms.value) {
+                methodology = String(_ms.value).toLowerCase();
                 _methodologyResolved = true;
             } else {
-                // Also read DOM select as fallback — most reliable for AA auto-select
-                const _ms = document.querySelector('.gaip-soil-methodology');
-                if (_ms && _ms.value && _ms.value !== 'mlsn') {
-                    methodology = _ms.value;
+                // New hub: read from GAIP_HUB_CONFIG (set by PHP controller) or
+                // GAIP_DASHBOARD_DATA.computed.soilNutrition (from analysis cache)
+                const _cfgMeth = (window.GAIP_HUB_CONFIG?.turfMethodology || '').toLowerCase();
+                const _snMeth  = (window.GAIP_DASHBOARD_DATA?.computed?.soilNutrition?.methodology || '').toLowerCase();
+                const _newHubMeth = _cfgMeth || _snMeth;
+                if (_newHubMeth) {
+                    methodology = _newHubMeth;
                     _methodologyResolved = true;
-                } else {
-                    // GH-377: an explicit 'mlsn' chosen in the DOM select is a
-                    // real answer, unlike the hub store's placeholder default.
-                    if (_ms && _ms.value === 'mlsn') _methodologyResolved = true;
-                    // New hub: read from GAIP_HUB_CONFIG (set by PHP controller) or
-                    // GAIP_DASHBOARD_DATA.computed.soilNutrition (from analysis cache)
-                    const _cfgMeth = (window.GAIP_HUB_CONFIG?.turfMethodology || '').toLowerCase();
-                    const _snMeth  = (window.GAIP_DASHBOARD_DATA?.computed?.soilNutrition?.methodology || '').toLowerCase();
-                    const _newHubMeth = _cfgMeth || _snMeth;
-                    if (_newHubMeth) _methodologyResolved = true;
-                    if (_newHubMeth && _newHubMeth !== 'mlsn') {
-                        methodology = _newHubMeth;
-                    }
                 }
+            }
+            if (methodology === 'cotula_s78' || methodology === 'cotula') {
+                methodology = 'ammonium_acetate';
             }
         }
         
@@ -1615,27 +1641,25 @@
     };
 
     /**
-     * GH-377: the NZ bounding box plan.blade.php's GAIP_STATE bridge and
-     * ammonium-acetate-methodology.js's isNewZealand() both use to auto-
-     * select AA. Kept numerically identical to those two on purpose.
+     * GH-377: what a site config's turf.methodology means. GH-521: it means
+     * itself.
+     *
+     * This used to take `lat`/`lon` as well, and answer ammonium_acetate for a
+     * New Zealand site whose setting was empty OR 'mlsn' — the same bounding
+     * box plan.blade.php's bridge and ammonium-acetate-methodology.js applied
+     * before generating. Both halves were substitutions: for an empty setting
+     * it invented a methodology nobody had chosen, and for a saved 'mlsn' it
+     * overrode a choice that had been made. The region now narrows what
+     * Settings and the wizard OFFER, and what is saved is read as it stands.
+     *
+     * `isNZCoordinates` went with it. It existed only to feed this fold and had
+     * no other caller; left in place it would be a one-line call away from
+     * putting the fold back, which is what "it does not fire today" is worth.
+     * The bounding box itself still lives in ammonium-acetate-methodology.js,
+     * where it decides what the FORM offers.
      */
-    NutritionCalendar.isNZCoordinates = function(lat, lon) {
-        const la = parseFloat(lat);
-        const lo = parseFloat(lon);
-        if (isNaN(la) || isNaN(lo)) return false;
-        return (lo >= 166 && lo <= 179 && la >= -47 && la <= -34);
-    };
-
-    /**
-     * GH-377: what a site config's turf.methodology means once the page-side
-     * NZ rule is applied — empty or 'mlsn' on an NZ site becomes
-     * ammonium_acetate, exactly as the Plan bridge does before generating.
-     * '' when the site config carries no usable value (unknown).
-     */
-    NutritionCalendar.resolveSiteMethodology = function(turfMethodology, lat, lon) {
-        const key = this.normalizeMethodology(turfMethodology);
-        if ((!key || key === 'mlsn') && this.isNZCoordinates(lat, lon)) return 'ammonium_acetate';
-        return key;
+    NutritionCalendar.resolveSiteMethodology = function(turfMethodology) {
+        return this.normalizeMethodology(turfMethodology);
     };
 
     /**
@@ -1704,7 +1728,7 @@
             [turf.species, turf.overseedSpecies, turf.coolOverseed, turf.warmBase].forEach((raw) => {
                 if (typeof raw === 'string' && raw.trim()) addSpecies(this.normalizeSpecies(raw.trim()));
             });
-            addMethodology(this.resolveSiteMethodology(turf.methodology, opts.lat, opts.lon));
+            addMethodology(this.resolveSiteMethodology(turf.methodology));
         });
 
         return { speciesKeys: speciesKeys, methodologies: methodologies };

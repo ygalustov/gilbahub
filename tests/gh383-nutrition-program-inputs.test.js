@@ -370,11 +370,39 @@ describe('GH-383 — resolveSiteProgramInputs(): source of truth per field, with
         const r = run({ sample: { species: 'Kikuyu', turfType: 'lawns', methodology: 'slan', pH: 5.0 } });
         expect(r.speciesKey).toBe('kikuyu');
         expect(r.turfType).toBe('lawns');
-        expect(r.methodology).toBe('slan');
         expect(r.sources.species).toBe('sample');
         expect(r.sources.turfType).toBe('sample');
-        // the ranges follow the overridden methodology + pH
-        expect(r.ranges.P.min).toBe(45);
+        // The ranges follow the overridden species/turfType + pH — under the
+        // SITE's methodology. This number used to be 45, which was the SLAN
+        // range the sample's own `methodology: 'slan'` selected; with that link
+        // removed it is the ammonium-acetate range for the same species and pH.
+        expect(r.ranges.P.min).toBe(12);
+    });
+
+    test('methodology is NOT among the fields a sample may override (GH-521)', () => {
+        // This assertion was part of the test above and read
+        //   expect(r.methodology).toBe('slan')
+        // on a sample carrying `methodology: 'slan'`. Species and turf type are
+        // genuinely per-sample on a multi-site turf — one site, several surfaces,
+        // a sample taken on one of them. Methodology is not: it is how the numbers
+        // are read, and it belongs to the site. Letting the sample answer is how a
+        // report for one site was built on another site's methodology (GH-459's
+        // shape). GH-520/521 gave it one owner, `config.turf.methodology`, so the
+        // sample's own key is now ignored — and the provenance says 'site-config'
+        // rather than claiming the sample decided.
+        const r = run({ sample: { species: 'Kikuyu', turfType: 'lawns', methodology: 'slan', pH: 5.0 } });
+        expect(r.methodology).toBe('ammonium_acetate'); // the site's, not the sample's
+        expect(r.sources.methodology).toBe('site-config');
+
+        // and with the site unset, a sample carrying one does not fill the gap
+        const bare = run({
+            sample: { species: 'Kikuyu', turfType: 'lawns', methodology: 'slan', pH: 5.0 },
+            siteConfig: Object.assign({}, CFG_TEST5, {
+                turf: Object.assign({}, CFG_TEST5.turf, { methodology: '' }),
+            }),
+        });
+        expect(bare.methodology).toBeNull();
+        expect(bare.sources.methodology).toBe('empty');
     });
 
     test('the whole resolved object is what both surfaces get — ranges and provenance included', () => {

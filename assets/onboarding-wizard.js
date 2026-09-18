@@ -376,17 +376,38 @@
                 // This is the wizard the new hub actually shows. Its twin,
                 // site-setup-wizard.js, has the same step and the same fix; it
                 // is reached only from /hub and the report pages.
+                // GH-521: on a New Zealand site the list is ammonium acetate
+                // ALONE, not "everything except MLSN". GH-395 took MLSN away
+                // and left SLAN; the owner's decision of 17.09 narrows it to
+                // one. Narrowing what may be CHOSEN is what replaced the old
+                // habit of overwriting a saved value behind the user's back.
                 for (var _i = methods.length - 1; _i >= 0; _i--) {
-                    if (methods[_i].id === 'mlsn') methods.splice(_i, 1);
+                    if (methods[_i].id !== 'ammonium_acetate') methods.splice(_i, 1);
                 }
                 // A choice made before the location was set to NZ must not
-                // survive as a value with no button to show it.
-                if (this.d.methodology === 'mlsn') {
+                // survive as a value with no button to show it. It is CLEARED,
+                // not rewritten: the old line turned a saved 'mlsn' straight
+                // into ammonium_acetate, which is a value the user never picked
+                // being entered on their behalf.
+                // GH-521: the cleared value is REMEMBERED, so the note below can
+                // name it. The flag it replaces was called _mlsnNormalisedForNZ
+                // and the note said "MLSN is not offered" — true while MLSN was
+                // the only thing taken away, and wrong the moment the list
+                // narrowed to ammonium acetate alone, because a user who had
+                // chosen SLAN was then told about MLSN.
+                if (this.d.methodology && this.d.methodology !== 'ammonium_acetate') {
+                    this._methodClearedForNZ = this.d.methodology;
+                    this.d.methodology = null;
+                }
+                // The list now has one entry, and the step pre-selects it. That
+                // is the wizard suggesting a value the user then saves — which
+                // is what a wizard step is — and not a value written over a
+                // choice that was already made.
+                if (!this.d.methodology) {
                     this.d.methodology = 'ammonium_acetate';
-                    this._mlsnNormalisedForNZ = true;
                 }
             } else {
-                this._mlsnNormalisedForNZ = false;
+                this._methodClearedForNZ = null;
             }
 
             var methodHtml = methods.map(function (m) {
@@ -437,16 +458,20 @@
             });
         },
 
+        _METHOD_LABELS: { mlsn: 'MLSN', slan: 'SLAN', ammonium_acetate: 'Ammonium Acetate' },
+
         _methodNote: function () {
             var isNZ  = this._isNZ();
             var msg   = '';
             // GH-407: say it plainly when a choice was taken away, rather than
             // letting the button vanish between one visit to this step and the
             // next with no explanation.
-            if (this._mlsnNormalisedForNZ) {
-                msg = 'MLSN is not offered for New Zealand locations and the methodology has been set to '
-                    + 'Ammonium Acetate. NZ soil labs report Olsen P and ammonium-acetate extractions, and '
-                    + 'MLSN\u2019s thresholds are not defined against those numbers.';
+            if (this._methodClearedForNZ) {
+                msg = this._METHOD_LABELS[this._methodClearedForNZ] || this._methodClearedForNZ;
+                msg = msg + ' is not offered for New Zealand locations, so that choice has been cleared '
+                    + 'and Ammonium Acetate is selected. NZ soil labs report Olsen P and '
+                    + 'ammonium-acetate extractions, and other methodologies\u2019 thresholds are not '
+                    + 'defined against those numbers.';
             } else if (isNZ && this.d.methodology !== 'ammonium_acetate') {
                 msg = 'Most NZ soil labs (Hill Labs) use ammonium acetate extraction. If your report shows Olsen P and NH₄OAc-extractable nutrients, select Ammonium Acetate.';
             } else if (this.d.methodology === 'mlsn' && this.d.turfType !== 'golf') {

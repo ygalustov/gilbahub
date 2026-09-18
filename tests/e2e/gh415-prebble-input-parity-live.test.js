@@ -62,6 +62,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { guardStand, fillOwnAnnualN } = require('./lib/stand-guard');
 
 const ENABLED = process.env.GILBA_E2E === '1';
 
@@ -110,6 +111,7 @@ const RESULT = { plan: null, document: null, differences: [] };
 
 describe('GH-415 — the NZ recommender is handed the same inputs on both surfaces', () => {
     let browser, page, previousActiveSiteId = null;
+    let standGuard = null;
     const consoleLines = [];
     const otherLines = [];
     let planLineCount = 0;
@@ -122,6 +124,9 @@ describe('GH-415 — the NZ recommender is handed the same inputs on both surfac
 
         browser = await chromium.launch();
         page = await browser.newPage({ acceptDownloads: true });
+        // GH-519: nothing this run writes reaches an existing site. See
+        // tests/e2e/lib/stand-guard.js for what is held and what is not.
+        standGuard = await guardStand(page);
         page.on('console', (m) => {
             const t = m.text();
             if (t.indexOf('b35fix426') >= 0) consoleLines.push(t);
@@ -173,6 +178,9 @@ describe('GH-415 — the NZ recommender is handed the same inputs on both surfac
             window.__gen = 0;
             document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__gen++; });
         });
+        // GH-519: the target comes from the site's own config, not from a
+        // programme an earlier run of this suite left behind.
+        await fillOwnAnnualN(page);
         await page.click('#plan-nut-generate-btn');
         await page.waitForFunction(() => window.__gen > 0 && document.querySelectorAll('tr.gilba-nut-row').length === 12,
             null, { timeout: 90000 });
@@ -232,6 +240,25 @@ describe('GH-415 — the NZ recommender is handed the same inputs on both surfac
         RESULT.document = parsePre(consoleLines.slice(planLineCount));
 
         poolLines.forEach(function (p) { out((p.atPlan ? 'PLAN     pool: ' : 'DOCUMENT pool: ') + p.text); });
+        // GH-522: the SAMPLE's own CEC, read from the sample record rather than
+        // from either snapshot. This is the anchor the file lacked — see the
+        // test at the bottom for why comparing the two snapshots to each other
+        // could never have caught a getter that answers the same wrong number
+        // to both of them.
+        RESULT.sampleCEC = await page.evaluate(() => {
+            try {
+                const NPI = window.GAIP_NutritionProgramInputs;
+                const id = NPI && typeof NPI.getActiveSiteId === 'function' ? NPI.getActiveSiteId() : null;
+                if (!id) return { error: 'no active site id' };
+                const r = NPI.resolveExportInputs({ siteId: id });
+                const soil = r && r.samples && r.samples.soil ? r.samples.soil : null;
+                const v = soil && soil.values ? soil.values : {};
+                const raw = v.CEC != null ? v.CEC : (v.cec != null ? v.cec : null);
+                return { sampleId: soil ? (soil.id || soil.sampleId || null) : null,
+                    cec: raw == null ? null : Number(raw) };
+            } catch (e) { return { error: String(e && e.message).slice(0, 160) }; }
+        });
+        out('sample CEC (from the sample record): ' + JSON.stringify(RESULT.sampleCEC));
         out('plan context:     ' + JSON.stringify(RESULT.plan && RESULT.plan.context));
         out('document context: ' + JSON.stringify(RESULT.document && RESULT.document.context));
         diff((RESULT.plan || {}).context, (RESULT.document || {}).context, 'context.', RESULT.differences);
@@ -325,6 +352,49 @@ describe('GH-415 — the NZ recommender is handed the same inputs on both surfac
         // deleted the curve that consumed this field, and GH-428 deleted the
         // field and the getter with it.
         expect(real).toEqual([]);
+    });
+
+    // ── GH-522: the anchor outside the pair ─────────────────────────────────
+    //
+    // WHAT THIS FILE PROMISED BY ITS NAME AND TEXT: that the recommender is
+    // handed the same inputs on the Plan page and in the document, and that a
+    // soil reading is "a soil reading, not a hardcoded stand-in".
+    //
+    // WHAT IT ACTUALLY ASSERTED: `RESULT.differences` is empty. Every one of its
+    // assertions is a comparison of the two snapshots WITH EACH OTHER. Nothing
+    // compared either of them with the sample.
+    //
+    // WHAT WAS MISSING, and what the reviewer's M2 proved: both surfaces reach
+    // the SAME getter. `getSoilCEC` (nutrition-prebble-integration.js:674) is
+    // called by the Plan through the integration and by the document through
+    // word-export-combined.js's per-sample block. Make it return a constant 8
+    // and both snapshots say 8, the difference list stays empty, and the second
+    // test above — the one whose name is "not a hardcoded stand-in" — passes
+    // while the value is a hardcoded stand-in. That is the exact defect GH-422
+    // closed, reintroduced, with the guard for it green.
+    //
+    // The history in this file made the gap easy to miss: soilCEC WAS caught
+    // once, when the Plan said 8 and the document said 5.9. It was caught
+    // because the two surfaces disagreed, not because either was checked
+    // against the sample — so the same defect on both sides was always
+    // invisible here.
+    test('the CEC handed to the recommender is the sample\'s measured CEC, not a number that merely matches', () => {
+        expect(RESULT.sampleCEC).toBeTruthy();
+        expect(RESULT.sampleCEC.error).toBeUndefined();
+        const planCEC = RESULT.plan && RESULT.plan.context ? Number(RESULT.plan.context.soilCEC) : null;
+        const docCEC = RESULT.document && RESULT.document.context ? Number(RESULT.document.context.soilCEC) : null;
+        out('sample CEC ' + RESULT.sampleCEC.cec + ' (sample ' + RESULT.sampleCEC.sampleId + ')'
+            + ' | plan ' + planCEC + ' | document ' + docCEC);
+        // If the sample carries no CEC there is nothing to anchor to, and the
+        // honest answer is that neither surface may invent one.
+        if (RESULT.sampleCEC.cec == null) {
+            out('NOTE: this sample records no CEC — the assertion below is that neither surface supplies one.');
+            expect(planCEC).toBeNull();
+            expect(docCEC).toBeNull();
+            return;
+        }
+        expect(planCEC).toBeCloseTo(RESULT.sampleCEC.cec, 2);
+        expect(docCEC).toBeCloseTo(RESULT.sampleCEC.cec, 2);
     });
 });
 

@@ -1,4 +1,54 @@
 /**
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │ THIS FILE IS RED ON PURPOSE. Read this before "fixing" it.               │
+ * └──────────────────────────────────────────────────────────────────────────┘
+ *
+ * ONE test fails: "the normals that entered the calculation are the site's own
+ * normals" (GH-522). It fails because of a defect in the PRODUCT, not in the
+ * test, and it was left failing by decision (GH-523, the owner's coordinator,
+ * 18.09.2026): "a red test with its reason named is more honest than a green
+ * one with a caveat in a comment".
+ *
+ * WHAT IS WRONG. `resolveExportInputs()` resolves NO coordinates on the Plan
+ * page, for every site, and therefore no climate normals — `climateNormals`
+ * null, `climateReason` 'no-coordinates'. Measured on Test5 - NZ, whose
+ * coordinates are right there on the page:
+ *     askedFor / stamped site id  019e96f3-…   (the right site)
+ *     resolvedLat / resolvedLon   null / null
+ *     GAIP_SITE_CONFIG.location   { lat: -36.8508827, lon: 174.7644881 }
+ *     GAIP_SITE_CONFIG.latitude   null
+ *     GAIP_SiteConfig store        absent on this page
+ * `FIELD_PATHS.lat` is `['site-row', 'latitude']`
+ * (nutrition-program-inputs.js:682): GH-473 decided the site ROW owns the
+ * coordinates and that the `config.location` copy — reached by one write path
+ * of three — must not be read. The row is served by the `GAIP_SiteConfig`
+ * store, and plan.blade.php does not load site-config-persistence.js, so on
+ * that page there is no store to ask. reports/export.blade.php does load it,
+ * which is why the same resolver answers there.
+ *
+ * OLDER THAN THE WORK THAT FOUND IT. Against the 08:51 copy of
+ * nutrition-program-inputs.js (commit 39ac6ee, before 18.09's methodology
+ * delivery): the coordinate path, FIELD_PATHS, getSiteConfig and the whole
+ * climate block are identical, and the day's only change to that file is the
+ * methodology block. plan.blade.php has never loaded the store.
+ *
+ * HOW NOT TO MAKE IT GREEN — both of these were considered and refused:
+ *   1. Reading `config.location.lat` in the resolver, or in this test. That is
+ *      the copy GH-473 deliberately stopped reading; re-reading it here would
+ *      quietly reverse a recorded decision in the one place nobody would look.
+ *   2. Dropping or weakening the assertion. Then the row graded `entered` goes
+ *      back to being checked against `p.in.monthlyTemps` — what computeProgram
+ *      was handed — which is the row checked against itself-as-received, and is
+ *      exactly the blindness M3 exposed.
+ *
+ * WHAT WILL MAKE IT GREEN: a product decision about where the Plan page gets a
+ * site's coordinates — the store loaded there too, the server-rendered config
+ * carrying `latitude`/`longitude` as the row does, or the resolver given a
+ * second sanctioned source. Any of those, and this test passes unchanged. It is
+ * with the analyst; it is not a test problem and must not be closed here.
+ */
+
+/**
  * GH-428 — the calculation-trace block against what actually entered the
  * calculation, not against what the page displays.
  *
@@ -64,6 +114,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const { guardStand, fillOwnAnnualN } = require('./lib/stand-guard');
+let standGuard = null;
 
 const ENABLED = process.env.GILBA_E2E === '1';
 
@@ -233,6 +285,49 @@ function readBlockAndProvenance() {
             consumedCEC: prov.consumedCEC,
         } : null,
         recordedLedger: recordedLedger,
+        // GH-522: the site's monthly normals as the CLIMATE SERVICE holds them,
+        // read here rather than taken from the calculation. Every other figure
+        // in this file is checked against what the engines received or produced;
+        // this is the one source outside them, and the reason is in the test
+        // that uses it.
+        siteNormals: (function () {
+            try {
+                const NPI = window.GAIP_NutritionProgramInputs;
+                const id = NPI && typeof NPI.getActiveSiteId === 'function' ? NPI.getActiveSiteId() : null;
+                if (!id) return { error: 'no active site id' };
+                const r = NPI.resolveExportInputs({ siteId: id });
+                const cn = r ? r.climateNormals : null;
+                if (!cn) {
+                    // The reason, not just the absence: `climateReason` is
+                    // resolved beside the normals and says whether the site has
+                    // no coordinates, the service is unavailable, or it simply
+                    // has not resolved yet. "Not observed" would otherwise be a
+                    // statement about the probe.
+                    // What the resolver was looking at, so "no-coordinates" can
+                    // be told apart from "the probe asked the wrong object".
+                    const site = r ? r.site : null;
+                    const gsc = window.GAIP_SITE_CONFIG || null;
+                    return { error: 'no climateNormals on the resolved inputs',
+                        reason: r ? r.climateReason : 'no resolved inputs at all',
+                        resolvedSiteId: site ? site.id : null,
+                        resolvedLat: site ? site.location && site.location.lat : null,
+                        resolvedLon: site ? site.location && site.location.lon : null,
+                        askedFor: id,
+                        stampedSiteId: window.GAIP_SITE_CONFIG_SITE_ID || null,
+                        siteConfigStoreHasGetSite: !!(window.GAIP_SiteConfig
+                            && typeof window.GAIP_SiteConfig.getSite === 'function'),
+                        pageConfigLocation: gsc ? (gsc.location || null) : null,
+                        pageConfigLatLon: gsc ? [gsc.latitude, gsc.longitude] : null };
+                }
+                const t = cn.monthlyTemps || cn.temps || cn;
+                const twelve = [];
+                for (let m = 0; m < 12; m++) {
+                    const v = (t && (t[m] != null ? t[m] : t[m + 1]));
+                    twelve.push(v == null ? null : Number(v));
+                }
+                return { temps: twelve };
+            } catch (e) { return { error: String(e && e.message).slice(0, 160) }; }
+        })(),
     };
 }
 
@@ -547,6 +642,9 @@ async function generateOn(site) {
         window.__gen428 = 0;
         document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__gen428++; });
     });
+    // GH-519: the target comes from the site's own config, not from a
+    // programme an earlier run of this suite left behind.
+    await fillOwnAnnualN(page);
     await page.click('#plan-nut-generate-btn');
     await page.waitForFunction(() => window.__gen428 > 0
         && document.querySelectorAll('tr.gilba-nut-row').length === 12, null, { timeout: 90000 });
@@ -571,6 +669,9 @@ describe('GH-428 — the trace block against what entered the calculation', () =
 
         browser = await chromium.launch();
         page = await browser.newPage();
+        // GH-519: nothing this run writes reaches an existing site. See
+        // tests/e2e/lib/stand-guard.js for what is held and what is not.
+        standGuard = await guardStand(page);
         page.on('pageerror', (e) => out('pageerror: ' + (e && e.message)));
 
         await page.goto(BASE_URL + '/login', { waitUntil: 'domcontentloaded' });
@@ -594,6 +695,28 @@ describe('GH-428 — the trace block against what entered the calculation', () =
             if (!id) throw new Error('site not on this database: ' + site.name);
             await setActiveSite(id);
             await generateOn(site);
+            // GH-522: warm the climate-normals service for THIS site before the
+            // snapshot reads it. `getResolvedSync()` is synchronous and answers
+            // null until the coordinates have been resolved once, so the first
+            // draft of the anchor below read "no climateNormals on the resolved
+            // inputs" — which is the harness's shape, not the product's, and is
+            // the same warming gh492-anr-whose-numbers-live already does for the
+            // same reason. If this ever fails to warm, the reason is recorded in
+            // the snapshot rather than inferred.
+            await page.evaluate(async () => {
+                try {
+                    const NPI = window.GAIP_NutritionProgramInputs;
+                    const CN = window.GilbaClimateNormalsService;
+                    const sid = NPI && typeof NPI.getActiveSiteId === 'function' ? NPI.getActiveSiteId() : null;
+                    const SC = window.GAIP_SiteConfig;
+                    const row = (sid && SC && SC.getSite) ? SC.getSite(sid) : null;
+                    const lat = row && parseFloat(row.latitude);
+                    const lon = row && parseFloat(row.longitude);
+                    if (CN && typeof CN.resolveFor === 'function' && isFinite(lat) && isFinite(lon)) {
+                        await CN.resolveFor(lat, lon);
+                    }
+                } catch (e) { /* recorded as a reason in the snapshot below */ }
+            });
             CLEAN[site.key] = await page.evaluate(readBlockAndProvenance);
 
             const snap = CLEAN[site.key];
@@ -712,6 +835,76 @@ describe('GH-428 — the trace block against what entered the calculation', () =
             bad.forEach((b) => out('MISMATCH ' + c.key + ' / ' + b.label + ': printed "' + b.printed
                 + '" vs engine "' + b.fromEngine + '" (' + (b.why || b.grade) + ')'));
             expect(bad).toEqual([]);
+        });
+    });
+
+    // ── GH-522: the one source outside the calculation ──────────────────────
+    //
+    // WHAT THIS FILE PROMISED BY ITS NAME AND TEXT: that every figure the
+    // calculation-trace block prints is the figure that entered or left the
+    // calculation — provenance, checked row by row.
+    //
+    // WHAT IT ACTUALLY ASSERTED: printed == what the engines received or
+    // produced. Both halves of every comparison are read from the same run. The
+    // row "Monthly temperature normals", graded `entered`, is checked against
+    // `p.in.monthlyTemps` — which is what computeProgram() was handed, so the
+    // row is checked against itself-as-received.
+    //
+    // WHAT WAS MISSING, and what the reviewer's M3 proved: raise the series by
+    // 2 °C where the calendar re-indexes it (nutrition-calendar.js:1495) and the
+    // printed row moves, `p.in.monthlyTemps` moves with it, and they still
+    // agree. Every row passes. The file's own drift control does not help: it
+    // injects drift by changing the OBJECT THE BLOCK READS, which proves the
+    // checker works and says nothing about the chain feeding both sides.
+    //
+    // "Entered" has to mean entered FROM somewhere. The site's climate normals
+    // are that somewhere, and they are resolved by a different module the
+    // mutation does not touch.
+    test('the normals that entered the calculation are the site\'s own normals', () => {
+        CASES.forEach((c) => {
+            const s = CLEAN[c.key];
+            const sn = s.siteNormals;
+            if (!sn || sn.error) {
+                out('NO ANCHOR ' + c.key + ': ' + JSON.stringify(sn));
+                // Named for the reviewer's open question: if the reason is
+                // 'no-coordinates' or 'service-unavailable' this is the
+                // PRODUCT, not the harness, and the finding stops here rather
+                // than being worked around in the test.
+                if (sn && /no-coordinates|service-unavailable/.test(String(sn.reason))) {
+                    out('THIS IS A PRODUCT ANSWER, NOT A HARNESS ONE: ' + sn.reason
+                        + ' — the site resolves no climate, and no test change can supply one.');
+                    out('MEASURED, GH-522: resolveExportInputs() resolves NO coordinates on the Plan '
+                        + 'page. FIELD_PATHS.lat is [\'site-row\', \'latitude\'] '
+                        + '(nutrition-program-inputs.js:682) — by GH-473\'s decision the site ROW owns '
+                        + 'the coordinates and the config.location copy is deliberately not read. The '
+                        + 'Plan page carries no GAIP_SiteConfig store to serve that row (measured: '
+                        + 'siteConfigStoreHasGetSite false); it has only the server-rendered '
+                        + 'GAIP_SITE_CONFIG, whose latitude/longitude are null while location.lat / '
+                        + 'location.lon hold -36.85 / 174.76. So climateNormals is null and '
+                        + 'climateReason is no-coordinates for every site on this page.');
+                    out('THIS TEST IS LEFT RED ON PURPOSE. Making it pass would mean either reading '
+                        + 'the copy GH-473 decided not to read, or asserting nothing — and a green '
+                        + 'test over a hole is the defect this whole delivery is about. The fix is a '
+                        + 'product decision and has been handed back, not taken here.');
+                }
+                // Said rather than skipped: without the anchor this case is
+                // back to checking the calculation against itself.
+                expect(sn && sn.error).toBeUndefined();
+                return;
+            }
+            const entered = lastProv(s).in.monthlyTemps;
+            expect(entered).toBeTruthy();
+            const off = [];
+            for (let m = 0; m < 12; m++) {
+                const a = Number(entered[m]);
+                const b = sn.temps[m];
+                if (b == null) continue;
+                // Half a degree: both sides round, and they are rounded at
+                // different points. Far too narrow to absorb a 2 °C shift.
+                if (!(Math.abs(a - b) <= 0.5)) off.push({ month: m + 1, entered: a, siteNormal: b });
+            }
+            off.forEach((o) => out('OFF NORMAL ' + c.key + ' ' + JSON.stringify(o)));
+            expect(off).toEqual([]);
         });
     });
 

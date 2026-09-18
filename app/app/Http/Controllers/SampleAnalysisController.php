@@ -73,8 +73,15 @@ class SampleAnalysisController extends Controller
         if ($lat === null) $lat = isset($config?->config['location']['lat']) ? (float) $config->config['location']['lat'] : null;
         if ($lon === null) $lon = isset($config?->config['location']['lon']) ? (float) $config->config['location']['lon'] : null;
 
-        // Determine methodology before computing nutrients so AA classification applies
-        $methodology = self::effectiveMethodology($cachedSn['methodology'] ?? null, $lat, $lon);
+        // GH-520: the methodology comes from the site's configuration — the one
+        // owner — and not from the analysis cache. The cache is written by
+        // client runs; reading it here made the server's answer depend on
+        // whatever a browser last persisted, and it carried the NZ override
+        // with it. Null means not set, and the nutrient classification that
+        // needs a methodology does not run.
+        $methodology = self::effectiveMethodology(
+            $config?->config['turf']['methodology'] ?? null
+        );
         // GH-269 (D07): prefer the LIVE site texture over the sample's
         // soil_texture_snapshot. The snapshot is frozen at sample-creation
         // time (SampleController.php's store()), so a site whose Settings

@@ -421,9 +421,16 @@
                                             'slan'             => 'SLAN — Sufficiency Level of Available Nutrients',
                                             'ammonium_acetate' => 'Ammonium Acetate (Hill Labs NZ)',
                                         ];
+                                        // GH-520: one owner, one reading. The
+                                        // fallback to the column is gone — the
+                                        // column is empty on every live site and
+                                        // nothing writes it — and so is the
+                                        // substitution of AA on an unset NZ
+                                        // site: an empty setting is shown as
+                                        // empty, and the region narrows the
+                                        // CHOICES below rather than filling the
+                                        // value in for the user.
                                         $curMeth = $turfVal('methodology');
-                                        if (!$curMeth) $curMeth = $activeSite->methodology_override ?? '';
-                                        if (!$curMeth && ($isNewZealand ?? false)) $curMeth = 'ammonium_acetate';
 
                                         // GH-395: MLSN is not offered on a New Zealand site, because it is
                                         // the one methodology the NZ path cannot honour end to end.
@@ -447,18 +454,23 @@
                                         // is what its product selection already runs on, so displaying MLSN
                                         // would keep the disagreement on screen. Display normalisation only —
                                         // nothing is written unless the user saves the form.
+                                        // GH-521: on a New Zealand site the list is ammonium
+                                        // acetate ALONE — the owner's decision of 17.09 — not
+                                        // "everything except MLSN". And the shown value is no
+                                        // longer swapped: what is saved is shown, and a saved
+                                        // value the region does not allow is flagged as a
+                                        // conflict for the user to resolve by saving. The old
+                                        // display swap existed because the client folded MLSN
+                                        // into AA anyway; that fold is gone (GH-521, Prebble and
+                                        // the calendar), so showing AA for a site saved as MLSN
+                                        // would now be the screen lying about the setting.
                                         $isNZ = ($isNewZealand ?? false);
-                                        $mlsnNormalised = false;
+                                        $methConflict = null;
                                         if ($isNZ) {
-                                            unset($methOptions['mlsn']);
-                                            if ($curMeth === 'mlsn') {
-                                                // Say so rather than swapping the shown value in
-                                                // silence: the saved config still reads 'mlsn'
-                                                // until this form is saved, and a user who set it
-                                                // deliberately deserves to know it is not what the
-                                                // site computes on.
-                                                $curMeth = 'ammonium_acetate';
-                                                $mlsnNormalised = true;
+                                            $methOptions = array_intersect_key($methOptions,
+                                                ['ammonium_acetate' => true]);
+                                            if ($curMeth !== '' && $curMeth !== 'ammonium_acetate') {
+                                                $methConflict = $curMeth;
                                             }
                                         }
                                     @endphp
@@ -468,10 +480,20 @@
                                         <option value="{{ $v }}" {{ $curMeth === $v ? 'selected' : '' }}>{{ $l }}</option>
                                         @endforeach
                                     </select>
-                                    @if($mlsnNormalised)
-                                    <p class="stg-field-hint" style="color:#b45309">This site is saved as MLSN, which New Zealand sites cannot use — Ammonium Acetate is shown and is what the site already calculates on. Save to make the stored setting match.</p>
-                                    @elseif($isNZ)
-                                    <p class="stg-field-hint">New Zealand sites use Ammonium Acetate (Hill Labs) or SLAN. MLSN is not offered here — it is calibrated for Mehlich-3 extraction, not the ammonium-acetate basis Hill Labs reports against.</p>
+                                    @if($methConflict)
+                                        {{-- GH-521: the saved value is named, not hidden and not
+                                             swapped. Nothing is written until the form is saved. --}}
+                                        <p class="db-field-note" style="color:#b45309;">
+                                            Saved as <strong>{{ strtoupper($methConflict) }}</strong>, which is not
+                                            offered for a New Zealand site. The site still computes on
+                                            {{ strtoupper($methConflict) }} until you save Ammonium Acetate here.
+                                        </p>
+                                    @endif
+                                    {{-- GH-521: the "saved as MLSN, shown as AA" note is gone with the
+                                         display swap it described. A saved value the region does not
+                                         allow is now named above, as itself. --}}
+                                    @if($isNZ)
+                                    <p class="stg-field-hint">New Zealand sites use Ammonium Acetate (Hill Labs). MLSN is calibrated for Mehlich-3 extraction, not the ammonium-acetate basis Hill Labs reports against, and SLAN is not offered here either.</p>
                                     @else
                                     <p class="stg-field-hint">MLSN: validated for sand-based greens. SLAN: standard for sports fields, fairways, and lawns.</p>
                                     @endif

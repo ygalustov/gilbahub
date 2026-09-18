@@ -804,11 +804,21 @@
         const speciesDisplay = resolveSpeciesDisplay(rawSpecies);
 
         // ── methodology ──
-        const rawMethodology = sample.methodology || turf.methodology ||
-            ((_win().GAIP_HUB_CONFIG || {}).turfMethodology) || null;
-        sources.methodology = sample.methodology ? 'sample'
-            : (turf.methodology ? 'site-config' : (rawMethodology ? 'hub-config' : 'default'));
-        const methodology = normalizeMethodology(rawMethodology) || 'mlsn';
+        // GH-521: one link, one owner. Three went:
+        //
+        //   `sample.methodology`      — the caller's own object, which is how a
+        //                               report for one site was built on another
+        //                               site's answer;
+        //   `GAIP_HUB_CONFIG.turfMethodology` — what the SERVER injected for
+        //                               whichever site the PAGE is standing on,
+        //                               not the site being asked about;
+        //   `|| 'mlsn'`               — a methodology for a site that has none.
+        //
+        // What remains is `turf.methodology`, and `turf` comes from
+        // getSiteConfig(siteId) — the config of the site asked about, by id.
+        const rawMethodology = turf.methodology || null;
+        sources.methodology = turf.methodology ? 'site-config' : 'empty';
+        const methodology = normalizeMethodology(rawMethodology) || null;
 
         // ── texture / CEC / pH ──
         const tex = resolveSoilTexture(siteTextureSettingFor(siteId));

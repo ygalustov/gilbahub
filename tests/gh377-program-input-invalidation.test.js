@@ -350,23 +350,52 @@ describe('GH-377 — nutrition-calendar.js: collectProgramInputCandidates() + pr
         expect(NC.programInputsDrift(hubStampedMeta, plainCouch)).toEqual([{ field: 'species', was: 'perennialRyegrass', now: 'bermuda' }]);
     });
 
-    test('NZ rule: a site config carrying methodology "mlsn" (or none) on NZ coordinates resolves to ammonium_acetate — the same rule plan.blade.php\'s bridge and ammonium-acetate-methodology.js apply before generating — so an AA-stamped programme is not flagged there, but IS on AU coordinates', () => {
-        const aaMeta = { species: 'perennialRyegrass', methodology: 'AMMONIUM_ACETATE' };
+    test('GH-521: the coordinates no longer decide the methodology, and the helper that used to read them is gone', () => {
+        // WHAT THIS TEST USED TO REQUIRE: that `resolveSiteMethodology('mlsn',
+        // nzLat, nzLon)` answered 'ammonium_acetate', and that an empty setting
+        // on NZ coordinates did the same — the fold plan.blade.php's bridge and
+        // ammonium-acetate-methodology.js applied before generating. So an
+        // AA-stamped programme was not flagged as stale on an NZ site whose
+        // config said MLSN, but WAS on AU coordinates.
+        //
+        // Both halves of that fold were substitutions. The empty case invented a
+        // methodology for a site that had chosen none; the 'mlsn' case overrode
+        // one that had been chosen. The region now narrows what Settings and the
+        // wizard OFFER, and a saved value is read as it stands — so a cached
+        // programme is compared against what the site actually says, wherever it
+        // sits.
         const nz = REAL_SITES[2].location; // Test5 - NZ, Auckland
         const au = REAL_SITES[0].location; // Burns, Canberra
-        expect(NC.isNZCoordinates(nz.lat, nz.lon)).toBe(true);
-        expect(NC.isNZCoordinates(au.lat, au.lon)).toBe(false);
-        expect(NC.isNZCoordinates(null, null)).toBe(false);
-        expect(NC.resolveSiteMethodology('mlsn', nz.lat, nz.lon)).toBe('ammonium_acetate');
-        expect(NC.resolveSiteMethodology('', nz.lat, nz.lon)).toBe('ammonium_acetate');
-        expect(NC.resolveSiteMethodology('slan', nz.lat, nz.lon)).toBe('slan'); // an explicit non-MLSN choice is respected on NZ too
-        expect(NC.resolveSiteMethodology('mlsn', au.lat, au.lon)).toBe('mlsn');
-        expect(NC.resolveSiteMethodology('', au.lat, au.lon)).toBe('');
 
+        expect(NC.resolveSiteMethodology('mlsn')).toBe('mlsn');
+        expect(NC.resolveSiteMethodology('slan')).toBe('slan');
+        expect(NC.resolveSiteMethodology('')).toBe('');
+        // The signature lost its coordinates: extra arguments change nothing,
+        // which is the readable form of "they are not consulted".
+        expect(NC.resolveSiteMethodology('mlsn', nz.lat, nz.lon)).toBe('mlsn');
+        expect(NC.resolveSiteMethodology('', nz.lat, nz.lon)).toBe('');
+        expect(NC.resolveSiteMethodology.length).toBe(1);
+
+        // isNZCoordinates existed only to feed that fold and had no other
+        // caller. It is removed rather than left dormant: a bounding box sitting
+        // on the calendar object is one line away from putting the fold back.
+        // The box itself still lives in ammonium-acetate-methodology.js, where
+        // it decides what the FORM offers.
+        expect(NC.isNZCoordinates).toBeUndefined();
+
+        // The staleness comparison is now region-blind: an AA-stamped programme
+        // on a site whose config says MLSN is stale on BOTH sets of coordinates,
+        // where it used to be stale only on the Australian ones.
+        const aaMeta = { species: 'perennialRyegrass', methodology: 'AMMONIUM_ACETATE' };
         const nzTurf = { species: 'Perennial Ryegrass', methodology: 'mlsn' };
-        expect(NC.programInputsDrift(aaMeta, NC.collectProgramInputCandidates({ turfs: nzTurf, lat: nz.lat, lon: nz.lon }))).toEqual([]);
+        const drift = [{ field: 'methodology', was: 'ammonium_acetate', now: 'mlsn' }];
+        expect(NC.programInputsDrift(aaMeta, NC.collectProgramInputCandidates({ turfs: nzTurf, lat: nz.lat, lon: nz.lon })))
+            .toEqual(drift);
         expect(NC.programInputsDrift(aaMeta, NC.collectProgramInputCandidates({ turfs: nzTurf, lat: au.lat, lon: au.lon })))
-            .toEqual([{ field: 'methodology', was: 'ammonium_acetate', now: 'mlsn' }]);
+            .toEqual(drift);
+        // and an AA site with an AA-stamped programme is still not flagged
+        expect(NC.programInputsDrift(aaMeta, NC.collectProgramInputCandidates({
+            turfs: { species: 'Perennial Ryegrass', methodology: 'ammonium_acetate' } }))).toEqual([]);
     });
 
     test('the deliberately un-compared meta fields (surfaceType, hemisphere, distribution, clippingManagement, speciesDisplay) never cause drift on their own', () => {
@@ -391,16 +420,43 @@ describe('GH-377 — nutrition-calendar.js: collectFromState() reports _methodol
         return NC.collectFromState();
     }
 
-    test('nothing anywhere: methodology falls to the chain\'s default "mlsn" and is flagged as defaulted', () => {
+    test('GH-521: nothing anywhere resolves to null, not to "mlsn", and is still flagged as defaulted', () => {
+        // This assertion used to require `out.methodology === 'mlsn'` and called
+        // it "the chain's default". A default is what made the flag necessary in
+        // the first place: the value looked like a choice and was not one, so
+        // everything downstream had to consult a second field to find out. There
+        // is no default now. The flag stays, because callers still need to know
+        // the difference between "MLSN" and "nothing", and it is now simply
+        // whether the value is there.
         const out = collect({}, () => { global.window.GAIP_STATE = {}; });
-        expect(out.methodology).toBe('mlsn');
+        expect(out.methodology).toBeNull();
         expect(out._methodologyDefaulted).toBe(true);
     });
 
-    test('the hub store\'s placeholder inputs.soil.methodology = "mlsn" alone is still "defaulted" (indistinguishable from not-loaded-yet)', () => {
+    test('GH-521: inputs.soil.methodology = "mlsn" is an ANSWER now, because the store no longer seeds it', () => {
+        // The reversal this file exists to record. The hub store used to
+        // initialise inputs.soil.methodology to 'mlsn' before anything real was
+        // loaded (gilba-hub-v2.js), so a bare 'mlsn' here was indistinguishable
+        // from "not loaded yet" and had to be treated as unresolved — which is
+        // why `_methodologyResolved` was written. The store now starts null, so
+        // a site that really is MLSN is resolved instead of being second-guessed.
         const out = collect({}, () => { global.window.GAIP_STATE = { inputs: { soil: { methodology: 'mlsn' } } }; });
         expect(out.methodology).toBe('mlsn');
-        expect(out._methodologyDefaulted).toBe(true);
+        expect(out._methodologyDefaulted).toBe(false);
+    });
+
+    test('GH-521: a real MLSN setting is no longer overridden by whatever the page select is showing', () => {
+        // The defect this change closes, stated as its own case. The DOM and
+        // hub-config fallbacks used to sit inside the `methodology === 'mlsn'`
+        // branch as its else-arm, which was correct while 'mlsn' meant "not
+        // loaded". With the seed gone they would have replaced a site's real
+        // MLSN setting with the page's select — GH-459's shape, on this field.
+        const out = collect({ '.gaip-soil-methodology': 'ammonium_acetate' }, () => {
+            global.window.GAIP_STATE = { inputs: { soil: { methodology: 'mlsn' } } };
+            global.window.GAIP_HUB_CONFIG = { turfMethodology: 'SLAN' };
+        });
+        expect(out.methodology).toBe('mlsn');
+        expect(out._methodologyDefaulted).toBe(false);
     });
 
     test('a real non-MLSN soil methodology is resolved and not defaulted', () => {
@@ -424,23 +480,66 @@ describe('GH-377 — nutrition-calendar.js: collectFromState() reports _methodol
         expect(out._methodologyDefaulted).toBe(false);
     });
 
-    test('parity: the DOM select still overrides the placeholder exactly as before (AA auto-selected for an NZ hub site)', () => {
+    test('the DOM select still answers when the store has nothing — it is a fallback, not an override', () => {
+        // Parity for the case the fallback was actually for: the store carries
+        // no methodology and the page's select does. What changed is only that
+        // it no longer fires when the store DOES carry one.
         const out = collect({ '.gaip-soil-methodology': 'ammonium_acetate' }, () => {
-            global.window.GAIP_STATE = { inputs: { soil: { methodology: 'mlsn' } } };
+            global.window.GAIP_STATE = {};
         });
         expect(out.methodology).toBe('ammonium_acetate');
         expect(out._methodologyDefaulted).toBe(false);
     });
 
-    test('parity: bowls/cotula still forces ammonium_acetate, and counts as resolved', () => {
-        const out = collect({}, () => { global.window.GAIP_STATE = { turf: { turfType: 'bowls' } }; });
+    test('GH-521: a bowls site saved as MLSN is computed as MLSN', () => {
+        // WHAT THIS ASSERTION USED TO BE, twice over. Originally: with nothing
+        // set anywhere, a bowls surface produced 'ammonium_acetate' — which
+        // passed because an unset site arrived carrying the store's 'mlsn' seed,
+        // so "unset" and "MLSN" entered the fold together. Then, mid-delivery:
+        // the fold was narrowed to fire on a saved 'mlsn' only, and this test
+        // was rewritten to require that narrower fold.
+        //
+        // Both were the surface deciding what a setting means. The owner settled
+        // it on 18.09.2026: the methodology is read from the site's saved
+        // setting as it stands; coordinates decide only which options Settings
+        // offers, and the surface decides nothing. So the fold is gone, not
+        // narrowed, and a bowls site set to MLSN computes on MLSN.
+        const out = collect({}, () => {
+            global.window.GAIP_STATE = { inputs: { soil: { methodology: 'mlsn' } }, turf: { turfType: 'bowls' } };
+        });
+        expect(out.methodology).toBe('mlsn');
+        expect(out._methodologyDefaulted).toBe(false);
+    });
+
+    test('GH-521: the VALUE cotula_s78 is still normalised — that is the setting, not the surface', () => {
+        // The distinction the removal turns on. 'cotula_s78' is a methodology
+        // saved in a Hill Labs sample-type spelling; folding it to the key the
+        // engine branches on is the setting answering for itself.
+        const out = collect({}, () => {
+            global.window.GAIP_STATE = { inputs: { soil: { methodology: 'cotula_s78' } }, turf: { turfType: 'golf' } };
+        });
         expect(out.methodology).toBe('ammonium_acetate');
         expect(out._methodologyDefaulted).toBe(false);
     });
 
-    test('parity: GAIP_HUB_CONFIG.turfMethodology non-MLSN still wins over the placeholder', () => {
+    test('GH-521: bowls/cotula does NOT hand a methodology to a site that has none', () => {
+        // WHAT THIS ASSERTION USED TO BE: the test above, run with no methodology
+        // anywhere, expecting 'ammonium_acetate'. It passed because an unset site
+        // reached this point already carrying the store's 'mlsn' seed, so "unset"
+        // and "MLSN" entered the fold together. The seed is gone, and the first
+        // draft of this delivery widened the fold's condition to keep the old
+        // answer — which preserved the seed's behaviour under a new name. A site
+        // that has chosen no methodology does not get one from its surface;
+        // whether a bowls surface should imply AA on its own is a product
+        // question, asked separately.
+        const out = collect({}, () => { global.window.GAIP_STATE = { turf: { turfType: 'bowls' } }; });
+        expect(out.methodology).toBeNull();
+        expect(out._methodologyDefaulted).toBe(true);
+    });
+
+    test('GAIP_HUB_CONFIG.turfMethodology still answers when nothing else does', () => {
         const out = collect({}, () => {
-            global.window.GAIP_STATE = { inputs: { soil: { methodology: 'mlsn' } } };
+            global.window.GAIP_STATE = {};
             global.window.GAIP_HUB_CONFIG = { turfMethodology: 'SLAN' };
         });
         expect(out.methodology).toBe('slan');
@@ -612,21 +711,55 @@ describe('GH-377 — site-config-persistence.js: restoreConfig() refuses to rest
         expect(global.window.GAIP_NUTRITION_PROGRAM).toBeUndefined();
     });
 
-    test('NZ site whose config says "mlsn" but whose programme was (correctly) computed under AA: restored, no false positive', () => {
+    test('GH-521: an NZ site whose config says "mlsn" with an AA-computed programme is stale, like anywhere else', () => {
+        // WHAT THIS TEST USED TO REQUIRE: that this case was restored, as a "no
+        // false positive". It was a false NEGATIVE that happened to be correct
+        // at the time: the programme really had been computed under AA, because
+        // the page-side fold turned the site's MLSN into AA before generating.
+        // Comparing the stamp against the folded value was the only way to keep
+        // the two in step.
+        //
+        // With the fold gone, the site computes on what it says. A programme
+        // stamped AA against a config that says MLSN is a programme computed
+        // under a methodology the site no longer uses, and the Plan page should
+        // say "please regenerate" rather than show it.
         const SiteConfig = setup();
         const test5 = REAL_SITES[2];
         SiteConfig.restore(siteConfigFor(test5, { turf: Object.assign({}, test5.turf, { methodology: 'mlsn' }) }), 'site-1');
+        expect(global.window.GAIP_NUTRITION_CALENDAR_PROGRAM).toBeUndefined();
+        expect(global.window.GAIP_NUTRITION_PROGRAM).toBeUndefined();
+    });
+
+    test('GH-521: an NZ site whose config and stamp agree is restored, wherever it sits', () => {
+        // The other side of the same coin, so the test above cannot be passed by
+        // a check that simply refuses everything on NZ coordinates.
+        const SiteConfig = setup();
+        const test5 = REAL_SITES[2];
+        SiteConfig.restore(siteConfigFor(test5, {
+            turf: Object.assign({}, test5.turf, { methodology: 'ammonium_acetate' }) }), 'site-1');
         expect(global.window.GAIP_NUTRITION_CALENDAR_PROGRAM).toBeTruthy();
     });
 
-    test('config.location has no coordinates but GAIP_HUB_CONFIG.savedLocation does (b35fix506 lag case): the NZ rule still resolves from the DB coordinates', () => {
-        const SiteConfig = setup();
-        const test5 = REAL_SITES[2];
-        global.window.GAIP_HUB_CONFIG = { activeSiteId: 'site-1', savedLocation: { lat: test5.location.lat, lon: test5.location.lon } };
-        const cfg = siteConfigFor(test5, { turf: Object.assign({}, test5.turf, { methodology: 'mlsn' }), location: { name: 'Auckland' } });
-        delete cfg.nutritionProgramCoords; // keep the GH-371 check out of the way
-        SiteConfig.restore(cfg, 'site-1');
-        expect(global.window.GAIP_NUTRITION_CALENDAR_PROGRAM).toBeTruthy();
+    test('GH-521: the coordinates are no longer handed to the staleness check at all', () => {
+        // The test this replaces was about a lag case (b35fix506): config.location
+        // had no coordinates yet while GAIP_HUB_CONFIG.savedLocation did, and the
+        // NZ rule had to find them anyway or a fresh NZ site would be told its
+        // programme was stale. There is no NZ rule in this check any more, so the
+        // lookup that fed it is gone with it — and this asserts that rather than
+        // leaving the removal to be undone by someone restoring "the lag fix".
+        //
+        // savedLocation itself stays: the separate coordinate-drift check above
+        // this one (the programme's own climate coordinates) still reads it.
+        const persistence = fs.readFileSync(
+            path.join(__dirname, '../assets/site-config-persistence.js'), 'utf8');
+        const at = persistence.indexOf('_NC377.collectProgramInputCandidates({');
+        expect(at).toBeGreaterThan(-1);
+        const call = persistence.slice(at, persistence.indexOf('})', at) + 2);
+        expect(call).toMatch(/collectProgramInputCandidates\(\{ turfs: turf \}\)/);
+        expect(call).not.toMatch(/lat:|lon:/);
+        expect(persistence).not.toMatch(/_gh377DbLoc/);
+        // and the programme's own coordinate check, a different subject, is untouched
+        expect(persistence).toMatch(/savedLocation/);
     });
 
     test('legacy meta with no species/methodology: restored as before', () => {

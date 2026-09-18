@@ -1249,9 +1249,14 @@
             try {
                 // Use getAllSamples() by GAIP_HUB_CONFIG.activeSiteId to avoid active-site mismatch
                 // when site-config-persistence has switched the active site to 'default'.
+                // GH-521: hoisted out of the IIFE so the methodology read below resolves
+                // the SAME site the sample was picked for. Reading it from a different
+                // id source would print one site's setting against another site's sample
+                // — the class of defect this delivery removes.
+                var _smHubSiteId = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId) || null;
                 var _smSamples = (function() {
                     try {
-                        var _hSite = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
+                        var _hSite = _smHubSiteId;
                         if (_hSite && typeof global.GAIP_SampleManager.getAllSamples === 'function') {
                             var _aS = global.GAIP_SampleManager.getAllSamples();
                             return (_aS.allSites && _aS.allSites[_hSite] && _aS.allSites[_hSite].soil) || null;
@@ -1281,36 +1286,59 @@
                             var v = parseFloat(_smRaw[k]);
                             if (!isNaN(v)) _smPpm[clean] = v;
                         });
-                        // GH-260/262 (methodology/soilTexture first read here at all) -> GH-263
-                        // (added a DOM fallback, but .gaip-soil-texture was a dead static "loam"
-                        // default at the time, so soilTextureSnapshot had to win) -> GH-265
-                        // (methodology flipped to DOM-first: .gaip-soil-methodology is live,
-                        // region-auto-selected on every load, while methodologySnapshot is frozen
-                        // at sample-creation time and goes stale the moment a site's methodology
-                        // changes afterwards) -> GH-270/272 (the reason .gaip-soil-texture was
-                        // dead is now fixed too -- hub.blade.php/stadium.blade.php initialise it
-                        // from the site's live soil_texture_override on every page load, and
-                        // GH-272 removed sample-manager.js's own per-sample restore that used to
-                        // overwrite that live value). This entry (GH-273) is the one that was
-                        // missed when GH-270/272 landed: soilTexture's priority here was never
-                        // flipped to match methodology's, so this fallback kept trusting the
-                        // (potentially stale, same class of bug GH-265 fixed for methodology)
-                        // soilTextureSnapshot over the now-live-correct DOM value. Confirmed live
-                        // on Russley: Re-run showed the generic "others" AA range (100.0-235.0ppm,
+                        // soilTexture's history: GH-262 read it here at all; GH-263 made the
+                        // sample's soilTextureSnapshot win, because `.gaip-soil-texture` was a
+                        // dead static "loam" default at the time; GH-270/272 made that field
+                        // genuinely live (hub.blade.php/stadium.blade.php initialise it from the
+                        // site's soil_texture_override on every load, and the per-sample restore
+                        // in sample-manager.js that used to overwrite it was removed); GH-273
+                        // then flipped this priority to DOM-first to match. Confirmed live on
+                        // Russley: Re-run showed the generic "others" AA range (100.0-235.0ppm,
                         // from Green 18's stale "loam" snapshot) while switching samples --
-                        // SampleAnalysisController.php's separate, already-DOM-less GH-269 fix --
-                        // correctly showed the S279 certificate range (78.2-195.5ppm) for the
-                        // exact same site. Both fields now share the same DOM-first, snapshot-
-                        // fallback, hardcoded-default-last priority shape.
-                        // No default baked into _smMethodDom/_smTexDom themselves -- the final
-                        // default belongs at the end of each full priority chain, otherwise a
-                        // present-but-empty DOM read would win over a real snapshot.
-                        var _smMethodDom = (document.querySelector('.gaip-soil-methodology') || {}).value;
+                        // SampleAnalysisController.php's separate GH-269 fix -- correctly showed
+                        // the S279 certificate range (78.2-195.5ppm) for the same site. No default
+                        // is baked into _smTexDom itself: the final default belongs at the end of
+                        // the chain, or a present-but-empty read would win over a real snapshot.
+                        //
+                        // methodology took a different route and no longer reads any field on the
+                        // page. GH-265 had it read `.gaip-soil-methodology` first, on the grounds
+                        // that the field was live and the sample's stamp was frozen. The intention
+                        // was right; the carrier was not. A page field holds whatever site the page
+                        // last painted, so a card drawn for one site while the fields still describe
+                        // another prints the second site's setting under the first site's name --
+                        // GH-459, and the CLAUDE.md rule that came out of it. GH-521 moves the read
+                        // to the site's own record, by the site's id; see below.
                         var _smTexDom    = (document.querySelector('.gaip-soil-texture') || {}).value;
+                        // GH-521: one owner, read by id. GAIP_SiteConfig.getConfig is the
+                        // per-site store, keyed by the same `_smHubSiteId` the sample above
+                        // was picked by — the page-level globals beside it answer for
+                        // whichever site the page is standing on, which is not necessarily
+                        // this one.
+                        var _smConfigMethodology = (function () {
+                            try {
+                                var _sid = _smHubSiteId;
+                                if (!_sid || !global.GAIP_SiteConfig
+                                    || typeof global.GAIP_SiteConfig.getConfig !== 'function') return null;
+                                var _cfg = global.GAIP_SiteConfig.getConfig(_sid);
+                                var _m = _cfg && _cfg.turf ? _cfg.turf.methodology : null;
+                                return (_m === undefined || _m === '') ? null : _m;
+                            } catch (e) { return null; }
+                        })();
                         var _smState = {
                             soil: {
                                 ppm:         _smPpm,
-                                methodology: _smMethodDom || _smSample.methodologySnapshot || _smRaw.methodology || 'mlsn',
+                                // GH-521: the methodology comes from the site's own
+                                // configuration, by id — not from a field on the page and
+                                // not from the sample's stamp.
+                                //
+                                // Measured before this changed (GH-512): the DOM read won
+                                // on every Re-run, and it carried 'ammonium_acetate' while
+                                // the sample it was computing — sample_105 — was stamped
+                                // 'mlsn' and its site was set to 'mlsn'. The page field
+                                // belongs to whatever the page last painted; the stamp is a
+                                // record of a past setting, not the setting; and the final
+                                // 'mlsn' was a methodology for a site that has none.
+                                methodology: _smConfigMethodology,
                                 soilTexture: _smTexDom || _smSample.soilTextureSnapshot || 'loam',
                                 CEC:         parseFloat(_smRaw.CEC || _smRaw.cec) || null,
                                 depthCm:     _smRaw.depth_mm ? _smRaw.depth_mm / 10 : 10,

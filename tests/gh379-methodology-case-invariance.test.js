@@ -222,7 +222,15 @@ describe('GH-379 word-export-combined.js normalises the methodology at the per-s
         expect(assigned).toBeGreaterThan(-1);
         expect(src).not.toMatch(/perSampleInputs\.methodology = r\.data\.soil\.methodology;/);
         const adapterSrc = fs.readFileSync(path.join(__dirname, '../assets/nutrition-program-inputs.js'), 'utf8');
-        expect(adapterSrc).toMatch(/const methodology = normalizeMethodology\(rawMethodology\) \|\| 'mlsn';/);
+        // GH-521: the fold stays — it is what this file is about — and the
+        // `|| 'mlsn'` tail behind it is gone. This assertion used to require
+        // that tail. Folding a spelling and inventing a value are two different
+        // things that happened to sit on one line: the first makes 'MLSN' and
+        // 'mlsn' route the same branch, the second gave a site with no
+        // methodology one anyway. GH-520/521 removed the second; a site that
+        // has not chosen resolves to null and the surfaces say so.
+        expect(adapterSrc).toMatch(/const methodology = normalizeMethodology\(rawMethodology\) \|\| null;/);
+        expect(adapterSrc).not.toMatch(/normalizeMethodology\(rawMethodology\) \|\| 'mlsn'/);
     });
 
     test('the Prebble P-deficiency threshold reads perSampleInputs.methodology AFTER that hand-off, so it sees the folded key', () => {

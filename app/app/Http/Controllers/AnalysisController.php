@@ -41,11 +41,10 @@ class AnalysisController extends Controller
                 ?? null;
             $siteLat = $activeSite->latitude  !== null ? (float) $activeSite->latitude  : (isset($gaipConfig['location']['lat']) ? (float) $gaipConfig['location']['lat'] : null);
             $siteLon = $activeSite->longitude !== null ? (float) $activeSite->longitude : (isset($gaipConfig['location']['lon']) ? (float) $gaipConfig['location']['lon'] : null);
-            $turfMethodology = strtoupper(self::effectiveMethodology(
-                $gaipConfig['turf']['methodology'] ?? null,
-                $siteLat,
-                $siteLon
-            ));
+            // GH-520: null means the site has no methodology set; upper-casing
+            // null is deprecated in PHP 8, and '' would read as "set to nothing".
+            $turfMethodology = self::effectiveMethodology($gaipConfig['turf']['methodology'] ?? null);
+            $turfMethodology = $turfMethodology === null ? null : strtoupper($turfMethodology);
             $percentC3Cover  = isset($gaipConfig['turf']['c3Cover'])
                 ? (float) $gaipConfig['turf']['c3Cover']
                 : null;
@@ -62,11 +61,10 @@ class AnalysisController extends Controller
             'analyzedAt' => $analysisCacheRecord->synced_at?->toISOString(),
         ] : null;
 
-        // Force ammonium_acetate into the cached soilNutrition for NZ sites,
-        // overriding whatever the JS analysis last persisted.
-        if ($activeSite && $analysisCache !== null && self::isNewZealand($siteLat ?? null, $siteLon ?? null)) {
-            $analysisCache['computed']['soilNutrition']['methodology'] = 'ammonium_acetate';
-        }
+        // GH-520: the NZ override that used to be written into the cached
+        // soilNutrition here is gone. It overwrote whatever had been saved,
+        // SLAN included, and the cache is no longer a methodology source at
+        // all — the site's configuration is.
 
         return view('analysis', [
             'activeSite'       => $activeSite,
@@ -112,11 +110,10 @@ class AnalysisController extends Controller
                 ?? null;
             $siteLat = $activeSite->latitude  !== null ? (float) $activeSite->latitude  : (isset($gaipConfig['location']['lat']) ? (float) $gaipConfig['location']['lat'] : null);
             $siteLon = $activeSite->longitude !== null ? (float) $activeSite->longitude : (isset($gaipConfig['location']['lon']) ? (float) $gaipConfig['location']['lon'] : null);
-            $turfMethodology = strtoupper(self::effectiveMethodology(
-                $gaipConfig['turf']['methodology'] ?? null,
-                $siteLat,
-                $siteLon
-            ));
+            // GH-520: null means the site has no methodology set; upper-casing
+            // null is deprecated in PHP 8, and '' would read as "set to nothing".
+            $turfMethodology = self::effectiveMethodology($gaipConfig['turf']['methodology'] ?? null);
+            $turfMethodology = $turfMethodology === null ? null : strtoupper($turfMethodology);
             $percentC3Cover  = isset($gaipConfig['turf']['c3Cover'])
                 ? (float) $gaipConfig['turf']['c3Cover']
                 : null;
@@ -163,11 +160,10 @@ class AnalysisController extends Controller
             $turfSpecies     = $gaipConfig['turf']['species'] ?? null;
             $siteLat = $activeSite->latitude  !== null ? (float) $activeSite->latitude  : (isset($gaipConfig['location']['lat']) ? (float) $gaipConfig['location']['lat'] : null);
             $siteLon = $activeSite->longitude !== null ? (float) $activeSite->longitude : (isset($gaipConfig['location']['lon']) ? (float) $gaipConfig['location']['lon'] : null);
-            $turfMethodology = strtoupper(self::effectiveMethodology(
-                $gaipConfig['turf']['methodology'] ?? null,
-                $siteLat,
-                $siteLon
-            ));
+            // GH-520: null means the site has no methodology set; upper-casing
+            // null is deprecated in PHP 8, and '' would read as "set to nothing".
+            $turfMethodology = self::effectiveMethodology($gaipConfig['turf']['methodology'] ?? null);
+            $turfMethodology = $turfMethodology === null ? null : strtoupper($turfMethodology);
             $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
         }
 

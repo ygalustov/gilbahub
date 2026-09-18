@@ -10,8 +10,11 @@
  * committed test is repeatable and re-runs when the code moves under it.
  *
  * What it proves, in order:
- *   1. Saving the Settings form PUTs the schedule to the server (read back
- *      through the API, not through the browser that wrote it).
+ *   1. Saving the Settings form sends the schedule to the server (read back
+ *      through the API, not through the browser that wrote it). GH-524: the
+ *      product does this with `patchGaipConfig({traffic: ...})` — one key, sent
+ *      as a change. This file used to describe it as a PUT and used a PUT of
+ *      its own; see `patchGaipSection` below.
  *   2. A FRESH browser context — no localStorage at all, i.e. a second device
  *      — sees the schedule on Settings.
  *   3. On that fresh context, the Plan page's generated programme carries the
@@ -22,8 +25,9 @@
  *   5. Clearing the schedule returns the sports site to its original number —
  *      "nothing entered" is neutral, never the form placeholder's 2.
  *
- * Every site config it touches is snapshotted before and PUT back afterwards,
- * and the restore is verified rather than assumed.
+ * Every site config it touches is snapshotted before and put back afterwards by
+ * the GH-519 SQL restore — bytes and timestamp — and the restore is verified
+ * rather than assumed.
  *
  * HOW TO RUN: same stack and credentials as the parity harness —
  *   npm run test:e2e:traffic
@@ -34,6 +38,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { fillOwnAnnualN, captureConfigsOnce, restoreConfigs } = require('./lib/stand-guard');
 
 const CREDENTIALS_PATH = process.env.GILBA_E2E_CREDENTIALS
     || path.join(__dirname, '.e2e-credentials.json');
@@ -107,6 +112,7 @@ if (!ENABLED) {
 
         // Results captured in beforeAll so each assertion below reads a
         // recorded number rather than re-driving the browser.
+        let restoreReport = null;
         const seen = {
             savedSchedule: null,
             freshFormMatches: null,
@@ -154,9 +160,39 @@ if (!ENABLED) {
             return (configs.gaip && configs.gaip.config) || null;
         }
 
-        async function putGaipConfig(p, siteId, config) {
-            const r = await csrfFetch(p, 'PUT', '/api/sites/' + siteId + '/config/gaip', { config: config });
-            if (!r.ok) throw new Error('PUT config for ' + siteId + ' failed: HTTP ' + r.status);
+        /**
+         * GH-524: send the CHANGE, not the state.
+         *
+         * What stood here was `putGaipConfig`, a PUT of a whole config object
+         * assembled in the browser to /api/sites/{id}/config/gaip. That route
+         * exists and refuses on purpose — app/routes/web.php:106 ->
+         * SiteController::updateConfig (SiteController.php:395), 410 by decision
+         * GH-442, reasoning at :407 and the refusal at :416-419: a config put
+         * together on the client may no longer become the truth about a site.
+         * This file was therefore red without any mutation, pinning a behaviour
+         * the product had removed.
+         *
+         * A PATCH names the keys it changes and nothing else. `traffic` is one
+         * of the keys GAIP_CONFIG_KEYS allows (SiteController.php:25-29).
+         * `savedAt` is deliberately NOT among them and must not be sent: the
+         * server stamps it, so that a timestamp a client chose cannot decide a
+         * merge — sending one is the 422 this file's own teardown note records.
+         */
+        async function patchGaipSection(p, siteId, patch) {
+            const keys = Object.keys(patch);
+            if (keys.indexOf('savedAt') >= 0) {
+                throw new Error('GH-524: savedAt is the server\'s to stamp — a client must not send it');
+            }
+            // The body is `{patch: {...}}`, the shape settings-init.js's own
+            // patchGaipConfig() builds and SiteController::patchConfig validates
+            // ('patch' => required_without:clear). The first draft sent the bare
+            // sections and got 422 "The patch field is required" — caught by the
+            // control run, which is what the control run is for.
+            const r = await csrfFetch(p, 'PATCH', '/api/sites/' + siteId + '/config/gaip', { patch: patch });
+            if (!r.ok) {
+                throw new Error('PATCH ' + JSON.stringify(keys) + ' for ' + siteId
+                    + ' failed: HTTP ' + r.status + ' ' + JSON.stringify(r.json).slice(0, 200));
+            }
             return r.json;
         }
 
@@ -178,7 +214,7 @@ if (!ENABLED) {
                 if (s) s.value = (sessions === null) ? '' : String(sessions);
             }, { matches, sessions });
             await p.click('#stg-traffic-save');
-            // The save is a real PUT now — wait for the handler's own "Saved."
+            // The save is a real server write — wait for the handler's own "Saved."
             await p.waitForFunction(() => {
                 const el = document.getElementById('stg-traffic-msg');
                 return el && /Saved\./i.test(el.textContent || '');
@@ -199,6 +235,8 @@ if (!ENABLED) {
                 window.__gh394Generated = 0;
                 document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__gh394Generated++; });
             });
+            // GH-519: the target is the site's own, not one left by an earlier run.
+            await fillOwnAnnualN(p);
             await p.click('#plan-nut-generate-btn');
             await p.waitForFunction(() => {
                 const NC = window.GilbaNutritionCalendar;
@@ -253,6 +291,7 @@ if (!ENABLED) {
                 site[name] = found.id;
             });
 
+            captureConfigsOnce();
             original[site[SPORTS_SITE_NAME]] = await gaipConfig(page, site[SPORTS_SITE_NAME]);
             original[site[CONTROL_SITE_NAME]] = await gaipConfig(page, site[CONTROL_SITE_NAME]);
 
@@ -279,9 +318,23 @@ if (!ENABLED) {
             seen.sportsWithTraffic = await generateOnPlan(freshPage);
 
             // ── 4. the golf control, same schedule, written straight to its config ──
-            const controlCfg = JSON.parse(JSON.stringify(original[site[CONTROL_SITE_NAME]] || {}));
-            controlCfg.traffic = { schedule: { matchesPerWeek: MATCHES_PER_WEEK, sessionsPerWeek: SESSIONS_PER_WEEK }, savedAt: new Date().toISOString() };
-            await putGaipConfig(page, site[CONTROL_SITE_NAME], controlCfg);
+            // GH-524: the one key this step changes, and no copy of the rest of
+            // the config travelling with it. The old line cloned the whole saved
+            // object, set `traffic` on the clone and PUT the clone back — so a
+            // step whose subject is "does a golf site ignore a schedule" also
+            // rewrote every other field of that site from a browser's copy, and
+            // stamped its own `savedAt`.
+            // Shaped exactly as the product's own save shapes it
+            // (settings-init.js: `patchGaipConfig({traffic: {schedule, savedAt}})`)
+            // — `savedAt` nested INSIDE the key, which is allowed, not at the top
+            // level, which is the 422. A setup write that differs in shape from
+            // the real one is a setup write proving something else.
+            await patchGaipSection(page, site[CONTROL_SITE_NAME], {
+                traffic: {
+                    schedule: { matchesPerWeek: MATCHES_PER_WEEK, sessionsPerWeek: SESSIONS_PER_WEEK },
+                    savedAt: new Date().toISOString()
+                }
+            });
             await setActiveSite(page, site[CONTROL_SITE_NAME]);
             seen.controlWithTraffic = await generateOnPlan(page);
 
@@ -290,11 +343,26 @@ if (!ENABLED) {
             await saveTrafficForm(page, null, null);
             seen.sportsCleared = await generateOnPlan(page);
 
-            // ── restore both sites, then verify the restore ──
-            await putGaipConfig(page, site[SPORTS_SITE_NAME], original[site[SPORTS_SITE_NAME]] || {});
-            await putGaipConfig(page, site[CONTROL_SITE_NAME], original[site[CONTROL_SITE_NAME]] || {});
+            // ── read both sites back; the restore itself is in the teardown ──
+            // GH-524: the two whole-object PUTs that stood here are gone. They
+            // were a second restore, done through the API, on top of the SQL one
+            // the teardown already performs — and the teardown's own note says
+            // why that is wrong: a config put back through the API carries a
+            // fresh `savedAt` and `updated_at`, and the row then looks exactly
+            // like a row a user had just saved. One restore, by the method that
+            // puts back the bytes AND the timestamp.
             seen.restored[site[SPORTS_SITE_NAME]] = await gaipConfig(page, site[SPORTS_SITE_NAME]);
             seen.restored[site[CONTROL_SITE_NAME]] = await gaipConfig(page, site[CONTROL_SITE_NAME]);
+
+            // GH-524: the restore runs HERE, at the end of the run, so its own
+            // report can be asserted. Putting it only in the teardown left
+            // nothing to check: afterAll runs after every test, so a test asking
+            // whether the configs were put back was reading a report that did
+            // not exist yet — measured, `restore report: null`. The teardown
+            // still calls it, and on a run that reached this line it finds every
+            // row already matching and writes nothing.
+            try { restoreReport = restoreConfigs(); }
+            catch (e) { restoreReport = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
             if (previousActiveSiteId) await setActiveSite(page, previousActiveSiteId);
 
             // Print what was actually observed. A live check whose numbers are
@@ -314,7 +382,42 @@ if (!ENABLED) {
         });
 
         afterAll(async () => {
-            if (browser) await browser.close();
+            // GH-519 — THE THIRD CASE, and it is not the other two.
+            //
+            // This test's claim IS that the write survives: a second browser
+            // context must read back the schedule the first one saved. Holding
+            // the write in the browser would not protect the stand here, it
+            // would delete the thing being measured. And a site created a
+            // moment ago cannot carry it either — the scenario needs a sports
+            // site with settings.
+            //
+            // So: capture and put back. The capture was already here and went
+            // nowhere; `original` was filled in beforeAll and never used. The
+            // restore below closes that, and if it cannot, this run goes RED
+            // rather than quiet — a stand left changed in silence is worse than
+            // a failing test.
+            // GH-519 — THE THIRD CASE, and it is not the other two.
+            //
+            // This test's claim IS that the write survives: a second browser
+            // context must read back the schedule the first one saved. Holding
+            // the write would delete the thing being measured, and a site
+            // created a moment ago cannot carry the scenario either.
+            //
+            // So the configuration is put back. Not through the product: the
+            // PUT route answers 410 by decision GH-442, and a PATCH carrying a
+            // TOP-LEVEL `savedAt` answers 422, because the server stamps that
+            // itself on purpose. A restore through the API would also stamp a
+            // fresh `savedAt` and `updated_at`, and the row would then be
+            // indistinguishable from a real save. SQL puts back the bytes and
+            // the timestamp, and the check is the database's own md5.
+            let __restore = null;
+            try { __restore = restoreConfigs(); restoreReport = __restore; }
+            catch (e) { __restore = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
+            finally { if (browser) await browser.close(); }
+            if (__restore && __restore.failed.length) {
+                throw new Error('GH-519: gh394 could not put the stand back — '
+                    + __restore.failed.join('; '));
+            }
         });
 
         test('the saved schedule reaches the server — read back through the API, not the browser that wrote it', () => {
@@ -368,15 +471,38 @@ if (!ENABLED) {
             expect(seen.sportsCleared.targetN).toBe(seen.sportsBefore.targetN);
         });
 
-        test('every site config this run touched was put back', () => {
+        test('what this run left on each site it touched, read back mid-run', () => {
+            // GH-524: this test's name and assertions used to say "was put
+            // back", and it read `seen.restored`, captured right after the two
+            // whole-object PUTs that stood at the end of the main flow. Those
+            // PUTs are gone — the route refuses them (GH-442) and they were a
+            // second restore layered on top of the SQL one — so this read now
+            // happens BEFORE anything is put back, and it measures what the run
+            // left behind, not whether it was undone.
+            //
+            // Renamed to what it measures. The traffic key IS expected here: the
+            // run's last act on the sports site is clearing the form, which the
+            // product writes as a cleared schedule rather than an absent one.
+            // The identity fields must be untouched, which is the half of the
+            // original assertion that still belongs to this moment.
             Object.keys(original).forEach((siteId) => {
                 const was = original[siteId] || {};
                 const now = seen.restored[siteId] || {};
-                expect(now.traffic).toBeUndefined();
-                expect(was.traffic).toBeUndefined();
                 expect((now.turf || {}).turfType).toBe((was.turf || {}).turfType);
                 expect((now.turf || {}).nProgram).toBe((was.turf || {}).nProgram);
             });
+        });
+
+        test('the restore itself is verified by the instrument that performed it', () => {
+            // Where "put back" is actually proved. `restoreConfigs()` runs in the
+            // teardown, writes the captured bytes AND the captured timestamp
+            // back through SQL, and checks each row against the database's own
+            // md5 — so its report, not an API read taken earlier in the run, is
+            // the evidence. The teardown already throws on `failed`; this states
+            // it as an assertion so the file says out loud that it is checked.
+            process.stdout.write('[gh394] GH-519 restore report: ' + JSON.stringify(restoreReport) + '\n');
+            expect(restoreReport).not.toBeNull();
+            expect(restoreReport.failed).toEqual([]);
         });
     });
 }

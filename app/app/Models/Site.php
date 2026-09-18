@@ -29,7 +29,10 @@ class Site extends Model
         'latitude',
         'longitude',
         'timezone',
-        'methodology_override',
+        // GH-520: `methodology_override` is gone from here. The column was
+        // NULL on 12 of 12 live sites and nothing wrote it; the site's
+        // methodology has one owner, config.turf.methodology. Dropping it
+        // from the schema is a separate migration, not this delivery.
         'soil_texture_override',
         'attributes_json',
         'provisional_name',

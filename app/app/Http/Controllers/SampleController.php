@@ -442,6 +442,20 @@ class SampleController extends Controller
      *           elsewhere. A clearSiteData import passes null instead — see
      *           sync(), where the distinction is made and explained.
      */
+    /**
+     * GH-520: the site's methodology, from its one owner — the gaip config.
+     *
+     * Returns null where nothing is set, so the stamp records "no setting at
+     * the time" rather than a default someone would later read as a choice.
+     */
+    private static function siteConfigMethodology(\App\Models\Site $site): ?string
+    {
+        $record = $site->configs()->where('namespace', 'gaip')->first();
+        $config = is_array($record?->config) ? $record->config : [];
+    
+        return self::effectiveMethodology($config['turf']['methodology'] ?? null);
+    }
+
     private function saveSampleRecord(Site $site, int $accountId, int $userId, string $sampleType, ?string $clientUid, array $payload, array $meta, ?array $restorableTrashedIds = null): ?Sample
     {
         if ($clientUid !== null && $clientUid !== '') {
@@ -476,7 +490,14 @@ class SampleController extends Controller
             'sample_date' => $meta['sample_date'] ?? null,
             'lab_date' => $meta['lab_date'] ?? null,
             'depth_mm' => $meta['depth_mm'] ?? null,
-            'methodology_snapshot' => $site->methodology_override ?: $site->account->methodology,
+            // GH-520: the stamp records the SETTING at the moment the sample was
+            // saved, and the setting lives in one place — the site's gaip
+            // config. The column is no longer consulted, and neither is the
+            // account default: an account default is a schema default, not a
+            // site's choice, and stamping it made 60 of 60 samples read 'mlsn'
+            // while 7 of 12 sites were set to something else. Nothing set ->
+            // no stamp.
+            'methodology_snapshot' => self::siteConfigMethodology($site),
             'soil_texture_snapshot' => $site->soil_texture_override ?: $site->account->soil_texture,
             'payload' => $payload,
             'notes' => $meta['notes'] ?? null,

@@ -1645,20 +1645,37 @@
                 meta: {
                     generated: new Date().toISOString(),
                     methodology: (function() {
-                        // context.methodology is the authoritative value from getMethodology()
-                        // which reads Settings first. calendar.soil.methodology may be stale
-                        // (DOM read by nutrition-calendar.js which defaults to 'mlsn').
-                        const raw = context.methodology || calendar.soil?.methodology || 'mlsn';
-                        // Map cotula_s78/cotula → ammonium_acetate
+                        // GH-521: one rule, the owner's, 18.09.2026 — the methodology is taken from the
+                        // site's SAVED SETTING as it stands. Coordinates
+                        // determine exactly one thing — which options the
+                        // Settings list offers, and a New Zealand site is
+                        // offered ammonium acetate alone. They determine nothing
+                        // else: not in the calculations, not on the pages, not
+                        // in the document, not in the stamp. Neither the
+                        // surface, nor the sample, nor a field on the page
+                        // affects it.
+                        //
+                        // Two things went from this block. The `|| 'mlsn'` tail
+                        // stamped a methodology onto a programme for a site that
+                        // had chosen none, and that stamp is then what the
+                        // staleness check compares against on the next restore.
+                        // And `_isCotula` read `context.surfaceType`,
+                        // `GAIP_STATE.turf.cotula` and two turf-profile globals
+                        // to answer ammonium_acetate whatever the site was set
+                        // to — the surface deciding what a setting means.
+                        //
+                        // `context.methodology` is getMethodology()'s value,
+                        // which reads the site's own record by id (GH-521).
+                        // `calendar.soil.methodology` stays behind it as the
+                        // calendar's own resolution of the same record, and is
+                        // no longer a DOM read.
+                        const raw = context.methodology || calendar.soil?.methodology || null;
+                        // The VALUE 'cotula_s78'/'cotula' is a saved setting in a
+                        // Hill Labs sample-type spelling; normalising it to the
+                        // key the engine branches on is the setting answering for
+                        // itself, not the surface answering for it.
                         if (raw === 'cotula_s78' || raw === 'cotula') return 'ammonium_acetate';
-                        // If surface is bowls/cotula, AA is the correct methodology
-                        const _isCotula = context.surfaceType === 'bowling_greens'
-                            || context.surfaceType === 'cotula_bowling_green'
-                            || (window.GAIP_STATE?.turf?.cotula === true)
-                            || (window.GaipTurfProfile?.state?.turfType === 'bowls')
-                            || (window.gaipTurfProfile?.state?.turfType === 'bowls');
-                        if (_isCotula) return 'ammonium_acetate';
-                        return raw;
+                        return raw || null;
                     })(),
                     surfaceType: context.surfaceType,
                     version: PrebbleProducts.version,

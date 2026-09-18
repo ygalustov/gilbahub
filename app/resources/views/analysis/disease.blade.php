@@ -118,8 +118,11 @@
             </div>
 
             <div class="db-context-pills">
+                {{-- GH-520: an unset methodology is NAMED, not left blank. --}}
                 @if($turfMethodology)
                     <span class="db-pill">{{ $turfMethodology }}</span>
+                @else
+                    <span class="db-pill">Methodology: not set (Settings › Turf)</span>
                 @endif
                 <span class="db-pill">{{ $turfSpecies ?? '' }}</span>
                 <span class="db-pill">{{ $locationName ?? '' }}</span>

@@ -522,15 +522,13 @@
             _NC377 && typeof _NC377.programInputsDrift === 'function' &&
             typeof _NC377.collectProgramInputCandidates === 'function') {
             try {
-                var _gh377DbLoc = (siteId && global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId === siteId)
-                    ? (global.GAIP_HUB_CONFIG.savedLocation || {}) : {};
+                // GH-521: the coordinates are no longer passed. They were here to
+                // feed collectProgramInputCandidates' NZ fold, which is gone: the
+                // methodology a cached programme is compared against is now the
+                // one the site has saved, whatever region it sits in.
                 var _restoreDrift = _NC377.programInputsDrift(
                     config.nutritionCalendarProgram.meta,
-                    _NC377.collectProgramInputCandidates({
-                        turfs: turf,
-                        lat: location.lat || _gh377DbLoc.lat,
-                        lon: location.lon || _gh377DbLoc.lon
-                    })
+                    _NC377.collectProgramInputCandidates({ turfs: turf })
                 );
                 if (_restoreDrift.length) {
                     _inputsMismatch = true;

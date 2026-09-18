@@ -33,6 +33,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { fillOwnAnnualN, captureConfigsOnce, restoreConfigs } = require('./lib/stand-guard');
 const { execFileSync } = require('child_process');
 
 const ENABLED = process.env.GILBA_E2E === '1';
@@ -203,13 +204,23 @@ if (!ENABLED) {
 RUN.forEach((site) => {
 describe('GH-400 live — ' + site.siteName, () => {
     let browser, page, previousActiveSiteId = null;
-    let planSummary = null, planProducts = null;
+        let planSummary = null, planProducts = null;
     let docxAnr = null, docxProducts = null;
     let programLiquids = null;
     let hasAnr = false;
     const consoleLines = [];
 
     beforeAll(async () => {
+
+        // GH-519: BEFORE anything opens a page. Measured: a capture taken
+
+        // just before the press had already missed a write — opening the
+
+        // Plan page is itself a write — and the restore then put the moved
+
+        // configuration back and called it a success.
+
+        captureConfigsOnce();
         if (!chromium) throw new Error('playwright does not resolve from the repo — run `npm install`');
         if (!EMAIL || !PASSWORD) throw new Error('no credentials — see tests/e2e/.e2e-credentials.example.json');
         try { execFileSync('unzip', ['-v'], { stdio: 'ignore' }); }
@@ -277,6 +288,9 @@ describe('GH-400 live — ' + site.siteName, () => {
             window.__gh400Generated = 0;
             document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__gh400Generated++; });
         });
+        // GH-519: the target comes from the site's own config, not from a
+        // programme an earlier run of this suite left behind.
+        await fillOwnAnnualN(page);
         await page.click('#plan-nut-generate-btn');
         await page.waitForFunction(() => {
             const el = document.querySelector('#plan-nut-results');
@@ -411,6 +425,22 @@ describe('GH-400 live — ' + site.siteName, () => {
     }, 400000);
 
     afterAll(async () => {
+
+        // GH-519: the write lands here — this test's claim is that both
+
+        // surfaces read the same saved programme — so the configuration is
+
+        // put back instead of being held. A restore that cannot finish is
+
+        // a red run, not a quiet one: a stand left changed in silence is
+
+        // worse than a failing test.
+
+        let __restore = null;
+
+        try { __restore = await restoreConfigs(page); }
+
+        catch (e) { __restore = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
         if (page && previousActiveSiteId && previousActiveSiteId !== site.siteId) {
             await page.evaluate(async ({ id }) => {
                 const t = document.querySelector('meta[name=csrf-token]');
@@ -424,6 +454,9 @@ describe('GH-400 live — ' + site.siteName, () => {
             }, { id: previousActiveSiteId });
         }
         if (browser) await browser.close();
+        if (__restore && __restore.failed.length) {
+            throw new Error('GH-519: could not put the stand back — ' + __restore.failed.join('; '));
+        }
     }, 120000);
 
     test('both surfaces rendered the tables this file reads', () => {

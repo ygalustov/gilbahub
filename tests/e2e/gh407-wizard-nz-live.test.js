@@ -119,20 +119,27 @@ if (!ENABLED) {
             }, { lat: loc.lat, lon: loc.lon, preset });
         }
 
-        test('a New Zealand location is not offered MLSN', async () => {
+        test('a New Zealand location is offered Ammonium Acetate and nothing else', async () => {
             const r = await offeredAt(AUCKLAND, null);
             process.stdout.write('[gh407] NZ, nothing chosen: ' + JSON.stringify(r) + '\n');
             expect(r.onboarding.error).toBeUndefined();
-            expect(r.onboarding.offered).toEqual(['slan', 'ammonium_acetate']);
+            // GH-521: was ['slan', 'ammonium_acetate']. The list narrowed to one.
+            expect(r.onboarding.offered).toEqual(['ammonium_acetate']);
             expect(r.onboarding.selected).toBe('ammonium_acetate');
         }, 180000);
 
-        test('MLSN chosen before the location was NZ is normalised, and the user is told', async () => {
+        test('a choice made before the location was NZ is cleared, and the user is told which one', async () => {
+            // GH-521: the word was "normalised" and the code rewrote 'mlsn' to
+            // 'ammonium_acetate' behind the user. It now CLEARS the choice and
+            // the step pre-selects the single remaining option, so the value the
+            // site ends up with is one the user can see being offered. The note
+            // names the cleared methodology instead of always saying MLSN.
             const r = await offeredAt(AUCKLAND, 'mlsn');
             process.stdout.write('[gh407] NZ, MLSN preset: ' + JSON.stringify(r) + '\n');
             expect(r.onboarding.offered).not.toContain('mlsn');
             expect(r.onboarding.selected).toBe('ammonium_acetate');
-            expect(r.onboarding.note || '').toMatch(/not offered for New Zealand/);
+            expect(r.onboarding.note || '').toMatch(/^MLSN is not offered for New Zealand/);
+            expect(r.onboarding.note || '').toMatch(/has been cleared/);
         }, 180000);
 
         test('an Australian location keeps MLSN exactly as before', async () => {

@@ -167,7 +167,9 @@ class SiteController extends Controller
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'timezone' => ['nullable', 'string', 'max:80'],
             'site_type' => ['nullable', 'string', 'max:32'],
-            'methodology_override' => ['nullable', 'string', 'max:32'],
+            // GH-520: no rule for `methodology_override` — the field is no
+            // longer accepted here, because the methodology has one owner and
+            // it is written through the config route.
             'soil_texture_override' => ['nullable', 'string', 'max:32'],
             'attributes_json' => ['nullable', 'array'],
             'precinct_group_id' => ['nullable', 'integer', 'exists:precinct_groups,id'],
@@ -985,7 +987,8 @@ class SiteController extends Controller
             // SampleController.php:480, ReportsController.php:84), so the
             // client can apply the same two-link rule rather than a different
             // one.
-            'methodology_override' => $site->methodology_override,
+            // GH-520: `methodology_override` is no longer echoed. Measured
+            // before removing it: zero readers of the key in assets/.
             'soil_texture_override' => $site->soil_texture_override,
             'account_soil_texture' => $site->account?->soil_texture,
             // GH-439 (2.5): what the time zone would be if derived from this

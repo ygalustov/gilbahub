@@ -32,6 +32,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { guardStand, fillOwnAnnualN } = require('./lib/stand-guard');
 
 const ENABLED = process.env.GILBA_E2E === '1';
 
@@ -167,6 +168,7 @@ const RESULTS = { sites: [] };
 
 describe('GH-426 — the four options, per New Zealand site', () => {
     let browser, page, previousActiveSiteId = null;
+    let standGuard = null;
     let lines = [];
 
     beforeAll(async () => {
@@ -175,6 +177,9 @@ describe('GH-426 — the four options, per New Zealand site', () => {
 
         browser = await chromium.launch();
         page = await browser.newPage();
+        // GH-519: nothing this run writes reaches an existing site. See
+        // tests/e2e/lib/stand-guard.js for what is held and what is not.
+        standGuard = await guardStand(page);
         page.on('console', (m) => { const t = m.text(); if (t.indexOf('b35fix426') >= 0) lines.push(t); });
 
         await page.goto(BASE_URL + '/login', { waitUntil: 'domcontentloaded' });
@@ -220,6 +225,9 @@ describe('GH-426 — the four options, per New Zealand site', () => {
                 window.__g = 0;
                 document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__g++; });
             });
+            // GH-519: the target comes from the site's own config, not from a
+            // programme an earlier run of this suite left behind.
+            await fillOwnAnnualN(page);
             await page.click('#plan-nut-generate-btn');
             await page.waitForFunction(() => window.__g > 0 && document.querySelectorAll('tr.gilba-nut-row').length === 12,
                 null, { timeout: 90000 });
@@ -305,6 +313,61 @@ describe('GH-426 — the four options, per New Zealand site', () => {
         RESULTS.sites.forEach((s) => {
             expect(s.calendarMonthly.length).toBe(12);
         });
+    });
+
+    // ── GH-522: the anchor this file already carried and never used ─────────
+    //
+    // WHAT THIS FILE PROMISED BY ITS NAME AND TEXT: that four ways of getting a
+    // soil-temperature curve are compared on real New Zealand sites, against
+    // real monthly normals.
+    //
+    // WHAT IT ACTUALLY ASSERTED: that no site errored, that the crude branch
+    // reports source 'crude' and reliability 30 while the model branch reports
+    // 'model' and 60, and that twelve months came back. Labels, a count and two
+    // constants — not one temperature.
+    //
+    // WHAT WAS MISSING, and what the reviewer's M3 proved: nothing compared the
+    // temperatures the calendar actually used with the normals this file loads
+    // from its own fixture. M3 raised the series by 2 °C at
+    // nutrition-calendar.js:1495. Every label still read 'crude'/'model', every
+    // reliability was still 30/60, twelve months still came back — and the whole
+    // point of the file, which is that these curves are the real climate of
+    // these places, went unchecked while every figure downstream of it moved.
+    //
+    // The fixture is the anchor: NASA POWER 2001-2020 T2M normals, fetched and
+    // recorded, independent of anything the page computes. Comparing the
+    // calendar's own monthly temps against it is the one assertion here that a
+    // change to the temperature source cannot survive.
+    test('the months the calendar computed on are the months this fixture recorded', () => {
+        expect(RESULTS.sites.length).toBeGreaterThan(0);
+        const off = [];
+        RESULTS.sites.forEach((s) => {
+            // The fixture's normals for THIS site are already in the record:
+            // `curves.air` is `NORMALS.locations[site.loc].T2M` rounded, built
+            // by curvesFor() when the site was replayed. The first draft looked
+            // the site back up in SITES — first by `x.name === s.name || x.id
+            // === s.id`, which on records carrying neither matched the first
+            // entry and would have checked Auckland's normals against
+            // Christchurch's calendar; then by name alone, which failed outright
+            // because the record's key is `site`, not `name`. Both were a lookup
+            // for something already in hand.
+            if (s.error) { off.push({ site: s.site, why: s.error }); return; }
+            const normals = s.curves && s.curves.air;
+            if (!normals) { off.push({ site: s.site, why: 'no air normals recorded for this site' }); return; }
+            out(s.site + ' calendar months : ' + JSON.stringify(s.calendarMonthly));
+            out(s.site + ' fixture  normals: ' + JSON.stringify(normals));
+            s.calendarMonthly.forEach((t, m) => {
+                // A whole degree of tolerance: the calendar rounds, and it may
+                // come from the live normals service rather than this snapshot
+                // of it, taken at a different time. Wide enough to survive that,
+                // far too narrow to survive a 2 degC shift.
+                if (!(Math.abs(Number(t) - Number(normals[m])) <= 1.0)) {
+                    off.push({ site: s.site, month: m + 1, calendar: t, normal: normals[m] });
+                }
+            });
+        });
+        off.forEach((o) => out('OFF NORMAL ' + JSON.stringify(o)));
+        expect(off).toEqual([]);
     });
 });
 

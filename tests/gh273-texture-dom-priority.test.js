@@ -29,10 +29,22 @@
  * FIX: soilTexture now resolves DOM first, snapshot only as a fallback
  * behind it, then the historical `'loam'` default — the exact same shape
  * methodology already had from GH-265.
+ *
+ * GH-521: this file's own subject is unchanged. soilTexture still resolves
+ * DOM-first over the snapshot, for the same reason and with the same shape.
+ * What changed is the sentence this file used to borrow from its neighbour:
+ * methodology no longer shares that shape. It is read from the site's own
+ * configuration record, by the site's id, and consults neither the page field
+ * nor the snapshot (GH-459's rule, guarded in
+ * gh265-methodology-dom-priority.test.js). The last test below said
+ * "methodology keeps its own GH-265 priority, unaffected by this change" and
+ * now says what is actually true: methodology is on a different path, and
+ * nothing done to texture may quietly put it back on this one.
  */
 
 const fs = require('fs');
 const path = require('path');
+const { stripLineComments } = require('./helpers/sample-fallback-harness');
 
 describe('GH-273 — soilTexture trusts live DOM over a stale sample snapshot', () => {
     let src;
@@ -52,8 +64,16 @@ describe('GH-273 — soilTexture trusts live DOM over a stale sample snapshot', 
         expect(src).not.toMatch(/soilTexture:\s*_smSample\.soilTextureSnapshot\s*\|\|\s*_smTexDom/);
     });
 
-    test('methodology keeps its own GH-265 priority, unaffected by this change', () => {
-        expect(src).toMatch(/methodology:\s*_smMethodDom\s*\|\|\s*_smSample\.methodologySnapshot\s*\|\|\s*_smRaw\.methodology\s*\|\|\s*'mlsn'/);
+    test('methodology is on its own path and this file\'s change does not pull it back onto this one', () => {
+        // Not a restatement of the line above with a different variable: the point
+        // is that the texture chain and the methodology read are now different
+        // shapes, and a future edit that "makes them consistent" by giving
+        // methodology a DOM-or-snapshot chain again is the regression.
+        const code = stripLineComments(src);
+        expect(code).toMatch(/methodology:\s*_smConfigMethodology,/);
+        expect(code).not.toMatch(/_smMethodDom/);
+        expect(code).not.toMatch(/methodology:\s*_smSample\.methodologySnapshot/);
+        expect(code).not.toMatch(/methodology:[^\n]*'mlsn'/);
     });
 
     test('_smTexDom is still reused (not redeclared) for the later ECe DOM fallback', () => {

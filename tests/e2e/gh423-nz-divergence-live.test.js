@@ -32,6 +32,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { guardStand, fillOwnAnnualN } = require('./lib/stand-guard');
 
 const ENABLED = process.env.GILBA_E2E === '1';
 
@@ -166,6 +167,7 @@ const R = { plan: null, document: null, replay: null };
 
 describe('GH-423 — the Test5 - NZ divergence, located by replay', () => {
     let browser, page, previousActiveSiteId = null;
+    let standGuard = null;
     const planLines = [];
     const docLines = [];
     let planDone = false;
@@ -176,6 +178,9 @@ describe('GH-423 — the Test5 - NZ divergence, located by replay', () => {
 
         browser = await chromium.launch();
         page = await browser.newPage({ acceptDownloads: true });
+        // GH-519: nothing this run writes reaches an existing site. See
+        // tests/e2e/lib/stand-guard.js for what is held and what is not.
+        standGuard = await guardStand(page);
         page.on('console', (m) => {
             const t = m.text();
             if (t.indexOf('b35fix426') >= 0) (planDone ? docLines : planLines).push(t);
@@ -223,6 +228,9 @@ describe('GH-423 — the Test5 - NZ divergence, located by replay', () => {
             window.__gen = 0;
             document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__gen++; });
         });
+        // GH-519: the target comes from the site's own config, not from a
+        // programme an earlier run of this suite left behind.
+        await fillOwnAnnualN(page);
         await page.click('#plan-nut-generate-btn');
         await page.waitForFunction(() => window.__gen > 0 && document.querySelectorAll('tr.gilba-nut-row').length === 12,
             null, { timeout: 90000 });
@@ -382,7 +390,21 @@ describe('GH-423 — the Test5 - NZ divergence, located by replay', () => {
         // replay-based method is unsound.
         const base = R.replay['planCalendar+planContext'];
         const target = R.replay['docCalendar+docContext'];
-        if (JSON.stringify(base.products) === JSON.stringify(target.products)) return;
+
+        // GH-525: the agreement is ASSERTED, not returned on. The line that
+        // stood here — `if (products are equal) return;` — is the file's own
+        // first sentence ("green when the two surfaces agree") expressed as
+        // silence, and silence and success are the same colour. A run where the
+        // replay produced no products at all, or where both sides came back
+        // undefined, left this test with nothing said and reported a pass.
+        if (JSON.stringify(base.products) === JSON.stringify(target.products)) {
+            expect(Array.isArray(base.products)).toBe(true);
+            expect(base.products.length).toBeGreaterThan(0);
+            expect(target.products).toEqual(base.products);
+            out('the two surfaces agree: ' + base.products.length
+                + ' product(s), identical on both — nothing to account for');
+            return;
+        }
 
         const explanations = Object.keys(R.replay).filter((k) => k.charAt(0) !== '_'
             && k !== 'planCalendar+planContext'

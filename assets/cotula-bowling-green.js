@@ -630,8 +630,8 @@
 
     /**
      * Handle turf type button click for 'bowls'.
-     * Hides other subcategories, shows bowls panel,
-     * forces Ammonium Acetate methodology, and sets species to cotula.
+     * Hides other subcategories, shows bowls panel, and sets species to cotula.
+     * GH-521: it no longer forces the methodology — see below.
      */
     function handleBowlsSelection() {
         // Hide all subcategory sections
@@ -643,12 +643,15 @@
         const bowlsSection = document.getElementById('gaip-bowls-subcategory');
         if (bowlsSection) bowlsSection.style.display = 'block';
 
-        // Force Ammonium Acetate methodology
-        const methodSelect = document.querySelector('.gaip-soil-methodology');
-        if (methodSelect && methodSelect.value !== 'ammonium_acetate') {
-            methodSelect.value = 'ammonium_acetate';
-            methodSelect.dispatchEvent(new Event('change'));
-        }
+        // GH-521: the write that set `.gaip-soil-methodology` to
+        // ammonium_acetate here is gone. Selecting a turf type is choosing a
+        // SURFACE, and the owner's rule of 18.09.2026 is that the methodology is
+        // read from the site's saved setting as it stands — so picking "bowls"
+        // may not answer the methodology question on the user's behalf. It reached the calculation too: the calendar still reads that
+        // select when the site's own setting is empty, so a site that had chosen
+        // nothing was computed on ammonium acetate because of its surface.
+        // The rest of this function is untouched — the panel, the species and the
+        // cotula flag are all properties of the surface and are its to set.
 
         // Populate species select with cotula
         _setSpeciesToCotula();
@@ -723,7 +726,8 @@
             }
         }));
 
-        console.log('[CotulaBowling] Bowls profile activated, S78 interpretation, AA methodology.');
+        console.log('[CotulaBowling] Bowls profile activated, S78 interpretation. '
+            + 'Methodology untouched (GH-521): it is the site setting\'s to answer.');
     }
 
     // =========================================================================

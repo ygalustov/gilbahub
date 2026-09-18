@@ -123,7 +123,27 @@ describe('b35fix388 — cotula state writes routed through hub-store inputs.turf
         // manipulations at the top of handleBowlsSelection stay intact.
         expect(cotulaSrc).toMatch(/gaip-subcategory-section/);
         expect(cotulaSrc).toMatch(/gaip-bowls-subcategory/);
-        expect(cotulaSrc).toMatch(/methodSelect\.value\s*=\s*['"]ammonium_acetate['"]/);
+    });
+
+    test('GH-521: handleBowlsSelection no longer writes the methodology select', () => {
+        // This assertion was the third line of the test above, carried there as
+        // an incidental "must not regress" alongside the panel show/hide. It
+        // required `methodSelect.value = 'ammonium_acetate'` — the surface
+        // answering the methodology question on the user's behalf.
+        //
+        // The owner's rule of 18.09.2026: the methodology is read from the
+        // site's saved setting as it stands. Coordinates decide one thing only,
+        // which options the Settings list offers; the surface decides nothing
+        // here. The write is removed. It reached the calculation too — the
+        // calendar still reads that select when the site's own setting is empty,
+        // so a site that had chosen nothing was computed on ammonium acetate
+        // because of its turf type.
+        //
+        // The rest of the function is untouched and still asserted above and
+        // below: the panel, the species, the cotula flag and the routed state
+        // write are all properties of the surface and are its to set.
+        expect(cotulaSrc).not.toMatch(/methodSelect/);
+        expect(cotulaSrc).not.toMatch(/\.value\s*=\s*['"]ammonium_acetate['"]/);
     });
 
     test('TurfProfileController selectTurfType call preserved', () => {

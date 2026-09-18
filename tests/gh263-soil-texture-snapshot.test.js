@@ -27,12 +27,35 @@
  *     prefers `_smSample.methodologySnapshot`/`.soilTextureSnapshot` over
  *     its own DOM-read fallback, since that DOM field turned out to be the
  *     same always-"loam" static default.
+ *
+ * WHAT THIS FILE GUARDED BEFORE, AND WHAT IT GUARDS NOW. It has always had two
+ * subjects, and they have taken different routes.
+ *
+ * SUBJECT 1 — the two snapshot fields survive the server sync (parts 1 and 2
+ * above). Unchanged, and still guarded below as it was.
+ *   Named plainly: `soilTextureSnapshot` still has a reader, the texture chain
+ *   in hub-persistence.js. `methodologySnapshot` no longer has one anywhere in
+ *   the client (checked: `assets/`, `app/` — the only remaining mentions are
+ *   this carry-through itself and a comment). It is carried as a record of what
+ *   was in force when the sample was taken, not as an input to anything. The
+ *   assertion below therefore guards a field with no current consumer, and says
+ *   so rather than reading as though it guards a calculation.
+ *
+ * SUBJECT 2 — which source wins in the fallback. This is the half that moved,
+ * and only for methodology. For soilTexture the answer is still DOM-first over
+ * the snapshot (GH-270/272/273) and the behavioural test keeps proving it. For
+ * methodology, neither the page field nor the snapshot is consulted any more:
+ * GH-521 reads the site's own configuration record, by the site's id. The
+ * intention behind GH-265 is kept — a live value beats a frozen one — but a
+ * page field is not a carrier of "live"; it carries whatever site the page last
+ * painted (GH-459). The read itself is guarded in
+ * gh265-methodology-dom-priority.test.js.
  */
 
-const vm = require('vm');
 const fs = require('fs');
 const path = require('path');
 const { buildContext: buildEngineContext } = require('./helpers/mlsn-engine-harness');
+const { runSampleFallback } = require('./helpers/sample-fallback-harness');
 
 describe('GH-263 — soil texture / methodology snapshot reaches mlsnEngine()', () => {
     describe('sample-persistence.js — snapshot fields carried through server sync', () => {
@@ -41,6 +64,10 @@ describe('GH-263 — soil texture / methodology snapshot reaches mlsnEngine()', 
             src = fs.readFileSync(path.join(__dirname, '../assets/sample-persistence.js'), 'utf8');
         });
 
+        // `soilTextureSnapshot` feeds the texture chain in hub-persistence.js.
+        // `methodologySnapshot` has had no reader since GH-521 moved methodology
+        // to the site's own record; it survives as the sample's record of what
+        // was in force at sampling time.
         test('methodologySnapshot/soilTextureSnapshot are set from the API sample object', () => {
             expect(src).toMatch(/methodologySnapshot:\s*sample\.methodology_snapshot\s*\|\|\s*null/);
             expect(src).toMatch(/soilTextureSnapshot:\s*sample\.soil_texture_snapshot\s*\|\|\s*null/);
@@ -78,110 +105,69 @@ describe('GH-263 — soil texture / methodology snapshot reaches mlsnEngine()', 
         });
     });
 
-    describe('hub-persistence.js fallback — behavioural, snapshot wins over DOM', () => {
-        function parseMlsnTableHtml(html) {
-            const tbodyMatch = html.match(/<table class="gaip-mlsn-table">[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/);
-            if (!tbodyMatch) return [];
-            const rowRe = /<tr class="([^"]*)"((?:\s+data-[\w-]+="[^"]*")*)>([\s\S]*?)<\/tr>/g;
-            const rows = [];
-            let m;
-            while ((m = rowRe.exec(tbodyMatch[1]))) {
-                const cellRe = /<td[^>]*>([\s\S]*?)<\/td>/g;
-                const cells = [];
-                let cm;
-                while ((cm = cellRe.exec(m[3]))) cells.push({ textContent: cm[1].replace(/<[^>]+>/g, '') });
-                rows.push({ className: m[1], querySelectorAll: (sel) => (sel === 'td' ? cells : []) });
-            }
-            return rows;
-        }
-        function DOMParserStub() {
-            this.parseFromString = (html) => ({
-                querySelectorAll: (sel) => (sel === '.gaip-mlsn-table tbody tr' ? parseMlsnTableHtml(html) : []),
-            });
-        }
+    describe('hub-persistence.js fallback — behavioural: which source each field takes', () => {
+        let engineCtx;
+        beforeAll(() => { engineCtx = buildEngineContext(); });
 
-        function extractBlock() {
-            const src = fs.readFileSync(path.join(__dirname, '../assets/hub-persistence.js'), 'utf8');
-            const start = src.indexOf('var _turfState = (_gaipState && _gaipState.turf)');
-            const fallbackStart = src.indexOf('if (!cache.computed.soilNutrition && global.GAIP_SampleManager', start);
-            const braceOpen = src.indexOf('{', fallbackStart);
-            let depth = 0;
-            let i = braceOpen;
-            for (; i < src.length; i++) {
-                if (src[i] === '{') depth++;
-                else if (src[i] === '}') { depth--; if (depth === 0) break; }
-            }
-            return src.slice(start, i + 1);
-        }
-
-        function runFallback({ methodologyDomValue, textureDomValue, sampleExtra, sampleRaw }) {
-            const engineCtx = buildEngineContext();
-            const block = extractBlock();
-            const cache = { computed: {} };
-            const domValues = {
-                '.gaip-soil-methodology': methodologyDomValue,
-                '.gaip-soil-texture': textureDomValue,
-            };
-            const sandbox = {
-                cache,
-                _gaipState: {},
-                _mlsnHtml: '',
-                _soilIn: null,
-                DOMParser: DOMParserStub,
-                document: { querySelector: (sel) => (domValues[sel] !== undefined ? { value: domValues[sel] } : null) },
-                global: {
-                    GAIP_SampleManager: {
-                        getAllSamples: () => ({
-                            allSites: {
-                                site1: {
-                                    soil: {
-                                        sample_1: Object.assign({ date: '2026-01-01', label: 'Sample 1', rawData: sampleRaw }, sampleExtra),
-                                    },
-                                },
-                            },
-                        }),
-                    },
-                    mlsnEngine: engineCtx.mlsnEngine,
-                    rawWeatherData: null,
-                    climateMetrics: null,
-                    __GAIP_TISSUE_LAST__: null,
-                },
-                window: { GAIP_HUB_CONFIG: { activeSiteId: 'site1' } },
-                console: { log: () => {}, warn: () => {} },
-            };
-            sandbox.globalThis = sandbox;
-            const ctx = vm.createContext(sandbox);
-            vm.runInContext(block, ctx);
-            return ctx.cache.computed.soilNutrition;
-        }
-
-        test('GH-265/273: both methodology and soilTexture now trust live DOM over a stale snapshot', () => {
-            // This is the real, live scenario that surfaced GH-265 (methodology) and
-            // later GH-273 (the same class of bug, for soilTexture, once GH-270/272
-            // made .gaip-soil-texture live too): a real sample's methodologySnapshot
-            // ("mlsn") and soilTextureSnapshot ("loam") were both frozen at sample-
-            // creation time, before the site was switched to AA / Sand -- but both
-            // DOM fields are correctly live now (methodology via ammonium-acetate-
-            // methodology.js's region auto-select; texture via hub.blade.php's
-            // GH-270 initial value). Both snapshots are stale here on purpose, to
-            // prove DOM wins for both fields, not just methodology.
-            const sn = runFallback({
-                methodologyDomValue: 'ammonium_acetate', // live-correct
-                textureDomValue: 'sand',                 // live-correct (GH-270/272)
-                sampleExtra: { methodologySnapshot: 'mlsn', soilTextureSnapshot: 'loam' }, // both stale
+        test('soilTexture: the live page field wins over a stale soilTextureSnapshot', () => {
+            // GH-273's subject, unchanged by GH-521. `.gaip-soil-texture` is live
+            // (GH-270 initialises it from the site's soil_texture_override on every
+            // load; GH-272 removed the per-sample overwrite), while the snapshot is
+            // frozen at sample-creation time. The snapshot here says "loam" and the
+            // page says "sand" — the sands bucket must be the one that is used.
+            const sn = runSampleFallback(engineCtx, {
+                siteId: 'site1',
+                configMethodology: 'ammonium_acetate',
+                textureDom: 'sand',
+                textureSnapshot: 'loam',
                 sampleRaw: { K_ppm: 199, P_ppm: 25, Ca_ppm: 400, Mg_ppm: 60, S_ppm: 10 },
             });
             expect(sn.methodology).toBe('ammonium_acetate');
             const k = sn.nutrients.find((n) => n.nutrient === 'K');
-            expect(k.mlsn).toBe('75.0-175.0'); // "sands" bucket via live DOM texture, not "others" (stale snapshot) or MLSN's literal 37
+            expect(k.mlsn).toBe('75.0-175.0'); // sands, not the "others" range the snapshot would give
             expect(k.status).toBe('HIGH');
         });
 
-        test('falls back to DOM when snapshot is absent (older sample, pre-GH-263)', () => {
-            const sn = runFallback({
-                methodologyDomValue: 'ammonium_acetate',
-                textureDomValue: 'sand',
-                sampleExtra: {}, // no snapshot fields
+        test('soilTexture: the snapshot is still the fallback when the page field is empty', () => {
+            // The half of GH-263 that survives: a page that has not painted the
+            // field yet is not a page that says "loam".
+            const sn = runSampleFallback(engineCtx, {
+                siteId: 'site1',
+                configMethodology: 'ammonium_acetate',
+                textureDom: '',
+                textureSnapshot: 'sand',
+                sampleRaw: { K_ppm: 199, P_ppm: 25, Ca_ppm: 400, Mg_ppm: 60, S_ppm: 10 },
+            });
+            const k = sn.nutrients.find((n) => n.nutrient === 'K');
+            expect(k.mlsn).toBe('75.0-175.0');
+        });
+
+        test('methodology: neither the page field nor the snapshot is consulted', () => {
+            // What this test used to assert was "DOM beats the stale snapshot".
+            // Both of those sources are now out of the chain, so the way to show it
+            // is to make them agree with each other and disagree with the site
+            // record: if either were read, the answer would be AA.
+            const sn = runSampleFallback(engineCtx, {
+                siteId: 'site1',
+                configMethodology: 'mlsn',
+                domMethodology: 'ammonium_acetate',
+                snapshotMethodology: 'ammonium_acetate',
+                textureDom: 'sand',
+                sampleRaw: { K_ppm: 199, P_ppm: 25, Ca_ppm: 400, Mg_ppm: 60, S_ppm: 10 },
+            });
+            expect(sn.methodology).toBe('mlsn');
+            const k = sn.nutrients.find((n) => n.nutrient === 'K');
+            expect(k.mlsn).toBe('37'); // the MLSN literal threshold, not an AA range
+        });
+
+        test('methodology: a sample carrying no snapshot at all changes nothing', () => {
+            // Pre-GH-263 samples have no snapshot fields. That used to matter, since
+            // the snapshot was in the chain. It no longer is, so the answer is the
+            // site's, exactly as it is for a sample that does carry one.
+            const sn = runSampleFallback(engineCtx, {
+                siteId: 'site1',
+                configMethodology: 'ammonium_acetate',
+                textureDom: 'sand',
                 sampleRaw: { K_ppm: 199, P_ppm: 25, Ca_ppm: 400, Mg_ppm: 60, S_ppm: 10 },
             });
             expect(sn.methodology).toBe('ammonium_acetate');

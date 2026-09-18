@@ -384,7 +384,13 @@
             dli: null,
           },
           soil: {
-            methodology: "mlsn",
+            // GH-521: the store starts with NOTHING, not with MLSN. Every other
+            // field beside it starts null; methodology alone was seeded with a
+            // real methodology, and a reader could not tell "the site is set to
+            // MLSN" from "nothing has loaded yet". The calendar defended itself
+            // by refusing to believe MLSN at all, which made five sites that
+            // really are MLSN read as "methodology unknown".
+            methodology: null,
             pH: null,
             ec: null,
             cec: null,
@@ -665,7 +671,13 @@
             dli: null,
           },
           soil: {
-            methodology: "mlsn",
+            // GH-521: the store starts with NOTHING, not with MLSN. Every other
+            // field beside it starts null; methodology alone was seeded with a
+            // real methodology, and a reader could not tell "the site is set to
+            // MLSN" from "nothing has loaded yet". The calendar defended itself
+            // by refusing to believe MLSN at all, which made five sites that
+            // really are MLSN read as "methodology unknown".
+            methodology: null,
             pH: null,
             ec: null,
             cec: null,

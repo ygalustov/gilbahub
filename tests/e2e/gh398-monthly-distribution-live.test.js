@@ -35,6 +35,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { fillOwnAnnualN, captureConfigsOnce, restoreConfigs } = require('./lib/stand-guard');
 const { execFileSync } = require('child_process');
 
 const ENABLED = process.env.GILBA_E2E === '1';
@@ -127,12 +128,23 @@ function monthlyNFromDocx(tables) {
 
 describe('GH-398 — one monthly series on both surfaces (' + SITE_NAME + ' / ' + SAMPLE_LABEL + ')', () => {
     let browser, page, previousActiveSiteId = null;
-    let planMonthlyN = null, planCapBanner = null, planAdjustments = null, planMeta = null, siteMaxN = null;
+        let planMonthlyN = null, planCapBanner = null, planAdjustments = null, planMeta = null, siteMaxN = null;
+        let planGpByMonth = null, minGpThreshold = null;
     let docxMonthlyN = null, docxTextAll = null;
     const consoleLines = [];
     let docxDiagnostic = null;
 
     beforeAll(async () => {
+
+        // GH-519: BEFORE anything opens a page. Measured: a capture taken
+
+        // just before the press had already missed a write — opening the
+
+        // Plan page is itself a write — and the restore then put the moved
+
+        // configuration back and called it a success.
+
+        captureConfigsOnce();
         if (!chromium) throw new Error('playwright does not resolve from the repo — run `npm install`');
         if (!EMAIL || !PASSWORD) throw new Error('no credentials — see tests/e2e/.e2e-credentials.example.json');
         try {
@@ -206,6 +218,9 @@ describe('GH-398 — one monthly series on both surfaces (' + SITE_NAME + ' / ' 
             window.__gh398Generated = 0;
             document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__gh398Generated++; });
         });
+        // GH-519: the target comes from the site's own config, not from a
+        // programme an earlier run of this suite left behind.
+        await fillOwnAnnualN(page);
         await page.click('#plan-nut-generate-btn');
         await page.waitForFunction(() => {
             const el = document.querySelector('#plan-nut-results');
@@ -232,9 +247,40 @@ describe('GH-398 — one monthly series on both surfaces (' + SITE_NAME + ' / ' 
             const p = (NC && NC.program) ||
                 window.GAIP_NUTRITION_CALENDAR_PROGRAM ||
                 (window.GAIP_SITE_CONFIG && window.GAIP_SITE_CONFIG.nutritionCalendarProgram) || null;
+            // GH-522: the month's OWN growth potential, which is what the
+            // distribution was built in proportion to. It comes from
+            // `monthlyGP()` in nutrition-calendar.js, not from `distribute()`,
+            // so it is an anchor OUTSIDE the two series this file compares —
+            // see the test that uses it for why that matters.
+            // `p.program.monthly`, not `p.monthly`: the object this page hands
+            // out is a wrapper whose `program` key holds the twelve rows. The
+            // first draft read the outer level, got undefined, and reported
+            // `null` — measured, then corrected, not guessed twice.
+            const _rows = (p && p.program && Array.isArray(p.program.monthly)) ? p.program.monthly
+                : (p && Array.isArray(p.monthly)) ? p.monthly : null;
+            const gpByMonth = _rows
+                ? _rows.map((row) => (row && row.gp != null) ? Number(row.gp) : null)
+                : null;
+            // Recorded, not assumed: the first draft of this read produced null
+            // and the test said only "Received: null", which names the probe and
+            // not the object. What the programme actually carries is printed, so
+            // a shape that moves is a shape a reader can see.
+            const programShape = p ? {
+                keys: Object.keys(p).slice(0, 14),
+                rowsFound: !!_rows,
+                rowsLength: _rows ? _rows.length : null,
+                firstMonth: (_rows && _rows[0]) ? Object.keys(_rows[0]).slice(0, 14) : null,
+                firstGp: (_rows && _rows[0]) ? _rows[0].gp : null,
+            } : { keys: null };
+            const MD = window.GAIP_NutritionMonthlyDistribution;
             return {
                 cells: cells,
                 banner: banner,
+                gpByMonth: gpByMonth,
+                programShape: programShape,
+                // Read from the product, not restated here: a threshold copied
+                // into a test goes stale the day the product's moves.
+                minGpThreshold: (MD && typeof MD.MIN_GP_THRESHOLD === 'number') ? MD.MIN_GP_THRESHOLD : null,
                 adjustments: p ? p.adjustments : null,
                 meta: p ? p.meta : null,
                 maxNInput: (document.getElementById('plan-nut-max-n') || {}).value || null,
@@ -242,6 +288,9 @@ describe('GH-398 — one monthly series on both surfaces (' + SITE_NAME + ' / ' 
             };
         });
         planMonthlyN = planRead.cells;
+        planGpByMonth = planRead.gpByMonth;
+        process.stdout.write('[gh398] programme shape: ' + JSON.stringify(planRead.programShape) + '\n');
+        minGpThreshold = planRead.minGpThreshold;
         planCapBanner = planRead.banner;
         planAdjustments = planRead.adjustments;
         planMeta = planRead.meta;
@@ -324,6 +373,22 @@ describe('GH-398 — one monthly series on both surfaces (' + SITE_NAME + ' / ' 
     }, 300000);
 
     afterAll(async () => {
+
+        // GH-519: the write lands here — this test's claim is that both
+
+        // surfaces read the same saved programme — so the configuration is
+
+        // put back instead of being held. A restore that cannot finish is
+
+        // a red run, not a quiet one: a stand left changed in silence is
+
+        // worse than a failing test.
+
+        let __restore = null;
+
+        try { __restore = await restoreConfigs(page); }
+
+        catch (e) { __restore = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
         if (page && previousActiveSiteId && previousActiveSiteId !== SITE_ID) {
             await page.evaluate(async ({ id }) => {
                 const t = document.querySelector('meta[name=csrf-token]');
@@ -337,6 +402,9 @@ describe('GH-398 — one monthly series on both surfaces (' + SITE_NAME + ' / ' 
             }, { id: previousActiveSiteId });
         }
         if (browser) await browser.close();
+        if (__restore && __restore.failed.length) {
+            throw new Error('GH-519: could not put the stand back — ' + __restore.failed.join('; '));
+        }
     }, 120000);
 
     test('both surfaces rendered a twelve-month series', () => {
@@ -397,6 +465,87 @@ describe('GH-398 — one monthly series on both surfaces (' + SITE_NAME + ' / ' 
         const stamped = { gp_weighted: 'GP-Weighted', even: 'Even', front_loaded: 'Front-loaded' }[
             (planMeta && planMeta.distribution) || 'gp_weighted'];
         expect(docxTextAll).toContain('Monthly N Distribution (' + stamped + ')');
+    });
+
+    // ── GH-522: the anchor outside the two series ───────────────────────────
+    //
+    // WHAT THIS FILE PROMISED BY ITS NAME AND TEXT: that the Plan page and the
+    // document print one monthly series, and that the series respects the
+    // site's cap.
+    //
+    // WHAT IT ACTUALLY ASSERTED: that the two surfaces agree with EACH OTHER,
+    // that no figure exceeds the cap, that the banner text matches, and that the
+    // annual total is preserved. Every one of those is a relation between the
+    // two surfaces, or between a surface and a scalar.
+    //
+    // WHAT WAS MISSING, and what the reviewer's M1 proved: nothing tied a
+    // FIGURE to a MONTH. M1 rotated the distribution by one month at
+    // nutrition-monthly-distribution.js:309-312, preserving the annual sum.
+    // Both surfaces read the same rotated array, so they still agreed; every
+    // figure was one it had held before, so the cap still held; the sum was
+    // untouched, so the total still matched. Six assertions, all green, on a
+    // programme that fertilised the wrong months.
+    //
+    // The fix is not another comparison between the two. It is a third source
+    // they both have to answer to: the month's own growth potential, which is
+    // what `distribute()` apportions N in proportion to and which is computed
+    // by a different function (`monthlyGP()` in nutrition-calendar.js) that M1
+    // does not touch.
+    test('each month\'s N is anchored to THAT month\'s growth potential, not just to the other surface', () => {
+        expect(planGpByMonth).not.toBeNull();
+        expect(planGpByMonth).toHaveLength(12);
+        expect(typeof minGpThreshold).toBe('number');
+        planGpByMonth.forEach((gp) => expect(typeof gp).toBe('number'));
+
+        // Below the threshold the distribution gives a month nothing. That is
+        // the sharpest form of "this figure belongs to this month": rotate the
+        // series and the silent months move while the cold months stay put.
+        const quietByGp = planGpByMonth
+            .map((gp, m) => (gp < minGpThreshold ? MONTHS[m] : null)).filter(Boolean);
+        const quietByN = planMonthlyN
+            .map((n, m) => (n === 0 ? MONTHS[m] : null)).filter(Boolean);
+        process.stdout.write('[gh398] gp by month: ' + JSON.stringify(planGpByMonth) + '\n');
+        process.stdout.write('[gh398] N  by month: ' + JSON.stringify(planMonthlyN) + '\n');
+        process.stdout.write('[gh398] below-threshold months: ' + JSON.stringify(quietByGp)
+            + ' | zero-N months: ' + JSON.stringify(quietByN) + '\n');
+        expect(quietByN).toEqual(quietByGp);
+        // THE BOUNDARY OF THIS ASSERTION, printed so nobody has to infer it.
+        // On a site whose GP never drops below the threshold both lists are
+        // empty, and `[] === []` proves nothing at all. Measured on the default
+        // fixture (New test - location): GP ranges 0.16 to 1.00 against a
+        // threshold of 0.10 — so here this test is a tautology and the anchoring
+        // is carried entirely by the next one. It is kept because it is the
+        // sharper of the two on a colder site, where the fixture's own winter
+        // months go silent; it is not kept as evidence on this one.
+        if (!quietByGp.length) {
+            process.stdout.write('[gh398] NOTE: no month is below the GP threshold on this fixture, '
+                + 'so the assertion above is vacuous here — the month-to-figure anchoring on this '
+                + 'site is proved by "the biggest month is the month that earned it".\n');
+        }
+    });
+
+    test('the biggest month is the month that earned it', () => {
+        expect(planGpByMonth).not.toBeNull();
+        // Stated only where it can be true: the cap flattens the peak, so on a
+        // site where it binds the largest N is whichever months sit AT the cap,
+        // and the question becomes which months those are — they must be the
+        // highest-GP ones, not an arbitrary set.
+        const capped = siteMaxN ? planMonthlyN
+            .map((n, m) => (n >= siteMaxN - 0.05 ? m : null)).filter((m) => m !== null) : [];
+        const gpRank = planGpByMonth
+            .map((gp, m) => ({ m: m, gp: gp }))
+            .sort((a, b) => b.gp - a.gp).map((r) => r.m);
+        if (capped.length) {
+            const topByGp = gpRank.slice(0, capped.length).sort((a, b) => a - b);
+            process.stdout.write('[gh398] months at the cap: ' + JSON.stringify(capped.map((m) => MONTHS[m]))
+                + ' | the same number of highest-GP months: ' + JSON.stringify(topByGp.map((m) => MONTHS[m])) + '\n');
+            expect(capped.sort((a, b) => a - b)).toEqual(topByGp);
+        } else {
+            const argmaxN = planMonthlyN.indexOf(Math.max.apply(null, planMonthlyN));
+            process.stdout.write('[gh398] biggest N month: ' + MONTHS[argmaxN]
+                + ' | highest-GP month: ' + MONTHS[gpRank[0]] + '\n');
+            expect(planGpByMonth[argmaxN]).toBeCloseTo(Math.max.apply(null, planGpByMonth), 5);
+        }
     });
 
     test('the annual total did not move — the cap changes the schedule, not the target', () => {

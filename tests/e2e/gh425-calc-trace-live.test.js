@@ -34,6 +34,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const { guardStand, fillOwnAnnualN } = require('./lib/stand-guard');
+let standGuard = null;
 
 const ENABLED = process.env.GILBA_E2E === '1';
 
@@ -231,6 +233,9 @@ describe('GH-425 live — the calculation trace block', () => {
 
         browser = await chromium.launch();
         page = await browser.newPage();
+        // GH-519: nothing this run writes reaches an existing site. See
+        // tests/e2e/lib/stand-guard.js for what is held and what is not.
+        standGuard = await guardStand(page);
         page.on('console', (m) => {
             const t = m.text();
             if (/GH-425|calc trace|is not loaded/i.test(t)) consoleLines.push(m.type() + ': ' + t.slice(0, 200));
@@ -284,6 +289,9 @@ describe('GH-425 live — the calculation trace block', () => {
                 window.__gh425 = 0;
                 document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__gh425++; });
             });
+            // GH-519: the target comes from the site's own config, not from a
+            // programme an earlier run of this suite left behind.
+            await fillOwnAnnualN(page);
             await page.click('#plan-nut-generate-btn');
             await page.waitForFunction(() => window.__gh425 > 0
                 && document.querySelectorAll('tr.gilba-nut-row').length === 12, null, { timeout: 90000 });
@@ -409,19 +417,40 @@ describe('GH-425 live — the calculation trace block', () => {
                 expect(r.inputRows['Growth potential series'].value).toMatch(/%/);
             });
 
-            if (c.expect.P) {
-                test('a nutrient with no reading on the sample says so instead of showing a verdict', () => {
-                    const r = results[c.key];
-                    ['P', 'K'].forEach((n) => {
-                        if (c.expect[n] !== 'removal-only-no-soil-data') return;
+            // GH-525: no `if (c.expect.P)` around it, and no early `return`
+            // inside. Both were silent skips: a case where neither P nor K is
+            // 'removal-only-no-soil-data' ran this test body, asserted nothing,
+            // and reported as a pass. It read as coverage until 08:51 made an
+            // assertion-free test fail.
+            //
+            // The emptiness is now STATED. A nutrient with no reading must say
+            // so; a nutrient WITH a reading must not say so — which is a claim
+            // every case can make, and the complement is the half that was
+            // missing. Before, a trace that answered "no reading" for a nutrient
+            // the sample actually carried would have passed here unread.
+            test('a nutrient with no reading says so, and one with a reading does not', () => {
+                const r = results[c.key];
+                const said = [];
+                ['P', 'K'].forEach((n) => {
+                    const steps = r.sections[n] || [];
+                    const bal = steps.find((s) => /^Balance and status/.test(s.label));
+                    const noReading = c.expect[n] === 'removal-only-no-soil-data';
+                    said.push(n + ': expected ' + (noReading ? 'NO reading' : 'a reading')
+                        + ', engine.missing=' + r.engine.missing[n]
+                        + ', first step "' + (steps[0] ? steps[0].result : '<no steps>')
+                        + '", balance "' + (bal ? bal.result : '<none>') + '"');
+                    if (noReading) {
                         expect(r.engine.missing[n]).toBe(true);
-                        const steps = r.sections[n] || [];
                         expect(steps[0].result).toMatch(/no reading/);
-                        const bal = steps.find((s) => /^Balance and status/.test(s.label));
                         expect(bal.result).toBe('No Soil Data');
-                    });
+                    } else {
+                        expect(r.engine.missing[n]).toBeFalsy();
+                        expect(steps[0].result).not.toMatch(/no reading/);
+                        expect(bal.result).not.toBe('No Soil Data');
+                    }
                 });
-            }
+                process.stdout.write('[gh425] ' + c.key + ' — ' + said.join(' | ') + '\n');
+            });
 
             if (c.expect.K === 'lift-to-floor') {
                 test('the below-floor branch shows the lift as its own step, with its own figures', () => {

@@ -281,11 +281,46 @@
             // Prebble integration runs ONLY for NZ sites (isNewZealand() is checked at init).
             // NZ standard is Ammonium Acetate (Hill Labs S78). The only valid override is SLAN,
             // which must be explicitly set in Settings.
-            const _hubMeth = (window.GAIP_HUB_CONFIG?.turfMethodology || '').toLowerCase();
-            if (_hubMeth === 'slan') return 'slan';
-
-            // Everything else (mlsn, ammonium_acetate, cotula_s78, empty) → ammonium_acetate
-            return 'ammonium_acetate';
+            // GH-521: this used to answer ammonium_acetate for everything except
+            // SLAN — so a New Zealand site saved as MLSN had its product
+            // selection scored against AA while the requirement engine branched
+            // on MLSN thresholds. Same site, two methodologies, nothing on
+            // screen saying they disagreed. The methodology is now read as
+            // saved, through the same resolver every other surface uses, and
+            // null where nothing is set.
+            // GH-521: the id comes from the adapter's own `getActiveSiteId()`,
+            // the same one `resolveExportInputs` is built around. The first
+            // draft required `GAIP_SampleManager.getActiveSiteId` to be a
+            // function and asked it directly — and sample-manager.js is not
+            // loaded on the Plan page, so the guard was false, the whole
+            // expression short-circuited and this function answered null on
+            // every site, New Zealand ones included. Measured live: null on all
+            // six sites checked, including Test5 - NZ. The adapter's version
+            // tries that same source first and falls back to
+            // GAIP_HUB_CONFIG.activeSiteId, which is the id the page was
+            // rendered for.
+            const _npi = window.GAIP_NutritionProgramInputs;
+            const _resolved = (_npi
+                && typeof _npi.resolveExportInputs === 'function'
+                && typeof _npi.getActiveSiteId === 'function')
+                ? (function () {
+                    try {
+                        const _sid = _npi.getActiveSiteId();
+                        if (!_sid) return null;
+                        const r = _npi.resolveExportInputs({ siteId: _sid });
+                        // `r.program`, not `r.soil`. The first draft of this read
+                        // asked for `r.soil.methodology`, and resolveExportInputs
+                        // returns no `soil` key at all — its keys are site, turf,
+                        // program, samples, climateNormals, climateReason, sources,
+                        // provenance. The optional chain then swallowed it and this
+                        // function answered null on every site, measured live on
+                        // Burns. Same class as the GH-471 note in that file about
+                        // `cfg.locationName`: a key nothing has, asked for politely.
+                        return r && r.program ? (r.program.methodology || null) : null;
+                    } catch (e) { return null; }
+                })()
+                : null;
+            return _resolved || null;
         },
         
         /**

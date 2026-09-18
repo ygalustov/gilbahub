@@ -47,6 +47,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { fillOwnAnnualN, captureConfigsOnce, restoreConfigs } = require('./lib/stand-guard');
 const { execFileSync } = require('child_process');
 
 const ENABLED = process.env.GILBA_E2E === '1';
@@ -137,10 +138,25 @@ const SITES = [
         // row equals its own ANR Delivered — and the plan-vs-document Delivered
         // check inside the test below reported no disagreement. Only the
         // fixture was stale.
-        delivered: { N: 247.6, P: 14.9, K: 180.7 },
-        // GH-403: was K 136.0 against a document printing 136.1.
-        required: { N: 250.0, P: 5.9, K: 136.1 },
-        footer: { N: 247.6, P: 14.9, K: 180.7 },
+        // GH-525: re-pinned to what both surfaces now print, measured on this
+        // run. Was delivered/footer 247.6 / 14.9 / 180.7 and Required K 136.1.
+        //
+        // Nothing broke. GH-482 changed where the certificate comes from: it is
+        // now derived from the site's OWN soil texture, which took Test5's
+        // ammonium-acetate potassium range from 109.5-273.7 to 78.2-195.5
+        // (tests/gh482-certificate-follows-the-site.test.js:94). A narrower,
+        // lower range moves the potassium requirement — measured 136.1 -> 84.1
+        // — and with it the products the recommender picks and everything they
+        // deliver. Phosphorus moved the other way, 14.9 -> 32.2, for the same
+        // reason: a different product set.
+        //
+        // Confirmed before re-pinning, on the same run: the plan and the
+        // document print the same figures as each other for all three nutrients
+        // (245.5 / 32.2 / 100.1 on both), so the two surfaces agree and only
+        // this file's recorded expectation was behind.
+        delivered: { N: 245.5, P: 32.2, K: 100.1 },
+        required: { N: 250.0, P: 5.9, K: 84.1 },
+        footer: { N: 245.5, P: 32.2, K: 100.1 },
         multiSpray: []
     }
 ];
@@ -285,13 +301,23 @@ if (!ENABLED) {
 RUN.forEach((site) => {
 describe('GH-401 live — ' + site.siteName, () => {
     let browser, page, previousActiveSiteId = null;
-    let planSummary = null, planProducts = null, planAnnualCards = null;
-    let docxAnr = null, docxProducts = null, docxTotalRow = null;
+        let planSummary = null, planProducts = null, planAnnualCards = null;
+    let docxAnr = null, docxProducts = null, docxTotalRow = null, docxTextAll = '';
     let programLiquids = null;
     let hasAnr = false;
     const consoleLines = [];
 
     beforeAll(async () => {
+
+        // GH-519: BEFORE anything opens a page. Measured: a capture taken
+
+        // just before the press had already missed a write — opening the
+
+        // Plan page is itself a write — and the restore then put the moved
+
+        // configuration back and called it a success.
+
+        captureConfigsOnce();
         if (!chromium) throw new Error('playwright does not resolve from the repo — run `npm install`');
         if (!EMAIL || !PASSWORD) throw new Error('no credentials — see tests/e2e/.e2e-credentials.example.json');
         try { execFileSync('unzip', ['-v'], { stdio: 'ignore' }); }
@@ -359,6 +385,9 @@ describe('GH-401 live — ' + site.siteName, () => {
             window.__gh401Generated = 0;
             document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__gh401Generated++; });
         });
+        // GH-519: the target comes from the site's own config, not from a
+        // programme an earlier run of this suite left behind.
+        await fillOwnAnnualN(page);
         await page.click('#plan-nut-generate-btn');
         await page.waitForFunction(() => {
             const el = document.querySelector('#plan-nut-results');
@@ -443,6 +472,9 @@ describe('GH-401 live — ' + site.siteName, () => {
         const xml = execFileSync('unzip', ['-p', docxPath, 'word/document.xml'],
             { maxBuffer: 64 * 1024 * 1024 }).toString();
         const tables = docxTables(xml);
+        // GH-526: the document's own prose, needed to check that a marker
+        // printed in a cell is explained by the legend that accompanies it.
+        docxTextAll = xml.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&');
 
         const anrT = findTable(tables, ['Sample', 'Nutrient', 'Current (kg/ha, ppm)', 'Removal',
                                         'Required', 'Delivered', 'Range', 'Balance', 'Status']);
@@ -513,6 +545,22 @@ describe('GH-401 live — ' + site.siteName, () => {
     }, 400000);
 
     afterAll(async () => {
+
+        // GH-519: the write lands here — this test's claim is that both
+
+        // surfaces read the same saved programme — so the configuration is
+
+        // put back instead of being held. A restore that cannot finish is
+
+        // a red run, not a quiet one: a stand left changed in silence is
+
+        // worse than a failing test.
+
+        let __restore = null;
+
+        try { __restore = await restoreConfigs(page); }
+
+        catch (e) { __restore = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
         if (page && previousActiveSiteId && previousActiveSiteId !== site.siteId) {
             await page.evaluate(async ({ id }) => {
                 const t = document.querySelector('meta[name=csrf-token]');
@@ -526,6 +574,9 @@ describe('GH-401 live — ' + site.siteName, () => {
             }, { id: previousActiveSiteId });
         }
         if (browser) await browser.close();
+        if (__restore && __restore.failed.length) {
+            throw new Error('GH-519: could not put the stand back — ' + __restore.failed.join('; '));
+        }
     }, 120000);
 
     test('both surfaces rendered the tables this file reads', () => {
@@ -582,7 +633,24 @@ describe('GH-401 live — ' + site.siteName, () => {
         // number. The two used to be the same figure; on a greens site they are
         // a factor of ten apart, and reading "6 g/m²" as 6 kg/ha is precisely
         // the mistake this ticket exists to stop anyone making.
-        if (!site.multiSpray.length) return;
+        // GH-525: an empty `multiSpray` is a CLAIM about this site, and it is
+        // now made instead of skipped. The line that stood here returned
+        // silently, so on the only site whose fixture carries `multiSpray: []`
+        // this test said nothing and reported a pass.
+        //
+        // Asserted against the PROGRAMME, not against the fixture: "no liquid is
+        // applied more than once" is checkable, whereas `expect([]).toEqual([])`
+        // would only prove the fixture equals itself. If the recommender starts
+        // repeating a spray on this site, this now says so rather than skipping.
+        const repeatedHere = (programLiquids || []).filter((l) => (l.applications || 1) > 1);
+        if (!site.multiSpray.length) {
+            process.stdout.write('[gh401] ' + site.key + ' — fixture records no multi-application spray; '
+                + 'programme liquids applied more than once: '
+                + JSON.stringify(repeatedHere.map((l) => l.name + ' x' + l.applications)) + '\n');
+            expect(Array.isArray(programLiquids)).toBe(true);
+            expect(repeatedHere.map((l) => l.name)).toEqual([]);
+            return;
+        }
         const bad = [];
         site.multiSpray.forEach((want) => {
             const apps = (programLiquids || []).filter((l) => l.name === want.name);
@@ -625,17 +693,75 @@ describe('GH-401 live — ' + site.siteName, () => {
         // cell now rounds like the P and K cells beside it, so all three
         // nutrients are held to the same string equality here.
         if (!hasAnr) { expect(hasAnr).toBe(true); return; }
+        // GH-526: the QUANTITY is compared, and the markers are pinned
+        // separately, by the test below this one.
+        //
+        // This assertion used to require the two cells to be the same STRING,
+        // and it went red on correct behaviour: the document printed "84.1 ‡"
+        // against the Plan's "84.1". The marker is deliberate —
+        // word-export-combined.js:4327-4331, the GH-369 follow-up — and it
+        // carries its own legend under the table. So the two surfaces agreed
+        // about the quantity and differed about how they annotate it, and a file
+        // whose subject is "Required is ONE quantity" was failing on the
+        // annotation. Comparing representation where the subject is magnitude is
+        // an assertion wider than the product's contract.
+        //
+        // Not a loosening: the markers are now held by their own assertion, so
+        // one disappearing, or appearing on a nutrient that has not earned it,
+        // turns this file red — which the string comparison could not
+        // distinguish from a number changing.
+        const MARKERS = [' \u2020', ' \u2021'];   // † trend-reconciled K, ‡ tissue-derived P/K
+        const stripMarkers = (t) => MARKERS.reduce((acc, m) => acc.split(m).join(''), String(t || '')).trim();
         const bad = [];
         ['N', 'P', 'K'].forEach((n) => {
             const p = planSummary[n] || {};
             const d = docxAnr[n] || {};
-            if (p.requiredText !== d.requiredText) {
-                bad.push({ nutrient: n, what: 'required disagrees', plan: p.requiredText, document: d.requiredText });
+            if (stripMarkers(p.requiredText) !== stripMarkers(d.requiredText)) {
+                bad.push({ nutrient: n, what: 'required disagrees once the markers are set aside',
+                    plan: p.requiredText, document: d.requiredText });
             }
             if (Math.abs(p.required - d.required) > 1e-9) {
                 bad.push({ nutrient: n, what: 'required disagrees numerically', plan: p.required, document: d.required });
             }
         });
+        expect(bad).toEqual([]);
+    });
+
+    test('GH-526 — a marker on a Required cell is one of the two known ones, on a nutrient that can earn it, and explained', () => {
+        // The other half of the assertion above. The document may annotate a
+        // Required figure; it may not annotate an arbitrary one with an
+        // arbitrary sign, and it may not print a sign it does not explain.
+        //
+        // Deliberately NOT a re-derivation of when the marker is due — the
+        // condition lives in the product (_isTissueMarked) and a test that
+        // recomputed it would agree with it by construction. What is checked is
+        // what a reader of the document can check: which sign, on which
+        // nutrient, with which legend.
+        if (!hasAnr) { expect(hasAnr).toBe(true); return; }
+        const seen = [];
+        const bad = [];
+        ['N', 'P', 'K'].forEach((n) => {
+            const t = String((docxAnr[n] || {}).requiredText || '');
+            const dagger = t.indexOf('\u2020') >= 0;
+            const doubleDagger = t.indexOf('\u2021') >= 0;
+            if (dagger) seen.push(n + ' \u2020');
+            if (doubleDagger) seen.push(n + ' \u2021');
+            // Nitrogen earns neither: both markers are defined for P and K only.
+            if (n === 'N' && (dagger || doubleDagger)) {
+                bad.push({ nutrient: n, what: 'nitrogen carries a marker that is defined for P and K', cell: t });
+            }
+            // Nothing else may be appended to the number.
+            const residue = t.replace(/^-?\d+(\.\d+)?/, '').replace(/[\s\u2020\u2021]/g, '');
+            if (residue !== '') {
+                bad.push({ nutrient: n, what: 'an unknown suffix on the Required cell', cell: t, residue: residue });
+            }
+            if (doubleDagger && !/Rows marked \u2021 show a P or K req figure/.test(docxTextAll)) {
+                bad.push({ nutrient: n, what: '\u2021 printed without its legend', cell: t });
+            }
+        });
+        process.stdout.write('[gh401] markers on Required cells: '
+            + (seen.length ? seen.join(', ') : 'none') + '\n');
+        bad.forEach((b) => process.stdout.write('[gh401] MARKER ' + JSON.stringify(b) + '\n'));
         expect(bad).toEqual([]);
     });
 
@@ -653,6 +779,39 @@ describe('GH-401 live — ' + site.siteName, () => {
         expect(bad).toEqual([]);
     });
 
+    // ┌──────────────────────────────────────────────────────────────────────┐
+    // │ THE TEST BELOW IS RED ON PURPOSE. Read this before "fixing" it.      │
+    // └──────────────────────────────────────────────────────────────────────┘
+    //
+    // WHAT IS WRONG, measured on Test5 - NZ / Soccer (GH-525): the caption says
+    // 245.5 kg/ha of nitrogen while the rows printed directly above it sum to
+    // 245.6. The two disagree by 0.1 on BOTH surfaces — the Plan page and the
+    // document — so this is not a divergence between them but a rounding
+    // inconsistency inside the product: a total that is not the total of the
+    // figures beside it, on a page a client reads.
+    //
+    // It is Question 34 in the defects list. Recorded there and NOT measured
+    // here: whether it occurs on other sites and other nutrients or only on this
+    // pair. That is separate work and must not be guessed at from this file.
+    //
+    // WHY IT STAYS RED. The product is not being touched in this delivery, and
+    // how the rounding should be reconciled — round the rows to match the
+    // caption, or the caption to match the rows, or carry more precision to the
+    // sum — is a product decision, not a test one. A green test over a hole is
+    // what this delivery exists to remove.
+    //
+    // HOW NOT TO MAKE IT GREEN — both of these were considered and refused:
+    //   1. Re-pinning the expectation to 245.5, or widening the tolerance past
+    //      0.1. That records the defect as the specification and the next reader
+    //      has no way to tell it was ever wrong.
+    //   2. Removing or skipping the assertion. Then nothing checks that a
+    //      printed total is the total of what is printed, which is the one thing
+    //      a caption is for — and this file already carries three assertions
+    //      that were silent for exactly that reason (GH-525).
+    //
+    // WHAT WILL MAKE IT GREEN: the product's own answer to Question 34. When the
+    // caption and its rows agree, this test passes unchanged — no edit here is
+    // needed, and none should be made.
     test('GH-403 — the caption is the sum of the rows printed above it, on both surfaces', () => {
         const bad = [];
         [['plan', planProducts.rows, planProducts.footer],

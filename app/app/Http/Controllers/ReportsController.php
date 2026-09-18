@@ -43,11 +43,11 @@ class ReportsController extends Controller
             $gaipRecord      = $activeSite->configs()->where('namespace', 'gaip')->first();
             $gaipConfig      = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
             $turfSpecies     = $gaipConfig['turf']['species'] ?? null;
-            $turfMethodology = strtoupper(self::effectiveMethodology(
-                $gaipConfig['turf']['methodology'] ?? null,
-                $activeSite->latitude  !== null ? (float) $activeSite->latitude  : null,
-                $activeSite->longitude !== null ? (float) $activeSite->longitude : null,
-            ));
+            $turfMethodology = self::effectiveMethodology($gaipConfig['turf']['methodology'] ?? null);
+            // GH-520: null means the site has no methodology set. Upper-casing
+            // null is deprecated in PHP 8, and an empty string here would read
+            // as "set to nothing" rather than "not set".
+            $turfMethodology = $turfMethodology === null ? null : strtoupper($turfMethodology);
             $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
             // GH-253: savedLocation feeds the .gaip-lat/.gaip-lon inputs that
             // RegionalProfiles.detectRegionFromHub() reads to pick the NZ vs AU

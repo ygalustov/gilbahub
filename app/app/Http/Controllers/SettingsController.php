@@ -29,11 +29,10 @@ class SettingsController extends Controller
             $longitude !== null ? (float) $longitude : null
         );
         $savedMethodology = $activeGaipConfig['turf']['methodology'] ?? null;
-        $turfMethodology  = strtoupper(self::effectiveMethodology(
-            $savedMethodology,
-            $latitude  !== null ? (float) $latitude  : null,
-            $longitude !== null ? (float) $longitude : null
-        ));
+        // GH-520: the saved value, normalised, or null. The region no longer
+        // overrides it here — it narrows the list the form offers instead.
+        $turfMethodology  = self::effectiveMethodology($savedMethodology);
+        $turfMethodology  = $turfMethodology === null ? null : strtoupper($turfMethodology);
 
         $cacheRecord   = $activeSite?->configs()->where('namespace', 'analysis_cache')->first();
         $analysisCache = $cacheRecord ? [

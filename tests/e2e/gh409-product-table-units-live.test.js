@@ -2,6 +2,26 @@
  * GH-409 live check — the document's product tables against the screen they
  * came from, read off both surfaces.
  *
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │ WHAT THIS FILE GUARDS, AND WHAT IT DOES NOT. Read before widening it.    │
+ * └──────────────────────────────────────────────────────────────────────────┘
+ *
+ * Written from the reviewer's own measurements (GH-523), so that the file's
+ * NAME is not read wider than its assertions.
+ *
+ * GUARDS: a one-sided divergence — the document printing something other than
+ * the page. Proved by a mutation that shifted Delivered in the DOCUMENT only
+ * (word-export.js, `_extractEntryNutrients`): red on both New Zealand sites.
+ *
+ * DOES NOT GUARD: both surfaces moving together. Proved by a mutation of the
+ * temperature series handed to the programme (nutrition-calendar.js:1496,
+ * +2 degC): applications 3 -> 1, volume 90 -> 30 L/ha, granular 4 -> 5 and
+ * 61.6 -> 70.9 g/m2 — and the test stayed green. That is Question 32, not an
+ * oversight of this file.
+ *
+ * The class "both surfaces drift together" is Question 32 in the defects list
+ * and is not being worked on now.
+ *
  * Two reports from the product owner, both of the same shape: the .docx did not
  * match the Plan page.
  *
@@ -52,6 +72,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { fillOwnAnnualN, captureConfigsOnce, restoreConfigs } = require('./lib/stand-guard');
 const { execFileSync } = require('child_process');
 
 const ENABLED = process.env.GILBA_E2E === '1';
@@ -150,7 +171,11 @@ function readPlanProductTableInPage() {
             out.rows.push({
                 name: label,
                 applicationsText: (cells[1].textContent || '').trim(),
-                rateText: (cells[2].textContent || '').trim().replace(/\s+/g, ' ')
+                rateText: (cells[2].textContent || '').trim().replace(/\s+/g, ' '),
+                // GH-522: columns 3-5 are N, P and K. This file asserted that
+                // the document's HEADER says N, P, K and never read what was
+                // printed underneath them.
+                npk: [3, 4, 5].map((i) => (cells[i] ? (cells[i].textContent || '').trim() : ''))
             });
         });
         if (out.rows.length) return out;
@@ -193,12 +218,22 @@ if (!ENABLED) {
 RUN.forEach((site) => {
 describe('GH-409 live — ' + site.siteName, () => {
     let browser, page, previousActiveSiteId = null;
-    let planTable = null, planMonthly = null;
+        let planTable = null, planMonthly = null;
     let docxHeader = null, docxRows = null, docxTotalRow = null, docxMonthly = null;
     let purchasing = null;
     const consoleLines = [];
 
     beforeAll(async () => {
+
+        // GH-519: BEFORE anything opens a page. Measured: a capture taken
+
+        // just before the press had already missed a write — opening the
+
+        // Plan page is itself a write — and the restore then put the moved
+
+        // configuration back and called it a success.
+
+        captureConfigsOnce();
         if (!chromium) throw new Error('playwright does not resolve from the repo — run `npm install`');
         if (!EMAIL || !PASSWORD) throw new Error('no credentials — see tests/e2e/.e2e-credentials.example.json');
         try { execFileSync('unzip', ['-v'], { stdio: 'ignore' }); }
@@ -266,6 +301,9 @@ describe('GH-409 live — ' + site.siteName, () => {
             window.__gh409Generated = 0;
             document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__gh409Generated++; });
         });
+        // GH-519: the target comes from the site's own config, not from a
+        // programme an earlier run of this suite left behind.
+        await fillOwnAnnualN(page);
         await page.click('#plan-nut-generate-btn');
         await page.waitForFunction(() => {
             const el = document.querySelector('#plan-nut-results');
@@ -330,7 +368,8 @@ describe('GH-409 live — ' + site.siteName, () => {
             docxHeader = prodT[0].map((h) => String(h).trim());
             prodT.slice(1).forEach((r) => {
                 const row = { name: String(r[0]).trim(), applicationsText: String(r[1]).trim(),
-                              rateText: String(r[2]).trim().replace(/\s+/g, ' ') };
+                              rateText: String(r[2]).trim().replace(/\s+/g, ' '),
+                              npk: [3, 4, 5].map((i) => (r[i] == null ? '' : String(r[i]).trim())) };
                 if (!row.name) return;
                 if (/^Total Delivered$/i.test(row.name)) { docxTotalRow = row; return; }
                 docxRows.push(row);
@@ -389,6 +428,22 @@ describe('GH-409 live — ' + site.siteName, () => {
     }, 400000);
 
     afterAll(async () => {
+
+        // GH-519: the write lands here — this test's claim is that both
+
+        // surfaces read the same saved programme — so the configuration is
+
+        // put back instead of being held. A restore that cannot finish is
+
+        // a red run, not a quiet one: a stand left changed in silence is
+
+        // worse than a failing test.
+
+        let __restore = null;
+
+        try { __restore = await restoreConfigs(page); }
+
+        catch (e) { __restore = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
         if (page && previousActiveSiteId && previousActiveSiteId !== site.siteId) {
             await page.evaluate(async ({ id }) => {
                 const t = document.querySelector('meta[name=csrf-token]');
@@ -402,6 +457,9 @@ describe('GH-409 live — ' + site.siteName, () => {
             }, { id: previousActiveSiteId });
         }
         if (browser) await browser.close();
+        if (__restore && __restore.failed.length) {
+            throw new Error('GH-519: could not put the stand back — ' + __restore.failed.join('; '));
+        }
     }, 120000);
 
     test('both surfaces rendered the table this file reads', () => {
@@ -434,6 +492,52 @@ describe('GH-409 live — ' + site.siteName, () => {
                 bad.push({ row: i, what: 'applications', plan: pr.applicationsText, document: dr.applicationsText });
             }
         });
+        expect(bad).toEqual([]);
+    });
+
+    // ── GH-522: the columns this file named and never read ──────────────────
+    //
+    // WHAT THIS FILE PROMISED BY ITS NAME AND TEXT: that the product table is
+    // the Plan's table — the same columns, the same rates, the same units — in
+    // the document.
+    //
+    // WHAT IT ACTUALLY ASSERTED about N, P and K: that the two HEADERS spell
+    // them, and that Ca/Mg/S are absent. The contents of those three columns
+    // were captured on neither surface, so nothing compared them.
+    //
+    // WHAT WAS MISSING, and what the reviewer's M5 proved: shift the delivered
+    // N/P/K by ten per cent in the document alone (word-export.js:2930-2932,
+    // where `out.N/P/K` are picked) and every assertion in this file holds. The
+    // headers still read N, P, K; the rate strings are untouched because they
+    // come from a different field; the units are untouched; the monthly
+    // schedule is untouched. A file whose subject is "the document prints the
+    // Plan's columns" passed while three of those columns printed other numbers.
+    test('defect 1 — and the figures UNDER N, P and K are the Plan\'s, not only the headings', () => {
+        const bad = [];
+        planTable.rows.forEach((pr, i) => {
+            const dr = docxRows[i];
+            if (!dr) { bad.push({ row: i, plan: pr.name, why: 'no matching document row' }); return; }
+            ['N', 'P', 'K'].forEach((label, j) => {
+                const p = (pr.npk || [])[j];
+                const d = (dr.npk || [])[j];
+                if (p !== d) {
+                    bad.push({ row: i, product: pr.name, column: label, plan: p, document: d });
+                }
+            });
+        });
+        // `process.stdout.write`, which is this file's idiom. The first draft
+        // called `out(...)`, copied from gh415/gh426/gh428 where `out` is a
+        // logger — here the name is taken twice by locals in other functions
+        // (an object at :136, an array at :171), so the call was a
+        // ReferenceError and this whole assertion never ran. A new assertion
+        // that throws before it asserts is the same blindness as the one this
+        // delivery set out to fix, committed while fixing it.
+        bad.forEach((b) => process.stdout.write('[gh409] NPK MISMATCH ' + JSON.stringify(b) + '\n'));
+        // Both sides must actually have carried something, or an empty-to-empty
+        // comparison would pass for a table that printed nothing at all.
+        const anyFigures = planTable.rows.some((r) => (r.npk || []).some((v) => v !== ''));
+        process.stdout.write('[gh409] plan N/P/K cells present: ' + anyFigures + '\n');
+        expect(anyFigures).toBe(true);
         expect(bad).toEqual([]);
     });
 

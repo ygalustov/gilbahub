@@ -703,8 +703,24 @@ describe('GH-517 — the census device, in the tree', () => {
         const rows = census('named');
         const member = rows.filter((r) => /site-config-persistence\.js/.test(r.where)
             && r.timer === 'setTimeout(300)');
-        expect(member.map((m) => m.where + ' ' + m.timer + ' ' + m.callback))
-            .toEqual(['site-config-persistence.js:1121 setTimeout(300) inline']);
+        // Exactly one node, named by what makes it that node: the file, the
+        // delay, and an inline callback.
+        expect(member.map((m) => m.timer + ' ' + m.callback)).toEqual(['setTimeout(300) inline']);
+        // GH-521: the line number was part of this equality and came off it.
+        // It failed on an edit made three hundred lines above the timer, which
+        // is the device reporting a move rather than a loss — the claim here is
+        // that the node is FOUND, and a coordinate that shifts whenever anything
+        // above it changes does not carry that claim. Uniqueness is kept by the
+        // single-element expectation above; the line is printed, not asserted,
+        // and is checked against the source instead, so "one row" cannot become
+        // "one row, pointing somewhere else".
+        const scp = fs.readFileSync(
+            path.join(__dirname, '../assets/site-config-persistence.js'), 'utf8');
+        const threeHundreds = scp.split('\n')
+            .map((l, i) => ({ line: i + 1, text: l }))
+            .filter((l) => /\}, 300\);/.test(l.text));
+        expect(threeHundreds.length).toBe(1);
+        expect(member[0].where).toMatch(/^site-config-persistence\.js:\d+$/);
     });
 
     test('positive control: a known NON-MEMBER is not in the list', () => {

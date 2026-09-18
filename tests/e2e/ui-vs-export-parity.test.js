@@ -82,6 +82,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { guardStand, fillOwnAnnualN } = require('./lib/stand-guard');
 const { execFileSync } = require('child_process');
 // GH-455: reading one Monthly Schedule cell — the rate and the tolerance its
 // own printed precision earns. Its rules are unit-tested in
@@ -747,6 +748,8 @@ if (!ENABLED) {
         const evalArg = { summariseProgramSrc: summariseProgram.toString(), summariseCalendarSrc: summariseCalendar.toString() };
 
         let browser, page, docxPath;
+
+        let standGuard = null;
         let previousActiveSiteId = null;
         let plan = null;            // readPlanState() result
         let exportXml = '', exportText = '', exportTables = [];
@@ -853,6 +856,9 @@ if (!ENABLED) {
                 window.__gilbaE2EPrevProgram = window.GAIP_NUTRITION_PROGRAM || null;
                 document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__gilbaE2EGenerated++; });
             });
+            // GH-519: the target comes from the site's own config, not from a
+            // programme an earlier run of this suite left behind.
+            await fillOwnAnnualN(page);
             await page.click('#plan-nut-generate-btn');
             await page.waitForFunction(() => {
                 const NC = window.GilbaNutritionCalendar;
@@ -1031,6 +1037,9 @@ if (!ENABLED) {
             }
             const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1400, height: 1000 } });
             page = await context.newPage();
+            // GH-519: nothing this run writes reaches an existing site. See
+            // tests/e2e/lib/stand-guard.js for what is held and what is not.
+            standGuard = await guardStand(page);
             page.on('pageerror', (e) => { consoleLines.push('[PAGEERROR] ' + e.message); failLoud.push('pageerror: ' + e.message); });
             page.on('console', (m) => {
                 const t = m.text();

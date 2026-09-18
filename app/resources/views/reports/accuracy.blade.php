@@ -49,7 +49,7 @@
             <div style="font-size:13px;color:var(--gaip-text-secondary)">
                 {{ $activeSite?->name ?? 'No site selected' }}
                 @if($turfSpecies) · {{ $turfSpecies }} @endif
-                @if($turfMethodology) · {{ $turfMethodology }} @endif
+                @if($turfMethodology) · {{ $turfMethodology }} @else · Methodology: not set @endif{{-- GH-520: named, not blank --}}
                 @if($analysisCache && !empty($analysisCache['analyzedAt']))
                     · Last analysis: {{ \Carbon\Carbon::parse($analysisCache['analyzedAt'])->diffForHumans() }}
                 @endif

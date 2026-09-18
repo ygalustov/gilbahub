@@ -34,6 +34,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { guardStand, fillOwnAnnualN } = require('./lib/stand-guard');
 const { execFileSync } = require('child_process');
 
 const ENABLED = process.env.GILBA_E2E === '1';
@@ -133,6 +134,7 @@ if (!ENABLED) {
 RUN.forEach((site) => {
 describe('GH-422 live — ' + site.siteName + ' / ' + site.sampleLabel, () => {
     let browser, page, previousActiveSiteId = null;
+    let standGuard = null;
     let panel = null;
     let docxBody = '';
     const consoleLines = [];
@@ -146,6 +148,9 @@ describe('GH-422 live — ' + site.siteName + ' / ' + site.sampleLabel, () => {
 
         browser = await chromium.launch();
         page = await browser.newPage({ acceptDownloads: true });
+        // GH-519: nothing this run writes reaches an existing site. See
+        // tests/e2e/lib/stand-guard.js for what is held and what is not.
+        standGuard = await guardStand(page);
         page.on('console', (m) => {
             const t = m.text();
             if (/is not loaded|GH-42\d/i.test(t)) consoleLines.push(m.type() + ': ' + t.slice(0, 240));
@@ -200,6 +205,9 @@ describe('GH-422 live — ' + site.siteName + ' / ' + site.sampleLabel, () => {
             window.__gh422 = 0;
             document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__gh422++; });
         });
+        // GH-519: the target comes from the site's own config, not from a
+        // programme an earlier run of this suite left behind.
+        await fillOwnAnnualN(page);
         await page.click('#plan-nut-generate-btn');
         await page.waitForFunction(() => window.__gh422 > 0
             && document.querySelectorAll('tr.gilba-nut-row').length === 12, null, { timeout: 90000 });

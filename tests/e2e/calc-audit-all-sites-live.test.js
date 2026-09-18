@@ -38,6 +38,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { guardStand, fillOwnAnnualN } = require('./lib/stand-guard');
 
 const ENABLED = process.env.GILBA_E2E === '1';
 
@@ -50,11 +52,19 @@ try {
 const BASE_URL = process.env.GILBA_E2E_URL || credentials.url || 'http://127.0.0.1:8080';
 const EMAIL = process.env.GILBA_E2E_EMAIL || credentials.email;
 const PASSWORD = process.env.GILBA_E2E_PASSWORD || credentials.password;
-// GH-437: the default output lives in a gitignored directory. It used to be
-// written to the repository root as a TRACKED file, so every run of this
-// harness put a 2.1 MB diff in `git status` alongside the code change it was
-// measuring -- a measurement artefact presented as a source edit.
-const OUT = process.env.GILBA_AUDIT_OUT || path.join(__dirname, '../../calc-audit/results.json');
+// GH-437 moved this output off a TRACKED path: it used to be written to the
+// repository root, so every run put a 2.1 MB diff in `git status` beside the
+// code change it was measuring — a measurement artefact presented as a source
+// edit. `calc-audit/` is gitignored, which fixed the diff.
+// GH-522: it is now written OUTSIDE the working tree altogether. Gitignored is
+// not the same as absent: the file still appeared under the checkout, still had
+// to be reasoned about when someone looked at what a run had touched, and a
+// harness that leaves artefacts where the source lives is the same class as a
+// live test that leaves rows on the stand. Same intent as GH-437, carried one
+// step further. `GILBA_AUDIT_OUT` still overrides, and the path is printed on
+// every run so the file is never hard to find.
+const OUT = process.env.GILBA_AUDIT_OUT
+    || path.join(os.tmpdir(), 'gilba-calc-audit', 'results.json');
 const SITE_FILTER = (process.env.GILBA_AUDIT_SITES || '').split(',').map((s) => s.trim()).filter(Boolean);
 const MAX_SAMPLES = parseInt(process.env.GILBA_AUDIT_MAX_SAMPLES || '0', 10) || 0;
 // The UK integration is out of scope by the owner's decision.
@@ -264,6 +274,9 @@ async function generateAndRead(page, consoleLines) {
     });
     // Dismiss the validation alert if annual N is empty, rather than hanging.
     page.once('dialog', async (d) => { consoleLines.push('dialog: ' + d.message()); await d.dismiss().catch(() => {}); });
+    // GH-519: the target comes from the site's own config, not from a
+    // programme an earlier run of this suite left behind.
+    await fillOwnAnnualN(page);
     await page.click('#plan-nut-generate-btn');
     let outcome = 'generated';
     try {
@@ -294,6 +307,7 @@ async function generateAndRead(page, consoleLines) {
 
 describe('Calculation audit — every site, every live soil sample, on the Plan page', () => {
     let browser, page, previousActiveSiteId = null;
+    let standGuard = null;
     const consoleLines = [];
 
     beforeAll(async () => {
@@ -302,6 +316,9 @@ describe('Calculation audit — every site, every live soil sample, on the Plan 
 
         browser = await chromium.launch();
         page = await browser.newPage();
+        // GH-519: nothing this run writes reaches an existing site. See
+        // tests/e2e/lib/stand-guard.js for what is held and what is not.
+        standGuard = await guardStand(page);
         page.on('console', (m) => {
             const t = m.text();
             if (/Rate capped|Capped|capped|[Ss]kipp|no product|No product|not loaded|GH-\d+|PrebbleRecommender\]|AuFertiliserRecommender|NutritionCalendar\]|NutritionRequirementCore|climate|Climate|warn|error|GH302-DEBUG|GH341-DEBUG|tissue gate|traffic|excess|surplus|balanc/i.test(t)
@@ -384,11 +401,17 @@ describe('Calculation audit — every site, every live soil sample, on the Plan 
                 rec.error = String(e && e.stack || e);
                 line('ERROR ' + rec.error.split('\n')[0]);
             }
+            // Written after every site, not only at the end: a run that dies on
+            // site 9 of 12 still leaves the eight it measured.
             fs.mkdirSync(path.dirname(OUT), { recursive: true });
             fs.writeFileSync(OUT, JSON.stringify(RESULTS, null, 1));
         }
+        // GH-522: the final write stood here twice, the second copy indented as
+        // if it were inside the loop it had already left. Harmless — it wrote the
+        // same object to the same path — but a reader has to prove that before
+        // moving on, and its indentation says the opposite of what it does.
         fs.mkdirSync(path.dirname(OUT), { recursive: true });
-            fs.writeFileSync(OUT, JSON.stringify(RESULTS, null, 1));
+        fs.writeFileSync(OUT, JSON.stringify(RESULTS, null, 1));
         process.stdout.write('[audit] wrote ' + OUT + '\n');
     }, 3600000);
 

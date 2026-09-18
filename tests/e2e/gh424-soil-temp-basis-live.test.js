@@ -28,6 +28,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { guardStand, fillOwnAnnualN } = require('./lib/stand-guard');
 
 const ENABLED = process.env.GILBA_E2E === '1';
 
@@ -63,6 +64,7 @@ const RESULTS = { sites: [] };
 
 describe('GH-424 — the climate basis under New Zealand product selection', () => {
     let browser, page, previousActiveSiteId = null;
+    let standGuard = null;
 
     beforeAll(async () => {
         if (!chromium) throw new Error('playwright does not resolve from the repo — run `npm install`');
@@ -70,6 +72,9 @@ describe('GH-424 — the climate basis under New Zealand product selection', () 
 
         browser = await chromium.launch();
         page = await browser.newPage();
+        // GH-519: nothing this run writes reaches an existing site. See
+        // tests/e2e/lib/stand-guard.js for what is held and what is not.
+        standGuard = await guardStand(page);
         await page.goto(BASE_URL + '/login', { waitUntil: 'domcontentloaded' });
         await page.fill('#email', EMAIL);
         await page.fill('#password', PASSWORD);
@@ -114,6 +119,9 @@ describe('GH-424 — the climate basis under New Zealand product selection', () 
                 window.__g = 0;
                 document.addEventListener('gaip:nutrition-calendar-generated', () => { window.__g++; });
             });
+            // GH-519: the target comes from the site's own config, not from a
+            // programme an earlier run of this suite left behind.
+            await fillOwnAnnualN(page);
             await page.click('#plan-nut-generate-btn');
             await page.waitForFunction(() => window.__g > 0 && document.querySelectorAll('tr.gilba-nut-row').length === 12,
                 null, { timeout: 90000 });

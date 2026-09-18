@@ -9,6 +9,10 @@
  * structural test cannot see. Test5 - NZ (Auckland coordinates) is the NZ case;
  * Burns (Canberra) is the control that must keep all three options.
  *
+ * GH-521: the NZ expectation narrowed from "all three minus MLSN" to Ammonium
+ * Acetate alone. The control is unchanged and is what keeps this a regional
+ * rule rather than a removal.
+ *
  * Credentials come from tests/e2e/.e2e-credentials.json, same as the parity
  * harness — see its header. Run: npm run test:e2e:methodology
  */
@@ -100,12 +104,15 @@ if (!ENABLED) {
                 (opts) => opts.map((o) => o.value).filter(Boolean));
         }
 
-        test('a New Zealand site is not offered MLSN, and still offers AA and SLAN', async () => {
+        test('a New Zealand site is offered Ammonium Acetate and nothing else', async () => {
+            // GH-521: this used to require SLAN to still be present. SLAN's
+            // carve-out was justified by a fold in
+            // nutrition-prebble-integration.js that passed it through untouched
+            // while folding everything else to AA; that fold is gone, and the
+            // owner's decision of 17.09.2026 narrows the NZ list to one option.
             const values = await methodologyOptionsFor(NZ_SITE.id);
             process.stdout.write('[gh395] ' + NZ_SITE.name + ' options: ' + JSON.stringify(values) + '\n');
-            expect(values).not.toContain('mlsn');
-            expect(values).toContain('ammonium_acetate');
-            expect(values).toContain('slan');
+            expect(values).toEqual(['ammonium_acetate']);
         }, 180000);
 
         test('a non-NZ site keeps all three — the gate is regional, not global', async () => {
