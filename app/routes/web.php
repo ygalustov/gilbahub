@@ -110,6 +110,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/samples/sync', [SampleController::class, 'sync'])->name('samples.sync');
         Route::get('/samples/{sample}', [SampleController::class, 'show'])->name('samples.show');
         Route::patch('/samples/{sample}', [SampleController::class, 'update'])->name('samples.update');
+        // GH-526 (PLAN-samples-sync-FINAL stage 1): the per-record delete the
+        // hub never had. It replaces DELETE /api/data/entry/{id}, which was the
+        // Data page's own second route into the same table.
+        Route::delete('/samples/{sample}', [SampleController::class, 'destroy'])->name('samples.destroy');
         Route::get('/samples/{sample}/analyse', [SampleAnalysisController::class, 'run'])->name('samples.analyse');
         Route::get('/site-summaries', [SampleController::class, 'listSummaries'])->name('site-summaries.index');
         Route::get('/benchmark/{siteIdentifier}', [BenchmarkController::class, 'show'])->name('benchmark.show');
@@ -122,7 +126,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/spray-log', [SprayLogController::class, 'store'])->name('spray-log.store');
         Route::put('/spray-log/{logId}', [SprayLogController::class, 'update'])->name('spray-log.update');
         Route::delete('/spray-log/{logId}', [SprayLogController::class, 'destroy'])->name('spray-log.destroy');
-        Route::delete('/data/entry/{id}', [DataController::class, 'destroy'])->name('data.destroy');
         Route::post('/media', [MediaUploadController::class, 'store'])->name('media.store');
         Route::get('/media/{mediaUpload}', [MediaUploadController::class, 'show'])->name('media.show');
         Route::post('/alerts/check', [AlertController::class, 'check'])->name('alerts.check');

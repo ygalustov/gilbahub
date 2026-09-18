@@ -8,6 +8,7 @@ use App\Models\SiteSummary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class SampleController extends Controller
@@ -15,12 +16,24 @@ class SampleController extends Controller
     private const VALID_TYPES = ['soil', 'water', 'tissue', 'loi'];
     private const SUMMARY_RING_LIMIT = 12;
 
+    /**
+     * GH-526: the surfaces a delete can come from. Closed, and validated --
+     * `delete_source` is evidence, and a free-text column filled by whatever a
+     * client sent is not.
+     */
+    private const DELETE_SOURCES = ['hub', 'data-page', 'import-clear'];
+
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([
             'site_id' => ['nullable', 'string', 'exists:sites,id'],
             'sample_type' => ['nullable', Rule::in(self::VALID_TYPES)],
-            'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+            // GH-526 (stage 1, item 6): 200 was below what one site already
+            // holds -- Burns carries 29 soil samples, New test 18, and the hub
+            // asks for every site at once because the combined export works
+            // across sites. A client silently served a subset cannot tell that
+            // from "this is all there is", which is what `meta` below is for.
+            'limit' => ['nullable', 'integer', 'min:1', 'max:2000'],
         ]);
 
         $user = $request->user();
@@ -56,10 +69,19 @@ class SampleController extends Controller
             $query->where('sample_type', $data['sample_type']);
         }
 
+        // GH-526: counted on the same query, before the limit. `returned <
+        // total` is the client's signal that it is holding a subset -- stage 3
+        // turns that into "loaded N of M" rather than working quietly on part of
+        // the data.
+        $total = (clone $query)->count();
         $samples = $query->limit($data['limit'] ?? 50)->get();
 
         return response()->json([
             'data' => $samples->map(fn (Sample $sample) => $this->samplePayload($sample))->values(),
+            'meta' => [
+                'total' => $total,
+                'returned' => $samples->count(),
+            ],
         ]);
     }
 
@@ -84,6 +106,16 @@ class SampleController extends Controller
         $account = $site->account;
         abort_unless($account, 422, 'Site account is missing.');
 
+        // GH-526 (stage 1, item 3): the same display-zone rule sync() applies, so
+        // a sample created here and one that arrived through an import print the
+        // same zone name. The raw keys come from the payload itself -- store()
+        // has no separate zone field.
+        $data['payload'] = $this->applyZoneMeta(
+            $data['payload'],
+            $data['payload']['_label'] ?? null,
+            $data['payload']['_zone'] ?? ($data['payload']['zoneType'] ?? null)
+        );
+
         $sample = DB::transaction(function () use ($request, $site, $account, $data) {
             return $this->saveSampleRecord(
                 $site,
@@ -99,7 +131,12 @@ class SampleController extends Controller
                     'lab_date' => $data['lab_date'] ?? null,
                     'depth_mm' => $data['depth_mm'] ?? null,
                     'notes' => $data['notes'] ?? null,
-                ]
+                ],
+                null,
+                // GH-533: this route is now where every per-record write from
+                // the hub arrives, so it may not resurrect. See
+                // saveSampleRecord() for the three answers and why this one.
+                true
             )->fresh(['site']);
         });
 
@@ -122,6 +159,23 @@ class SampleController extends Controller
         ]);
 
         $clearSiteData = (bool) ($data['clearSiteData'] ?? false);
+
+        // GH-526 (stage 1, item 5): a clearing sync may name ONE site.
+        //
+        // `clearSiteData` is the Settings import saying "replace everything this
+        // site holds with this file" -- a deliberate bulk intent, and the one
+        // use of this route that survives the plan. Said of several sites at
+        // once it stops being that and becomes the snapshot this whole plan
+        // removes: one tab's picture of several sites, deciding what the
+        // database keeps. Refused, rather than narrowed silently, so the caller
+        // learns which request was wrong.
+        if ($clearSiteData && count($data['allSites']) > 1) {
+            return response()->json([
+                'message' => 'A clearing import may name one site at a time; '
+                    .count($data['allSites']).' were sent.',
+                'errors' => ['allSites' => ['Only one site may be cleared per request.']],
+            ], 422);
+        }
         $sourceFile    = isset($data['sourceFile']) ? (string) $data['sourceFile'] : null;
 
         $user = $request->user();
@@ -179,8 +233,37 @@ class SampleController extends Controller
                 $restorableTrashedIds = $clearSiteData ? null : [];
 
                 if ($clearSiteData) {
-                    DB::table('spray_logs')->where('site_id', $siteId)->delete();
-                    DB::table('field_log_entries')->where('site_id', $siteId)->delete();
+                    // GH-534: the journals are deleted outright.
+                    //
+                    // GH-526 (D-3) made this a soft delete, and the owner
+                    // reversed it on 18.09.2026: hard for the journals, and
+                    // the samples keep the soft delete they have had since
+                    // April. The two are not the same kind of data. A lab
+                    // sample is a measurement that cannot be taken again --
+                    // 88 of the 148 rows on the dev stack exist only because
+                    // deleting one hides it. A spray log or a field note is a
+                    // record of something the user did, re-enterable, and the
+                    // clear that removes it is one they asked for.
+                    //
+                    // Kept from GH-526 and still true: these rows are not in
+                    // the import bundle, so a clear removes what it does not
+                    // replace. That is now a loud, irreversible clear rather
+                    // than a quiet reversible one, which is the owner's call
+                    // and is why the Log::info below names both counts.
+                    $sprayCleared = DB::table('spray_logs')
+                        ->where('site_id', $siteId)->delete();
+                    $fieldCleared = DB::table('field_log_entries')
+                        ->where('site_id', $siteId)->delete();
+
+                    // GH-526 (stage 1, item 4): a clear is loud in the log.
+                    Log::info('GH-526 site data cleared by import', [
+                        'site_id' => $siteId,
+                        'user_id' => $user->id,
+                        'samples_in_request' => is_array($siteData ?? null) ? count($siteData) : null,
+                        'spray_logs_cleared' => $sprayCleared,
+                        'field_log_entries_cleared' => $fieldCleared,
+                        'source_file' => $sourceFile,
+                    ]);
                     $sampleIdsToDelete = Sample::query()
                         ->where('site_id', $siteId)
                         ->pluck('id');
@@ -246,20 +329,9 @@ class SampleController extends Controller
                         if ($sourceFile !== null && $sourceFile !== '') {
                             $payload['_source'] = $sourceFile;
                         }
-                        if ($sampleZone !== null && $sampleZone !== '') {
-                            $payload['_zone'] = $sampleZone;
-                            $zoneDisplayMap = [
-                                'green'   => 'Greens',
-                                'fairway' => 'Fairways',
-                                'tee'     => 'Tees',
-                                'rough'   => 'Roughs',
-                                'other'   => 'Other',
-                                'turf'    => 'Other',
-                                'water'   => 'Other',
-                                'surface' => 'Other',
-                            ];
-                            $payload['zone'] = $zoneDisplayMap[strtolower($sampleZone)] ?? ucfirst($sampleZone);
-                        }
+                        // GH-526 (stage 1, item 3): one rule for the display
+                        // zone, shared with store() and update().
+                        $payload = $this->applyZoneMeta($payload, null, $sampleZone);
 
                         $clientUid = (string) ($sampleData['id'] ?? $sampleKey ?? '');
                         if ($clientUid === '') {
@@ -349,7 +421,25 @@ class SampleController extends Controller
             if (array_key_exists('lab_date', $data))    $sample->lab_date    = $data['lab_date'];
             if (array_key_exists('depth_mm', $data))    $sample->depth_mm    = $data['depth_mm'];
             if (array_key_exists('notes', $data))       $sample->notes       = $data['notes'];
-            if (array_key_exists('payload', $data))     $sample->payload     = $data['payload'];
+            if (array_key_exists('payload', $data)) {
+                // GH-526 (stage 1, item 3): one zone rule on this path too.
+                $sample->payload = $this->applyZoneMeta(
+                    $data['payload'],
+                    $data['payload']['_label'] ?? null,
+                    $data['payload']['_zone'] ?? ($data['payload']['zoneType'] ?? null)
+                );
+
+                // GH-526 (stage 1, item 3, decision D-6): renaming a sample here
+                // registers the name on its site, as store() and sync() already
+                // do -- the zone list a site shows is built from those names, so
+                // an edit through this route used to leave the site's list
+                // behind the sample it describes.
+                $label = $sample->payload['_label'] ?? null;
+                if (is_string($label) && $label !== ''
+                    && in_array($sample->sample_type, ['soil', 'tissue', 'loi'], true)) {
+                    $this->mergeZoneNameIntoSite($sample->site, $label);
+                }
+            }
             $sample->modified_by_user_id = $request->user()->id;
             $sample->save();
 
@@ -381,6 +471,105 @@ class SampleController extends Controller
 
         return response()->json([
             'data' => $this->samplePayload($sample->fresh(['site'])),
+        ]);
+    }
+
+    /**
+     * GH-526 (PLAN-samples-sync-FINAL stage 1, item 1) — deleting a sample, in
+     * one place.
+     *
+     * There was no per-record delete route at all: the hub could only say "here
+     * is my whole picture" through POST /samples/sync, and the Data page had a
+     * second, separate route of its own (DELETE /api/data/entry/{id} ->
+     * DataController::destroy), which was bound to the user's ACTIVE site and
+     * left site_summaries untouched. Two surfaces, two code paths, one of them
+     * unable to name the record it meant. Both are replaced by this.
+     *
+     * The summary is the part the old Data-page route got wrong. A SiteSummary
+     * is keyed (site_id, sample_type, lab_date) and points at the sample it was
+     * built from. Deleting that sample without touching the summary leaves a
+     * summary describing a row that is gone; deleting the summary outright
+     * throws away a figure that another sample of the same day can still
+     * support. So: if a live sibling exists for the same (site, type, effective
+     * date), the summary is re-pointed at it and rebuilt from it; if none does,
+     * the summary is soft-deleted with the sample.
+     *
+     * `delete_source` says which surface asked. It is validated against a closed
+     * set rather than stored as whatever the caller sent.
+     */
+    public function destroy(Request $request, Sample $sample): JsonResponse
+    {
+        $sample->load('site');
+        abort_unless($request->user()->canEditSite($sample->site), 403);
+
+        $data = $request->validate([
+            'source' => ['nullable', Rule::in(self::DELETE_SOURCES)],
+        ]);
+
+        $userId = $request->user()->id;
+        $source = $data['source'] ?? 'hub';
+        $site = $sample->site;
+        $resummarised = [];
+
+        DB::transaction(function () use ($sample, $site, $userId, $source, &$resummarised) {
+            $effectiveDate = $sample->lab_date?->toDateString()
+                ?? $sample->sample_date?->toDateString();
+
+            $summaries = SiteSummary::query()
+                ->where('source_sample_id', $sample->id)
+                ->get();
+
+            foreach ($summaries as $summary) {
+                // A live sibling of the same site, type and effective date --
+                // the same three facts the summary is keyed by.
+                $replacement = Sample::query()
+                    ->where('site_id', $sample->site_id)
+                    ->where('sample_type', $sample->sample_type)
+                    ->whereKeyNot($sample->id)
+                    ->whereRaw('COALESCE(lab_date, sample_date) = ?', [$summary->lab_date])
+                    ->orderByDesc('id')
+                    ->first();
+
+                if ($replacement) {
+                    $summary->fill([
+                        'source_sample_id' => $replacement->id,
+                        'methodology_snapshot' => $replacement->methodology_snapshot,
+                        'summary' => $this->buildSummaryPayload($replacement, $site),
+                        'modified_by_user_id' => $userId,
+                    ]);
+                    $summary->save();
+                    $resummarised[] = ['summary_id' => $summary->id, 'now_from_sample_id' => $replacement->id];
+                    continue;
+                }
+
+                $summary->delete();
+            }
+
+            $sample->forceFill([
+                'deleted_by_user_id' => $userId,
+                'delete_source' => $source,
+            ])->save();
+
+            $sample->delete();
+
+            Log::info('GH-526 sample deleted', [
+                'sample_id' => $sample->id,
+                'site_id' => $sample->site_id,
+                'sample_type' => $sample->sample_type,
+                'effective_date' => $effectiveDate,
+                'user_id' => $userId,
+                'delete_source' => $source,
+                'summaries_repointed' => count($resummarised),
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $sample->id,
+                'delete_source' => $source,
+                'summaries_repointed' => $resummarised,
+            ],
         ]);
     }
 
@@ -456,7 +645,7 @@ class SampleController extends Controller
         return self::effectiveMethodology($config['turf']['methodology'] ?? null);
     }
 
-    private function saveSampleRecord(Site $site, int $accountId, int $userId, string $sampleType, ?string $clientUid, array $payload, array $meta, ?array $restorableTrashedIds = null): ?Sample
+    private function saveSampleRecord(Site $site, int $accountId, int $userId, string $sampleType, ?string $clientUid, array $payload, array $meta, ?array $restorableTrashedIds = null, bool $ignoreTrashedMatch = false): ?Sample
     {
         if ($clientUid !== null && $clientUid !== '') {
             $attributes = [
@@ -464,8 +653,31 @@ class SampleController extends Controller
                 'sample_type' => $sampleType,
                 'client_uid' => $clientUid,
             ];
-            $sample = Sample::query()->withTrashed()->firstOrNew($attributes);
-            if ($sample->trashed()) {
+
+            // GH-533: $ignoreTrashedMatch is the third answer to "the (site,
+            // type, client_uid) this call names is already soft-deleted", and
+            // it is the one store() needs once per-record writes arrive there.
+            // A soft-deleted row is not looked at: no match is found among the
+            // living, so a new living row is created. The unique index is not
+            // unique, and two rows may carry one client_uid.
+            //
+            // Why store() may not keep either of the other two answers:
+            //   restore()  -- the defect. A user deletes a sample on the Data
+            //                 page, adds one with the same zone name a week
+            //                 later, and the week-old row comes back carrying
+            //                 the OLD lab figures under the new name.
+            //   allow-list -- refuse and write nothing. Right for a push,
+            //                 which is a cache; wrong for a POST, which is a
+            //                 user pressing a button and expecting a sample.
+            //
+            // sync() keeps both of its answers unchanged -- see the block at
+            // $restorableTrashedIds in sync() for which request gets which.
+            $query = Sample::query();
+            if (! $ignoreTrashedMatch) {
+                $query->withTrashed();
+            }
+            $sample = $query->firstOrNew($attributes);
+            if (! $ignoreTrashedMatch && $sample->trashed()) {
                 if ($restorableTrashedIds !== null
                     && ! in_array($sample->id, $restorableTrashedIds, false)) {
                     return null;
@@ -534,6 +746,46 @@ class SampleController extends Controller
         $this->trimSiteSummaryRing($site->id, $sample->sample_type);
 
         return $sample;
+    }
+
+    /**
+     * GH-526 (PLAN-samples-sync-FINAL stage 1, item 3) — the display zone, in
+     * one place.
+     *
+     * The map below lived inside sync()'s loop, so a sample that arrived through
+     * sync got "Greens" while the same sample created through store() or edited
+     * through update() kept whatever raw key the client sent. The hub and the
+     * Data page then printed two different zone names for one row. The rule is
+     * the same for all three paths and now lives in one.
+     *
+     * `_zone` keeps the raw key (what was sent), `zone` is what is printed.
+     * A blank zone sets neither: an absent zone is absent, not "Other".
+     */
+    private function applyZoneMeta(array $payload, ?string $label, ?string $zone): array
+    {
+        if ($label !== null && $label !== '') {
+            $payload['_label'] = $label;
+        }
+
+        if ($zone === null || $zone === '') {
+            return $payload;
+        }
+
+        $zoneDisplayMap = [
+            'green'   => 'Greens',
+            'fairway' => 'Fairways',
+            'tee'     => 'Tees',
+            'rough'   => 'Roughs',
+            'other'   => 'Other',
+            'turf'    => 'Other',
+            'water'   => 'Other',
+            'surface' => 'Other',
+        ];
+
+        $payload['_zone'] = $zone;
+        $payload['zone'] = $zoneDisplayMap[strtolower($zone)] ?? ucfirst($zone);
+
+        return $payload;
     }
 
     private function samplePayload(Sample $sample): array

@@ -243,13 +243,23 @@ class Gh430SamplesNoSnapshotDeleteTest extends TestCase
         $this->pushSoil($user, $site, ['e1', 'e2']);
         $e1 = Sample::query()->where('site_id', $site->id)->where('client_uid', 'e1')->firstOrFail();
 
-        // What the Data page does. DataController::destroy() resolves the row
-        // through the user's ACTIVE site, which the page has already set.
+        // What the Data page does. GH-526 gave deletion one route for every
+        // surface -- DELETE /api/samples/{sample}, resolved against the SAMPLE's
+        // own site rather than against whichever site the user happened to be
+        // on -- and removed DataController::destroy() with its /api/data/entry
+        // route. This file's subject is unchanged: what the tab does afterwards.
         $user->forceFill(['last_active_site_id' => $site->id])->save();
         $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
-            ->deleteJson('/api/data/entry/'.$e1->id, ['_token' => 'test-token'])
+            ->deleteJson('/api/samples/'.$e1->id, ['_token' => 'test-token', 'source' => 'data-page'])
             ->assertOk();
+        // And the attribution the same change records, which nothing asked for
+        // before: the row now says who removed it and from where.
+        $this->assertDatabaseHas('samples', [
+            'id' => $e1->id,
+            'delete_source' => 'data-page',
+            'deleted_by_user_id' => $user->id,
+        ]);
         $this->assertSoftDeleted('samples', ['id' => $e1->id]);
 
         // The tab that still holds e1 pushes again, twice.

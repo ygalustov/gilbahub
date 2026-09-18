@@ -39,7 +39,15 @@ const CALLED_ELSEWHERE = ['addSample', 'addSite', 'addSiteWithId', 'canDriveReco
     'captureFromForm', 'captureRawForm', 'clearSamples', 'compareSamples', 'deleteSample',
     'forEach', 'getActiveSampleId', 'getAreaGuidance', 'getCurrentSiteLabel', 'getSample',
     'getSampleCount', 'getSiteMappings', 'hasCredentials', 'importFile', 'isRestoring',
-    'map', 'mergeConfig', 'removeSite', 'renameSample', 'renameSite',
+    'map', 'mergeConfig',
+    // GH-533 (stage 2): `normalizeValues` joined the list. The server restore
+    // in sample-persistence.js now derives `normalized` from the unwrapped
+    // lab readings instead of leaving the field off the object entirely --
+    // which is what let `Object.keys(s.normalized)` in sample-manager.js meet
+    // an undefined on a server-restored sample. It is called on the page and
+    // never by an export, so it belongs here rather than in the stub set.
+    'normalizeValues',
+    'removeSite', 'renameSample', 'renameSite',
     'restoreFromPersistence', 'sampleAgeMonths', 'saveSample',
     // GH-479 (sixteenth refinement, point 1): `setActiveSite` and `loadSample`
     // left this list. They were in it because the reconciliation ran

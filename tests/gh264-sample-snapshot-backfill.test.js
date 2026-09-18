@@ -29,6 +29,22 @@ const vm = require('vm');
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * GH-533: the block below now calls stripPayloadMeta(), which lives outside
+ * the slice. It is taken from the SAME file by the same technique rather than
+ * restated here -- a copy of a rule about which keys are meta is exactly the
+ * kind of second list that drifts, and the drift would read as data loss.
+ */
+function extractPayloadHelpers() {
+    const src = fs.readFileSync(path.join(__dirname, '../assets/sample-persistence.js'), 'utf8');
+    const start = src.indexOf('var PAYLOAD_META_KEYS = ');
+    const end = src.indexOf('function buildPayload(', start);
+    if (start === -1 || end === -1) {
+        throw new Error('GH-533 payload helpers not found in sample-persistence.js');
+    }
+    return src.slice(start, end);
+}
+
 function extractSyncBlock() {
     const src = fs.readFileSync(path.join(__dirname, '../assets/sample-persistence.js'), 'utf8');
     const start = src.indexOf('var restored = 0;');
@@ -38,7 +54,7 @@ function extractSyncBlock() {
 }
 
 function runSync({ samples, existingSample }) {
-    const block = extractSyncBlock();
+    const block = extractPayloadHelpers() + '\n' + extractSyncBlock();
     let restoredPayload = null;
     const store = existingSample
         ? { allSites: { site1: { soil: { sample_1: existingSample } } }, sites: { site1: { label: 'Site 1' } } }

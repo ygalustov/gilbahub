@@ -1020,6 +1020,41 @@
          * alike, at the one precision that makes them add up. See
          * assets/nutrition-delivery-core.js's formatDelivered().
          */
+        /**
+         * GH-531 — the Total Delivered caption is the sum of the rows printed
+         * above it, on this panel as on the other three surfaces.
+         *
+         * Same rule, same one statement of it: nutrition-delivery-core.js's
+         * `sumDelivered`. The caption used to print the exact accumulated total
+         * rounded once while each row was rounded on its own, which is a total
+         * that is not the total of the figures beside it.
+         *
+         * MEASURED HERE AND FOUND NOT TO DIFFER (GH-530): on Test6 - UK, seven
+         * product rows, the caption and the sum agreed to the digit on all three
+         * nutrients — 203.6 / 18.1 / 67.0. The change is not made because this
+         * panel was printing a wrong number; it was not. It is made because the
+         * SHAPE is the one that produced 245.5 over 245.6 on the other two
+         * panels, and whether the fractional tails cross half of the last digit
+         * depends on the site and the sample, not on the panel. Three surfaces
+         * calling the rule and a fourth keeping its own way is one rule with two
+         * ways of not following it.
+         *
+         * The row values are read the way the rows themselves read them —
+         * `totalDelivered`, defaulting to 0 — so this sums what is on screen.
+         */
+        _sumPrintedDelivered: function(productEntries, nutrient, fallback) {
+            var D = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!D || typeof D.formatSumDelivered !== 'function') {
+                console.error('[UkFert] GH-531: nutrition-delivery-core.js is not loaded — '
+                    + 'the Annual Product Summary caption cannot be summed consistently');
+                return this.formatDelivered(fallback);
+            }
+            var vals = (productEntries || []).map(function (p) {
+                return (p.totalDelivered && p.totalDelivered[nutrient]) || 0;
+            });
+            return D.formatSumDelivered(vals);
+        },
+
         formatDelivered: function(value) {
             var mod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
             if (!mod) {
@@ -1322,9 +1357,9 @@
                         '<tfoot>' +
                             '<tr class="uk-fert-totals-row">' +
                                 '<td class="uk-fert-cell uk-fert-cell--left" colspan="3"><strong>Total Delivered</strong></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + self.formatDelivered(nutrientTotals.N) + '</strong></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + self.formatDelivered(nutrientTotals.P) + '</strong></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + self.formatDelivered(nutrientTotals.K) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + self._sumPrintedDelivered(productEntries, 'N', nutrientTotals.N) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + self._sumPrintedDelivered(productEntries, 'P', nutrientTotals.P) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + self._sumPrintedDelivered(productEntries, 'K', nutrientTotals.K) + '</strong></td>' +
                             '</tr>' +
                             '<tr class="uk-fert-required-row">' +
                                 '<td class="uk-fert-cell uk-fert-cell--left" colspan="3"><em>Required (kg/ha)</em></td>' +

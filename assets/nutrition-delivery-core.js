@@ -234,6 +234,37 @@
     }
 
     /**
+     * GH-529 — the caption over a list is the sum of what the list PRINTS.
+     *
+     * A caption used to be the exact total rounded once, while the rows above it
+     * were each rounded and then added by the reader's eye. Those are two
+     * different numbers: on Test5 - NZ the Annual Product Summary said 245.5
+     * nitrogen over rows adding to 245.6, on the Plan page and in the document
+     * alike -- so it was not a divergence between surfaces but a total that was
+     * not the total of the figures beside it.
+     *
+     * The owner's decision of 18.09.2026 is variant A: the caption prints the
+     * sum of the printed rows, and each month stays exactly as it was computed.
+     * The rows are the statement; the caption adds them up.
+     *
+     * Each value is put through the same rounding its own cell displays, and the
+     * sum is rounded again only to clear binary-float dust (0.1 + 0.2), never to
+     * move the figure.
+     */
+    function sumDelivered(values) {
+        var total = 0;
+        (values || []).forEach(function (v) {
+            total += roundAtOutput(v, DELIVERED_DP);
+        });
+        return roundAtOutput(total, DELIVERED_DP);
+    }
+
+    /** The same sum, formatted the way a cell prints it. */
+    function formatSumDelivered(values) {
+        return formatDelivered(sumDelivered(values));
+    }
+
+    /**
      * The rate of one application. Granular and UK/AU solubles carry kg/ha in
      * `rateKgHa`; AU/UK liquids carry L/ha in `rateLHa`; AU solubles carry
      * kg/ha in `rateLHa` (the b35fix282 catalogue convention), which is why the
@@ -670,6 +701,8 @@
         catalogueProducts: catalogueProducts,
         roundAtOutput: roundAtOutput,
         formatDelivered: formatDelivered,
+        sumDelivered: sumDelivered,
+        formatSumDelivered: formatSumDelivered,
         DELIVERED_DP: DELIVERED_DP,
         NUTRIENTS: NUTRIENTS,
         // GH-409 — the printed rate and its unit

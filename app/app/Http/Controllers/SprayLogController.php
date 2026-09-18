@@ -177,6 +177,11 @@ class SprayLogController extends Controller
     {
         $this->resolveOwnedLog($request, $logId);
 
+        // GH-534: the delete below is unchanged and was unchanged by GH-526
+        // too -- it is the one place in this file that never became soft. The
+        // note that used to stand here explained why it was the exception; it
+        // is no longer an exception, because the import clears these rows
+        // outright again and there is no soft deletion left on this table.
         DB::table('spray_logs')
             ->where('id', $logId)
             ->delete();

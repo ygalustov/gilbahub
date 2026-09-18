@@ -72,13 +72,20 @@ class GH482SiteTexturePayloadTest extends TestCase
         $user = User::factory()->create();
         $site = $this->siteFor($user, [
             'soil_texture_override' => 'sand',
-            'methodology_override' => 'ammonium_acetate',
         ]);
 
         $row = $this->rowFor($user, $site);
 
         $this->assertSame('sand', $row['soil_texture_override']);
-        $this->assertSame('ammonium_acetate', $row['methodology_override']);
+        // GH-527: `methodology_override` is gone. GH-520 gave the methodology
+        // ONE owner -- `config.turf.methodology` -- and retired the column: it
+        // was null on every live site, nothing wrote it, and reading it as a
+        // second store is what let a page print a methodology the site had not
+        // chosen. This file's subject is the site's TEXTURE, which still has its
+        // column and is untouched; the methodology assertions rode along and are
+        // removed rather than re-pointed, because the row no longer carries the
+        // key at all.
+        $this->assertArrayNotHasKey('methodology_override', $row);
         $this->assertSame('loam', $row['account_soil_texture']);
     }
 
@@ -87,7 +94,7 @@ class GH482SiteTexturePayloadTest extends TestCase
         $user = User::factory()->create();
         $site = $this->siteFor($user, [
             'soil_texture_override' => null,
-            'methodology_override' => null,
+
         ]);
 
         $row = $this->rowFor($user, $site);
@@ -95,7 +102,7 @@ class GH482SiteTexturePayloadTest extends TestCase
         // Null, not the account's value: the two links stay two, and which one
         // answered is a thing the client can see.
         $this->assertNull($row['soil_texture_override']);
-        $this->assertNull($row['methodology_override']);
+        $this->assertArrayNotHasKey('methodology_override', $row);
         $this->assertSame('loam', $row['account_soil_texture']);
     }
 

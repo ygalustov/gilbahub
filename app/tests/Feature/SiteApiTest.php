@@ -251,7 +251,12 @@ class SiteApiTest extends TestCase
             ->assertJsonPath('data.site_id', $site->id)
             ->assertJsonPath('data.sample_type', 'soil')
             ->assertJsonPath('data.client_uid', 'green_1')
-            ->assertJsonPath('data.methodology_snapshot', 'ammonium-acetate')
+            // GH-527: the stamp comes from `config.turf.methodology` now (GH-520),
+            // and this site is created without a config, so it has chosen no
+            // methodology and the sample records that rather than inheriting
+            // `sites.methodology_override` -- a column that has been retired.
+            // The owner's rule: an unset methodology stays unset.
+            ->assertJsonPath('data.methodology_snapshot', null)
             ->assertJsonPath('data.soil_texture_snapshot', 'sand')
             ->assertJsonPath('data.payload.label', 'Green 1');
 
@@ -262,7 +267,11 @@ class SiteApiTest extends TestCase
             'site_id' => $site->id,
             'sample_type' => 'soil',
             'client_uid' => 'green_1',
-            'methodology_snapshot' => 'ammonium-acetate',
+            // GH-527: null, for the reason given at the response assertion above
+            // -- the site has chosen no methodology, and the stamp records that
+            // instead of inheriting a retired column. The texture stamp beside it
+            // is unchanged: it still has its own column and its own owner.
+            'methodology_snapshot' => null,
             'soil_texture_snapshot' => 'sand',
         ]);
 
@@ -550,6 +559,83 @@ class SiteApiTest extends TestCase
             ->getJson('/api/samples?site_id='.$site->id.'&sample_type=soil')
             ->assertOk()
             ->assertJsonCount(0, 'data');
+    }
+
+    /**
+     * GH-533: the other half of the question above, and the half that matters
+     * once the hub writes per record. The sibling test asks what a PUSH does
+     * with a soft-deleted row; this one asks what a POST does, because after
+     * this stage every add the user makes arrives as POST /api/samples and
+     * nothing else does.
+     *
+     * The two answers differ on purpose and the difference is not about
+     * safety, it is about who is speaking. A push is the browser's cache
+     * repeating itself, so it writes nothing and reports `skipped`. A POST is
+     * a person pressing Add, so it writes -- but into a NEW row, because the
+     * old one was deleted and its lab figures are not what the person just
+     * typed.
+     *
+     * What this pins is the defect it would otherwise be: delete Green 1,
+     * add a sample called Green 1 a week later, and the week-old row comes
+     * back carrying the OLD potassium under the new name, with no trace that
+     * anything was reused. Measured below on both figures.
+     */
+    public function test_store_does_not_resurrect_a_deleted_sample(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Per Record Site',
+            'slug' => 'per-record-site',
+        ]);
+
+        $create = function (int $k, string $date) use ($user, $site) {
+            return $this->actingAs($user)
+                ->withSession(['_token' => 'test-token'])
+                ->postJson('/api/samples', [
+                    '_token' => 'test-token',
+                    'site_id' => $site->id,
+                    'sample_type' => 'soil',
+                    'client_uid' => 'green_1',
+                    'sample_date' => $date,
+                    'lab_date' => $date,
+                    'payload' => ['_label' => 'Green 1', '_zone' => 'green', 'K' => $k],
+                ]);
+        };
+
+        $first = $create(41, '2026-04-25')->assertCreated();
+        $firstId = $first->json('data.id');
+        $this->assertNotNull($firstId);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->deleteJson('/api/samples/'.$firstId, ['_token' => 'test-token', 'source' => 'data-page'])
+            ->assertOk();
+        $this->assertSoftDeleted('samples', ['id' => $firstId]);
+
+        // A week later the user adds a sample under the same zone name.
+        $second = $create(47, '2026-05-02')->assertCreated();
+        $secondId = $second->json('data.id');
+
+        // A NEW row, not the old one woken up.
+        $this->assertNotSame($firstId, $secondId);
+
+        // The old row stays deleted and keeps the figure it was deleted with;
+        // the new row carries what the user just entered. Both are asserted,
+        // because a restore would have shown itself as 41 under the new id.
+        $this->assertSoftDeleted('samples', ['id' => $firstId]);
+        $this->assertSame(41, Sample::query()->withTrashed()->find($firstId)->payload['K']);
+        $this->assertSame(47, Sample::query()->find($secondId)->payload['K']);
+
+        // Two rows under one client_uid, one of them living -- the index is
+        // deliberately not unique, and the list shows one sample.
+        $this->assertSame(2, Sample::query()->withTrashed()->where('site_id', $site->id)->where('client_uid', 'green_1')->count());
+        $this->assertSame(1, Sample::query()->where('site_id', $site->id)->where('client_uid', 'green_1')->count());
+
+        $this->actingAs($user)
+            ->getJson('/api/samples?site_id='.$site->id.'&sample_type=soil')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $secondId);
     }
 
     public function test_authenticated_user_can_list_site_summaries(): void

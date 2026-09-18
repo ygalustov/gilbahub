@@ -26,6 +26,28 @@
         }
     }
 
+    /**
+     * GH-533 (PLAN-samples-sync-FINAL, stage 2, item 6): may this person edit
+     * the samples of the site they are looking at?
+     *
+     * The answer comes from the page (`GAIP_HUB_CONFIG.canEditActiveSite`,
+     * set in layouts/db-shell.blade.php from the user's own permission), and
+     * it is only a false that hides anything -- an absent flag means a page
+     * that has not been taught to answer, not a refusal. The same reading as
+     * canWriteSamples() in sample-persistence.js, and they must agree: a
+     * button that is visible and does nothing is worse than no button.
+     *
+     * Hiding the controls is not the protection. The server refuses on rights
+     * whatever the browser shows, and sample-persistence.js sends nothing when
+     * this is false. This is so a viewer is not offered an action that will
+     * fail, and so the sample they add in memory is not silently absent from
+     * the database the next time they load the page.
+     */
+    function canEditSamples() {
+        var cfg = global.GAIP_HUB_CONFIG || {};
+        return cfg.canEditActiveSite !== false;
+    }
+
     // =========================================================================
     // ZONE TYPE LABELS & ICONS
     // =========================================================================
@@ -97,6 +119,23 @@
         const fileInput = wrapper.querySelector('.gaip-sample-file-input');
         const importBtn = wrapper.querySelector('.gaip-sample-import-btn');
         const saveBtn = wrapper.querySelector('.gaip-sample-save-btn');
+
+        // GH-533 (stage 2, item 6): every control in this header changes data.
+        // A read-only viewer keeps the picker and the sample info and loses
+        // the five ways of writing. `.gaip-sample-bulk-turf-btn` is hidden by
+        // its own rule as well (multi-site turf); this does not un-hide it.
+        if (!canEditSamples()) {
+            [
+                '.gaip-sample-import-btn',
+                '.gaip-sample-save-btn',
+                '.gaip-sample-rename-btn',
+                '.gaip-sample-bulk-area-btn',
+                '.gaip-sample-bulk-turf-btn'
+            ].forEach((sel) => {
+                const el = wrapper.querySelector(sel);
+                if (el) el.style.display = 'none';
+            });
+        }
         const importStatus = wrapper.querySelector('.gaip-sample-import-status');
         const selectorArea = wrapper.querySelector('.gaip-sample-selector-area');
         const select = wrapper.querySelector('.gaip-sample-select');
@@ -416,7 +455,7 @@
                     ((ha != null && isFinite(ha) && ha > 0)
                         ? '  \u2022  ' + parseFloat(ha).toFixed(2) + ' ha'
                         : '  \u2022  \u26a0 area missing') +
-                    '  (double-click to rename)';
+                    (canEditSamples() ? '  (double-click to rename)' : '');
             }
             btn.title = tooltipText;
             btn.innerHTML = `<span class="zone-icon">${zoneInfo.icon}</span><span class="sample-name">${truncate(sample.label || sample.id, 12)}</span>`;
@@ -438,10 +477,15 @@
                 updateQuickButtons(wrapper, dataType);
             };
 
-            // Double-click: rename sample
+            // Double-click: rename sample.
+            // GH-533 (stage 2, item 6): a rename is an edit, and this is the
+            // fourth way of reaching one on this chip. The tooltip built above
+            // says "(double-click to rename)"; a viewer is told so and then
+            // refused, so the tooltip drops the line too.
             btn.ondblclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (!canEditSamples()) return;
                 const newName = prompt('Rename sample "' + (sample.label || sample.id) + '" to:', sample.label || sample.id);
                 if (newName && newName.trim() && newName.trim() !== sample.id) {
                     const result = global.GAIP_SampleManager.renameSample(dataType, sample.id, newName.trim());
@@ -453,130 +497,137 @@
                 }
             };
 
-            // ⚙ edit button — visible on the quick button, works on touch/mobile
-            const editBtn = document.createElement('button');
-            editBtn.type = 'button';
-            editBtn.className = 'gaip-sample-edit-btn';
-            editBtn.title = 'Edit sample (rename, change zone, delete)';
-            editBtn.textContent = '⚙';
-            editBtn.style.cssText = 'position:absolute;top:-6px;right:-6px;width:16px;height:16px;font-size:9px;line-height:16px;text-align:center;padding:0;border:1px solid var(--gaip-border);border-radius:50%;background:var(--gaip-surface);cursor:pointer;color:var(--gaip-text-secondary);display:none;z-index:2;';
-            editBtn.onclick = (ev) => {
-                ev.stopPropagation();
-                openSampleEditMenu(sample, dataType, wrapper, editBtn);
-            };
+            // GH-533 (stage 2, item 6): the gear opens rename / change zone /
+            // delete, and the right-click menu is the same three. Neither is
+            // built for a viewer -- and the quick button itself stays, because
+            // choosing which sample to LOOK at is not an edit.
             btn.style.position = 'relative';
-            btn.addEventListener('mouseenter', () => { editBtn.style.display = 'block'; });
-            btn.addEventListener('mouseleave', () => { editBtn.style.display = 'none'; });
-            // Touch: tap the ⚙ button itself
-            editBtn.addEventListener('touchstart', (ev) => { ev.preventDefault(); ev.stopPropagation(); openSampleEditMenu(sample, dataType, wrapper, editBtn); }, { passive: false });
-            btn.appendChild(editBtn);
-
-            // Right-click: context menu with rename/delete (desktop fallback)
-            btn.oncontextmenu = (e) => {
-                e.preventDefault();
-                // Remove any existing context menu
-                const existing = document.querySelector('.gaip-sample-context-menu');
-                if (existing) existing.remove();
-
-                const menu = document.createElement('div');
-                menu.className = 'gaip-sample-context-menu';
-                menu.style.cssText = 'position:fixed; z-index:10000; background:var(--gaip-surface); border:1px solid var(--gaip-border); border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,0.15); padding:4px 0; min-width:140px; font-size:13px;';
-                menu.style.left = e.clientX + 'px';
-                menu.style.top = e.clientY + 'px';
-
-                const renameItem = document.createElement('div');
-                renameItem.textContent = '\u270F\uFE0F Rename';
-                renameItem.style.cssText = 'padding:6px 14px; cursor:pointer; color:var(--gaip-text);';
-                renameItem.onmouseenter = () => { renameItem.style.background = 'var(--gaip-surface-hover)'; };
-                renameItem.onmouseleave = () => { renameItem.style.background = ''; };
-                renameItem.onclick = () => {
-                    menu.remove();
-                    const newName = prompt('Rename sample "' + (sample.label || sample.id) + '" to:', sample.label || sample.id);
-                    if (newName && newName.trim() && newName.trim() !== sample.id) {
-                        const result = global.GAIP_SampleManager.renameSample(dataType, sample.id, newName.trim());
-                        if (result) {
-                            updateSampleSelector(wrapper, dataType);
-                        } else {
-                            alert('Rename failed. A sample with that name may already exist.');
-                        }
-                    }
+            if (canEditSamples()) {
+                // ⚙ edit button — visible on the quick button, works on touch/mobile
+                const editBtn = document.createElement('button');
+                editBtn.type = 'button';
+                editBtn.className = 'gaip-sample-edit-btn';
+                editBtn.title = 'Edit sample (rename, change zone, delete)';
+                editBtn.textContent = '⚙';
+                editBtn.style.cssText = 'position:absolute;top:-6px;right:-6px;width:16px;height:16px;font-size:9px;line-height:16px;text-align:center;padding:0;border:1px solid var(--gaip-border);border-radius:50%;background:var(--gaip-surface);cursor:pointer;color:var(--gaip-text-secondary);display:none;z-index:2;';
+                editBtn.onclick = (ev) => {
+                    ev.stopPropagation();
+                    openSampleEditMenu(sample, dataType, wrapper, editBtn);
                 };
+                btn.addEventListener('mouseenter', () => { editBtn.style.display = 'block'; });
+                btn.addEventListener('mouseleave', () => { editBtn.style.display = 'none'; });
+                // Touch: tap the ⚙ button itself
+                editBtn.addEventListener('touchstart', (ev) => { ev.preventDefault(); ev.stopPropagation(); openSampleEditMenu(sample, dataType, wrapper, editBtn); }, { passive: false });
+                btn.appendChild(editBtn);
 
-                const deleteItem = document.createElement('div');
-                deleteItem.textContent = '\u2716 Delete';
-                deleteItem.style.cssText = 'padding:6px 14px; cursor:pointer; color:#dc2626;';
-                deleteItem.onmouseenter = () => { deleteItem.style.background = 'var(--gaip-critical-bg)'; };
-                deleteItem.onmouseleave = () => { deleteItem.style.background = ''; };
-                deleteItem.onclick = () => {
-                    menu.remove();
-                    if (confirm('Delete sample "' + (sample.label || sample.id) + '"? This cannot be undone.')) {
-                        global.GAIP_SampleManager.deleteSample(dataType, sample.id);
-                        updateSampleSelector(wrapper, dataType);
-                    }
-                };
+                // Right-click: context menu with rename/delete (desktop fallback)
+                btn.oncontextmenu = (e) => {
+                    e.preventDefault();
+                    // Remove any existing context menu
+                    const existing = document.querySelector('.gaip-sample-context-menu');
+                    if (existing) existing.remove();
 
-                // Zone change submenu item
-                const zoneItem = document.createElement('div');
-                zoneItem.textContent = '\uD83D\uDCCC Change Zone';
-                zoneItem.style.cssText = 'padding:6px 14px; cursor:pointer; color:var(--gaip-text);';
-                zoneItem.onmouseenter = () => { zoneItem.style.background = 'var(--gaip-surface-hover)'; };
-                zoneItem.onmouseleave = () => { zoneItem.style.background = ''; };
-                zoneItem.onclick = () => {
-                    menu.remove();
-                    // Build zone picker dialog
-                    const overlay = document.createElement('div');
-                    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10001;display:flex;align-items:center;justify-content:center;';
-                    const dialog = document.createElement('div');
-                    dialog.style.cssText = 'background:var(--gaip-surface);border-radius:8px;padding:20px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,0.2);';
-                    dialog.innerHTML = '<div style="font-weight:600;margin-bottom:12px;font-size:14px;">Change Zone Type</div>' +
-                        '<div style="font-size:12px;color:var(--gaip-text-secondary);margin-bottom:10px;">Sample: ' + (sample.label || sample.id) + '</div>';
-                    const select = document.createElement('select');
-                    select.style.cssText = 'width:100%;padding:6px 8px;border:1px solid var(--gaip-border);border-radius:4px;font-size:13px;margin-bottom:14px;';
-                    Object.keys(ZONE_LABELS).forEach(zk => {
-                        const opt = document.createElement('option');
-                        opt.value = zk;
-                        opt.textContent = ZONE_LABELS[zk].icon + ' ' + ZONE_LABELS[zk].label;
-                        if (zk === (sample.zoneType || 'other')) opt.selected = true;
-                        select.appendChild(opt);
-                    });
-                    dialog.appendChild(select);
-                    const btns = document.createElement('div');
-                    btns.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
-                    const cancelBtn = document.createElement('button');
-                    cancelBtn.textContent = 'Cancel';
-                    cancelBtn.style.cssText = 'padding:5px 12px;border:1px solid var(--gaip-border);border-radius:4px;background:var(--gaip-surface-muted);cursor:pointer;font-size:12px;';
-                    cancelBtn.onclick = () => overlay.remove();
-                    const applyBtn = document.createElement('button');
-                    applyBtn.textContent = 'Apply';
-                    applyBtn.style.cssText = 'padding:5px 12px;border:1px solid #86efac;border-radius:4px;background:var(--gaip-good-bg);cursor:pointer;font-size:12px;font-weight:600;color:#16a34a;';
-                    applyBtn.onclick = () => {
-                        global.GAIP_SampleManager.setZoneType(dataType, sample.id, select.value);
-                        overlay.remove();
-                        updateSampleSelector(wrapper, dataType);
-                        updateQuickButtons(wrapper, dataType);
-                    };
-                    btns.appendChild(cancelBtn);
-                    btns.appendChild(applyBtn);
-                    dialog.appendChild(btns);
-                    overlay.appendChild(dialog);
-                    overlay.onclick = (ev) => { if (ev.target === overlay) overlay.remove(); };
-                    document.body.appendChild(overlay);
-                };
+                    const menu = document.createElement('div');
+                    menu.className = 'gaip-sample-context-menu';
+                    menu.style.cssText = 'position:fixed; z-index:10000; background:var(--gaip-surface); border:1px solid var(--gaip-border); border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,0.15); padding:4px 0; min-width:140px; font-size:13px;';
+                    menu.style.left = e.clientX + 'px';
+                    menu.style.top = e.clientY + 'px';
 
-                menu.appendChild(renameItem);
-                menu.appendChild(zoneItem);
-                menu.appendChild(deleteItem);
-                document.body.appendChild(menu);
-
-                // Close on any click outside
-                const closeMenu = (ev) => {
-                    if (!menu.contains(ev.target)) {
+                    const renameItem = document.createElement('div');
+                    renameItem.textContent = '\u270F\uFE0F Rename';
+                    renameItem.style.cssText = 'padding:6px 14px; cursor:pointer; color:var(--gaip-text);';
+                    renameItem.onmouseenter = () => { renameItem.style.background = 'var(--gaip-surface-hover)'; };
+                    renameItem.onmouseleave = () => { renameItem.style.background = ''; };
+                    renameItem.onclick = () => {
                         menu.remove();
-                        document.removeEventListener('click', closeMenu, true);
-                    }
+                        const newName = prompt('Rename sample "' + (sample.label || sample.id) + '" to:', sample.label || sample.id);
+                        if (newName && newName.trim() && newName.trim() !== sample.id) {
+                            const result = global.GAIP_SampleManager.renameSample(dataType, sample.id, newName.trim());
+                            if (result) {
+                                updateSampleSelector(wrapper, dataType);
+                            } else {
+                                alert('Rename failed. A sample with that name may already exist.');
+                            }
+                        }
+                    };
+
+                    const deleteItem = document.createElement('div');
+                    deleteItem.textContent = '\u2716 Delete';
+                    deleteItem.style.cssText = 'padding:6px 14px; cursor:pointer; color:#dc2626;';
+                    deleteItem.onmouseenter = () => { deleteItem.style.background = 'var(--gaip-critical-bg)'; };
+                    deleteItem.onmouseleave = () => { deleteItem.style.background = ''; };
+                    deleteItem.onclick = () => {
+                        menu.remove();
+                        if (confirm('Delete sample "' + (sample.label || sample.id) + '"? This cannot be undone.')) {
+                            global.GAIP_SampleManager.deleteSample(dataType, sample.id);
+                            updateSampleSelector(wrapper, dataType);
+                        }
+                    };
+
+                    // Zone change submenu item
+                    const zoneItem = document.createElement('div');
+                    zoneItem.textContent = '\uD83D\uDCCC Change Zone';
+                    zoneItem.style.cssText = 'padding:6px 14px; cursor:pointer; color:var(--gaip-text);';
+                    zoneItem.onmouseenter = () => { zoneItem.style.background = 'var(--gaip-surface-hover)'; };
+                    zoneItem.onmouseleave = () => { zoneItem.style.background = ''; };
+                    zoneItem.onclick = () => {
+                        menu.remove();
+                        // Build zone picker dialog
+                        const overlay = document.createElement('div');
+                        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10001;display:flex;align-items:center;justify-content:center;';
+                        const dialog = document.createElement('div');
+                        dialog.style.cssText = 'background:var(--gaip-surface);border-radius:8px;padding:20px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,0.2);';
+                        dialog.innerHTML = '<div style="font-weight:600;margin-bottom:12px;font-size:14px;">Change Zone Type</div>' +
+                            '<div style="font-size:12px;color:var(--gaip-text-secondary);margin-bottom:10px;">Sample: ' + (sample.label || sample.id) + '</div>';
+                        const select = document.createElement('select');
+                        select.style.cssText = 'width:100%;padding:6px 8px;border:1px solid var(--gaip-border);border-radius:4px;font-size:13px;margin-bottom:14px;';
+                        Object.keys(ZONE_LABELS).forEach(zk => {
+                            const opt = document.createElement('option');
+                            opt.value = zk;
+                            opt.textContent = ZONE_LABELS[zk].icon + ' ' + ZONE_LABELS[zk].label;
+                            if (zk === (sample.zoneType || 'other')) opt.selected = true;
+                            select.appendChild(opt);
+                        });
+                        dialog.appendChild(select);
+                        const btns = document.createElement('div');
+                        btns.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+                        const cancelBtn = document.createElement('button');
+                        cancelBtn.textContent = 'Cancel';
+                        cancelBtn.style.cssText = 'padding:5px 12px;border:1px solid var(--gaip-border);border-radius:4px;background:var(--gaip-surface-muted);cursor:pointer;font-size:12px;';
+                        cancelBtn.onclick = () => overlay.remove();
+                        const applyBtn = document.createElement('button');
+                        applyBtn.textContent = 'Apply';
+                        applyBtn.style.cssText = 'padding:5px 12px;border:1px solid #86efac;border-radius:4px;background:var(--gaip-good-bg);cursor:pointer;font-size:12px;font-weight:600;color:#16a34a;';
+                        applyBtn.onclick = () => {
+                            global.GAIP_SampleManager.setZoneType(dataType, sample.id, select.value);
+                            overlay.remove();
+                            updateSampleSelector(wrapper, dataType);
+                            updateQuickButtons(wrapper, dataType);
+                        };
+                        btns.appendChild(cancelBtn);
+                        btns.appendChild(applyBtn);
+                        dialog.appendChild(btns);
+                        overlay.appendChild(dialog);
+                        overlay.onclick = (ev) => { if (ev.target === overlay) overlay.remove(); };
+                        document.body.appendChild(overlay);
+                    };
+
+                    menu.appendChild(renameItem);
+                    menu.appendChild(zoneItem);
+                    menu.appendChild(deleteItem);
+                    document.body.appendChild(menu);
+
+                    // Close on any click outside
+                    const closeMenu = (ev) => {
+                        if (!menu.contains(ev.target)) {
+                            menu.remove();
+                            document.removeEventListener('click', closeMenu, true);
+                        }
+                    };
+                    setTimeout(() => document.addEventListener('click', closeMenu, true), 0);
                 };
-                setTimeout(() => document.addEventListener('click', closeMenu, true), 0);
-            };
+            
+            }
 
             quickBtns.appendChild(btn);
         });

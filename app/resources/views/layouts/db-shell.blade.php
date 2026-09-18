@@ -22,6 +22,19 @@
             // nothing and read a copy out of localStorage instead.
             savedLocation: @json($injectedSavedLocation ?? null),
             gaipConfig:   @json(($injectedGaipConfig ?? []) ?: null),
+            // GH-533 (PLAN-samples-sync-FINAL, stage 2, item 6): may the
+            // person looking at this page change what is on it?
+            //
+            // It has to be answered here because from this stage every sample
+            // action is its own request. Until now a viewer added a sample in
+            // the browser, the one snapshot push collected a 403, and the
+            // failure went to a console warning. Per record, the same viewer
+            // makes a request per action and sees each one refused.
+            //
+            // Absent is not false -- see canWriteSamples() in
+            // sample-persistence.js. A page that does not say this is a page
+            // we have not taught to answer, not a page that said no.
+            canEditActiveSite: @json($activeSite ? (bool) auth()->user()?->canEditSite($activeSite) : false),
         };
         window.GAIP_DASHBOARD_DATA = @json($analysisCache ?? null);
         // GH-441: the setup wizard reads the database's own wizard record

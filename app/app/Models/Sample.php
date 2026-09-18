@@ -27,6 +27,11 @@ class Sample extends Model
         'notes',
         'created_by_user_id',
         'modified_by_user_id',
+        // GH-526 (stage 1, item 4): who deleted the row and through which
+        // surface. Written only by SampleController::destroy(); every other
+        // path leaves them null rather than guessing.
+        'deleted_by_user_id',
+        'delete_source',
     ];
 
     protected function casts(): array

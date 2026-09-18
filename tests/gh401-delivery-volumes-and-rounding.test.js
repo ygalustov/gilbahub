@@ -529,17 +529,42 @@ describe('GH-401 — the double rounding is gone from all three integrations', (
         expect(Math.round(Math.round(acc.totals.N * 10) / 10)).toBe(126);
     });
 
-    test('the captions read the raw totals, not a rounded copy', () => {
+    test('GH-529: the captions read the SUM OF THE PRINTED ROWS, not the raw total', () => {
+        // WHAT THIS ASSERTED BEFORE: `this.formatDelivered(nutrientTotals.X)` —
+        // the exact accumulated total, rounded once. That was the fix for an
+        // earlier defect (a caption reading 126 over rows reading 113 + 7 + 5)
+        // and it was right about precision and wrong about the quantity: the
+        // rows are each rounded and the caption was not, so the caption was not
+        // the total of the figures beside it. Measured on Test5 - NZ: 245.5
+        // nitrogen over rows adding to 245.6, on the Plan page and in the
+        // document alike.
+        //
+        // The owner settled it on 18.09.2026, variant A: the caption prints the
+        // sum of the printed rows and every month stays exactly as computed.
+        // The rule is stated once, in nutrition-delivery-core.js's
+        // `sumDelivered`, and all three surfaces call it.
         const au = code(readAsset('nutrition-au-fertiliser-integration.js'));
         const nz = code(readAsset('nutrition-prebble-integration.js'));
+        const core = code(readAsset('nutrition-delivery-core.js'));
+
+        expect(core).toMatch(/function sumDelivered\(values\)/);
+        expect(core).toMatch(/function formatSumDelivered\(values\)/);
+
         ['N', 'P', 'K'].forEach((n) => {
-            // GH-403: still the raw total, still one step — the step is now
-            // formatDelivered(), which is roundAtOutput() at 1 dp.
-            expect(au).toMatch(new RegExp('this\\.formatDelivered\\(nutrientTotals\\.' + n + '\\)'));
-            expect(nz).toMatch(new RegExp('this\\.formatDelivered\\(nutrientTotals\\.' + n + '\\)'));
-            expect(au).not.toMatch(new RegExp('\\$\\{Math\\.round\\(nutrientTotals\\.' + n + '\\)\\}'));
-            expect(nz).not.toMatch(new RegExp('\\$\\{Math\\.round\\(nutrientTotals\\.' + n + '\\)\\}'));
+            expect(au).toMatch(new RegExp("_sumPrintedDelivered\\(productEntries, '" + n + "'"));
+            expect(nz).toMatch(new RegExp("_sumPrintedDelivered\\(productEntries, '" + n + "'"));
+            // The old shape must not come back on either panel.
+            expect(au).not.toMatch(new RegExp('\\$\\{this\\.formatDelivered\\(nutrientTotals\\.' + n + '\\)\\}'));
+            expect(nz).not.toMatch(new RegExp('\\$\\{this\\.formatDelivered\\(nutrientTotals\\.' + n + '\\)\\}'));
         });
+
+        // Behavioural, so the structural pins above cannot pass over a helper
+        // that sums the wrong thing: three rows printing 0.3 add to 0.9, where
+        // the exact total (0.75) would round to 0.8.
+        const D = require('../assets/nutrition-delivery-core.js');
+        expect([0.25, 0.25, 0.25].map((v) => D.formatDelivered(v))).toEqual(['0.3', '0.3', '0.3']);
+        expect(D.formatSumDelivered([0.25, 0.25, 0.25])).toBe('0.9');
+        expect(D.formatDelivered(0.75)).toBe('0.8');
     });
 
     test('the Word export rounds the same figure the same way', () => {
@@ -823,12 +848,24 @@ describe("GH-401 — the export's Annual Product Summary gains a Total Delivered
         // never emitting them would leave every assertion above satisfied and
         // the document unchanged.
         expect(stripped).toMatch(/summaryRows\.push\(new TableRow\(\{ children: totalCells \}\)\);/);
-        expect(stripped).toMatch(/_computeProgrammeDelivered\(summary, 'N'\)/);
-        expect(stripped).toMatch(/_computeProgrammeDelivered\(summary, 'K'\)/);
+        // GH-529: built from the rows the table PRINTS, not from the programme
+        // accumulator. It used to read `_computeProgrammeDelivered(summary, X)`
+        // — the exact total — while each row above printed its own value
+        // rounded, so the caption was not the total of the figures beside it
+        // (Test5 - NZ: 245.5 nitrogen over rows adding to 245.6). Owner's
+        // decision of 18.09.2026, variant A. The catalogue-only definition is
+        // unchanged and is still asserted by the test below this one: the rows
+        // summed here are `_catalogueRows`, which is the same filter.
+        expect(stripped).toMatch(/var _sumPrinted = function\(nutrient\)/);
+        expect(stripped).toMatch(/_dmFmt\.formatSumDelivered\(vals\)/);
+        expect(stripped).toMatch(/_totalCell\(_sumPrinted\('N'\)\)/);
+        expect(stripped).toMatch(/_totalCell\(_sumPrinted\('K'\)\)/);
         // ...for every optional column too, so a table showing Ca has a Ca total.
         ['P', 'Ca', 'Mg', 'S'].forEach((n) => {
-            expect(stripped).toMatch(new RegExp("_computeProgrammeDelivered\\(summary, '" + n + "'\\)"));
+            expect(stripped).toMatch(new RegExp("_totalCell\\(_sumPrinted\\('" + n + "'\\)\\)"));
         });
+        // And the old shape is gone from the caption.
+        expect(stripped).not.toMatch(/_totalCell\(_fmtDelivered\(_computeProgrammeDelivered/);
     });
 
     test('it is catalogue-only, the same definition the ANR Delivered column uses', () => {

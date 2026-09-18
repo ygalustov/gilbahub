@@ -106,18 +106,17 @@ class DataController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, int $id): \Illuminate\Http\JsonResponse
-    {
-        $activeSite = $request->user()->activeSite;
-        abort_unless($activeSite, 403);
-        abort_unless($request->user()->canEditSite($activeSite), 403);
+    /*
+     * GH-526 (PLAN-samples-sync-FINAL stage 1, item 2): destroy() removed.
+     *
+     * It was the Data page's own delete, a second route into `samples` beside
+     * the hub's. It resolved the row by (id, user's ACTIVE site) rather than by
+     * the row's own site, so it could 404 on a record the page was displaying
+     * after an active-site change, and it left `site_summaries` pointing at the
+     * sample it had just deleted. Deletion now has one place --
+     * SampleController::destroy(), DELETE /api/samples/{sample} -- which checks
+     * rights against the sample's OWN site, re-points or retires the summary,
+     * and records who deleted it and from where.
+     */
 
-        $sample = Sample::where('id', $id)
-            ->where('site_id', $activeSite->id)
-            ->firstOrFail();
-
-        $sample->delete();
-
-        return response()->json(['success' => true]);
-    }
 }

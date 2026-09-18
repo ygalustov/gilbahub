@@ -92,6 +92,13 @@ class FieldLogEntryController extends Controller
             'photo' => $photo,
         ];
 
+        // The upsert key is unique(user_id, client_uid), so the same entry
+        // written twice updates rather than inserting.
+        //
+        // GH-534: this lookup used to be marked as deliberately unfiltered,
+        // because a soft-deleted row still occupied that key and had to be
+        // found and revived. A cleared row is gone now, so the key is free and
+        // an insert is what happens.
         $existing = DB::table('field_log_entries')
             ->where('user_id', $request->user()->id)
             ->where('client_uid', $data['client_uid'])

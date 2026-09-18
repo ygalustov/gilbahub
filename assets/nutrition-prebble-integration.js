@@ -277,6 +277,35 @@
         /**
          * Get methodology from Hub state or calendar
          */
+        /**
+         * GH-529 — the Total Delivered caption is the sum of the rows printed
+         * above it, not the exact accumulated total rounded once.
+         *
+         * Measured on Test5 - NZ: 245.5 nitrogen in the caption over rows adding
+         * to 245.6 — and the document printed the same pair, so it was not a
+         * divergence between the two surfaces but a total that was not the total
+         * of the figures beside it. Owner's decision of 18.09.2026, variant A:
+         * the caption adds up what is printed; every month stays as computed.
+         *
+         * The rule itself lives in nutrition-delivery-core.js (`sumDelivered`),
+         * so this panel, the Australian panel and the Word export state it once
+         * between them. `fallback` is the exact total, used only when that module
+         * is absent — the same shape every other reader of it uses.
+         */
+        _sumPrintedDelivered: function(productEntries, nutrient, fallback) {
+            var D = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!D || typeof D.formatSumDelivered !== 'function') {
+                console.error('[Prebble] GH-529: nutrition-delivery-core.js is not loaded — '
+                    + 'the Annual Product Summary caption cannot be summed consistently');
+                return this.formatDelivered(fallback);
+            }
+            var vals = (productEntries || []).map(function (pair) {
+                var data = pair && pair[1] ? pair[1] : {};
+                return (data.nutrients || {})[nutrient];
+            });
+            return D.formatSumDelivered(vals);
+        },
+
         getMethodology: function() {
             // Prebble integration runs ONLY for NZ sites (isNewZealand() is checked at init).
             // NZ standard is Ammonium Acetate (Hill Labs S78). The only valid override is SLAN,
@@ -1349,9 +1378,9 @@
                             <tfoot>
                                 <tr class="prebble-totals-row">
                                     <td class="prebble-cell prebble-cell--left" colspan="3"><strong>Total Delivered</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${this.formatDelivered(nutrientTotals.N)}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${this.formatDelivered(nutrientTotals.P)}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${this.formatDelivered(nutrientTotals.K)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${this._sumPrintedDelivered(productEntries, 'N', nutrientTotals.N)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${this._sumPrintedDelivered(productEntries, 'P', nutrientTotals.P)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${this._sumPrintedDelivered(productEntries, 'K', nutrientTotals.K)}</strong></td>
                                 </tr>
                                 <tr class="prebble-required-row">
                                     <td class="prebble-cell prebble-cell--left" colspan="3"><em>Required (kg/ha)</em></td>

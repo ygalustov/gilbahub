@@ -177,7 +177,28 @@
                 'X-CSRF-TOKEN': csrf,
             },
             body: body ? JSON.stringify(body) : undefined,
-        }).then(function (r) { return r.json(); });
+        }).then(function (r) {
+            // GH-526 (PLAN-samples-sync-FINAL stage 1, item 7): a refusal is a
+            // refusal.
+            //
+            // This returned r.json() for ANY status. A 422, a 403, a 419 or a
+            // 500 came back as an ordinary object, and the import handler read
+            // `data.synced` off it as undefined -- printing "0 records imported
+            // successfully" and redirecting to the dashboard. The user was told
+            // their import had worked, with a count of zero, while the server
+            // had told us exactly what was wrong. Stage 1 narrows the clearing
+            // sync to one site with a 422, so without this the new refusal would
+            // arrive as that same false success.
+            if (r.ok) return r.json();
+            return r.json().catch(function () { return {}; }).then(function (body) {
+                var message = (body && body.message)
+                    || ('The server refused the request (HTTP ' + r.status + ').');
+                var err = new Error(message);
+                err.status = r.status;
+                err.body = body;
+                throw err;
+            });
+        });
     }
 
     /**
@@ -1798,8 +1819,16 @@
                     var msg = checkmark + ' ' + synced + ' record' + (synced !== 1 ? 's' : '') + ' imported successfully.';
                     runAnalysisAndRedirect(msg);
                 })
-                .catch(function () {
-                    setMsg(impMsg, 'Import failed — please try again.', 'err');
+                .catch(function (err) {
+                    // GH-526 (stage 1, item 7): say what the server said. "Please
+                    // try again" is advice that cannot work when the answer is
+                    // "this import names more than one site" -- trying again
+                    // sends the same request. apiFetch now throws with the
+                    // server's own message on it.
+                    var detail = (err && err.message) ? err.message : '';
+                    setMsg(impMsg, detail
+                        ? ('Import failed — ' + detail)
+                        : 'Import failed — please try again.', 'err');
                     if (impRunBtn) impRunBtn.disabled = false;
                     if (impCancelBtn) impCancelBtn.disabled = false;
                 });

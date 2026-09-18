@@ -1098,6 +1098,7 @@
         document.dispatchEvent(new CustomEvent('gaip:samples-imported', {
             detail: {
                 dataType: dataType,
+                siteId: _currentSite,
                 sampleCount: importedIds.length,
                 sampleIds: importedIds,
                 meta: _importMeta[dataType],
@@ -1257,6 +1258,7 @@
         document.dispatchEvent(new CustomEvent('gaip:samples-imported', {
             detail: {
                 dataType,
+                siteId: _currentSite,
                 sampleCount: importedIds.length,
                 sampleIds: importedIds,
                 meta: _importMeta[dataType]
@@ -1874,7 +1876,13 @@
             zoneType: sampleData.zoneType || detectZoneType(sampleId),
             rawData: sampleData.values || {},
             normalized: normalizeValues(sampleData.values || {}, dataType),
-            source: 'manual'
+            // GH-533 (stage 2, plan item 5): the caller's own word for where
+            // this sample came from. It was hard-coded 'manual', so a sample
+            // built by an importer described itself as typed in by hand, and
+            // from this stage that word travels to the server in
+            // `payload._source` and is what the sample says about itself
+            // afterwards.
+            source: sampleData.source || 'manual'
         };
 
         // Auto-dedup: if key already exists, append date to make unique
@@ -1895,8 +1903,14 @@
 
         log('Added manual sample:', sampleId);
 
+        // GH-533 (stage 2): `siteId` is read HERE, at the moment of the
+        // action, and travels in the event. The handler is asynchronous -- it
+        // is a request -- and by the time it runs the active-site pointer may
+        // have moved, so a handler that asked `getActiveSiteId()` for itself
+        // would file this sample under whichever site the user switched to.
+        // That is the GH-459 class, in the write direction.
         document.dispatchEvent(new CustomEvent('gaip:sample-added', {
-            detail: { dataType, sampleId, sample }
+            detail: { dataType, sampleId: sample.id, siteId: _currentSite, sample }
         }));
 
         return sample;
@@ -2095,7 +2109,7 @@
         log('Updated sample:', sampleId);
 
         document.dispatchEvent(new CustomEvent('gaip:sample-updated', {
-            detail: { dataType, sampleId, sample }
+            detail: { dataType, sampleId, siteId: _currentSite, sample }
         }));
 
         return sample;
@@ -2110,12 +2124,18 @@
      */
     function deleteSample(dataType, sampleId) {
         if (_sampleStore[dataType]?.[sampleId]) {
+            // GH-533 (stage 2, plan item 5): the row's server address, read
+            // before the store forgets the object. The event used to fire
+            // after the delete with nothing but the local key in it, and a
+            // DELETE request has no other way to name the row.
+            var _serverId533 = _sampleStore[dataType][sampleId].serverId || null;
+            var _siteId533 = _currentSite;
             delete _sampleStore[dataType][sampleId];
             if (_activeSamples[dataType] === sampleId) {
                 _activeSamples[dataType] = null;
             }
             document.dispatchEvent(new CustomEvent('gaip:sample-deleted', {
-                detail: { dataType, sampleId }
+                detail: { dataType, sampleId, siteId: _siteId533, serverId: _serverId533 }
             }));
             return true;
         }
@@ -2148,7 +2168,7 @@
         log('Renamed sample label:', oldId, '→', newName);
 
         document.dispatchEvent(new CustomEvent('gaip:sample-renamed', {
-            detail: { dataType, sampleId: oldId, oldLabel: oldId, newLabel: newName, sample }
+            detail: { dataType, sampleId: oldId, siteId: _currentSite, oldLabel: oldId, newLabel: newName, sample }
         }));
 
         return sample;
@@ -2158,11 +2178,18 @@
      * Clear all samples of a type
      */
     function clearSamples(dataType) {
+        // GH-533 (stage 2, plan item 5): the server addresses, taken before
+        // the store is emptied. One DELETE per row, and after the assignment
+        // below there is nothing left to take them from.
+        var _serverIds533 = Object.keys(_sampleStore[dataType] || {})
+            .map(function (k) { return (_sampleStore[dataType][k] || {}).serverId || null; })
+            .filter(function (id) { return !!id; });
+        var _siteId533 = _currentSite;
         _sampleStore[dataType] = {};
         _activeSamples[dataType] = null;
         _importMeta[dataType] = null;
         document.dispatchEvent(new CustomEvent('gaip:samples-cleared', {
-            detail: { dataType }
+            detail: { dataType, siteId: _siteId533, serverIds: _serverIds533 }
         }));
     }
 
@@ -2174,12 +2201,25 @@
         var active = _activeSamplesRef();
         var meta = _importMetaRef();
         var types = ['soil', 'water', 'tissue', 'loi'];
+        // GH-533 (stage 2, plan item 5): this event used to carry no detail at
+        // all -- not even which site it emptied. Every server address goes
+        // into it, taken across all four types before the first one is wiped.
+        var _serverIds533 = [];
+        for (var t = 0; t < types.length; t++) {
+            var bucket = store[types[t]] || {};
+            Object.keys(bucket).forEach(function (k) {
+                if (bucket[k] && bucket[k].serverId) _serverIds533.push(bucket[k].serverId);
+            });
+        }
+        var _siteId533 = _currentSite;
         for (var i = 0; i < types.length; i++) {
             store[types[i]] = {};
             active[types[i]] = null;
             meta[types[i]] = null;
         }
-        document.dispatchEvent(new CustomEvent('gaip:all-samples-cleared'));
+        document.dispatchEvent(new CustomEvent('gaip:all-samples-cleared', {
+            detail: { siteId: _siteId533, serverIds: _serverIds533 }
+        }));
     }
 
     // =========================================================================
@@ -2361,7 +2401,7 @@
             if (!sample) throw new Error('Sample not found: ' + sampleId);
             sample.zoneType = newZoneType;
             document.dispatchEvent(new CustomEvent('gaip:sample-updated', {
-                detail: { dataType, sampleId, sample }
+                detail: { dataType, sampleId, siteId: _currentSite, sample }
             }));
             return sample;
         },
@@ -2397,8 +2437,17 @@
                     companionSpecies: profile.companionSpecies || null
                 };
             }
+            // GH-533 (stage 2, plan item 4): this event is now a write, so it
+            // carries what a request needs -- the site it belongs to and the
+            // record itself, whose `serverId` is the row's address.
             document.dispatchEvent(new CustomEvent('gaip:sample-turf-profile-changed', {
-                detail: { dataType, sampleId, profile: store[sampleId].turfProfile || null }
+                detail: {
+                    dataType,
+                    sampleId,
+                    siteId: _currentSite,
+                    sample: store[sampleId],
+                    profile: store[sampleId].turfProfile || null
+                }
             }));
             return store[sampleId].turfProfile || null;
         },

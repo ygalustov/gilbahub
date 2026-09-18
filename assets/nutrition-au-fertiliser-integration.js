@@ -522,6 +522,36 @@
          * caption alike, at the one precision that makes them add up. See
          * assets/nutrition-delivery-core.js's formatDelivered().
          */
+        /**
+         * GH-529 — the Total Delivered caption is the sum of the rows printed
+         * above it. Same rule, same reason and same one statement of it as the
+         * New Zealand panel's: nutrition-delivery-core.js `sumDelivered`. The
+         * caption used to be the exact accumulated total rounded once while each
+         * row was rounded on its own, which is a total that is not the total of
+         * the figures beside it. Owner's decision of 18.09.2026, variant A.
+         *
+         * The per-row values are read the way the rows themselves read them —
+         * `totalDelivered` when the recommender supplied it, otherwise mass
+         * times analysis — so this sums what is on screen, not a second
+         * derivation of it.
+         */
+        _sumPrintedDelivered: function(productEntries, nutrient, fallback) {
+            var D = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!D || typeof D.formatSumDelivered !== 'function') {
+                console.error('[AuFert] GH-529: nutrition-delivery-core.js is not loaded — '
+                    + 'the Annual Product Summary caption cannot be summed consistently');
+                return this.formatDelivered(fallback);
+            }
+            var vals = (productEntries || []).map(function (p) {
+                var analysis = (p.product || {}).analysis || {};
+                var pre = p.totalDelivered ? p.totalDelivered[nutrient] : undefined;
+                return pre !== undefined && pre !== null
+                    ? pre
+                    : ((p.totalKgHa || 0) * (analysis[nutrient] || 0) / 100);
+            });
+            return D.formatSumDelivered(vals);
+        },
+
         formatDelivered: function(value) {
             const mod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
             if (!mod) {
@@ -1157,9 +1187,9 @@
                     <td class="au-fert-cell au-fert-cell--left">Total Delivered</td>
                     <td class="au-fert-cell au-fert-cell--num">${totalApps}</td>
                     <td class="au-fert-cell au-fert-cell--num">${totalRateStr}</td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this.formatDelivered(nutrientTotals.N)}</td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this.formatDelivered(nutrientTotals.P)}</td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this.formatDelivered(nutrientTotals.K)}</td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this._sumPrintedDelivered(productEntries, 'N', nutrientTotals.N)}</td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this._sumPrintedDelivered(productEntries, 'P', nutrientTotals.P)}</td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this._sumPrintedDelivered(productEntries, 'K', nutrientTotals.K)}</td>
                 </tr>
                 <tr class="au-fert-required-row">
                     <td class="au-fert-cell au-fert-cell--left" colspan="3"><em>Required (kg/ha)</em></td>

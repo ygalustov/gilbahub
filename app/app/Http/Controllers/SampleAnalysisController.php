@@ -144,11 +144,30 @@ class SampleAnalysisController extends Controller
         return $thresholds;
     }
 
+    /**
+     * GH-533: $methodology is nullable, and the null case is the one the
+     * paragraph in run() above already describes — "Null means not set, and
+     * the nutrient classification that needs a methodology does not run."
+     *
+     * It said so and did not do it. GH-520 made the value nullable at its one
+     * owner, and this parameter stayed `string`, so a site that has chosen no
+     * methodology answered **HTTP 500** on GET /api/samples/{id}/analyse:
+     * `Argument #4 ($methodology) must be of type string, null given`. The same
+     * shape as GH-527, one route further along — that one was the write of the
+     * stamp, this is the read of the setting. Found by writing the stage 2
+     * test for an unrelated question, on a site created without a config.
+     *
+     * Falling through to the MLSN branch would have been the smaller edit and
+     * is exactly what the owner's rule forbids: MLSN is a methodology, and
+     * classifying against it is a choice nobody made. So a nutrient keeps its
+     * measured value and says the classification did not run. Nothing is
+     * invented and no threshold is applied.
+     */
     private function computeNutrients(
         array $payload, array $thresholds, array $cachedSn,
-        string $methodology = 'mlsn', string $soilTexture = 'sands', ?string $species = null
+        ?string $methodology = null, string $soilTexture = 'sands', ?string $species = null
     ): array {
-        $isAA    = strtolower($methodology) === 'ammonium_acetate';
+        $isAA    = $methodology !== null && strtolower($methodology) === 'ammonium_acetate';
         $texKey  = (stripos($soilTexture, 'sand') !== false) ? 'sands' : 'others';
 
         // GH-268 (D07 item 4): resolve a certificate-backed sample-type code
@@ -188,13 +207,25 @@ class SampleAnalysisController extends Controller
         }
 
         return array_values(array_map(
-            function (array $n) use ($payload, $thresholds, $isAA, $texKey, $sampleTypeCode, $cec) {
+            function (array $n) use ($payload, $thresholds, $isAA, $texKey, $sampleTypeCode, $cec, $methodology) {
                 $nut    = $n['nutrient'];
                 $raw    = $payload[$nut] ?? null;
                 $actual = $raw !== null ? floatval($raw) : null;
 
                 if ($actual === null) {
                     return array_merge($n, ['actual' => null, 'status' => 'No data', 'statusClass' => 'no-data']);
+                }
+
+                // GH-533: see the docblock. The reading is reported; the
+                // classification is not, because there is nothing to classify
+                // against. Distinct from 'No data', which is the opposite case
+                // -- a methodology and no reading.
+                if ($methodology === null) {
+                    return array_merge($n, [
+                        'actual'      => (string) $actual,
+                        'status'      => 'No methodology set',
+                        'statusClass' => 'no-data',
+                    ]);
                 }
 
                 // AA methodology: use Hill Labs sufficiency ranges

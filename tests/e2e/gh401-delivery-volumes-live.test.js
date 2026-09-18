@@ -156,7 +156,14 @@ const SITES = [
         // this file's recorded expectation was behind.
         delivered: { N: 245.5, P: 32.2, K: 100.1 },
         required: { N: 250.0, P: 5.9, K: 84.1 },
-        footer: { N: 245.5, P: 32.2, K: 100.1 },
+        // GH-529: the CAPTION moved, and only the caption. `delivered` above is
+        // the Annual Nutrient Requirements figure — the exact programme total —
+        // and is unchanged at 245.5. `footer` is the Total Delivered caption of
+        // the Annual Product Summary, which now prints the sum of the rows
+        // printed above it: 245.6. The two used to be one number and are now
+        // two, which is the point of the change rather than a side effect of it.
+        // Measured: nitrogen only; P and K were already equal both ways.
+        footer: { N: 245.6, P: 32.2, K: 100.1 },
         multiSpray: []
     }
 ];
@@ -779,39 +786,14 @@ describe('GH-401 live — ' + site.siteName, () => {
         expect(bad).toEqual([]);
     });
 
-    // ┌──────────────────────────────────────────────────────────────────────┐
-    // │ THE TEST BELOW IS RED ON PURPOSE. Read this before "fixing" it.      │
-    // └──────────────────────────────────────────────────────────────────────┘
-    //
-    // WHAT IS WRONG, measured on Test5 - NZ / Soccer (GH-525): the caption says
-    // 245.5 kg/ha of nitrogen while the rows printed directly above it sum to
-    // 245.6. The two disagree by 0.1 on BOTH surfaces — the Plan page and the
-    // document — so this is not a divergence between them but a rounding
-    // inconsistency inside the product: a total that is not the total of the
-    // figures beside it, on a page a client reads.
-    //
-    // It is Question 34 in the defects list. Recorded there and NOT measured
-    // here: whether it occurs on other sites and other nutrients or only on this
-    // pair. That is separate work and must not be guessed at from this file.
-    //
-    // WHY IT STAYS RED. The product is not being touched in this delivery, and
-    // how the rounding should be reconciled — round the rows to match the
-    // caption, or the caption to match the rows, or carry more precision to the
-    // sum — is a product decision, not a test one. A green test over a hole is
-    // what this delivery exists to remove.
-    //
-    // HOW NOT TO MAKE IT GREEN — both of these were considered and refused:
-    //   1. Re-pinning the expectation to 245.5, or widening the tolerance past
-    //      0.1. That records the defect as the specification and the next reader
-    //      has no way to tell it was ever wrong.
-    //   2. Removing or skipping the assertion. Then nothing checks that a
-    //      printed total is the total of what is printed, which is the one thing
-    //      a caption is for — and this file already carries three assertions
-    //      that were silent for exactly that reason (GH-525).
-    //
-    // WHAT WILL MAKE IT GREEN: the product's own answer to Question 34. When the
-    // caption and its rows agree, this test passes unchanged — no edit here is
-    // needed, and none should be made.
+    // GH-529: the frame that stood here is gone, and so is what it described.
+    // It said this test was red on purpose, because the caption printed 245.5
+    // nitrogen over rows adding to 245.6 -- a total that was not the total of
+    // the figures beside it, on both surfaces. The owner settled it on
+    // 18.09.2026: the caption prints the sum of the printed rows, and the months
+    // stay as computed. The test passed unchanged the moment the product did
+    // that, which is what the frame said would happen and the only way it was
+    // allowed to go green.
     test('GH-403 — the caption is the sum of the rows printed above it, on both surfaces', () => {
         const bad = [];
         [['plan', planProducts.rows, planProducts.footer],

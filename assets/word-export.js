@@ -6491,17 +6491,35 @@
                         children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: text, bold: true, size: 22 })] })]
                     });
                 };
+                // GH-529: the caption is the sum of what the rows PRINT.
+                //
+                // It used to be `_fmtDelivered(_computeProgrammeDelivered(...))`
+                // -- the exact programme total, rounded once -- while each row
+                // above printed its own value rounded. Two different numbers:
+                // measured on Test5 - NZ, a caption of 245.5 nitrogen over rows
+                // adding to 245.6, and the same on the Plan page, so it was not a
+                // divergence between surfaces but a total that was not the total
+                // of the figures beside it. The owner's decision of 18.09.2026 is
+                // that the caption adds up the printed rows; the months stay
+                // exactly as computed. `sumDelivered` states that rule once, in
+                // nutrition-delivery-core.js, for this table and the Plan page's.
+                var _sumPrinted = function(nutrient) {
+                    var vals = _catalogueRows.map(function(r) {
+                        return (r.nutrients || {})[nutrient];
+                    });
+                    return _dmFmt ? _dmFmt.formatSumDelivered(vals) : '—';
+                };
                 var totalCells = [
                     new TableCell({ shading: { fill: 'F3F4F6', type: ShadingType.CLEAR }, width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Total Delivered', bold: true, size: 22 })] })] }),
                     new TableCell({ shading: { fill: 'F3F4F6', type: ShadingType.CLEAR }, width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(_totalApps), bold: true, size: 22 })] })] }),
                     new TableCell({ shading: { fill: 'F3F4F6', type: ShadingType.CLEAR }, width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: _totalRateText, bold: true, size: 22 })] })] }),
-                    _totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'N')))
+                    _totalCell(_sumPrinted('N'))
                 ];
-                if (includeP) totalCells.push(_totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'P'))));
-                totalCells.push(_totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'K'))));
-                if (includeCa) totalCells.push(_totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'Ca'))));
-                if (includeMg) totalCells.push(_totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'Mg'))));
-                if (includeS) totalCells.push(_totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'S'))));
+                if (includeP) totalCells.push(_totalCell(_sumPrinted('P')));
+                totalCells.push(_totalCell(_sumPrinted('K')));
+                if (includeCa) totalCells.push(_totalCell(_sumPrinted('Ca')));
+                if (includeMg) totalCells.push(_totalCell(_sumPrinted('Mg')));
+                if (includeS) totalCells.push(_totalCell(_sumPrinted('S')));
                 summaryRows.push(new TableRow({ children: totalCells }));
             }
 

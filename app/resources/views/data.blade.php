@@ -1264,14 +1264,26 @@ window.GAIP_computeSensorStatus = function () {
 
     function deleteEntry(id, section, trEl) {
         var url;
+        var body = null;
         if (section === 'spray-log') {
             url = '{{ url("/api/spray-log") }}/' + id;
         } else {
-            url = '{{ url("/api/data/entry") }}/' + id;
+            // GH-526 (PLAN-samples-sync-FINAL stage 1, item 2): the sample's own
+            // route. This used to be /api/data/entry/{id}, a second way into the
+            // same table that resolved the row against the user's ACTIVE site
+            // rather than against the row's own, and left site_summaries
+            // pointing at what it had just deleted. One route now, named by the
+            // record; `source` says the delete came from this page.
+            url = '{{ url("/api/samples") }}/' + id;
+            body = JSON.stringify({ source: 'data-page' });
         }
         return fetch(url, {
             method: 'DELETE',
-            headers: { 'X-CSRF-TOKEN': CSRF_DELETE, 'Accept': 'application/json' }
+            headers: Object.assign(
+                { 'X-CSRF-TOKEN': CSRF_DELETE, 'Accept': 'application/json' },
+                body ? { 'Content-Type': 'application/json' } : {}
+            ),
+            body: body
         }).then(function (r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             if (trEl) trEl.remove();
