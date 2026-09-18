@@ -54,7 +54,14 @@ const CALLED_ELSEWHERE = ['addSample', 'addSite', 'addSiteWithId', 'canDriveReco
     // `collectData()` — a convenient call, not an entry point a client uses.
     // On /reports/export the client goes through the combined export, and its
     // loop calls both on every sample.
-    'setCompanionSpecies', 'setMultiSiteTurfEnabled', 'setSampleTurfProfile', 'setZoneType',
+    'setCompanionSpecies', 'setMultiSiteTurfEnabled',
+    // GH-536 (stage 3): `setReadOnly` joined the list. The browser no longer
+    // keeps a copy of the samples, so a restore that could not read the server
+    // has nothing to show; sample-persistence.js closes the store rather than
+    // letting the client edit records the database has never seen. It is called
+    // on the page, by the restore, and never by an export.
+    'setReadOnly',
+    'setSampleTurfProfile', 'setZoneType',
     'slice', 'switchToSite', 'updateSample'];
 /** The file without its prose: a guard that reads its own explanation as code
  *  is checking the wrong thing. */

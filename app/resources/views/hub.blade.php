@@ -198,6 +198,8 @@
             'lab-import.js',
             'sample-manager.js',
             'sample-persistence.js',
+            // GH-536 (stage 3): no db-shell slot here; it falls back to console.
+            'samples-unavailable-banner.js',
             'zone-key.js',
             'jspdf-shim.js',
             'word-export-combined.js',

@@ -19,7 +19,6 @@
  * 
  * STORAGE STRUCTURE:
  * - gilba_hub_state: Complete input state
- * - gilba_hub_samples: Sample Manager collections
  * - gilba_hub_prefs: User preferences (card states, toggles)
  * - gilba_hub_cache: Last analysis results (for quick dashboard)
  * 
@@ -234,7 +233,10 @@
             var suffix = uid ? '_' + uid : '';
             return {
                 state: 'gilba_hub_state' + suffix,
-                samples: 'gilba_hub_samples' + suffix,
+                // GH-536 (PLAN-samples-sync-FINAL, stage 3): `samples`
+                // ('gilba_hub_samples') is gone. It was this file's own copy of
+                // the sample collection, separate from sample-persistence.js's
+                // `gilba_samples` and written from the same store.
                 prefs: 'gilba_hub_prefs' + suffix,
                 cache: 'gilba_hub_cache' + suffix
             };
@@ -884,27 +886,12 @@
     // SAMPLES (From Sample Manager)
     // =========================================================================
 
-    function collectSamples() {
-        if (global.GAIP_SampleManager && typeof global.GAIP_SampleManager.getAllSamples === 'function') {
-            return {
-                schemaVersion: CONFIG.schemaVersion,
-                savedAt: new Date().toISOString(),
-                ...global.GAIP_SampleManager.getAllSamples()
-            };
-        }
-        return null;
-    }
-
-    function restoreSamples(samples) {
-        if (!samples || samples.schemaVersion !== CONFIG.schemaVersion) return false;
-        
-        if (global.GAIP_SampleManager && typeof global.GAIP_SampleManager.restoreFromPersistence === 'function') {
-            var restored = global.GAIP_SampleManager.restoreFromPersistence(samples);
-            log('restore', 'Samples restored: ' + restored);
-            return restored;
-        }
-        return false;
-    }
+    // GH-536 (PLAN-samples-sync-FINAL, stage 3): collectSamples() and
+    // restoreSamples() are gone. collectSamples() read the whole collection out
+    // of SampleManager and handed it to a localStorage write; restoreSamples()
+    // pushed a parsed copy back into the store. The samples are read from
+    // GET /api/samples by sample-persistence.js and written one record at a
+    // time by the same file (GH-533). Nothing else restores them.
 
     // =========================================================================
     // ANALYSIS CACHE (For Dashboard)
@@ -2191,12 +2178,6 @@
             const prefs = collectPreferences();
             storageSet(CONFIG.keys.prefs, JSON.stringify(prefs));
             
-            // Save samples
-            const samples = collectSamples();
-            if (samples) {
-                storageSet(CONFIG.keys.samples, JSON.stringify(samples));
-            }
-            
             // Cache analysis results (localStorage for same-session use)
             const cache = cacheAnalysisResults();
             storageSet(CONFIG.keys.cache, JSON.stringify(cache));
@@ -2301,15 +2282,22 @@
                 }, 100);
             }
             
-            // Restore samples from persistence — only if sample-persistence.js
-            // has NOT already loaded samples from the server. If it has
-            // (_gaipSamplePersistenceReady = true), calling restoreFromPersistence
-            // here would overwrite the correct site context (burns_gc → default).
-            const samples = safeJsonParse(storageGet(CONFIG.keys.samples));
-            if (samples) {
-                setTimeout(() => {
-                    if (global._gaipSamplePersistenceReady) {
-                        // sample-persistence already set up SampleManager correctly.
+            // GH-536 (PLAN-samples-sync-FINAL, stage 3) -- THIS BLOCK IS NOT
+            // ABOUT SAMPLES AND MUST NOT LEAVE WITH THEM.
+            //
+            // It used to sit inside `if (samples)`, where `samples` was the
+            // browser copy read from CONFIG.keys.samples. What it actually does
+            // is set the ACTIVE SITE: honour `gilba_import_active_site` if an
+            // import just ran, otherwise match the server's own activeSiteId.
+            // Deleting the key without lifting the block would have stopped
+            // /hub setting its active site at all -- silently, since /hub is the
+            // hidden calculation iframe and nobody watches it.
+            //
+            // The 200 ms timer it ran on is replaced by the ready event.
+            // The timer was a guess at how long the restore takes, and it was
+            // covered until now by the fact that a miss fell through to the
+            // browser copy. There is no copy to fall through to.
+            const _applyActiveSite536 = () => {
                         // If an import just happened, honour the imported site instead of
                         // forcing the PHP-active UUID (which would hide the imported data).
                         var _importSite = null;
@@ -2340,10 +2328,12 @@
                         if (_cfgSite && global.GAIP_SampleManager && typeof global.GAIP_SampleManager.setActiveSite === 'function') {
                             global.GAIP_SampleManager.setActiveSite(_cfgSite);
                         }
-                        return;
-                    }
-                    restoreSamples(samples);
-                }, 200);
+            };
+
+            if (global._gaipSamplePersistenceReady) {
+                _applyActiveSite536();
+            } else {
+                document.addEventListener('gaip:samples-persistence-ready', _applyActiveSite536, { once: true });
             }
         },
 
@@ -2373,7 +2363,9 @@
                 exportedAt: new Date().toISOString(),
                 state: collectInputState(),
                 prefs: collectPreferences(),
-                samples: collectSamples()
+                // GH-536 (stage 3): `samples` no longer travels in this bundle.
+                // The samples live in the database; a bundle carrying a copy of
+                // them is the shape this stage removes.
             };
             
             return JSON.stringify(exportData, null, 2);
@@ -2402,9 +2394,8 @@
             if (data.prefs) {
                 storageSet(CONFIG.keys.prefs, JSON.stringify(data.prefs));
             }
-            if (data.samples) {
-                storageSet(CONFIG.keys.samples, JSON.stringify(data.samples));
-            }
+            // GH-536 (stage 3): `data.samples` from an older bundle is ignored.
+            // There is no key to put it in and no restore that would read it.
             
             // Restore immediately
             this.restore();

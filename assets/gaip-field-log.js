@@ -49,7 +49,8 @@
     var VERSION = '1.1.0'; // b35fix97 — server site fetch on init + localStorage injection on site switch
 
     // Namespaced localStorage shim — isolates keys per plugin instance (GAIP vs GSSH).
-    var _ls = (window.GilbaStorageNS && window.GilbaStorageNS.get) ? window.GilbaStorageNS.get() : localStorage;
+    // GH-536 (stage 3): `_ls` is gone. Every read and write it carried was
+    // against the `gilba_samples` browser copy, which no longer exists.
 
     var cfg = global.GAIP_FIELD_LOG_CONFIG || global.GAIP_HUB_CONFIG || {};
     var REST_URL    = (cfg.restUrl || '/api/').replace(/\/$/, '');
@@ -155,15 +156,22 @@
     // SITE LOADER  (b35fix97)
     // =========================================================================
     //
-    // Fetches the canonical site list from the Laravel API
-    // and injects it into the _ls 'gilba_samples' blob so that all Hub modules
-    // — including gaip-field-log — read the same data source.
+    // Fetches the canonical site list from the Laravel API.
     //
-    // Called once at init.  Returns a Promise that resolves to the site list
-    // array ([{ id, label }]) regardless of success/failure.
+    // GH-536 (PLAN-samples-sync-FINAL, stage 3): it used to inject the answer
+    // into the `gilba_samples` blob in localStorage so other Hub modules read
+    // "the same data source". That blob is gone -- the other modules read the
+    // same API. Three members went with it: _injectIntoStorage(), setActive()
+    // and _fromStorage().
     //
-    // On site switch (renderSiteSelector change handler) we call
-    // SiteLoader.setActive(siteId) to keep gilba_samples.currentSite in sync.
+    // _fromStorage() was the fallback for a failed GET /sites, and it is not
+    // replaced by another guess. Rebuilt from the browser copy it returned real
+    // sites; with the copy gone it could only ever have returned the invented
+    // `{id:'default', label:'Default Site'}` -- a site that does not exist,
+    // offered to the client as though it did. A failed read now returns an
+    // empty list and the selector says so.
+    //
+    // Called once at init. Returns a Promise resolving to the site list.
     // =========================================================================
 
     var SiteLoader = {
@@ -175,7 +183,7 @@
         fetchAndInject: function () {
             if (!REST_URL || typeof fetch === 'undefined') {
                 warn('SiteLoader: REST API unavailable — skipping server fetch');
-                return Promise.resolve(SiteLoader._fromStorage());
+                return Promise.resolve(SiteLoader._noSites());
             }
 
             return fetch(REST_URL + '/sites', {
@@ -200,85 +208,27 @@
                         createdAt: site.created_at || ''
                     };
                 });
-                SiteLoader._injectIntoStorage(serverSites);
-
                 var list = Object.keys(serverSites).map(function (id) {
                     return { id: id, label: serverSites[id].label || id };
                 });
 
-                log('SiteLoader: injected', list.length, 'sites from server');
-                return list.length ? list : [{ id: 'default', label: 'Default Site' }];
+                log('SiteLoader: read', list.length, 'sites from server');
+                return list;
             })
             .catch(function (err) {
-                warn('SiteLoader: server fetch failed (' + err.message + ') — using localStorage fallback');
-                return SiteLoader._fromStorage();
+                warn('SiteLoader: server fetch failed (' + err.message + ')');
+                return SiteLoader._noSites();
             });
         },
 
         /**
-         * Write server sites into the gilba_samples blob in localStorage,
-         * preserving currentSite and any sample data already there.
-         * @param {Object} serverSites  { siteId: { label, createdAt } }
+         * GH-536 (stage 3): what a failed read answers. An empty list, and the
+         * selector renders "Sites could not be loaded" disabled rather than a
+         * site name the page made up.
+         * @returns {Array}
          */
-        _injectIntoStorage: function (serverSites) {
-            try {
-                var existing = {};
-                var raw = _ls.getItem('gilba_samples');
-                if (raw) { existing = JSON.parse(raw); }
-
-                // Merge: server is authoritative for site metadata; keep existing
-                // currentSite if it still exists in the new list, otherwise reset.
-                var merged = Object.assign({}, existing, { sites: serverSites });
-
-                if (merged.currentSite && !serverSites[merged.currentSite]) {
-                    // Previously active site was deleted server-side — reset
-                    var keys = Object.keys(serverSites);
-                    merged.currentSite = keys.length ? keys[0] : 'default';
-                    warn('SiteLoader: previous active site gone — reset to', merged.currentSite);
-                }
-
-                _ls.setItem('gilba_samples', JSON.stringify(merged));
-            } catch (e) {
-                warn('SiteLoader: localStorage write failed:', e.message);
-            }
-        },
-
-        /**
-         * Update gilba_samples.currentSite in localStorage when the user
-         * switches site in the field-log selector.
-         * @param {string} siteId
-         */
-        setActive: function (siteId) {
-            try {
-                var raw  = _ls.getItem('gilba_samples');
-                var data = raw ? JSON.parse(raw) : {};
-                data.currentSite = siteId;
-                _ls.setItem('gilba_samples', JSON.stringify(data));
-                log('SiteLoader: currentSite set to', siteId);
-            } catch (e) {
-                warn('SiteLoader: could not persist active site:', e.message);
-            }
-        },
-
-        /**
-         * Read site list directly from localStorage (fallback path).
-         * @returns {Array<{id:string, label:string}>}
-         */
-        _fromStorage: function () {
-            try {
-                var raw = _ls.getItem('gilba_samples');
-                if (raw) {
-                    var data  = JSON.parse(raw);
-                    var sites = data.sites || {};
-                    var keys  = Object.keys(sites);
-                    if (keys.length) {
-                        return keys.map(function (id) {
-                            return { id: id, label: sites[id].label || id };
-                        });
-                    }
-                }
-            } catch (e) { /* silent */ }
-            return [{ id: 'default', label: 'Default Site' }];
+        _noSites: function () {
+            return [];
         }
     };
 
@@ -324,7 +274,7 @@
     };
 
     // =========================================================================
-    // SITE LIST  (from GAIP_SampleManager or localStorage fallback)
+    // SITE LIST  (from GAIP_SampleManager)
     // =========================================================================
 
     function getSiteList() {
@@ -333,39 +283,23 @@
             return global.GAIP_SampleManager.getSiteList();
         }
 
-        // Fallback: read gilba_samples directly from localStorage
-        // Structure: { sites: { siteId: { label, createdAt } }, currentSite, ... }
-        try {
-            var raw = _ls.getItem('gilba_samples');
-            if (raw) {
-                var data   = JSON.parse(raw);
-                var sites  = data.sites || {};
-                var keys   = Object.keys(sites);
-                if (keys.length) {
-                    return keys.map(function (id) {
-                        return { id: id, label: sites[id].label || id };
-                    });
-                }
-            }
-        } catch (e) {
-            warn('Could not read site list from localStorage:', e.message);
-        }
-
-        return [{ id: 'default', label: 'Default Site' }];
+        // GH-536 (PLAN-samples-sync-FINAL, stage 3): the localStorage fallback
+        // and the invented `{id:'default', label:'Default Site'}` behind it are
+        // both gone. This page loads sample-manager.js, so the branch above is
+        // the live answer; if it is somehow absent, an empty list renders
+        // "Sites could not be loaded", which is true, instead of the name of a
+        // site nobody owns.
+        return [];
     }
 
     function getActiveSiteId() {
         if (global.GAIP_SampleManager && typeof global.GAIP_SampleManager.getActiveSiteId === 'function') {
             return global.GAIP_SampleManager.getActiveSiteId();
         }
-        // Read currentSite from gilba_samples blob
-        try {
-            var raw = _ls.getItem('gilba_samples');
-            if (raw) {
-                var data = JSON.parse(raw);
-                if (data.currentSite) { return data.currentSite; }
-            }
-        } catch (e) { /* silent */ }
+        // GH-536 (stage 3): the read of `gilba_samples.currentSite` that stood
+        // here is gone with the key. This page loads sample-manager.js, so the
+        // branch above answers; 'default' stays as the last resort it always
+        // was.
         return 'default';
     }
 
@@ -479,6 +413,15 @@
         var active = getActiveSiteId();
         _state.activeSiteId = active;
 
+        // GH-536 (stage 3): no sites means the read failed -- the account with
+        // no sites at all cannot reach this page, and the fallback that used to
+        // invent one is gone. Say so instead of rendering an empty dropdown.
+        if (!sites.length) {
+            container.innerHTML = '<select class="gaip-fl-select gaip-fl-select--site" disabled>'
+                                + '<option>Sites could not be loaded</option></select>';
+            return;
+        }
+
         var html = '<select id="gaip-fl-site" class="gaip-fl-select gaip-fl-select--site" aria-label="Active site">';
         sites.forEach(function (s) {
             html += '<option value="' + s.id + '"' + (s.id === active ? ' selected' : '') + '>'
@@ -492,8 +435,6 @@
 
             // b35fix97 — inject active site into localStorage so Hub cascade
             // engines and other modules immediately see the switch.
-            SiteLoader.setActive(_state.activeSiteId);
-
             refreshRecentList();
             // Re-run analysis for newly selected site
             if (window.GAIP_FieldAnalysis && typeof window.GAIP_FieldAnalysis.run === 'function') {

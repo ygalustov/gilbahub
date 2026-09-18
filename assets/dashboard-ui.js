@@ -71,21 +71,15 @@
             btn.disabled = true;
             btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:db-spin 0.8s linear infinite"><path d="M4 12a8 8 0 018-8v4l4-4-4-4v4a10 10 0 100 10"/></svg> Running…';
 
-            // Stamp the correct active site into localStorage before the iframe loads /hub.
-            // The old hub's SP restores _currentSite from localStorage; if it still holds
-            // a previous site's ID the hub-persistence water fallback reads the wrong samples.
-            try {
-                var _cfg = global.GAIP_HUB_CONFIG;
-                var _sid = _cfg && _cfg.activeSiteId;
-                if (_sid) {
-                    var _lsRaw = localStorage.getItem('gilba_samples');
-                    var _lsSnap = _lsRaw ? JSON.parse(_lsRaw) : {};
-                    if (_lsSnap && typeof _lsSnap === 'object') {
-                        _lsSnap.currentSite = _sid;
-                        localStorage.setItem('gilba_samples', JSON.stringify(_lsSnap));
-                    }
-                }
-            } catch(_e) {}
+            // GH-536 (PLAN-samples-sync-FINAL, stage 3): the stamp that stood
+            // here is gone with the key it wrote. It copied the active site id
+            // into `gilba_samples.currentSite` so the /hub iframe would restore
+            // the right site out of the browser copy. The iframe restores from
+            // the server now: /hub loads sample-persistence.js, and
+            // layouts/app.blade.php puts the server's own `activeSiteId` into
+            // GAIP_HUB_CONFIG before any of it runs. The `gilba_wb_water_override`
+            // write below is a DIFFERENT key and stays -- it carries a choice the
+            // user made on this page that the server has no record of.
 
             // If the Water Balance tab has a water sample selected, write the override
             // key so hub-persistence honours that selection even on repeated Re-runs

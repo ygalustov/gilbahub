@@ -36,6 +36,8 @@
     <script src="{{ url('/legacy-assets/gilba-pgr-module-v3.js') }}" defer></script>
     <script src="{{ url('/legacy-assets/sample-manager.js') }}" defer></script>
     <script src="{{ url('/legacy-assets/sample-persistence.js') }}" defer></script>
+    {{-- GH-536 (stage 3): the browser copy is gone, so a failed read has to say so. --}}
+    <script src="{{ url('/legacy-assets/samples-unavailable-banner.js') }}" defer></script>
     <script src="{{ url('/legacy-assets/gaip-field-log-analysis.js') }}" defer></script>
     <script src="{{ url('/legacy-assets/gaip-field-log.js') }}" defer></script>
 @endsection

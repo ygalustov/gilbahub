@@ -35,8 +35,10 @@
     const CONFIG = {
         version: '1.0.0',
         debug: false,
-        maxSamples: 50,  // Maximum samples per type
-        storageKey: 'gilba_samples'
+        maxSamples: 50   // Maximum samples per type
+        // GH-536 (stage 3): `storageKey` is gone. It named the browser copy and
+        // nothing in this file ever read it -- sample-persistence.js owned that
+        // key, and it no longer exists either.
     };
 
     // =========================================================================
@@ -133,6 +135,36 @@
      * Current active site
      */
     let _currentSite = 'default';
+
+    // =========================================================================
+    // GH-536 (PLAN-samples-sync-FINAL, stage 3) -- THE READ-ONLY LOCK
+    //
+    // The browser no longer keeps a copy of the samples, so when the server
+    // cannot be read there is nothing to show and nothing to write against.
+    // Before this stage the gap was filled from localStorage, and the samples
+    // that came back had no `serverId`; every later edit to one of them stopped
+    // inside sample-persistence.js at `if (!sample.serverId)` and went to the
+    // console. The client kept working and lost the work without being told.
+    //
+    // THE LOCK IS SET BY A FAILED RESTORE, NOT BY DEFAULT, and that is not a
+    // style choice. morning-briefing.blade.php and stadium.blade.php load this
+    // file WITHOUT sample-persistence.js: nothing on those pages ever restores,
+    // so a lock that defaults to closed and is only opened by a successful
+    // restore would shut both of them permanently.
+    // =========================================================================
+    let _samplesReadOnly = false;
+    let _samplesReadOnlyReason = null;
+
+    const READ_ONLY_MESSAGE = 'Samples are not loaded — retry first';
+
+    function _assertWritable() {
+        if (_samplesReadOnly) {
+            const err = new Error(READ_ONLY_MESSAGE);
+            err.code = 'SAMPLES_READ_ONLY';
+            err.reason = _samplesReadOnlyReason;
+            throw err;
+        }
+    }
 
     /**
      * Site-scoped sample store
@@ -799,6 +831,7 @@
      * @returns {Promise<Object>} Import result with sample count and IDs
      */
     function importFile(file, options = {}) {
+        _assertWritable();  // GH-536
         return new Promise((resolve, reject) => {
             if (!file) {
                 reject(new Error('No file provided'));
@@ -1843,6 +1876,7 @@
      * @returns {Object} The created sample
      */
     function addSample(dataType, sampleData) {
+        _assertWritable();  // GH-536
         if (!dataType || !_sampleStore[dataType]) {
             throw new Error('Invalid data type: ' + dataType);
         }
@@ -2089,6 +2123,7 @@
      * @param {Object} newValues - Values to merge/update
      */
     function updateSample(dataType, sampleId, newValues) {
+        _assertWritable();  // GH-536
         const sample = _sampleStore[dataType]?.[sampleId];
         if (!sample) {
             throw new Error('Sample not found: ' + sampleId);
@@ -2123,6 +2158,7 @@
      * Delete a sample
      */
     function deleteSample(dataType, sampleId) {
+        _assertWritable();  // GH-536
         if (_sampleStore[dataType]?.[sampleId]) {
             // GH-533 (stage 2, plan item 5): the row's server address, read
             // before the store forgets the object. The event used to fire
@@ -2178,6 +2214,7 @@
      * Clear all samples of a type
      */
     function clearSamples(dataType) {
+        _assertWritable();  // GH-536
         // GH-533 (stage 2, plan item 5): the server addresses, taken before
         // the store is emptied. One DELETE per row, and after the assignment
         // below there is nothing left to take them from.
@@ -2197,6 +2234,7 @@
      * Clear all samples (current site only)
      */
     function clearAllSamples() {
+        _assertWritable();  // GH-536
         var store = _sampleStoreRef();
         var active = _activeSamplesRef();
         var meta = _importMetaRef();
@@ -2297,25 +2335,11 @@
         // Root cause: a prior session stored "Campbelltown Sports Stadium" as the
         // label for the brentford_fc site key, likely via an interrupted save during
         // a site switch. Correct and re-persist if detected.
-        (function _fixBrentfordFcLabel() {
-            var cleanupKey = 'gilba_site_label_fix_b35fix268';
-            try {
-                if (localStorage.getItem(cleanupKey)) return;
-                // Read from namespaced storage — key is gilba_gaip_gilba_samples
-                var nsPrefix = (window.GILBA_PLUGIN_NS ? 'gilba_' + window.GILBA_PLUGIN_NS + '_' : '');
-                var rawKey = nsPrefix + 'gilba_samples';
-                var raw = localStorage.getItem(rawKey);
-                if (!raw) { localStorage.setItem(cleanupKey, '1'); return; }
-                var data = JSON.parse(raw);
-                if (data && data.sites && data.sites['brentford_fc'] &&
-                    data.sites['brentford_fc'].label === 'Campbelltown Sports Stadium') {
-                    data.sites['brentford_fc'].label = 'Brentford FC';
-                    localStorage.setItem(rawKey, JSON.stringify(data));
-                    log('b35fix268: corrected brentford_fc label from "Campbelltown Sports Stadium" to "Brentford FC"');
-                }
-                localStorage.setItem(cleanupKey, '1');
-            } catch(e) { /* non-critical — ignore */ }
-        })();
+        // GH-536 (PLAN-samples-sync-FINAL, stage 3): _fixBrentfordFcLabel() is
+        // gone with the key it edited. It was a one-time repair of one site's
+        // label inside the browser copy `gilba_samples`, guarded by its own
+        // done-flag. Site labels come from GET /api/sites; a wrong one is
+        // corrected in the database, not in a visitor's browser.
 
         // Listen for legacy lab import events and add to store
         document.addEventListener('gaip:dataImported', function(e) {
@@ -2359,6 +2383,22 @@
     // =========================================================================
 
     global.GAIP_SampleManager = {
+        // GH-536 (stage 3): the read-only lock. `setReadOnly(true)` is called by
+        // sample-persistence.js when the restore could not read the server, and
+        // `setReadOnly(false)` when it could -- including when the account is
+        // genuinely empty, which is a successful read of nothing and must not
+        // lock anything.
+        //
+        // A page that does not load sample-persistence.js never calls either,
+        // and the default is open. See the block beside `_currentSite`.
+        setReadOnly: function (flag, reason) {
+            _samplesReadOnly = !!flag;
+            _samplesReadOnlyReason = flag ? (reason || null) : null;
+        },
+        isReadOnly: function () { return _samplesReadOnly; },
+        getReadOnlyReason: function () { return _samplesReadOnlyReason; },
+        READ_ONLY_MESSAGE: READ_ONLY_MESSAGE,
+
         // Core operations
         importFile,
         loadSample,
@@ -2372,6 +2412,7 @@
         // Calls the same processImportData path importFile uses but takes a
         // string directly. Public API for programmatic imports + test harness.
         importCSV: function (csvText, options) {
+            _assertWritable();  // GH-536
             return processImportData(csvText, options || {}, (options && options.fileName) || 'inline.csv');
         },
 
@@ -2603,8 +2644,9 @@
             return id;
         },
 
-        // Recovery path: add a site with a specific known ID (used when reconstructing
-        // from gilba_hub_site_configs after gilba_samples is wiped)
+        // Recovery path: add a site with a specific known ID. Called by
+        // sample-persistence.js when GET /api/sites hands back a site this
+        // page's registry does not have yet.
         addSiteWithId: function(id, label) {
             if (_sites[id]) return id; // already exists
             _sites[id] = { label: label, createdAt: new Date().toISOString(), recovered: true };

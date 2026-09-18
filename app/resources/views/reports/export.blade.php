@@ -273,7 +273,7 @@
         'sensor-api-specconnect.js','sensor-import.js','sensor-import-ui.js',
         'sensor-integration-manager.js','sensor-api-hydrosight.js',
         'sensor-api-bridge.js','sensor-integration-ui.js',
-        'lab-import.js','sample-manager.js','sample-persistence.js','zone-key.js',
+        'lab-import.js','sample-manager.js','sample-persistence.js','samples-unavailable-banner.js','zone-key.js',
         'jspdf-shim.js',
         'sample-switcher-ui.js','bulk-area-modal.js',
         'sample-turf-profile-modal.js','sample-turf-profile-bulk-modal.js',

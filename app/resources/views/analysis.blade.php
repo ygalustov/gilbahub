@@ -119,6 +119,8 @@
 {{-- Sample management: needed for soil/water sample selectors in Water Balance tab --}}
 <script src="{{ $legacyAssetUrl('sample-manager.js') }}"></script>
 <script src="{{ $legacyAssetUrl('sample-persistence.js') }}"></script>
+{{-- GH-536 (stage 3): the browser copy is gone, so a failed read has to say so. --}}
+<script src="{{ $legacyAssetUrl('samples-unavailable-banner.js') }}"></script>
 <script src="{{ $legacyAssetUrl('spray-log.js') }}"></script>
 <script src="{{ $legacyAssetUrl('uv-residual-engine.js') }}"></script>
 <script src="{{ $legacyAssetUrl('spray-log-cascade.js') }}"></script>

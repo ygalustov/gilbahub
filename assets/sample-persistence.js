@@ -13,9 +13,12 @@
  * sent the lot to POST /api/samples/sync. One added sample sent the whole
  * collection. This file no longer knows that route exists.
  *
- * STORAGE:
- *   localStorage is a read cache for fast boot, refreshed on unload and after
- *   a restore, and never a source for a write. It is removed in stage 3.
+ * GH-536 (stage 3) removed the read half. There is no browser copy of the
+ * samples any more: no `gilba_samples` key, no StorageAdapter, no refresh on
+ * unload. The server is read once on load and the answer is one of three
+ * things -- rows, an empty account, or a failure -- and the third is now said
+ * out loud instead of being papered over with whatever the last visit left in
+ * localStorage.
  *
  * ARCHITECTURE:
  *   sample-manager.js  ──dispatches events──>  sample-persistence.js
@@ -55,8 +58,6 @@
 
 (function(global) {
     'use strict';
-    // b35fix272: namespaced storage — prevents cross-mode key bleed
-    var _ls = window.GilbaStorageNS ? window.GilbaStorageNS.get() : localStorage;
 
 
     // =========================================================================
@@ -67,16 +68,22 @@
         version: '1.0.0',
         debug: false,
 
-        // localStorage key
-        storageKey: 'gilba_samples',
-
         // GH-533 (stage 2): the 500 ms debounce is gone with the snapshot it
         // batched. There is nothing left to collapse -- twenty imported
         // samples are twenty creates, not one push repeated twenty times.
 
-        // Maximum storage size warning threshold (bytes)
-        // localStorage typically allows ~5MB per origin
-        sizeWarningBytes: 4 * 1024 * 1024  // 4MB warning
+        // GH-536 (stage 3): `storageKey` and `sizeWarningBytes` are gone with
+        // the browser copy they described.
+
+        // How many samples one restore asks for. The route caps at 2000
+        // (SampleController::index, GH-526). If more exist than this, `meta.total`
+        // says so and the restore reports a partial read rather than showing a
+        // short list as if it were the whole one.
+        //
+        // GH-537: on most pages this is now a limit on ONE SITE rather than on
+        // the whole account -- see restoreSiteId() below. The most populous site
+        // on the dev stand holds 31 rows, 29 of them live.
+        restoreLimit: 200
     };
 
     // =========================================================================
@@ -101,13 +108,11 @@
     }
 
     // =========================================================================
-    // STORAGE ADAPTER
-    // =========================================================================
+    // THE SERVER
     //
-    // Thin local cache over the server-backed sample store. Data is restored
-    // server-first and every save must sync to MySQL before completion.
-    //
-    // All methods return Promises for future async compatibility.
+    // GH-536 (stage 3): this heading used to read "STORAGE ADAPTER" and
+    // described a local cache. There is no cache. Everything below talks to
+    // the API and nothing else.
     // =========================================================================
 
     function getApiBaseUrl() {
@@ -182,92 +187,10 @@
         return out;
     }
 
-    var StorageAdapter = {
-        /**
-         * Save data to storage
-         * @param {string} key
-         * @param {object} data
-         * @returns {Promise<boolean>}
-         */
-        save: function(key, data) {
-            return new Promise(function(resolve, reject) {
-                try {
-                    var json = JSON.stringify(data);
-
-                    // Size check
-                    if (json.length > CONFIG.sizeWarningBytes) {
-                        warn('Storage size approaching limit: ' + 
-                            Math.round(json.length / 1024) + 'KB / ~5120KB');
-                    }
-
-                    _ls.setItem(key, json);
-                    log('Saved ' + Math.round(json.length / 1024) + 'KB to ' + key);
-                    resolve(true);
-                } catch (e) {
-                    // QuotaExceededError or SecurityError
-                    warn('Save failed: ' + e.message);
-                    reject(e);
-                }
-            });
-        },
-
-        /**
-         * Load data from storage
-         * @param {string} key
-         * @returns {Promise<object|null>}
-         */
-        load: function(key) {
-            return new Promise(function(resolve, reject) {
-                try {
-                    var raw = _ls.getItem(key);
-                    if (!raw) {
-                        log('No data found for key: ' + key);
-                        resolve(null);
-                        return;
-                    }
-
-                    var data = JSON.parse(raw);
-                    log('Loaded ' + Math.round(raw.length / 1024) + 'KB from ' + key);
-                    resolve(data);
-                } catch (e) {
-                    warn('Load failed: ' + e.message);
-                    reject(e);
-                }
-            });
-        },
-
-        /**
-         * Delete data from storage
-         * @param {string} key
-         * @returns {Promise<boolean>}
-         */
-        delete: function(key) {
-            return new Promise(function(resolve) {
-                try {
-                    _ls.removeItem(key);
-                    log('Deleted key: ' + key);
-                    resolve(true);
-                } catch (e) {
-                    warn('Delete failed: ' + e.message);
-                    resolve(false);
-                }
-            });
-        },
-
-        /**
-         * Get approximate storage usage for this key (bytes)
-         * @param {string} key
-         * @returns {number}
-         */
-        getSize: function(key) {
-            try {
-                var raw = _ls.getItem(key);
-                return raw ? raw.length * 2 : 0;  // UTF-16 = 2 bytes per char
-            } catch (e) {
-                return 0;
-            }
-        }
-    };
+    // GH-536 (stage 3): StorageAdapter is gone. It was save/load/delete/getSize
+    // over one localStorage key, `gilba_samples`, holding a snapshot of every
+    // sample of every site. `assets/site-dashboard.js` declares a DIFFERENT
+    // object of the same name under GaipSiteDashboard; that one stays.
 
     // =========================================================================
     // GH-533 (stage 2) -- PER-RECORD WRITES
@@ -351,9 +274,23 @@
      * like a second defect. Retry is stage 3; until then the record carries
      * `_dirty` and the page has been told.
      */
+    /**
+     * GH-536 (stage 3): the chain continues past a FAILURE.
+     *
+     * This read `prev.then(step)`, which runs `step` only when `prev` RESOLVED.
+     * Every write re-throws on failure so the caller sees it, so one refused
+     * request left the queue for that record permanently rejected: each later
+     * write to the same sample was skipped without a request and without a
+     * word. Measured, not reasoned -- the Retry test would not send its second
+     * request and this is why.
+     *
+     * The chain exists because a PATCH has no address until its POST has
+     * answered, and that still holds: a PATCH after a failed create finds no
+     * `serverId` and says so. What it must not do is refuse to run at all.
+     */
     function enqueue(key, step) {
         var prev = _queues[key] || Promise.resolve();
-        var next = prev.then(step);
+        var next = prev.catch(function () {}).then(step);
         _queues[key] = next;
         next.catch(function () {});
         return next;
@@ -473,6 +410,34 @@
     // Handlers
     // -------------------------------------------------------------------------
 
+    /**
+     * GH-536 (stage 3) -- RETRY ONE RECORD.
+     *
+     * `markFailed()` has stamped `sample._dirty = {op, error}` since stage 2 and
+     * nothing has ever read it: no marker in the UI, no way to send the record
+     * again. That is the second silent loss this stage closes -- the first is a
+     * failed READ, this is a failed WRITE. The client saw a sample on screen
+     * that the database had never heard of.
+     *
+     * A failed DELETE cannot be retried from here and that is structural, not an
+     * omission: markFailed() is called with `null` for a delete, because by then
+     * the sample is out of the store and there is no row in the switcher to hang
+     * a button on. It is named in the report rather than left to be discovered.
+     */
+    function retryRecord(dataType, sampleId) {
+        var SM = global.GAIP_SampleManager;
+        var sample = liveSample(dataType, sampleId);
+        if (!sample || !sample._dirty) return false;
+
+        var siteId = (SM && typeof SM.getActiveSiteId === 'function') ? SM.getActiveSiteId() : null;
+        if (!siteId) return false;
+
+        var op = sample._dirty.op;
+        if (op === 'create') { writeCreate(siteId, dataType, sampleId, sample); return true; }
+        if (op === 'update') { writeUpdate(siteId, dataType, sampleId, sample); return true; }
+        return false;
+    }
+
     function liveSample(dataType, sampleId) {
         var SM = global.GAIP_SampleManager;
         return (SM && typeof SM.getSample === 'function') ? SM.getSample(dataType, sampleId) : null;
@@ -530,18 +495,124 @@
         });
     }
 
+    /**
+     * GH-536 (stage 3) -- READ THE SERVER, AND SAY WHICH OF THE THREE ANSWERS
+     * CAME BACK.
+     *
+     * Until this stage the callback took a boolean, and `false` meant two
+     * different things: this account has no samples, and this request failed.
+     * `restore()` could not tell them apart, so it treated both as "fill the
+     * store from localStorage" -- which is the mechanism the whole stage exists
+     * to remove. `onComplete` now takes an object:
+     *
+     *   { outcome: 'server', count }             rows came back
+     *   { outcome: 'empty',  count: 0 }          the account has none
+     *   { outcome: 'error',  error, status }     the read failed
+     *   { outcome: 'error',  partial: true, count, total }   short read
+     *
+     * THE SHORT READ is the fourth case and it is new here. The request asks
+     * for `restoreLimit` rows; `meta.total` (added by GH-526 in stage 1) says
+     * how many there are. Nothing read that field until now. While the browser
+     * kept its own copy, reading 200 of 201 meant an incomplete cache. With the
+     * copy gone the server is the only source, so it means one sample the
+     * client cannot see and is not told about -- the same loss as the one
+     * above, arriving by a different road.
+     */
+    /**
+     * GH-537 -- WHOSE SAMPLES THIS PAGE ASKS FOR.
+     *
+     * Until now every page asked for `samples?limit=200` with no site: the
+     * whole account, first 200 rows, on a page showing one site. The owner's
+     * decision is that a page loads the samples of the site it is open on.
+     *
+     * The server half was already there and is not touched: `site_id` is a
+     * `nullable` rule in `SampleController::index` and is applied to the query
+     * when present. We are not tightening the server, we are stopping asking it
+     * for everything.
+     *
+     * FOUR PAGES STILL ASK FOR ALL OF THEM, and this is the part that is a
+     * judgement rather than a transcription of the decision. /hub and the three
+     * /reports pages load `word-export-combined.js`, whose `enumerateSamples
+     * ('all')` walks every site in the store and whose picker offers them in one
+     * dialog -- measured on /reports/export the same evening: 35 samples in 9
+     * site groups. The same four pages are also the only ones carrying a control
+     * that switches site WITHOUT reloading (`site-selector-ui.js`,
+     * `sample-switcher-ui.js`, `turf-profile-controller.js`); everywhere else a
+     * site change goes through `dashboard-ui.js`, which PATCHes the pointer and
+     * reloads, so the next restore asks for the new site anyway.
+     *
+     * The page is not asked to declare this with a new flag. It is read off what
+     * the page actually loaded: `GAIP_CombinedExport` exists on exactly those
+     * four views and nowhere else.
+     *
+     * WHAT MAKES THAT SAFE IS NOT THE SCRIPT ORDER, and it is worth saying so
+     * plainly because the order runs the other way. On all four of those views
+     * `sample-persistence.js` is loaded BEFORE `word-export-combined.js` (hub
+     * 200 against 205, reports/export 276 against 287, scenarios 147 against
+     * 156, forensic 128 against 137), and every one of those scripts is emitted
+     * with `defer`, so `document.readyState` is already 'interactive' when this
+     * file runs and `init()` fires immediately rather than waiting for
+     * DOMContentLoaded. The global does not exist at the moment this module
+     * loads, on any of them.
+     *
+     * It is there by the time the QUESTION IS ASKED. `restoreSiteId()` is
+     * called inside `fetchSamplesFromServer()`, which is itself inside the
+     * callback of `fetchSiteListFromServer()` -- so the decision is taken after
+     * a network response has come back, and the whole deferred queue has run to
+     * the end long before that. Move the read to module scope and script order
+     * would start to matter; `gh537-restore-is-scoped-to-the-site.test.js` pins
+     * that it has not been moved, and measures the case directly by defining
+     * the global AFTER this module has loaded and started.
+     *
+     * An earlier version of this paragraph said the opposite on both counts --
+     * that `restore()` waits for DOMContentLoaded and that the module is loaded
+     * after this one. Both were wrong, and a reader who believed either would
+     * conclude that the order protects them.
+     *
+     * `stadium.blade.php` loads the site-switching modules too and is NOT in
+     * that set, which is correct: it loads sample-manager.js without
+     * sample-persistence.js, so no restore happens there at all.
+     */
+    function restoreSiteId() {
+        if (global.GAIP_CombinedExport) return null;
+        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
+        return cfg.activeSiteId || null;
+    }
+
     function fetchSamplesFromServer(onComplete) {
         var base = getApiBaseUrl();
         if (!base || typeof fetch === 'undefined' || !global.GAIP_SampleManager) {
-            onComplete(false);
+            onComplete({ outcome: 'error', error: 'No API base URL, fetch or SampleManager on this page' });
             return;
         }
 
-        apiFetchJson(base.replace(/\/?$/, '/') + 'samples?limit=200')
+        var scopeSiteId = restoreSiteId();
+        var url = base.replace(/\/?$/, '/') + 'samples?limit=' + CONFIG.restoreLimit
+            + (scopeSiteId ? '&site_id=' + encodeURIComponent(scopeSiteId) : '');
+        log('Restoring samples for ' + (scopeSiteId ? 'site ' + scopeSiteId : 'every site of the account'));
+
+        apiFetchJson(url)
             .then(function(data) {
-                var samples = (data && data.data) || [];
+                // An unparseable 200 arrives here as `{}` (apiFetchJson swallows
+                // the parse error and returns an object). No `data` array means
+                // we did not read the list, which is an error and not an empty
+                // account -- the difference this function exists to keep.
+                if (!data || !Array.isArray(data.data)) {
+                    onComplete({ outcome: 'error', error: 'The samples response had no data array' });
+                    return;
+                }
+
+                var samples = data.data;
+                var meta = data.meta || {};
+                var total = (typeof meta.total === 'number') ? meta.total : null;
+                var returned = (typeof meta.returned === 'number') ? meta.returned : samples.length;
+
                 if (!samples.length) {
-                    onComplete(false);
+                    // A read that succeeded and found nothing. The store stays
+                    // empty and stays UNLOCKED: this is a working account with
+                    // no samples yet, and the empty states already say so.
+                    onComplete({ outcome: 'empty', count: 0, total: total === null ? 0 : total,
+                                 siteId: scopeSiteId });
                     return;
                 }
 
@@ -668,19 +739,25 @@
                     SM.setActiveSite(targetSite);
                 }
 
-                if (restored > 0) {
-                    try {
-                        var snap = SM.getAllSamples();
-                        _ls.setItem(CONFIG.storageKey, JSON.stringify(snap));
-                    } catch (e) {}
+                log('SERVER SYNC: Restored ' + restored + ' samples from MySQL');
+
+                if (total !== null && returned < total) {
+                    // The rows that did arrive are kept and shown; the store is
+                    // locked by restore() so nothing is edited against a list
+                    // known to be short. Throwing them away as well would be a
+                    // second loss on top of the first.
+                    warn('Partial sample read: ' + returned + ' of ' + total);
+                    onComplete({ outcome: 'error', partial: true, count: returned, total: total,
+                                 siteId: scopeSiteId });
+                    return;
                 }
 
-                log('SERVER SYNC: Restored ' + restored + ' samples from MySQL');
-                onComplete(restored > 0);
+                onComplete({ outcome: 'server', count: returned, total: total === null ? returned : total,
+                             siteId: scopeSiteId });
             })
             .catch(function(err) {
                 warn('Server sample fetch failed: ' + err.message);
-                onComplete(false);
+                onComplete({ outcome: 'error', error: err && err.message, status: (err && err.status) || null });
             });
     }
 
@@ -741,12 +818,10 @@
                 });
 
                 if (added > 0) {
+                    // GH-536 (stage 3): the site list used to be written to the
+                    // browser copy here "so next load is instant". Next load
+                    // reads GET /api/sites, same as this one.
                     log('SERVER SYNC: Imported ' + added + ' sites from MySQL');
-                    // Persist the reconstructed site list locally so next load is instant
-                    try {
-                        var snap = SM.getAllSamples();
-                        _ls.setItem(CONFIG.storageKey, JSON.stringify(snap));
-                    } catch(e) { /* quota — ignore */ }
                 }
 
                 onComplete(true);
@@ -796,7 +871,28 @@
             return count;
         }
 
+        /**
+         * GH-536 (stage 3): one exit, and it names WHICH of the three answers
+         * came back.
+         *
+         * `_gaipSamplePersistenceReady` is set in ALL THREE cases, error
+         * included. turf-profile-controller.js gates its site switch on that
+         * flag (`if (window._gaipSamplePersistenceReady)`), so leaving it unset
+         * on a failure would stop the page switching sites for the rest of its
+         * life -- a second defect hanging off the first.
+         *
+         * The lock is set here and nowhere else, and it is set to a VALUE on
+         * every path, not only on the failing one: a Retry that succeeds has to
+         * open it again.
+         */
         function finishReady(detail) {
+            var SM = global.GAIP_SampleManager;
+            var failed = detail.source === 'error';
+
+            if (SM && typeof SM.setReadOnly === 'function') {
+                SM.setReadOnly(failed, failed ? (detail.reason || 'samples-load') : null);
+            }
+
             global._gaipSamplePersistenceReady = true;
             document.dispatchEvent(new CustomEvent('gaip:samples-persistence-ready', {
                 detail: detail
@@ -809,33 +905,14 @@
         // falling back to the site id prettified. Those labels were then
         // pushed as site names. The registry comes from GET /api/sites.
 
-        function restoreFromLocalFallback() {
-            StorageAdapter.load(CONFIG.storageKey)
-                .then(function(data) {
-                    if (!data) {
-                        log('No local sample snapshot found after server restore miss');
-                        finishReady({ restored: false, count: 0, samplesFromServer: false });
-                        return;
-                    }
-
-                    var success = global.GAIP_SampleManager.restoreFromPersistence(data);
-                    var count = success && data.allSites ? countSnapshotSamples(data) : 0;
-
-                    log('Restored ' + count + ' samples from storage fallback');
-                    finishReady({
-                        restored: success,
-                        count: count,
-                        sizeBytes: StorageAdapter.getSize(CONFIG.storageKey),
-                        samplesFromServer: false
-                    });
-                })
-                .catch(function(err) {
-                    warn('Restore failed: ' + err.message);
-                    document.dispatchEvent(new CustomEvent('gaip:samples-persistence-error', {
-                        detail: { error: err.message, reason: 'restore' }
-                    }));
-                });
-        }
+        // GH-536 (stage 3): restoreFromLocalFallback() is gone, and it is the
+        // reason this stage exists. It ran whenever the server restore came
+        // back without rows -- which, until the change above, was also what a
+        // FAILED read looked like -- and filled the store out of
+        // `gilba_samples`. Those samples carried no `serverId`, because only a
+        // server restore writes one, so every edit the client then made left
+        // `writeUpdate()` at `if (!sample.serverId)` with a line in the console
+        // and nothing on the wire. The screen looked right the whole time.
 
         log('Attempting server-first sample restore');
         fetchSiteListFromServer(function(siteListLoaded) {
@@ -845,23 +922,70 @@
                 // samples themselves is how sites acquired ID-shaped names. The
                 // page reports the failure (dispatched above) and stops here
                 // rather than showing a list it made up.
-                finishReady({ restored: false, count: 0, samplesFromServer: false, error: 'sites-list' });
+                //
+                // GH-536 (stage 3): and it is an ERROR, so the store locks.
+                // `reason` stays 'sites-list' -- settings-unavailable-banner.js
+                // already speaks for this exact failure, and the samples banner
+                // stands down rather than stacking a second red box saying the
+                // same thing in other words.
+                finishReady({
+                    source: 'error',
+                    restored: false,
+                    count: 0,
+                    total: null,
+                    error: 'sites-list',
+                    reason: 'sites-list',
+                    samplesFromServer: false
+                });
                 return;
             }
 
-            fetchSamplesFromServer(function(restoredFromServer) {
-                if (restoredFromServer) {
+            fetchSamplesFromServer(function(result) {
+                var outcome = (result && result.outcome) || 'error';
+
+                if (outcome === 'server') {
                     var serverSnap = global.GAIP_SampleManager.getAllSamples();
                     finishReady({
+                        source: 'server',
                         restored: true,
                         count: countSnapshotSamples(serverSnap),
-                        samplesFromServer: true,
-                        sizeBytes: StorageAdapter.getSize(CONFIG.storageKey)
+                        total: result.total,
+                        // GH-537: whose samples these are, or null when the page
+                        // asked for every site. Carried so a consumer can tell
+                        // "this site has none" from "the account has none".
+                        siteId: result.siteId || null,
+                        samplesFromServer: true
                     });
                     return;
                 }
 
-                restoreFromLocalFallback();
+                if (outcome === 'empty') {
+                    // A successful read of an account with no samples. No
+                    // banner, no lock -- the empty states on the page already
+                    // say "no samples yet", and they are telling the truth.
+                    finishReady({
+                        source: 'empty',
+                        restored: false,
+                        count: 0,
+                        total: 0,
+                        siteId: result.siteId || null,
+                        samplesFromServer: true
+                    });
+                    return;
+                }
+
+                finishReady({
+                    source: 'error',
+                    restored: false,
+                    count: (result && result.count) || 0,
+                    total: (result && result.total) || null,
+                    partial: !!(result && result.partial),
+                    siteId: (result && result.siteId) || null,
+                    error: (result && result.error) || null,
+                    status: (result && result.status) || null,
+                    reason: (result && result.partial) ? 'samples-partial' : 'samples-load',
+                    samplesFromServer: false
+                });
             });
         });
     }
@@ -922,22 +1046,11 @@
             })(events[i]);
         }
 
-        // GH-533: the browser copy is refreshed on the way out, and nowhere
-        // else any more -- the per-record writes go straight to the database,
-        // which is the source of truth. This whole block, and the key it
-        // writes, are removed in stage 3.
-        window.addEventListener('beforeunload', function() {
-            try {
-                if (global.GAIP_SampleManager) {
-                    var snapshot = global.GAIP_SampleManager.getAllSamples();
-                    _ls.setItem(CONFIG.storageKey, JSON.stringify(snapshot));
-                }
-            } catch (e) {
-                // Can't do much here — page is closing
-            }
-        });
+        // GH-536 (stage 3): the `beforeunload` handler that wrote a snapshot of
+        // every sample of every site into `gilba_samples` on the way out is
+        // gone with the key. Nothing is written to the browser now.
 
-        log('Bound ' + events.length + ' mutation events + beforeunload');
+        log('Bound ' + events.length + ' mutation events');
     }
 
     // =========================================================================
@@ -981,27 +1094,17 @@
         // GH-533 (stage 2): `save()` is gone. It flushed a snapshot of the
         // whole collection to the server on demand, which is the write this
         // stage exists to remove, and nothing in the tree called it.
-        // Manual operations
+        // Manual operations. `restore` is also what the error banner's Retry
+        // calls -- it is the whole retry, because the restore is the only read.
         restore: restore,
-        clear: function() {
-            return StorageAdapter.delete(CONFIG.storageKey).then(function() {
-                log('Storage cleared');
-            });
-        },
 
-        // Storage info
-        getStorageSize: function() {
-            return StorageAdapter.getSize(CONFIG.storageKey);
-        },
-        getStorageSizeFormatted: function() {
-            var bytes = StorageAdapter.getSize(CONFIG.storageKey);
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-        },
+        // GH-536 (stage 3): send one failed record again. Called by the Retry
+        // on the sample's own row in sample-switcher-ui.js.
+        retryRecord: retryRecord,
 
-        // Adapter access (for future server migration)
-        StorageAdapter: StorageAdapter,
+        // GH-536 (stage 3): `clear`, `getStorageSize`, `getStorageSizeFormatted`
+        // and `StorageAdapter` are gone. All four addressed the browser copy,
+        // and there is no browser copy.
 
         // Config (for debugging)
         CONFIG: CONFIG

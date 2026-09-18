@@ -507,7 +507,7 @@ GH-401 зарезервированы `PLAN-remaining-defects-RU.md:712` за de
 | Состояние | Детекция | Стор | UI |
 |---|---|---|---|
 | **Пусто** | `GET /api/sites` ok **и** `GET /api/samples` → 200, `data: []`, `meta.total === 0` | пуст, разблокирован | существующие empty states (`db-empty-state` в blade, badge switcher «0») — без баннера |
-| **Не удалось загрузить** | любой из: HTTP ≠ 2xx (в т.ч. 419), сеть, невалидный JSON, отказ `/api/sites`, `meta.returned < meta.total` | пуст и **заблокирован**: `SM.setReadOnly(true)`; `addSample/updateSample/deleteSample/clearSamples/importFile/importCSV` бросают `Error('Samples are not loaded — retry first')`; persistence ничего не шлёт | баннер в content header db-shell (стиль как у `NutritionCalendar._renderStaleProgramBanner()` — `nutrition-calendar.js:~2172`; `.db-*` классы, SVG-иконка): **"Samples could not be loaded from the server. Nothing has been changed. Retry"** (при частичной загрузке: **"Loaded N of M samples. Retry"**) **[ПРОТИВОРЕЧИЕ: эта же ячейка велит стор опустошить. См. «ОТКЛОНЕНИЕ ОТ ЭТОЙ ТАБЛИЦЫ» ниже — при частичном чтении пришедшие строки остаются видимыми.]**. Retry → `GAIP_SamplePersistence.restore()` заново; успех → баннер снимается, `gaip:samples-persistence-ready {source:'server'}`. На `/reports/*` — кнопка Generate disabled с той же фразой рядом (прецедент GH-377: отказать, а не напечатать пустой документ) |
+| **Не удалось загрузить** | любой из: HTTP ≠ 2xx (в т.ч. 419), сеть, невалидный JSON, отказ `/api/sites`, `meta.returned < meta.total` | пуст и **заблокирован**: `SM.setReadOnly(true)`; `addSample/updateSample/deleteSample/clearSamples/importFile/importCSV` бросают `Error('Samples are not loaded — retry first')`; persistence ничего не шлёт | баннер в content header db-shell (стиль как у `NutritionCalendar._renderStaleProgramBanner()` — `nutrition-calendar.js:~2172`; `.db-*` классы, SVG-иконка): **"Samples could not be loaded from the server. Nothing has been changed. Retry"** (при частичной загрузке: **"Loaded N of M samples. Retry"**). Retry → `GAIP_SamplePersistence.restore()` заново; успех → баннер снимается, `gaip:samples-persistence-ready {source:'server'}`. На `/reports/*` — кнопка Generate disabled с той же фразой рядом (прецедент GH-377: отказать, а не напечатать пустой документ) |
 | **Ошибка записи после успешной загрузки** | 4xx/5xx/сеть на POST/PATCH/DELETE | образец `_dirty`; стор не блокируется | маркер в строке switcher + Retry на образец; при 403 — текст «You don't have permission to edit this site»; при 419 — «Session expired — reload the page» |
 
 Почему это различимо: у пустого состояния нет баннера и стор разблокирован; у ошибки — баннер, блокировка, Generate
@@ -519,28 +519,6 @@ disabled. Ничего не остаётся сломанным при ошиб�
 `/api/sites`).
 
 Оценка дизайна плана: достигает цели; поправки — частичная загрузка (`meta.total`) и страницы без слота.
-
-### ОТКЛОНЕНИЕ ОТ ЭТОЙ ТАБЛИЦЫ, ПРИНЯТО 18.09.2026 КООРДИНАТОРОМ
-
-**Что сделано не по таблице.** При ЧАСТИЧНОМ чтении (`meta.returned < meta.total`) пришедшие строки
-оставлены на экране только для просмотра. Таблица выше велит в этом случае стор опустошить.
-
-**Кто отклонился и когда.** Сеня, стадия 3, сдача 18.09.2026. Назвал отклонение сам, в сдаче, а не
-был на нём пойман.
-
-**Причина, принятая координатором.** Довод исполнителя сильнее таблицы, потому что **план
-противоречит сам себе внутри одной ячейки**: строка «Не удалось загрузить» одновременно велит стор
-«пуст и заблокирован» и предписывает баннер «Loaded N of M samples. Retry». Показывать «загружено 12
-из 20» и при этом не показывать ничего — несовместимо. Выбросить пришедшее значит вторая потеря
-поверх первой, а стадия делалась ровно против потери.
-
-**Противоречие помечено в самой таблице** и остаётся помеченным: его не снимает это решение, оно
-снимает только вопрос, что делать исполнителю. Решение о том, какая из двух половин ячейки верна как
-замысел, за владельцем.
-
-**Замок при этом не отменяется.** Отклонение касается ТОЛЬКО того, остаются ли пришедшие строки
-видимыми. Запись по-прежнему закрыта, баннер стоит, Retry зовёт `restore()`.
-
 
 ---
 

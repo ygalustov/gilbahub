@@ -20,7 +20,9 @@
 
     // Keys that are static (same string on every install)
     var STATIC_KEYS = [
-        'gilba_samples',
+        // GH-536 (samples stage 3): gilba_samples is not migrated -- it no
+        // longer exists. The browser keeps no copy of the samples; they are
+        // read from GET /api/samples on every load.
         // GH-442 (GH-439 stage 3): gilba_hub_site_configs is not migrated --
         // it no longer exists. site-config-persistence.js deletes any copy a
         // browser still holds, and the config lives in the database.
@@ -153,8 +155,8 @@
         var prefix = ns ? 'gilba_' + ns + '_' : '';
         if (!prefix) return;
         var V2_KEYS = [
-            // GH-442: see the note above -- this key is gone, not moved.
-            'gilba_samples',
+            // GH-442 / GH-536: see the notes above -- both keys are gone, not
+            // moved.
             'gilba_turf_profiles',
             'gilba_turf_profiles_last',
             'gilba_sensor_mappings',

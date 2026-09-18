@@ -1789,15 +1789,26 @@
             if (impCancelBtn) impCancelBtn.disabled = true;
             setMsg(impMsg, 'Importing…', '');
 
+            // GH-536 (PLAN-samples-sync-FINAL, stage 3): this block used to read
+            // the browser copy, cut the target site out of it, write it back and
+            // feed the result to the store. The copy is gone; the in-memory store
+            // is taken from the store itself. What it does is unchanged: the
+            // site being imported into is emptied on screen, because the server
+            // side of the import (clearSiteData) has just emptied it there.
+            //
+            // restoreFromPersistence, not clearSamples: clearSamples dispatches
+            // the mutation events, which per-record writes would turn into a
+            // DELETE per sample against rows the import has already removed.
             try {
-                var _snap = {};
-                try { _snap = JSON.parse(localStorage.getItem('gilba_samples') || '{}'); } catch (_e) {}
-                ['allSites', 'allActive', 'allMeta', 'sites'].forEach(function (k) {
-                    if (_snap[k]) delete _snap[k][siteId];
-                });
-                localStorage.setItem('gilba_samples', JSON.stringify(_snap));
                 var SM = window.GAIP_SampleManager;
-                if (SM && typeof SM.restoreFromPersistence === 'function') SM.restoreFromPersistence(_snap);
+                if (SM && typeof SM.getAllSamples === 'function'
+                       && typeof SM.restoreFromPersistence === 'function') {
+                    var _snap = SM.getAllSamples();
+                    ['allSites', 'allActive', 'allMeta', 'sites'].forEach(function (k) {
+                        if (_snap[k]) delete _snap[k][siteId];
+                    });
+                    SM.restoreFromPersistence(_snap);
+                }
             } catch (_e) {}
             try { localStorage.removeItem('gilba_last_pgr_' + siteId); } catch (_e) {}
             try {

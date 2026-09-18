@@ -429,6 +429,61 @@
     /**
      * Update quick-access buttons for samples
      */
+    /**
+     * GH-536 (PLAN-samples-sync-FINAL, stage 3) -- THE UNSAVED MARKER.
+     *
+     * sample-persistence.js has stamped `sample._dirty = {op, error, status}`
+     * on every failed write since stage 2, and until now nothing read it. A
+     * POST or PATCH that failed left the sample on screen looking exactly like
+     * one the database holds. This is the marker and the Retry for it.
+     *
+     * The two named statuses get their own words because "failed" is not
+     * actionable and these two are: one is a permission the client does not
+     * have, the other is a session that has run out.
+     */
+    function dirtyText(dirty) {
+        if (!dirty) return '';
+        var status = dirty.status || null;
+        if (status === 403) return "You don't have permission to edit this site";
+        if (status === 419) return 'Session expired — reload the page';
+        return 'Not saved to the server' + (dirty.error ? ': ' + dirty.error : '');
+    }
+
+    function decorateDirty(btn, sample, dataType, wrapper) {
+        if (!sample._dirty) return;
+
+        btn.style.borderColor = '#dc2626';
+        btn.title = (sample.label || sample.id) + ' — ' + dirtyText(sample._dirty);
+
+        var dot = document.createElement('span');
+        dot.className = 'gaip-sample-dirty-dot';
+        dot.setAttribute('aria-hidden', 'true');
+        dot.style.cssText = 'position:absolute;bottom:-3px;left:-3px;width:8px;height:8px;'
+            + 'border-radius:50%;background:#dc2626;border:1px solid #fff;z-index:2;';
+        btn.appendChild(dot);
+
+        // A 419 is not retryable from here -- the session is gone and the next
+        // request would fail the same way. The page has to be reloaded.
+        if (sample._dirty.status === 419) return;
+
+        var retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'gaip-sample-retry-btn';
+        retry.title = 'Send this sample to the server again';
+        retry.textContent = 'Retry';
+        retry.style.cssText = 'position:absolute;bottom:-9px;right:-6px;padding:0 5px;font-size:9px;'
+            + 'line-height:14px;border:1px solid #dc2626;border-radius:7px;background:#fff;'
+            + 'color:#7f1d1d;cursor:pointer;z-index:2;';
+        retry.onclick = function (ev) {
+            ev.stopPropagation();
+            var P = global.GAIP_SamplePersistence;
+            if (P && typeof P.retryRecord === 'function') {
+                P.retryRecord(dataType, sample.id);
+            }
+        };
+        btn.appendChild(retry);
+    }
+
     function updateQuickButtons(wrapper, dataType) {
         const quickBtns = wrapper.querySelector('.gaip-sample-quick-btns');
         const samples = global.GAIP_SampleManager.getSamples(dataType);
@@ -502,6 +557,12 @@
             // built for a viewer -- and the quick button itself stays, because
             // choosing which sample to LOOK at is not an edit.
             btn.style.position = 'relative';
+
+            // GH-536 (stage 3): the unsaved marker goes on EVERY chip that
+            // carries one, before the edit affordances below -- a viewer who
+            // cannot edit can still be looking at a sample whose write failed.
+            decorateDirty(btn, sample, dataType, wrapper);
+
             if (canEditSamples()) {
                 // ⚙ edit button — visible on the quick button, works on touch/mobile
                 const editBtn = document.createElement('button');
@@ -1324,6 +1385,23 @@
         document.addEventListener('gaip:soil-data-cleared', function() {
             resetSwitcherUI('soil');
         });
+
+        // GH-536 (stage 3): a write that failed and a write that later
+        // succeeded both change what the chip should look like, and neither
+        // fires any of the mutation events the switcher already redraws on --
+        // the mutation happened in the store a moment earlier and the request
+        // is what came back. Without this the marker would only appear the next
+        // time something else forced a redraw.
+        function _refreshAllQuickButtons536() {
+            ['soil', 'water', 'tissue', 'loi'].forEach(function (dt) {
+                var wrapper = document.querySelector('.gaip-sample-switcher[data-type="' + dt + '"]');
+                if (wrapper && wrapper.querySelector('.gaip-sample-quick-btns')) {
+                    updateQuickButtons(wrapper, dt);
+                }
+            });
+        }
+        document.addEventListener('gaip:samples-persistence-error', _refreshAllQuickButtons536);
+        document.addEventListener('gaip:samples-persistence-saved', _refreshAllQuickButtons536);
 
         document.addEventListener('gaip:waterDataCleared', function() {
             resetSwitcherUI('water');

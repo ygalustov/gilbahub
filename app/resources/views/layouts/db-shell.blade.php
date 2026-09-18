@@ -123,6 +123,8 @@
 @yield('overlays')
 <script>window.GAIP_SpeciesData = { speciesByType: @json($speciesData ?? []) };</script>
 <script src="{{ $legacyAssetUrl('settings-unavailable-banner.js') }}"></script>
+{{-- GH-536 (stage 3): the samples half of the same idea — a failed read says so, with a Retry. --}}
+<script src="{{ $legacyAssetUrl('samples-unavailable-banner.js') }}"></script>
 <script src="{{ $legacyAssetUrl('dashboard-ui.js') }}"></script>
 @yield('scripts')
 
