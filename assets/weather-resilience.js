@@ -167,10 +167,51 @@
             return null;
         }
         
-        // Try live fetch first (with 12s timeout so manual override kicks in quickly)
+        // GH-545 -- TEMPORARY. The wait before this page gives up on live weather
+        // was raised from 5 seconds to 15 because a client could not get the
+        // daily average GP table to compute at all: the request did not finish
+        // inside five.
+        //
+        // THE REAL CAUSE IS NOT ESTABLISHED. This is the cheap hypothesis -- that
+        // the request leaves and is merely slow -- and it helps ONLY if that is
+        // what is happening. If the request never leaves that host, fifteen
+        // seconds change nothing, and that shows on the first page open. Working
+        // out the client's environment is its own queue item.
+        //
+        // Why the request is not small: Open-Meteo, `forecast_days: 16`, HOURLY,
+        // about ten variables -- 384 points each, which is what the client's own
+        // log shows -- and that run also needed the ARCHIVE ("PGR application
+        // date is 25 days ago"), so forecast and history both had to land inside
+        // the one window.
+        //
+        // Why fifteen and not a number picked out of the air: the author of this
+        // race meant twelve. The comment that stood here said "12s timeout"
+        // while the code said 5000 and the message said "after 5s" -- three
+        // numbers, two of them wrong, and the history says they never agreed:
+        // commit 677f962 added the race, the 5000 and the "12s" comment in one
+        // go, and there is no commit anywhere in this file's history carrying
+        // 12000. So the description and the number diverged the moment they were
+        // written, not over time. Fifteen is the same order as what was meant.
+        //
+        // WHICH IS WHY THE NUMBER IS A CONSTANT AND THE MESSAGE IS BUILT FROM IT.
+        // The client's diagnosis today came out of that error string; a reader
+        // of the next log must not be told a number the code is no longer using.
+        //
+        // What this costs: when the weather really is unavailable the page waits
+        // three times as long before falling back. The badge reads
+        // "Weather: Loading..." for that whole time -- not an empty space and
+        // not stale figures.
+        //
+        // And `Promise.race` does not cancel anything. The request goes on in
+        // the background after the fallback, exactly as it did at five seconds:
+        // `climate-engine.js` carries no `AbortController` and no `signal:`,
+        // measured -- zero occurrences. This change does not alter that.
+        var LIVE_FETCH_TIMEOUT_MS = 15000;
         try {
             var _liveTimeout = new Promise(function(_res, _rej) {
-                setTimeout(function() { _rej(new Error('Weather fetch timeout after 5s')); }, 5000);
+                setTimeout(function() {
+                    _rej(new Error('Weather fetch timeout after ' + (LIVE_FETCH_TIMEOUT_MS / 1000) + 's'));
+                }, LIVE_FETCH_TIMEOUT_MS);
             });
             var liveData = await Promise.race([fetchLiveWeather(state), _liveTimeout]);
 
