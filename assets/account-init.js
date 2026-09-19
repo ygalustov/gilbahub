@@ -222,11 +222,11 @@
                 return true;
             });
             if (!sitesData.length) {
-                tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--gaip-text-muted)">No sites yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--gaip-text-muted)">No sites yet</td></tr>';
                 return;
             }
             if (!visible.length) {
-                tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--gaip-text-muted)">No sites match your filter</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--gaip-text-muted)">No sites match your filter</td></tr>';
                 return;
             }
             tbody.innerHTML = visible.map(function (s) {
@@ -245,6 +245,14 @@
                     '<td><div class="stg-st-name-wrap">' + statusDotHtml(s.status) + '<span class="stg-st-name">' + esc(s.name) + '</span><span class="stg-st-type-badge">' + esc(typeLabel) + '</span></div></td>' +
                     '<td>' + (s.location ? esc(s.location) : '<span class="stg-st-muted">—</span>') + '</td>' +
                     '<td>' + speciesStr + '</td>' +
+                    // GH-541: an unset methodology prints its own words rather
+                    // than the em dash the other columns use for "nothing
+                    // here". The dash reads as "no value"; this reads as "no
+                    // setting", which is the thing the owner opens this screen
+                    // to find.
+                    '<td>' + (s.methodology
+                        ? esc(s.methodology)
+                        : '<span class="stg-st-muted">methodology not set</span>') + '</td>' +
                     '<td class="dat-td-num">' + (s.soil || 0) + '</td>' +
                     '<td class="dat-td-num">' + (s.water || 0) + '</td>' +
                     '<td>' + fmtLastRun(s.last_run) + '</td>' +
@@ -306,7 +314,12 @@
               .then(function (resp) {
                   var s = resp.data;
                   sitesData.forEach(function (site) { site.is_active = false; });
-                  sitesData.push({ id: s.id, name: s.name, site_type: s.site_type, location: null, species: null, hoc: null, soil: 0, water: 0, last_run: null, is_active: true });
+                  // GH-541: `methodology: null` is stated rather than left off. A site
+                  // created a moment ago has none, and the row must say
+                  // "methodology not set" like any other unset site — an
+                  // absent key would render the same today and stop doing so
+                  // the first time the cell reads anything but truthiness.
+                  sitesData.push({ id: s.id, name: s.name, site_type: s.site_type, location: null, species: null, hoc: null, methodology: null, soil: 0, water: 0, last_run: null, is_active: true });
                   addForm.classList.add('stg-hidden');
                   if (addNameEl) addNameEl.value = '';
                   addSaveBtn.disabled = false;

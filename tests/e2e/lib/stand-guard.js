@@ -228,11 +228,52 @@ module.exports.fillOwnAnnualN = fillOwnAnnualN;
  */
 const { execFileSync } = require('child_process');
 
+/**
+ * Question 39 — THE STATEMENT TRAVELS ON STDIN, NOT IN THE ARGUMENT LIST.
+ *
+ * WHAT WAS BROKEN, and it was broken in the half nobody checks. This function
+ * put the whole statement into one `argv` element after `-e`. For the short
+ * SELECTs around it that is fine. For `restoreConfigs()` it is not: the
+ * statement carries the row's entire content as base64, and every
+ * `analysis_cache` row on the stand is 209-234 KB of it. Linux caps a SINGLE
+ * argv element at 128 KB (MAX_ARG_STRLEN), so the exec never happened:
+ *
+ *     exec /usr/bin/mysql: argument list too long
+ *
+ * The limit is on one ARGUMENT, not on the total — the host's ARG_MAX is 1 MB
+ * and was never the thing in the way. Detection kept working the whole time:
+ * the md5 comparison saw the drift and said so. Only the putting-back failed,
+ * which is the worse half to lose, because a guard that reports a failure it
+ * cannot repair still reads as coverage in a census that only asks whether a
+ * remedy is named.
+ *
+ * WHAT IT DOES NOW. `docker exec -i` and the statement on the child's stdin —
+ * the same shape as `mysql < file`, which is how the one manual repair of this
+ * kind was done. The payload never enters argv, so the 128 KB ceiling is not
+ * in the path at all. Measured on the largest row present, a 468 KB statement:
+ * through argv it throws the message above, through stdin it answers.
+ *
+ * AND STDERR IS NO LONGER DISCARDED. It used to be `stdio: [..., 'ignore']`,
+ * which is why a failed restore could say THAT it failed and never WHY —
+ * the sentence above had to be recovered by re-running the command by hand.
+ * It is captured and attached to the error instead.
+ */
 function sqlRaw(query) {
-    return execFileSync('docker', [
-        'exec', 'gilba_mysql', 'mysql', '-ugilba', '-pgilba_secret', 'gilba',
-        '--batch', '--raw', '--skip-column-names', '-e', query,
-    ], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
+    try {
+        return execFileSync('docker', [
+            'exec', '-i', 'gilba_mysql', 'mysql', '-ugilba', '-pgilba_secret', 'gilba',
+            '--batch', '--raw', '--skip-column-names',
+        ], { input: query, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024,
+             stdio: ['pipe', 'pipe', 'pipe'] });
+    } catch (e) {
+        const why = String((e && e.stderr) || '').trim();
+        const err = new Error('stand-guard SQL failed'
+            + (why ? ': ' + why.split('\n').filter((l) => !/Using a password/.test(l)).join('; ') : '')
+            + ' [statement ' + query.length + ' chars]');
+        err.stderr = why;
+        err.statementLength = query.length;
+        throw err;
+    }
 }
 
 let _captured = null;
