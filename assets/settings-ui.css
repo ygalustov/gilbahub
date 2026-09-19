@@ -8,7 +8,16 @@
 
 .stg-wrap {
     padding: 28px 28px 48px;
-    max-width: 1100px;
+    /* GH-544: no cap on the right. The owner's decision, 19.09.2026: "can it
+       just be the full page width, why are we limiting it on the right" — and
+       with it the whole reason the sites table had to choose between columns.
+       It was `max-width: 1100px`, which held the panel to 1044px of usable
+       width on a 1680px screen as firmly as on a 1280px one.
+       There was never a `margin: auto` here, so nothing was centred and nothing
+       de-centres by removing this: the block was left-aligned with a ceiling
+       and is now left-aligned without one.
+       This class is on TWO views, account.blade.php:17 and
+       settings.blade.php:17, so the Settings page widens as well. */
 }
 
 /* ── Page heading ──────────────────────────────────────────── */
@@ -652,7 +661,17 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    white-space: nowrap;
+    /* GH-543: the site name wraps. It used to be `nowrap`, which made this
+       column as wide as the LONGEST name on the account — 39 characters on the
+       dev stand, 360px of it — and with the methodology column added the table
+       came to 1213px inside a panel that is 1044 and does not grow with the
+       window (`.stg-wrap` is capped at 1100px and is shared with Settings, so
+       it is not touched). The Users column and the row's own buttons were off
+       the right edge at every width measured.
+       `flex-wrap` so the type badge drops to the next line rather than being
+       squeezed against a wrapped name. */
+    white-space: normal;
+    flex-wrap: wrap;
 }
 .stg-set-active-btn {
     padding: 3px 10px;
