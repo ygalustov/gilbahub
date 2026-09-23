@@ -43,6 +43,7 @@
 'use strict';
 
 const vm = require('vm');
+const { realReadingsOf } = require('./lib/sample-readings');
 const fs = require('fs');
 const path = require('path');
 
@@ -72,7 +73,7 @@ function slice(src, name) {
 function makeGate({ sample, budget = 15000 }) {
     let now = 1000;
     const timers = [];
-    const calls = { retries: 0, skipped: [], problems: [], triggered: 0 };
+    const calls = { retries: 0, skipped: [], problems: [], triggered: 0, notes: [] };
 
     const sandbox = {
         console: { log() {}, warn() {}, error() {} },
@@ -88,12 +89,34 @@ function makeGate({ sample, budget = 15000 }) {
     sandbox.global = sandbox;
     sandbox.globalThis = sandbox;
     sandbox.GilbaPersistence = budget === null ? {} : { RUN_BUDGET_MS: budget };
+    // GH-600 — THE BENCH HANDS THE PRODUCT'S OWN READER.
+    //
+    // GH-595 made these fixtures carry `normalized` as well as `rawData`, on
+    // the grounds that a sample the store has loaded carries both and the bench
+    // was less real than the run. That was true and it was the wrong repair:
+    // THE DEFECT WAS IN THE PRODUCT, not here. The gate read
+    // `normalized || rawData || values`, and `normalized` is set on every path
+    // that creates a sample, so the other two branches were unreachable and a
+    // fixture shaped "only `rawData`" described a case that does not exist.
+    // Two of those would have fixed the fiction in place.
+    //
+    // The gate asks the declared reader now, so the bench hands it the real
+    // one — `tests/lib/sample-readings.js` — and the fixtures are lab rows,
+    // which is what a sample actually carries.
     sandbox.GAIP_SampleManager = {
-        getActiveSample: (t) => (t === 'soil' && sample ? { rawData: sample } : null),
+        readingsOf: realReadingsOf(),
+        getActiveSample: (t) => (t === 'soil' && sample
+            ? { id: 'sample_141', rawData: sample }
+            : null),
     };
     sandbox.GaipOrchestrator = {
         noteSkipped: (...a) => calls.skipped.push(a),
         recordProblem: (...a) => calls.problems.push(a),
+        // GH-612: the third channel, and the one that carries the fact without
+        // carrying a sentence. `note` is level `info`, which the panel does not
+        // print, so what is filed here reaches a reader of the record and not
+        // the client.
+        note: (...a) => calls.notes.push(a),
     };
 
     const ctx = vm.createContext(sandbox);
@@ -115,6 +138,73 @@ describe('GH-578 — the pass waits for the sample, then goes on', () => {
         expect(g.ctx.GAIP_SOIL_SAMPLE_UNAVAILABLE).toBeUndefined();
     });
 
+    test('GH-600: a sample IS there and carries no reading the map knows', () => {
+        // THE THIRD STATE, and until now it wore the second one's face. A lab
+        // row whose column headings the map does not recognise normalises to
+        // nothing, so the gate — which used to read the derived copy — said
+        // "not arrived" about a sample that HAD arrived. The run then waited
+        // for it and failed with `soil-sample-not-delivered`, and that reason
+        // is not true: it was delivered, it was not understood. Delivered and
+        // unreadable is its own state, and collapsing it into "did not arrive"
+        // is exactly what GH-588 was built to stop.
+        //
+        // GH-612 — AND THE HALF THAT NEEDED NO WORDS IS NOW SETTLED. The gate
+        // still ANSWERS the same thing, because answering differently would
+        // change what a person reads and that wording has one author who has
+        // not written it. What changed is the record: when the budget runs out
+        // the gate files WHICH of the two states it was, as a `note` — level
+        // `info`, which the panel does not print.
+        const g = makeGate({ sample: { Potassium_as_K_Mehlich: '40', Note: 'see attached' } });
+
+        // Nothing the declared reader recognises — proved against the reader
+        // itself rather than asserted.
+        expect(Object.keys(realReadingsOf()('soil', { values: { Potassium_as_K_Mehlich: '40' } })))
+            .toEqual([]);
+        // ...so the gate holds, exactly as it does for a sample that is absent.
+        expect(g.gate()).toBe(false);
+        expect(g.calls.retries).toBe(1);
+
+        // Past the budget, the record says which state this was.
+        g.advance(20000);
+        expect(g.gate()).toBe(true);
+        const delivered = g.calls.notes.filter((n) => /delivered=true/.test(String(n[2])));
+        expect(delivered).toHaveLength(1);
+        expect(String(delivered[0][1])).toContain('carried no reading');
+
+        // THE CONTROL, and it is the point: the same run WITHOUT a sample files
+        // the other note, so the two states are two records rather than one.
+        const none = makeGate({ sample: null });
+        expect(none.gate()).toBe(false);
+        none.advance(20000);
+        expect(none.gate()).toBe(true);
+        const absent = none.calls.notes.filter((n) => /delivered=false/.test(String(n[2])));
+        expect(absent).toHaveLength(1);
+        expect(String(absent[0][1])).toContain('no soil sample was present');
+
+        // And the sentence a person reads is still the same one for both — the
+        // open half, asserted so that nobody reads this file as if it were done.
+        expect(g.calls.problems[0][1]).toBe(none.calls.problems[0][1]);
+    });
+
+    test('GH-600: the branches the gate could never take are gone', () => {
+        // `normalized` is set on EVERY path that creates a sample
+        // (`sample-manager.js`), so `normalized || rawData || values` had one
+        // reachable branch and two dead ones, and a fixture shaped "only
+        // rawData" described a case that does not exist. Read off the product,
+        // because the claim is about what the gate no longer consults.
+        const src = fs.readFileSync(path.join(ASSETS, 'hub-tissue-v3.js'), 'utf8');
+        const at = src.indexOf('function _gaipSoilSampleReadyOrGivenUp');
+        expect(at).toBeGreaterThan(-1);
+        // Comments are stripped first: the block above EXPLAINS the branches
+        // it removed and names them, and a check that reads prose as code goes
+        // red on its own explanation. Measured the hard way twice in this tree.
+        const body = src.slice(at, src.indexOf('function triggerAutoRun', at))
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+        expect(body).toContain('SM.readingsOf("soil", active)');
+        expect(body).not.toMatch(/active\.normalized/);
+    });
+
     test('THE LIVE CASE: no sample yet, the pass holds and tries again', () => {
         // The 2,134 ms window measured on the stand, where the run used to go
         // ahead with nothing.
@@ -129,7 +219,7 @@ describe('GH-578 — the pass waits for the sample, then goes on', () => {
     test('the sample arrives during the wait: the pass starts with it', () => {
         const g = makeGate({ sample: null });
         expect(g.gate()).toBe(false);
-        g.ctx.GAIP_SampleManager.getActiveSample = () => ({ rawData: SAMPLE_141 });
+        g.ctx.GAIP_SampleManager.getActiveSample = () => ({ id: 'sample_141', rawData: SAMPLE_141 });
         g.advance(2134);
         expect(g.gate()).toBe(true);
         expect(g.ctx.GAIP_SOIL_SAMPLE_UNAVAILABLE).toBeUndefined();

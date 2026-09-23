@@ -103,6 +103,40 @@
      * of the two reasons it was, so the reader is not told a number that came
      * from a sample nobody chose.
      */
+    /**
+     * GH-598: a water sample's readings, through the sample manager's own
+     * normaliser — the one the form filling and the Word export use.
+     *
+     * No list of column names lives here. `readingsOf` resolves the map's
+     * aliases (`Ca_mgL`, `EC_dSm`, …) case- and suffix-tolerantly; a table
+     * written out here would be a second one, which is the defect GH-591 closed
+     * for the soil after it cost a measured pH.
+     */
+    function _waterReadingsOf(sample) {
+        try {
+            var SM = global.GAIP_SampleManager;
+            if (!SM || typeof SM.readingsOf !== 'function' || !sample) return {};
+            return SM.readingsOf('water', sample) || {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    /**
+     * GH-598: the ions among a water sample's readings — everything that is not
+     * the two named readings beside them. Derived from what the reader
+     * returned, so an ion added to the map arrives without a second edit, and a
+     * reading of ZERO is kept: a carbonate measured at zero is a measurement.
+     */
+    function _ionsOf(readings) {
+        var out = {};
+        Object.keys(readings || {}).forEach(function (key) {
+            if (key === 'EC' || key === 'pH') return;
+            if (typeof readings[key] === 'number') out[key] = readings[key];
+        });
+        return out;
+    }
+
     function noteWaterSampleUnresolved(reason, requestedId) {
         try {
             if (global.GaipOrchestrator && typeof global.GaipOrchestrator.noteSkipped === 'function') {
@@ -594,15 +628,56 @@
          * 22.09.2026, the event precedes the store by enough for a whole pass to
          * run in between. So the event is only the prompt to look.
          */
-        function _soilSampleHasArrived() {
+        function _soilSampleState() {
             try {
                 var SM = global.GAIP_SampleManager;
                 var a = (SM && typeof SM.getActiveSample === 'function') ? SM.getActiveSample('soil') : null;
-                var src = a && (a.normalized || a.rawData || a.values);
-                return !!(src && Object.keys(src).length);
+                // GH-604 — THE TWIN OF THE GATE, AND THE SAME TWO DEAD BRANCHES.
+                //
+                // This read `a.normalized || a.rawData || a.values`, exactly as
+                // `_gaipSoilSampleReadyOrGivenUp` did before GH-600, and it is
+                // not three ways of finding a sample: `normalized` is set on
+                // every path that creates one, so the first branch is always
+                // taken and the other two are unreachable. What it really asked
+                // was `Object.keys(a.normalized).length` — a read of the
+                // derived, lossy copy where soil pH lives as `soil_ph`, which is
+                // the read that cost a measured pH in GH-591.
+                //
+                // Behaviour is unchanged today, measured: of the 48 live soil
+                // samples all 48 carry at least one column the map names, so
+                // there is no sample on which the two answers differ.
+                //
+                // GH-612 — THE TWO STATES ARE TOLD APART NOW, IN THE DATA.
+                //
+                // A sample whose columns the map does not know used to report
+                // exactly what a sample that never arrived reports, and the run
+                // failed with `soil-sample-not-delivered` — untrue, because it
+                // WAS delivered. `_soilSampleState()` answers both questions
+                // separately, and the failure carries the answer in its detail.
+                //
+                // THE SENTENCE A PERSON READS IS UNCHANGED, deliberately: the
+                // failure code is still `soil-sample-not-delivered`, so the
+                // panel says today what it said this morning. A third reason
+                // needs a third sentence, that sentence has one author, and he
+                // has not written it. `detail` is where this goes because
+                // `AnalysisNotice::detailText()` prints detail for four codes
+                // and this is not one of them — so the record gains a fact and
+                // the client gains no new words. The screen half is open and
+                // named in the queue.
+                var readings = (a && SM && typeof SM.readingsOf === 'function')
+                    ? SM.readingsOf('soil', a) : null;
+                return {
+                    delivered: !!a,
+                    readings: readings ? Object.keys(readings).length : 0,
+                };
             } catch (e) {
-                return false;
+                return { delivered: false, readings: 0 };
             }
+        }
+
+        /** The question the run used to ask, answered from the state above. */
+        function _soilSampleHasArrived() {
+            return _soilSampleState().readings > 0;
         }
 
         function _noteSoilArrived() {
@@ -743,11 +818,18 @@
             // distinguishes it from a site that has no sample at all (state 1,
             // which completes and never reaches here).
             if (_soilExpected.expect && !_soilReady) {
+                // GH-612: WHICH of the two it was, recorded beside the code.
+                // `delivered: true` with `readableColumns: 0` is the sample that
+                // arrived and could not be read — a different fact from a
+                // sample that never came, and until now the row said neither.
+                var _soilState = _soilSampleState();
                 _fail('soil-sample-not-delivered', {
                     soilSampleId: _soilExpected.id,
                     toldBy: _soilExpected.told,
                     weatherReady: _weatherReady,
                     orchestratorDone: _orchestratorDone,
+                    delivered: _soilState.delivered,
+                    readableColumns: _soilState.readings,
                 });
                 return;
             }
@@ -1568,6 +1650,25 @@
                 var _c4f = (_fracs && _fracs.c4Fraction != null) ? _fracs.c4Fraction
                     : (1 - _c3f);
                 var _minimalState = { turf: { species: { c3Fraction: _c3f, c4Fraction: _c4f } } };
+                // GH-605 — THE TWENTY DEGREES HERE REACHES NOTHING, AND THAT IS
+                // MEASURED RATHER THAN ASSUMED.
+                //
+                // It looks like the substitution the project bans: no mean
+                // temperature for today, so 20 °C goes in and the run computes
+                // on it. Traced through: `calculateGrowthMetrics(mean, state,
+                // rows)` uses `mean` ONLY for its top-level `weighted`, `c3`,
+                // `c4`, `gdd` and `status`; its `dailyPattern` is built from the
+                // daily rows, each day from its OWN mean. And the block below
+                // takes exactly one field off the result — `dailyPattern`. So
+                // the invented number feeds five fields that are computed and
+                // thrown away, and no stored row has ever carried it.
+                //
+                // LEFT AS IT IS, DELIBERATELY. Making it `null` would drop
+                // `dailyPattern` on any run without a today-mean — real figures,
+                // built from real daily rows, deleted to avoid a number that
+                // never leaves this function. The trap is that the five fields
+                // are one read away from becoming live, and that is named in the
+                // queue rather than repaired by losing data.
                 var _todayMean = (_liveClimate && _liveClimate.temperature && _liveClimate.temperature.todayMean != null)
                     ? _liveClimate.temperature.todayMean : 20;
                 var _growthFull = calculateGrowthMetrics(_todayMean, _minimalState, _dailyRows);
@@ -2227,6 +2328,10 @@
                             // already handles nothing.
                             _wbOverride = {
                                 id: _wbFound.id,
+                                // GH-598: the sample itself, so its readings are
+                                // resolved by the declared normaliser rather than
+                                // by a name list assembled here.
+                                sample: _wbFound,
                                 label: (typeof _wbPl._label === 'string' && _wbPl._label.trim())
                                     || (typeof _wbFound.label === 'string' && _wbFound.label.trim())
                                     || null,
@@ -2254,13 +2359,24 @@
             // ensures the chosen sample is always used even when the analysis engine ran
             // before SM async-loaded the correct sample into the water form.
             if (_wbOverride && _wbOverride.payload) {
+                // GH-598 — THE IONS COME FROM THE DECLARED READER, AND A
+                // MEASURED ZERO IS A MEASUREMENT.
+                //
+                // Two things stood here and both are the shape GH-591 closed
+                // for the soil. A LIST OF NAMES of its own, matched exactly:
+                // `WATER_FIELD_MAP` accepts `Ca_mgL`, `Na_mgL` and the rest, the
+                // form filling and the Word export resolve them, and this did
+                // not — measured 23.09.2026, no live sample spells them that
+                // way today, so nothing is lost yet and the first lab that does
+                // would be dropped silently. And `v > 0`, which throws away a
+                // reading of zero: `CO3` is 0 in six of the eight live water
+                // samples, and a carbonate measured at zero is a measurement,
+                // not an absence.
+                var _ovSample = _wbOverride.sample || { values: _wbOverride.payload };
                 var _ovPl = _wbOverride.payload;
-                var _ovEC = parseFloat(_ovPl.EC || _ovPl.ECw || _ovPl.ec || _ovPl.EC_dSm || 0);
-                var _ovIons = {};
-                ['Ca','Mg','Na','K','HCO3','CO3','Cl','SO4'].forEach(function(ion) {
-                    var v = parseFloat(_ovPl[ion] || 0);
-                    if (v > 0) _ovIons[ion] = v;
-                });
+                var _ovReadings = _waterReadingsOf(_ovSample);
+                var _ovEC = _ovReadings.EC != null ? _ovReadings.EC : null;
+                var _ovIons = _ionsOf(_ovReadings);
                 _waterIn = {
                     ecw:         _ovEC || (parseFloat(_ovPl.TDS || 0) / 640) || null,
                     ions:        _ovIons,
@@ -2305,14 +2421,13 @@
                         var _wSmp = (_activeWId && _siteWaterSamples[_activeWId]) ||
                                     Object.values(_siteWaterSamples).sort(function(a,b) { return (b.date||'') > (a.date||'') ? 1 : -1; })[0];
                         if (_wSmp) {
-                            var _wData = _wSmp.rawData || _wSmp.values || {};
-                            var _wEC = parseFloat(_wData.EC || _wData.ECw || _wData.ec || 0);
+                            // GH-598: the same reader on the second door. Two
+                            // copies of a name list drift, and the one nobody
+                            // looked at is the one that drifts.
+                            var _wReadings = _waterReadingsOf(_wSmp);
+                            var _wEC = _wReadings.EC != null ? _wReadings.EC : 0;
                             if (_wEC > 0) {
-                                var _wIons = {};
-                                ['Ca','Mg','Na','K','HCO3','CO3','Cl','SO4'].forEach(function(ion) {
-                                    var v = parseFloat(_wData[ion] || 0);
-                                    if (v > 0) _wIons[ion] = v;
-                                });
+                                var _wIons = _ionsOf(_wReadings);
                                 _waterIn = {
                                     ecw:  _wEC,
                                     ions: _wIons,
@@ -2373,8 +2488,84 @@
 
             var _Ca   = _meq('Ca'),  _Mg = _meq('Mg'), _Na = _meq('Na'), _K = _meq('K');
             var _HCO3 = _meq('HCO3'), _CO3 = _meq('CO3'), _Cl = _meq('Cl'), _SO4 = _meq('SO4');
-            var _B    = parseFloat(_ions.B)  || null;
-            var _Fe   = parseFloat(_ions.Fe) || null;
+            // GH-599 — WHAT THE SAMPLE CARRIED THAT THE BALANCE HAS NO FACTOR
+            // FOR, DERIVED AND NOT NAMED ONE BY ONE.
+            //
+            // The eight above are meq/L, and they are eight because `_mgToMeq`
+            // has eight factors — the ionic balance (SAR, RSC, LSI) is what
+            // they are for. Readings outside that arithmetic were reaching the
+            // row only if somebody had written a variable for them: `B` and
+            // `Fe` had one, `NO3`, `PO4` and `Mn` did not, so a sample carrying
+            // them lost them. Measured 23.09.2026: nitrate on six live water
+            // samples of eight, phosphate on six, manganese on two.
+            //
+            // Adding three more variables would be the same defect at a smaller
+            // size. The set is DERIVED instead — every reading the declared
+            // reader returned that the balance has no factor for — so an ion
+            // added to the sample manager's map arrives here without a second
+            // edit, in the sample's own units.
+            // GH-608: one place decides what counts as a reading, so a third
+            // exposure cannot invent a fourth answer to the same question.
+            function _readingOf(raw) {
+                var v = parseFloat(raw);
+                return isNaN(v) ? null : v;
+            }
+            // GH-611 — WHAT THE LAB ACTUALLY MEASURED AMONG THE EIGHT, IN THE
+            // SAMPLE'S OWN UNITS, SO THAT A MEASURED ZERO CAN BE TOLD FROM
+            // NOTHING AT ALL.
+            //
+            // `ions` above is meq/L and is a DERIVED VIEW FOR ARITHMETIC: SAR,
+            // RSC and LSI need a number for every term, so `_meq` returning 0
+            // for an absent reading is correct there and stays. But the table
+            // on screen reads the same object to decide WHETHER TO DRAW A ROW,
+            // and a zero cannot answer that question: a carbonate the lab
+            // measured and found to be zero and a carbonate nobody tested for
+            // are the same 0 after `_meq`.
+            //
+            // Measured, 23.09.2026, on all eight live water samples: `CO3` is
+            // the only reading that is a real zero, and it is zero on six of
+            // them — Burns 54 and New test - location 136-140. Those six rows
+            // are absent from the table today and say nothing about why.
+            //
+            // The set is DERIVED, like the trace ions below it: the test is the
+            // presence of a factor in `_mgToMeq`, the same table that decides
+            // what `ions` contains. An ion added to that table appears here
+            // without a second edit, and nothing is named twice.
+            var _measuredIons = {};
+            Object.keys(_mgToMeq).forEach(function (ion) {
+                var v = parseFloat(_ions[ion]);
+                if (!isNaN(v)) _measuredIons[ion] = v;
+            });
+            var _traceIons = {};
+            Object.keys(_ions).forEach(function (ion) {
+                if (_mgToMeq[ion]) return;
+                var v = parseFloat(_ions[ion]);
+                if (!isNaN(v)) _traceIons[ion] = v;
+            });
+            // `B` and `Fe` keep their own keys because a READER names them:
+            // `water-balance-analysis.js` draws a Boron row and an Iron row
+            // from them. One source, two exposures.
+            //
+            // GH-608 — A MEASURED ZERO IS A READING; AN ABSENT KEY IS SILENCE.
+            //
+            // These two carried `parseFloat(x) || null`, which cannot tell the
+            // two apart: a lab that measured boron and found none, and a lab
+            // that never tested for it, both came out `null` and both drew no
+            // row. The owner settled it on 23.09.2026, in her words: if the lab
+            // returned a zero — a reading arrived and it says zero — then zero
+            // is what gets written; and if there is none, nobody measured it.
+            // So the measured zero is now kept and the absence still says
+            // nothing.
+            //
+            // The rule is not about boron. It is about the two states, and the
+            // test is the same one the derived trace ions three lines up
+            // already apply: a value that parses is a reading whatever it is,
+            // and only an unparsable one is absent. Deliberately NOT extended
+            // to a zero this code produced on the way — by a substitution, a
+            // fallback or an engine that did not run. That zero is still untrue
+            // and is a separate subject.
+            var _B    = _readingOf(_ions.B);
+            var _Fe   = _readingOf(_ions.Fe);
 
             // SAR = Na / sqrt((Ca + Mg) / 2)
             var _SAR = null, _SARadj = null, _RSC = null;
@@ -2476,9 +2667,15 @@
                     LSI:          _LSI,
                     // Ions (meq/L)
                     ions: { Ca: _Ca, Mg: _Mg, Na: _Na, K: _K, HCO3: _HCO3, CO3: _CO3, Cl: _Cl, SO4: _SO4 },
+                    measuredIons: _measuredIons,
                     // Toxicity raw (mg/L)
                     B:            _B,
                     Fe:           _Fe,
+                    // GH-599: everything else the sample measured, in its own
+                    // units. Nothing prints it today — checked by what the
+                    // pages LOAD, not by what markup exists — so this changes
+                    // the record and not the screen.
+                    traceIons:    _traceIons,
                     // Irrigation balance
                     weeklyNeed:   _weeklyNeed,
                     netDeficit:   _netDeficit,

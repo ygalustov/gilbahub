@@ -1,4 +1,10 @@
 /**
+ * GH-595 — WHAT THIS FILE IS NOT ABOUT. The subject is the KEYS of `data.turf`
+ * and where each one comes from. It touches no sample and asserts nothing about
+ * soil readings — the single mention of `getActiveSample` below is prose about
+ * a date, not a dependency — so its green carries no information about the
+ * sample reader, in either direction.
+ *
  * GH-461 (PLAN-GH439 section 10.6, as amended) — every key in data.turf is
  * either the resolver's or derived from it, and nothing else.
  *

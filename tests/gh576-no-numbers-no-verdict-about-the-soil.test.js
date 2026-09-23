@@ -1,6 +1,14 @@
 /**
  * GH-576 — NO NUMBERS, NO VERDICT — the second door.
  *
+ * GH-595 — WHAT THIS FILE IS NOT ABOUT, said so its green is not read as
+ * evidence of something it never looks at. The subject is the VERDICT LADDER
+ * over the rows: rows with nothing measured must not produce a conclusion of
+ * wellbeing. It holds whatever produced the rows, so the sample reader is
+ * deliberately absent — `getActiveSample` returns null throughout — and this
+ * file stays green when that reader returns nothing, correctly. What the reader
+ * does with a sample is `gh490` and `gh577`.
+ *
  * THE RULE IS OURS AND IT ALREADY HAD A GUARD. `gh511-no-number-no-verdict.js`
  * says: where nothing was computed, nothing is asserted about the turf. Its
  * universe is the properties of `calcMixedGrowthPotential`'s returned object,

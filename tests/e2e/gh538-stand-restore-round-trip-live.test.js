@@ -60,15 +60,21 @@ const ENABLED = process.env.GILBA_E2E === '1';
 const OVER = {
     label: 'Test1 - Sports',
     site: '019e96d8-8480-721b-ac5a-1ef8022300a2',
-    file: 'q39-test1-sports.b64',
+    file: 'stand-restore-test1-sports.b64',
 };
 const UNDER = {
     label: 'Westview',
     site: '019f7d28-50ed-71e2-b817-c252b0160460',
-    file: 'q39-westview.b64',
+    file: 'stand-restore-westview.b64',
 };
-const COPY_DIR = process.env.GILBA_Q39_COPIES
-    || path.join(require('os').tmpdir(), 'gilba-q39-copies');
+// GH-596: named for WHAT IT HOLDS, not for the question it was opened under.
+// The owner's rule is that code carries no reference to a question number, and
+// an environment variable is as much a reference as a comment — more, because a
+// person types it. The number would have gone stale in silence too: the
+// questions above 59 were regrouped the same day, and nothing here would have
+// told anyone that the number had stopped naming anything.
+const COPY_DIR = process.env.GILBA_STAND_RESTORE_COPIES
+    || path.join(require('os').tmpdir(), 'gilba-stand-restore-copies');
 
 let captureConfigsOnce = null, restoreConfigs = null;
 try { ({ captureConfigsOnce, restoreConfigs } = require('./lib/stand-guard')); } catch (e) { /* reported below */ }
@@ -130,7 +136,7 @@ if (!ENABLED) {
                 before[row.label] = shape;
                 copies[row.label] = { md5: localMd5, length: raw.length, b64Length: p[3].length };
 
-                process.stdout.write('[q39] copy of ' + row.label + ': db md5 ' + shape.md5
+                process.stdout.write('[gh538] copy of ' + row.label + ': db md5 ' + shape.md5
                     + ', copy md5 ' + localMd5 + (localMd5 === shape.md5 ? ' — MATCH' : ' — MISMATCH')
                     + ', ' + raw.length + ' bytes, ' + p[3].length + ' base64\n');
 
@@ -142,27 +148,27 @@ if (!ENABLED) {
 
             // ---- 2. the remedy's own capture ----
             const captured = captureConfigsOnce();
-            process.stdout.write('[q39] remedy captured ' + Object.keys(captured).length + ' row(s)\n');
+            process.stdout.write('[gh538] remedy captured ' + Object.keys(captured).length + ' row(s)\n');
 
             // ---- 3. damage both rows ----
             [OVER, UNDER].forEach((row) => {
                 sql("UPDATE site_configs SET config='{\"gh538\":\"damaged for the question 39 round trip\"}' "
                     + "WHERE site_id='" + row.site + "' AND namespace='analysis_cache';");
                 const now = shapeOf(row.site);
-                process.stdout.write('[q39] damaged ' + row.label + ': md5 ' + now.md5
+                process.stdout.write('[gh538] damaged ' + row.label + ': md5 ' + now.md5
                     + ', ' + now.length + ' bytes (was ' + before[row.label].length + ')\n');
             });
 
             // ---- 4. the remedy puts them back ----
             try { restoreReport = restoreConfigs(); }
-            catch (e) { restoreThrew = e; process.stdout.write('[q39] restoreConfigs THREW: ' + e.message + '\n'); }
+            catch (e) { restoreThrew = e; process.stdout.write('[gh538] restoreConfigs THREW: ' + e.message + '\n'); }
 
             // ---- 5. what actually came back ----
             [OVER, UNDER].forEach((row) => { after[row.label] = shapeOf(row.site); });
 
             [OVER, UNDER].forEach((row) => {
                 const b = before[row.label], a = after[row.label];
-                process.stdout.write('[q39] ' + row.label + ' AFTER RESTORE:\n');
+                process.stdout.write('[gh538] ' + row.label + ' AFTER RESTORE:\n');
                 process.stdout.write('        md5        before ' + b.md5 + '  after ' + a.md5
                     + (a.md5 === b.md5 ? '  SAME' : '  DIFFERENT') + '\n');
                 process.stdout.write('        length     before ' + b.length + '  after ' + a.length
@@ -187,10 +193,10 @@ if (!ENABLED) {
                 }
             });
             if (manualRepairs.length) {
-                process.stdout.write('[q39] MANUAL REPAIR from the independent copies: '
+                process.stdout.write('[gh538] MANUAL REPAIR from the independent copies: '
                     + JSON.stringify(manualRepairs) + '\n');
             } else {
-                process.stdout.write('[q39] no manual repair needed — the remedy put both rows back itself\n');
+                process.stdout.write('[gh538] no manual repair needed — the remedy put both rows back itself\n');
             }
         }, 120000);
 

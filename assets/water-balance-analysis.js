@@ -488,22 +488,51 @@
         var tbl = '<table class="wb-ion-table">'+
             '<thead><tr><th>Ion</th><th>meq/L</th><th>mg/L</th><th>Status</th></tr></thead><tbody>';
 
+        // GH-611 — A ROW IS DRAWN WHEN THE LAB MEASURED THE ION, NOT WHEN THE
+        // ARITHMETIC CAME OUT NON-ZERO.
+        //
+        // Each of these eight used to ask `if (ions.X)`, and `ions` is meq/L
+        // built by `_meq`, which returns 0 both for a reading of zero and for a
+        // reading that never arrived. So a carbonate the lab measured and found
+        // to be zero drew no row, exactly like a carbonate nobody tested for,
+        // and the table could not say which had happened. Measured on the eight
+        // live water samples: `CO3` is zero on six of them, and those are six
+        // rows the client never saw.
+        //
+        // `measuredIons` states what the sample itself carried among these
+        // eight. An older stored row has no such field, and then the question
+        // is asked the old way — those rows were written before the producer
+        // knew the difference, and inventing an answer for them would be worse
+        // than the silence they already have.
+        var measured = (wb.measuredIons && typeof wb.measuredIons === 'object') ? wb.measuredIons : null;
+        function measuredBySample(ion) {
+            return measured ? measured[ion] != null : !!ions[ion];
+        }
+        // AND THE BADGE IS LEFT OFF A MEASURED ZERO ON PURPOSE. The ladders
+        // below read "Trace" at the bottom, which speaks of a small presence
+        // where the measurement says there is none. That wording is text the
+        // client reads, it comes from one author, and this is not that author:
+        // the number is shown and the badge is omitted until the wording exists.
+        function badgeUnlessZero(ion, html) {
+            return ions[ion] ? html : '';
+        }
+
         // Cations
-        if (ions.Ca)  tbl += '<tr><td>Calcium (Ca)</td><td>'+fmt(ions.Ca,2)+'</td><td>'+fmt(ions.Ca*20.04,1)+'</td><td>'+badgeHtml('Normal','adequate')+'</td></tr>';
-        if (ions.Mg)  tbl += '<tr><td>Magnesium (Mg)</td><td>'+fmt(ions.Mg,2)+'</td><td>'+fmt(ions.Mg*12.15,1)+'</td><td>'+badgeHtml('Normal','adequate')+'</td></tr>';
-        if (ions.Na) {
+        if (measuredBySample('Ca'))  tbl += '<tr><td>Calcium (Ca)</td><td>'+fmt(ions.Ca,2)+'</td><td>'+fmt(ions.Ca*20.04,1)+'</td><td>'+badgeUnlessZero('Ca', badgeHtml('Normal','adequate'))+'</td></tr>';
+        if (measuredBySample('Mg'))  tbl += '<tr><td>Magnesium (Mg)</td><td>'+fmt(ions.Mg,2)+'</td><td>'+fmt(ions.Mg*12.15,1)+'</td><td>'+badgeUnlessZero('Mg', badgeHtml('Normal','adequate'))+'</td></tr>';
+        if (measuredBySample('Na')) {
             var naSt2 = ions.Na > 3 ? 'deficient' : ions.Na > 1.5 ? 'borderline' : 'adequate';
-            tbl += '<tr><td>Sodium (Na) '+infoBtn('wb-napct')+'</td><td>'+fmt(ions.Na,2)+'</td><td>'+fmt(ions.Na*23,1)+'</td><td>'+badgeHtml(naSt2==='adequate'?'Normal':naSt2==='borderline'?'Elevated':'High',naSt2)+'</td></tr>';
+            tbl += '<tr><td>Sodium (Na) '+infoBtn('wb-napct')+'</td><td>'+fmt(ions.Na,2)+'</td><td>'+fmt(ions.Na*23,1)+'</td><td>'+badgeUnlessZero('Na', badgeHtml(naSt2==='adequate'?'Normal':naSt2==='borderline'?'Elevated':'High',naSt2))+'</td></tr>';
         }
-        if (ions.K)   tbl += '<tr><td>Potassium (K)</td><td>'+fmt(ions.K,2)+'</td><td>'+fmt(ions.K*39.1,1)+'</td><td>'+badgeHtml('Normal','adequate')+'</td></tr>';
+        if (measuredBySample('K'))   tbl += '<tr><td>Potassium (K)</td><td>'+fmt(ions.K,2)+'</td><td>'+fmt(ions.K*39.1,1)+'</td><td>'+badgeUnlessZero('K', badgeHtml('Normal','adequate'))+'</td></tr>';
         // Anions
-        if (ions.HCO3) tbl += '<tr><td>Bicarbonate (HCO₃)</td><td>'+fmt(ions.HCO3,2)+'</td><td>'+fmt(ions.HCO3*61,1)+'</td><td>'+badgeHtml(ions.HCO3>4?'High':ions.HCO3>1.5?'Moderate':'Normal',ions.HCO3>4?'deficient':ions.HCO3>1.5?'borderline':'adequate')+'</td></tr>';
-        if (ions.CO3)  tbl += '<tr><td>Carbonate (CO₃)</td><td>'+fmt(ions.CO3,2)+'</td><td>'+fmt(ions.CO3*30,1)+'</td><td>'+badgeHtml(ions.CO3>0.5?'Elevated':'Trace',ions.CO3>0.5?'borderline':'adequate')+'</td></tr>';
-        if (ions.Cl) {
+        if (measuredBySample('HCO3')) tbl += '<tr><td>Bicarbonate (HCO\u2083)</td><td>'+fmt(ions.HCO3,2)+'</td><td>'+fmt(ions.HCO3*61,1)+'</td><td>'+badgeUnlessZero('HCO3', badgeHtml(ions.HCO3>4?'High':ions.HCO3>1.5?'Moderate':'Normal',ions.HCO3>4?'deficient':ions.HCO3>1.5?'borderline':'adequate'))+'</td></tr>';
+        if (measuredBySample('CO3'))  tbl += '<tr><td>Carbonate (CO\u2083)</td><td>'+fmt(ions.CO3,2)+'</td><td>'+fmt(ions.CO3*30,1)+'</td><td>'+badgeUnlessZero('CO3', badgeHtml(ions.CO3>0.5?'Elevated':'Trace',ions.CO3>0.5?'borderline':'adequate'))+'</td></tr>';
+        if (measuredBySample('Cl')) {
             var clSt = ions.Cl > 10 ? 'deficient' : ions.Cl > 4 ? 'borderline' : 'adequate';
-            tbl += '<tr><td>Chloride (Cl) '+infoBtn('wb-cl')+'</td><td>'+fmt(ions.Cl,2)+'</td><td>'+fmt(ions.Cl*35.45,1)+'</td><td>'+badgeHtml(clSt==='adequate'?'Safe':clSt==='borderline'?'Caution':'Toxic',clSt)+'</td></tr>';
+            tbl += '<tr><td>Chloride (Cl) '+infoBtn('wb-cl')+'</td><td>'+fmt(ions.Cl,2)+'</td><td>'+fmt(ions.Cl*35.45,1)+'</td><td>'+badgeUnlessZero('Cl', badgeHtml(clSt==='adequate'?'Safe':clSt==='borderline'?'Caution':'Toxic',clSt))+'</td></tr>';
         }
-        if (ions.SO4)  tbl += '<tr><td>Sulphate (SO₄)</td><td>'+fmt(ions.SO4,2)+'</td><td>'+fmt(ions.SO4*48,1)+'</td><td>'+badgeHtml('Normal','adequate')+'</td></tr>';
+        if (measuredBySample('SO4'))  tbl += '<tr><td>Sulphate (SO\u2084)</td><td>'+fmt(ions.SO4,2)+'</td><td>'+fmt(ions.SO4*48,1)+'</td><td>'+badgeUnlessZero('SO4', badgeHtml('Normal','adequate'))+'</td></tr>';
         // Trace
         if (wb.B != null) {
             var bSt = wb.B > 1 ? 'deficient' : wb.B > 0.5 ? 'borderline' : 'adequate';

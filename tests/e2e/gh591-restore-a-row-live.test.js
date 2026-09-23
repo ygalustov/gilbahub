@@ -32,6 +32,10 @@
 const fs = require('fs');
 const path = require('path');
 
+const { realReadingsOf } = require('../lib/sample-readings');
+const { judge: judgeRowAgainstSample } = require('../lib/row-vs-sample');
+const { openTranscript } = require('./lib/transcript');
+
 const ENABLED = process.env.GILBA_E2E === '1';
 const SITE_NAME = process.env.GILBA_RESTORE_SITE || 'Test5 - NZ';
 
@@ -56,7 +60,11 @@ if (!ENABLED) {
         jest.setTimeout(300000);
         let browser, page;
         const seen = [];
-        const say = (line) => { seen.push(line); process.stdout.write('[probe] ' + line + '\n'); };
+        // GH-613: the run writes its own transcript. Reading this output must
+        // never require running the file again — that is a press on the stand,
+        // and it is exactly how an unannounced third press happened.
+        const transcript = openTranscript('probe');
+        const say = (line) => { seen.push(line); transcript.say(line); };
 
         beforeAll(async () => {
             if (!chromium) throw new Error('playwright does not resolve from the repo — run `npm install`');
@@ -166,8 +174,19 @@ if (!ENABLED) {
                 const sn = (window.GAIP_DASHBOARD_DATA || {}).computed || {};
                 const rows = (sn.soilNutrition && sn.soilNutrition.nutrients) || [];
                 rows.forEach((r) => { out[r.nutrient] = r.actual; });
+                // GH-593: every SCALAR reading the row states about the soil
+                // beside the cards — `pH`, `CEC`, `ECe`, `soilNa` today. Taken
+                // from the row's own shape, not from a list written here, so a
+                // reading the row starts carrying is judged without anyone
+                // remembering to add it.
+                const scalars = {};
+                Object.keys(sn.soilNutrition || {}).forEach((k) => {
+                    const v = sn.soilNutrition[k];
+                    if (typeof v === 'number' || v === null) scalars[k] = v;
+                });
                 return {
                     fromTheRow: out,
+                    scalars: scalars,
                     verdict: (sn.soilNutrition || {}).verdict || null,
                     pH: (sn.soilNutrition || {}).pH != null ? sn.soilNutrition.pH : null,
                     CEC: (sn.soilNutrition || {}).CEC != null ? sn.soilNutrition.CEC : null,
@@ -177,9 +196,91 @@ if (!ENABLED) {
             });
             say('the analysis page now serves: ' + JSON.stringify(cards));
 
-            // The probe's job is to press and to report. The only thing it
-            // asserts is that it got as far as a decided outcome, because a probe
-            // that timed out and said nothing is not evidence of anything.
+            // ─────────────────────────────────────────────────────────────────
+            // GH-593 — AND THE ROW IS JUDGED AGAINST THE SAMPLE, THROUGH THE
+            // PRODUCT'S OWN NORMALISER.
+            //
+            // WHAT WAS WRONG WITH THE JUDGING, and it is the reason this is
+            // here rather than in a query. The restoration was checked by
+            // resolving the sample's columns with LITERAL JSON PATHS — `$.pH`,
+            // `$.CEC`. Two of the seven samples keep those readings under their
+            // lab column names, `pH_Water` and `CEC_meq100g`, so the check saw
+            // nothing and the expectation written from it said "this site has
+            // no pH". The product's reader resolves those aliases and returned
+            // the values, so the error fell on the safe side — BY LUCK. Had the
+            // product dropped them, "the product lost a value" and "my query
+            // cannot see the value" would have been the same answer, and the
+            // run would have been reported as correct.
+            //
+            // The same shape caught a second person the same hour, checking the
+            // first one's cells with `$.pH_Water` and getting NULL where the
+            // table held a number. What tells the two apart is ENUMERATING the
+            // keys, not guessing a path — so the readings come from
+            // `readingsOf`, the sample manager's own normaliser (GH-484/490),
+            // which is what the run itself reads the sample with.
+            //
+            // The sample comes from the SERVER, by this page's own session, so
+            // the row and the fact it is judged against do not both come from
+            // the browser.
+            const apiSample = await page.evaluate(async (siteId) => {
+                const r = await fetch('/api/samples?sample_type=soil&site_id='
+                    + encodeURIComponent(siteId) + '&limit=1', {
+                    headers: { Accept: 'application/json' }, credentials: 'same-origin',
+                });
+                if (!r.ok) return null;
+                const j = await r.json();
+                const rows = (j && (j.data || j.samples)) || [];
+                return rows.length ? rows[0] : null;
+            }, standing.activeSiteId);
+
+            if (!apiSample) {
+                say('the server has no soil sample for this site — nothing to judge the row against');
+            } else {
+                // `readingsOf` takes a SAMPLE; the API hands the lab row under
+                // `payload`, which is the same object the store keeps as `values`.
+                const readings = realReadingsOf()('soil', { values: apiSample.payload || {} }) || {};
+                say('the sample the server named: ' + apiSample.id
+                    + ' — readings it carries: ' + JSON.stringify(readings));
+
+                // The set to compare is derived from BOTH sides and from no list
+                // written here: a reading the sample carries AND a place the row
+                // states it — a nutrient card, or a scalar beside the cards.
+                //
+                // THE CARDS ALONE WERE NOT ENOUGH, and the first control run
+                // said so: it judged three readings of the seven the sample
+                // carries, and `pH` and `CEC` — whose lab aliases are the whole
+                // reason this check exists — were not among them, because the
+                // row states them beside the cards rather than in one. A judge
+                // that resolves the aliases correctly and then never looks
+                // where those two live would have passed the very loss that
+                // GH-591 found.
+                // GH-609: the comparison is a pure function now, in
+                // `tests/lib/row-vs-sample.js`, with its own cases. It used to
+                // be written here as `Number(a) !== Number(b)`, and on a site
+                // whose readings carry two decimals that called EIGHT correct
+                // nutrients wrong — the page prints `18.8`, the sample holds
+                // `18.84`. The check that could only be exercised by pressing
+                // Re-run was the one that was wrong, so it no longer lives in
+                // a file nobody can run without a press.
+                const rowSurface = Object.assign({}, cards.scalars || {}, cards.fromTheRow);
+                const { shared, disagreed, dropped } = judgeRowAgainstSample(rowSurface, readings);
+                expect(shared.length).toBeGreaterThan(0);
+
+                expect({ nutrientsWhereTheRowDisagreesWithTheSample: disagreed })
+                    .toEqual({ nutrientsWhereTheRowDisagreesWithTheSample: [] });
+
+                // And nothing the sample measured is missing from the row: a
+                // value dropped on the way is exactly what the literal-path
+                // check could not see.
+                expect({ measuredBySampleButNotInTheRow: dropped })
+                    .toEqual({ measuredBySampleButNotInTheRow: [] });
+
+                say('judged ' + shared.length + ' readings against sample ' + apiSample.id
+                    + ': ' + shared.map((k) => k + '=' + readings[k]).join(' '));
+            }
+
+            // The probe got as far as a decided outcome: a probe that timed out
+            // and said nothing is not evidence of anything.
             expect(outcome).not.toBeNull();
             process.stdout.write('\n[probe] everything this run saw:\n  ' + seen.join('\n  ') + '\n');
         });

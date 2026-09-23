@@ -29,6 +29,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { pressRerun, queryOf } = require('./lib/rerun-opener');
+const { realReadingsOf } = require('./lib/sample-readings');
 
 const ASSETS = path.join(__dirname, '..', 'assets');
 
@@ -127,7 +128,7 @@ describe('GH-588 — the opener asks the server, and three answers stay three', 
  * this file does not invent a second one; it controls WHEN the deadline fires by
  * holding the timer the runner sets.
  */
-function runRunner({ soilParam, sampleArrivesAt, search }) {
+function runRunner({ soilParam, sampleArrivesAt, search, sampleColumns = { K: 40, Ca: 803 } }) {
     const src = fs.readFileSync(path.join(ASSETS, 'hub-persistence.js'), 'utf8');
     const exportLine = 'global.GilbaPersistence = GilbaPersistence;';
     expect(src).toContain(exportLine);
@@ -191,10 +192,16 @@ function runRunner({ soilParam, sampleArrivesAt, search }) {
         };
     })();
     sandbox.GAIP_STATE = { inputs: { soil: {}, water: {} }, computed: {} };
+    // GH-604: the PRODUCT's normaliser, and a lab row for a fixture. The
+    // arrival check reads a sample through `readingsOf` now, so a hand-written
+    // sample manager here would be a bench testing itself — which is how these
+    // fixtures came to describe a sample shape the run never meets.
     sandbox.GAIP_SampleManager = {
+        readingsOf: realReadingsOf(),
         getSamples: () => [],
         getAllSamples: () => ({ allSites: {}, allActive: {}, allMeta: {}, sites: {} }),
-        getActiveSample: (t) => (t === 'soil' && sampleThere ? { id: 'sample_141', rawData: { K: 40, Ca: 803 } } : null),
+        getActiveSample: (t) => (t === 'soil' && sampleThere
+            ? { id: 'sample_141', rawData: sampleColumns } : null),
     };
     sandbox.GaipOrchestrator = { noteSkipped: (...a) => skipped.push(a), recordProblem() {}, getState: () => ({ computed: {} }) };
 
@@ -287,6 +294,74 @@ describe('GH-588 — the runner receives a fact and the three states end differe
 
         expect(h.posted.map((p) => p[0])).toContain('result');
         expect(h.posted.map((p) => p[0])).not.toContain('failure');
+    });
+
+    test('GH-612: a sample the map cannot read is told apart IN THE RECORD, and still reads the same on screen', async () => {
+        // READ THE NAME OF THIS CASE BEFORE ITS COLOUR. It is green because the
+        // two states are the SAME today, and that is what it records. It is not
+        // evidence that they have been told apart.
+        //
+        // A lab row whose column headings the map does not recognise yields no
+        // readings, so the arrival check says "not here" about a sample that IS
+        // here; the run waits for it and fails with `soil-sample-not-delivered`
+        // — untrue, because it was delivered and not understood. Delivered and
+        // unreadable is a third state, and GH-588 exists because states must not
+        // collapse into each other.
+        //
+        // GH-612 SETTLED THE HALF THAT NEEDED NO WORDS. This case used to pin
+        // the collapse whole and said it must go red the day it was settled —
+        // and it did, here: the record now carries `delivered`, and the two
+        // states are two answers rather than one. What is NOT settled is the
+        // sentence a person reads: that needs a third wording, the wording has
+        // a single author who has not written it, and inventing one here is
+        // what the owner's rule forbids. So this case now holds BOTH facts at
+        // once — the record tells them apart, the screen does not yet — and it
+        // must go red again the day the screen half lands.
+        //
+        // The declared reader finds nothing in those columns — proved against
+        // the reader itself rather than asserted.
+        expect(Object.keys(realReadingsOf()('soil', { values: { Potassium_as_K_Mehlich: '40' } }))).toEqual([]);
+
+        const unreadable = runRunner({
+            soilParam: 'sample_141',
+            sampleArrivesAt: 0,
+            sampleColumns: { Potassium_as_K_Mehlich: '40', Note: 'see attached' },
+        });
+        driveAnOrdinaryPass(unreadable);
+        unreadable.advance(20000);
+
+        const absent = runRunner({ soilParam: 'sample_141', sampleArrivesAt: null });
+        driveAnOrdinaryPass(absent);
+        absent.advance(20000);
+        await settle();
+
+        const postedFailure = (h) => (h.posted.filter((p) => p[0] === 'failure')[0] || [, {}])[1];
+        const failureOf = (h) => (postedFailure(h) || {}).detail || {};
+        const reasonOf = (h) => (postedFailure(h) || {}).reason;
+
+        // The control: a sample that never came fails on delivery.
+        expect(reasonOf(absent)).toBe('soil-sample-not-delivered');
+
+        // GH-612 — AND HERE THE TWO HALVES PART COMPANY, WHICH IS WHY THIS CASE
+        // IS REWRITTEN RATHER THAN DELETED.
+        //
+        // THE SENTENCE IS STILL THE SAME ONE, and that is the half still open:
+        // the owner has not decided what a person should read, the wording has
+        // one author and he has not written it, so the failure code is
+        // unchanged and the panel says exactly what it said before.
+        expect(reasonOf(unreadable)).toBe(reasonOf(absent));
+
+        // THE RECORD, HOWEVER, NOW KNOWS. `delivered` answers the question the
+        // reason cannot: one sample arrived and could not be read, the other
+        // never arrived at all.
+        expect(failureOf(unreadable).delivered).toBe(true);
+        expect(failureOf(unreadable).readableColumns).toBe(0);
+        expect(failureOf(absent).delivered).toBe(false);
+
+        // And the two are distinguishable — stated on its own, because this is
+        // the whole point and both sides above are falsy-adjacent values that a
+        // careless rewrite could collapse again.
+        expect(failureOf(unreadable).delivered).not.toBe(failureOf(absent).delivered);
     });
 
     test('a run NOBODY told about the sample is not gated at all', async () => {

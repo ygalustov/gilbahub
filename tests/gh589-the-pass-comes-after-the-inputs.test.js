@@ -31,6 +31,7 @@ const vm = require('vm');
 const fs = require('fs');
 const path = require('path');
 const { hubScripts, makeSandbox } = require('./lib/orchestrator-bench');
+const { realReadingsOf } = require('./lib/sample-readings');
 
 const RealDate = Date;
 const ASSETS = path.join(__dirname, '..', 'assets');
@@ -404,7 +405,11 @@ function runRunner({ soilParam }) {
         return { version: schema.version, metrics: { required: schema.metrics.required } };
     })();
     sandbox.GAIP_STATE = { inputs: { soil: {}, water: {} }, computed: {} };
+    // GH-604: the product's normaliser. The runner's arrival check reads a
+    // sample through `readingsOf`, so a stub without it answers "no sample" for
+    // every run and this bench would measure its own gap.
     sandbox.GAIP_SampleManager = {
+        readingsOf: realReadingsOf(),
         getSamples: () => [],
         getAllSamples: () => ({ allSites: {}, allActive: {}, allMeta: {}, sites: {} }),
         getActiveSample: (t) => (t === 'soil' && sampleThere ? { id: 'sample_141', rawData: SOIL_141 } : null),

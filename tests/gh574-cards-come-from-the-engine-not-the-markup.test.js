@@ -1,6 +1,13 @@
 /**
  * GH-574 — THE NUTRIENT CARDS COME FROM THE ENGINE'S RESULT, NOT FROM ITS HTML.
  *
+ * GH-595 — WHAT THIS FILE IS NOT ABOUT. The subject is WHERE the rows come from
+ * once the engine has produced them — its own result, not its markup read back
+ * through a parser. It begins after the reading of the sample has happened, so
+ * `getActiveSample` returns null here and this file stays green when the sample
+ * reader returns nothing. That is correct: how a sample's columns are resolved
+ * is `gh490` and `gh577`, and a green here says nothing about it.
+ *
  * `mlsnEngine` builds `nutrientResults` — a row per nutrient with its value, its
  * threshold, its status class, its recommendation and its AA range — renders
  * them into a table and returned only the table. `hub-persistence.js` then ran

@@ -1,6 +1,13 @@
 /**
  * GH-549 — A SOIL ZONE WITH NO NAME IS NOT GIVEN ONE.
  *
+ * GH-595 — WHAT THIS FILE IS NOT ABOUT. The subject is the zone's NAME — that
+ * an absent one is not replaced by an identifier. Its samples carry a label and
+ * two nutrients because a zone needs a sample to belong to, not because any
+ * claim here rests on reading them; no assertion touches a soil reading. So its
+ * green says nothing about the sample reader, and it stays green when that
+ * reader returns nothing.
+ *
  * WHAT WAS THERE. `cacheAnalysisResults()` built its zone list keyed by
  * `s.label || sid` and stored that same string as the zone's NAME. Two things
  * were wrong and only one of them is the substitution:

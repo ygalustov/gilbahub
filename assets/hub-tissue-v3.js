@@ -370,6 +370,16 @@ function assessSpeciesPHTolerance(pH, species) {
 var GAIP_USE_CASCADE = true; // Always enabled in SSOT mode
 
 /**
+ * GH-597: how far back the product looks for growth-regulator history.
+ *
+ * A PRODUCT DECISION, settled by the owner on 23.09.2026 — an application older
+ * than this has no effect left on the plant, so there is nothing to compute
+ * rather than something the code declines to. Named here so the number is not a
+ * bare literal at the one place that used to carry it.
+ */
+var GAIP_PGR_HISTORY_WINDOW_DAYS = 90;
+
+/**
  * Transform DOM state to cascade orchestrator format
  * Converts gaip_build_state() output to the format expected by GilbaCascadeOrchestrator.runCascade()
  *
@@ -7010,11 +7020,45 @@ function initTurfTypeMode() {
                                 var n = new Date();
                                 if ((n.setHours(0, 0, 0, 0), r < n)) {
                                     var i = Math.ceil((n - r) / 864e5);
+                                    // GH-597 — HOW FAR BACK THE PRODUCT LOOKS, AND WHY THAT
+                                    // NUMBER IS NOT A LIMITATION.
+                                    //
+                                    // Ninety days was a bare literal here. The owner settled it on
+                                    // 23.09.2026 as a PRODUCT DECISION — ninety days is a deliberate
+                                    // choice, in her words: an application older than the window has
+                                    // no effect left on the plant, so there is nothing to compute
+                                    // rather than something we decline to. The alternative —
+                                    // accumulate from the application date whatever its age — was
+                                    // put to her and not chosen.
+                                    var _pgrWindowDays = GAIP_PGR_HISTORY_WINDOW_DAYS;
                                     (console.log("GAIP: PGR application date is", i, "days ago - enabling historical weather fetch"),
                                         t.climate.historical || (t.climate.historical = {}),
                                         (t.climate.historical.enabled = !0),
-                                        (t.climate.historical.lookbackDays = Math.min(i + 7, 90)),
+                                        (t.climate.historical.lookbackDays = Math.min(i + 7, _pgrWindowDays)),
                                         (t.climate.historical.startDate = t.pgr.applicationDate));
+                                    // AND WHEN THE WINDOW CANNOT REACH THE APPLICATION, THE RUN
+                                    // SAYS SO. Measured 23.09.2026: `Burns` last applied 99 days
+                                    // ago and stores no PGR result at all, `Russley` 65 days ago
+                                    // and stores one — same configuration fields, and nothing in
+                                    // the row told the two apart. A person cannot tell "no
+                                    // regulator is set" from "one is set, and too long ago".
+                                    //
+                                    // It is an INFO note, not a skip: the run is complete and this
+                                    // is its answer. The sentence a person reads is NOT written
+                                    // here — the texts about what a run could not do have one
+                                    // owner, and a second author is what this question has spent
+                                    // its time removing. Until that source exists the fact travels
+                                    // in the run's account and no screen states it.
+                                    if (i > _pgrWindowDays) {
+                                        try {
+                                            if (window.GaipOrchestrator && typeof window.GaipOrchestrator.note === "function") {
+                                                window.GaipOrchestrator.note("pgr",
+                                                    "plant-growth-regulator applied " + i + " days ago, beyond the "
+                                                    + _pgrWindowDays + "-day history window: no effect left to compute",
+                                                    { daysSinceApplication: i, windowDays: _pgrWindowDays });
+                                            }
+                                        } catch (e) { /* bookkeeping must not stop a run */ }
+                                    }
                                 }
                             }
                             var a = await gaip_fetch_weather(t);
@@ -8004,14 +8048,64 @@ document.addEventListener("DOMContentLoaded", function() {
         // for and nothing to wait with: do not invent a second limit here.
         if (!budget) return true;
 
+        // GH-600 — THE GATE ASKS THE DECLARED READER, AND THE BRANCHES IT
+        // COULD NEVER TAKE ARE GONE.
+        //
+        // It read `active.normalized || active.rawData || active.values`, and
+        // that is not three ways of finding a sample: `normalized` is set on
+        // EVERY path that creates one (`sample-manager.js` — `{}` or the
+        // normaliser's result, which always returns an object), so the first
+        // branch is always true and the other two are unreachable. The gate was
+        // therefore `Object.keys(active.normalized).length`, and `normalized`
+        // is a derived, lossy copy — the same read that cost a measured pH in
+        // GH-591, where soil pH lives there under `soil_ph` and not `pH`.
+        //
+        // AND IT TOLD TWO DIFFERENT THINGS APART BY ONE ANSWER. A sample whose
+        // columns the map does not recognise normalises to `{}`, so the gate
+        // said "not arrived" about a sample that HAD arrived, the run waited
+        // for it and failed with `soil-sample-not-delivered` — a reason that is
+        // not true. Delivered and not understood is a third state, and this is
+        // the collapse into two that GH-588 was built to stop.
+        //
+        // The only read is the declared normaliser now. BEHAVIOUR IS UNCHANGED
+        // TODAY, measured rather than assumed: `normalizeValues` and
+        // `readingsOf` walk one map through one resolver and diverge only on
+        // the four selectors that carry no reading name — the zone's area and
+        // the layered LOI — and of the 48 live soil samples all 48 carry at
+        // least one named column, so there is no sample on which the two
+        // answers differ.
+        // GH-612 — THE THIRD STATE IS RECORDED, IN THE DATA, WHERE NO WORDING
+        // IS NEEDED TO TELL THE TRUTH.
+        //
+        // There is no sample, and there is a sample nobody could read: the gate
+        // used to answer one thing to both, and the run then failed with a
+        // reason that is untrue for the second. Delivered and not understood is
+        // its own state.
+        //
+        // WHAT IS DONE HERE AND WHAT IS DELIBERATELY NOT. The two states are
+        // told apart and the fact is filed, as a `note` — level `info`, which
+        // `AnalysisNotice::warningLines()` does not print. The wording a person
+        // reads is NOT touched: the skip reason and the problem sentence stay
+        // exactly as they were. A third sentence belongs to the single author
+        // of client-facing text, who has not written it yet, and inventing one
+        // here is the very thing the owner's rule forbids. So the record can
+        // now answer "was it delivered?", and the screen still says what it
+        // said this morning. That half is open and is named in the queue.
         var has = false;
+        var delivered = false;
+        var readingCount = 0;
         try {
             var SM = window.GAIP_SampleManager;
             var active = (SM && typeof SM.getActiveSample === "function") ? SM.getActiveSample("soil") : null;
-            var src = active && (active.normalized || active.rawData || active.values);
-            has = !!(src && Object.keys(src).length);
+            delivered = !!active;
+            var readings = (active && SM && typeof SM.readingsOf === "function")
+                ? SM.readingsOf("soil", active) : null;
+            readingCount = readings ? Object.keys(readings).length : 0;
+            has = readingCount > 0;
         } catch (e) {
             has = false;
+            delivered = false;
+            readingCount = 0;
         }
         if (has) {
             if (_gaipSoilWaitRetry) { clearTimeout(_gaipSoilWaitRetry); _gaipSoilWaitRetry = null; }
@@ -8035,6 +8129,17 @@ document.addEventListener("DOMContentLoaded", function() {
         // without — so the result comes out partial with a reason rather than
         // confidently empty.
         window.GAIP_SOIL_SAMPLE_UNAVAILABLE = true;
+        try {
+            // GH-612: which of the two it was, filed where a reader can ask.
+            // `note` is level `info` and never reaches the panel, so this adds
+            // a fact to the run and not a sentence to the client.
+            if (window.GaipOrchestrator && typeof window.GaipOrchestrator.note === "function") {
+                window.GaipOrchestrator.note("mlsn", delivered
+                    ? "soil sample was delivered and carried no reading the map recognises"
+                    : "no soil sample was present when the run budget ran out",
+                    "delivered=" + delivered + " readings=" + readingCount);
+            }
+        } catch (e) { /* bookkeeping must not stop the run */ }
         try {
             if (window.GaipOrchestrator && typeof window.GaipOrchestrator.noteSkipped === "function") {
                 window.GaipOrchestrator.noteSkipped("mlsn", "mlsn", "soil-sample-not-loaded", "mlsn");

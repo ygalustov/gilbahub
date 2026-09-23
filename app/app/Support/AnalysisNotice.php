@@ -463,16 +463,46 @@ final class AnalysisNotice
         // of this ticket, and if the two ever read alike again the work is
         // undone.
         $retryChanges = ! in_array($run['reason'] ?? null, self::NOTHING_A_RETRY_CAN_FIX, true);
+        $isPartial = ($projection['numbersFrom'] ?? null) === 'partial';
 
         // The numbers on screen are this very run's — nothing older exists.
-        if (($projection['numbersFrom'] ?? null) === 'partial') {
+        if ($isPartial) {
             return 'This analysis is incomplete: '.$what.' '.$wasWere.' not computed ('.$reason.').'
-                .($retryChanges ? ' Re-run to complete it.' : '');
+                .self::retryOffer($retryChanges, true);
         }
 
         return 'The re-run'.($when ? ' on '.$when : '').' finished without '.$what.': '
             .$reason.'. The numbers below are from the last complete analysis.'
-            .($retryChanges ? ' Try Re-run again.' : '');
+            .self::retryOffer($retryChanges, false);
+    }
+
+    /**
+     * GH-594 — THE OFFER TO PRESS AGAIN, DECIDED AND WORDED IN ONE PLACE.
+     *
+     * It used to be two ternaries with two literals inline, and that shape cost
+     * a test its meaning twice over. The first version of the case checked for
+     * the word "again", which only ONE of the two wordings carries. The second
+     * took its vocabulary from the source text of those ternaries — better, but
+     * it could only see offers written in that exact shape, and the reviewer's
+     * mutation appended a third one plainly (`$s .= ' Press Re-run.';`) and went
+     * unseen again.
+     *
+     * So the offer is a DECISION with a return value. A test asks this function
+     * what it says when the answer is yes and when it is no, instead of reading
+     * how the sentence is spelled — and because both wordings come from here,
+     * the caller's sentence must END with what this returns, which is what makes
+     * anything appended afterwards visible.
+     *
+     * Nothing is offered when pressing again changes nothing: an empty string,
+     * for both shapes, and that is asserted rather than assumed.
+     */
+    private static function retryOffer(bool $retryChanges, bool $isPartial): string
+    {
+        if (! $retryChanges) {
+            return '';
+        }
+
+        return $isPartial ? ' Re-run to complete it.' : ' Try Re-run again.';
     }
 
     private static function failureSentence(?array $projection, ?string $timezone): string

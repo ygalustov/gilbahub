@@ -127,9 +127,81 @@ class Gh588TheThreeSoilStatesTest extends TestCase
         $third = AnalysisNotice::panel(AnalysisResults::forSite($s2->fresh()), 'UTC')['text'];
 
         $this->assertNotSame($first, $third);
-        // and they differ in the thing that matters — whether to press again
-        $this->assertStringNotContainsString('again', $first);
-        $this->assertStringContainsString('again', $third);
+
+        // GH-594 — AND THEY DIFFER IN THE DECISION, NOT IN A SET OF WORDS.
+        //
+        // This case is named for the point of the ticket and has now meant
+        // something smaller than its name TWICE. First it was
+        // `assertStringNotContainsString('again', ...)`, and the class offers a
+        // re-run in two wordings of which only one carries that word (GH-592).
+        // Then it took its vocabulary from the SOURCE TEXT of the two ternaries
+        // that emitted them — and the reviewer appended a third offer plainly,
+        // outside that shape, which the extraction could not see and this case
+        // stayed green again. Both times the grubby neighbour at
+        // `test_state_1_does_not_offer_a_re_run` was what caught it, by looking
+        // for the words "Re-run" and "again" literally.
+        //
+        // So the offer is asked of the DECISION, not read off the writing:
+        // `AnalysisNotice::retryOffer()` is the one place that decides whether
+        // to offer and words it, and this asks it what it says for yes and for
+        // no. There is no variable name to track, no literal to match, and no
+        // spelling to keep up with.
+        $offerWhenPartial  = self::askTheDecision(true, true);
+        $offerWhenComplete = self::askTheDecision(true, false);
+
+        // The silence is part of the contract and is asserted, not assumed: with
+        // nothing to gain from pressing, nothing is said, in either shape.
+        $this->assertSame('', self::askTheDecision(false, true));
+        $this->assertSame('', self::askTheDecision(false, false));
+
+        // And the vocabulary was really found — two distinct offers. Without
+        // this, every claim below would hold on a decision that says nothing.
+        $this->assertNotSame('', $offerWhenPartial);
+        $this->assertNotSame('', $offerWhenComplete);
+        $this->assertNotSame($offerWhenPartial, $offerWhenComplete);
+
+        // THE NAME OF THE CONTROL, taken from the offers rather than written
+        // here: whatever both wordings say, they both have to say. You cannot
+        // invite a person to press the button without naming it — so a THIRD
+        // wording, in any shape, is caught by this and not by a list.
+        $namesTheControl = array_values(array_intersect(
+            preg_split('/\s+/', trim($offerWhenPartial)),
+            preg_split('/\s+/', trim($offerWhenComplete))
+        ));
+        $this->assertNotEmpty($namesTheControl, 'the two offers name nothing in common');
+
+        foreach ($namesTheControl as $word) {
+            $this->assertStringNotContainsString($word, $first,
+                'a site with no soil sample was invited to press: '.$word);
+        }
+
+        // And the one that IS offered ENDS with the offer. Anything appended
+        // after it — the exact mutation that got past the previous version — is
+        // visible here, because the sentence would no longer end where the
+        // decision says it ends.
+        $endings = array_filter(
+            [$offerWhenPartial, $offerWhenComplete],
+            static fn (string $o): bool => str_ends_with($third, $o)
+        );
+        $this->assertCount(1, $endings,
+            'the sentence that offers a re-run must END with the offer the decision worded');
+    }
+
+    /**
+     * What `AnalysisNotice` decides to say about pressing again.
+     *
+     * The decision is private — it is not a surface anything else may use — so
+     * it is reached the way the rest of this suite reaches internals. Asking it
+     * is the whole point: a test that reads how the sentence is SPELLED goes
+     * blind the moment somebody spells it differently, and this file has been
+     * blind that way twice.
+     */
+    private static function askTheDecision(bool $retryChanges, bool $isPartial): string
+    {
+        $m = new \ReflectionMethod(AnalysisNotice::class, 'retryOffer');
+        $m->setAccessible(true);
+
+        return (string) $m->invoke(null, $retryChanges, $isPartial);
     }
 
     public function test_state_2_a_run_that_had_its_sample_says_nothing(): void

@@ -6110,6 +6110,24 @@
     recordProblem: function (module, message, data) {
       warn(module, message, data);
     },
+
+    /**
+     * GH-597 — THE THIRD KIND OF ENTRY, AND IT IS AN ANSWER.
+     *
+     * The public journal offered two: `recordProblem`, stamped `problem`, and
+     * `noteSkipped`, which says a result is MISSING and makes the run partial.
+     * Neither fits a run that computed the right thing and the right thing is
+     * "there is nothing left to compute" — a PGR application older than the
+     * history the product looks back over has no effect left to measure, and
+     * the owner settled on 23.09.2026 that the window is a product decision
+     * rather than a limitation. Recording that as a problem would call a
+     * correct answer trouble; recording it as a skip would turn every such run
+     * partial. So `note` — stamped `info` (GH-570) — is exposed for facts that
+     * belong in the run's account without being wrong.
+     */
+    note: function (module, message, data) {
+      note(module, message, data);
+    },
     noteSkipped: noteSkipped,
 
     // State access
