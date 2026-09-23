@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\AnalysisResults;
 use App\Models\Sample;
 use App\Models\Site;
 use Illuminate\Http\Request;
@@ -73,7 +74,9 @@ class AccountController extends Controller
 
         $allConfigs = \App\Models\SiteConfig::query()
             ->whereIn('site_id', $siteIds)
-            ->whereIn('namespace', ['gaip', 'analysis_cache'])
+            // GH-546 (stage 1): only `gaip` here now. The analysis
+            // result comes from its owner, in one query, below.
+            ->where('namespace', 'gaip')
             ->get()
             ->groupBy('site_id');
 
@@ -91,10 +94,14 @@ class AccountController extends Controller
             ->groupBy('site_id')
             ->pluck('cnt', 'site_id');
 
-        return $sites->map(function ($site) use ($allConfigs, $soilCounts, $waterCounts, $activeSiteId, $siteUsersMap, $siteInvitationsMap): array {
+        // GH-546 (stage 1): every site's result in one query, from its
+        // owner. Was a second namespace on the query above plus a hand-built
+        // read per row.
+        $analysisResults = AnalysisResults::forSites($siteIds);
+
+        return $sites->map(function ($site) use ($allConfigs, $analysisResults, $soilCounts, $waterCounts, $activeSiteId, $siteUsersMap, $siteInvitationsMap): array {
             $siteConfigs = $allConfigs->get($site->id, collect());
             $gaipConfig  = $siteConfigs->firstWhere('namespace', 'gaip');
-            $cacheConfig = $siteConfigs->firstWhere('namespace', 'analysis_cache');
 
             $gaip    = is_array($gaipConfig?->config) ? $gaipConfig->config : [];
             $species = $gaip['turf']['species'] ?? null;
@@ -115,8 +122,8 @@ class AccountController extends Controller
             // not be wrong quietly.
             $methodologyKey = $gaip['turf']['methodology'] ?? null;
 
-            $cacheData = is_array($cacheConfig?->config) ? $cacheConfig->config : [];
-            $gpRaw     = $cacheData['metrics']['growthPotential'] ?? null;
+            $result = $analysisResults[$site->id] ?? null;
+            $gpRaw  = $result['metrics']['growthPotential'] ?? null;
             $status    = null;
             if ($gpRaw !== null) {
                 $gp     = (float) $gpRaw >= 1 ? (float) $gpRaw : (float) $gpRaw * 100;
@@ -155,7 +162,8 @@ class AccountController extends Controller
                 'methodology' => self::methodologyLabel($methodologyKey),
                 'soil'       => (int) ($soilCounts[$site->id] ?? 0),
                 'water'      => (int) ($waterCounts[$site->id] ?? 0),
-                'last_run'   => $cacheConfig?->synced_at?->toISOString(),
+                // GH-546: the date the owner checks is the result's own.
+                'last_run'   => $result['analyzedAt'] ?? null,
                 'is_active'  => $site->id === $activeSiteId,
                 'status'     => $status,
                 'user_count' => $siteUsers->count() + $siteInvitations->count(),

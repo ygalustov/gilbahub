@@ -34,17 +34,7 @@
 
 @section('content')
 
-        {{-- NOTIFICATION BAR --}}
-        <div id="db-analysis-notice" class="db-verdict warning" style="display:none">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-            </svg>
-            <span id="db-analysis-notice-text"></span>
-            <button id="db-analysis-notice-dismiss" type="button"
-                    style="margin-left:auto;background:none;border:none;color:inherit;opacity:.75;cursor:pointer;font-size:13px;padding:0 4px">
-                Dismiss ✕
-            </button>
-        </div>
+        @include('partials.analysis-notice')
 
         {{-- TABS BAR --}}
         <nav class="gl-tabs-bar">
@@ -148,6 +138,11 @@
 <script src="{{ $legacyAssetUrl('disease-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('gp-status.js') }}"></script>
 <script src="{{ $legacyAssetUrl('growth-light-analysis.js') }}"></script>
+{{-- GH-549: zone identity and the one word a zone with no name is called by,
+     shared with the Plan page, the trend charts and the Word export. The Soil &
+     Nutrition tab prints zone names, so it needs the same answer as they do.
+     Must load before soil-nutrition-analysis.js. --}}
+<script src="{{ $legacyAssetUrl('zone-key.js') }}"></script>
 <script src="{{ $legacyAssetUrl('soil-nutrition-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('water-balance-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('stress-analysis.js') }}"></script>

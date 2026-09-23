@@ -1428,20 +1428,13 @@
             //   any samples, restoreFromLocalFallback is never called, so our allActive write
             //   is never seen.
             //
-            // Fix: use a separate one-shot key 'gilba_wb_water_override' that hub-persistence
-            // reads SYNCHRONOUSLY at the top of cacheAnalysisResults(), before any async SP
-            // init can interfere.  It is deleted after first use so stale overrides never
-            // accumulate.
-            var siteId = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId;
-            try {
-                var wpl = sample.payload || {};
-                localStorage.setItem('gilba_wb_water_override', JSON.stringify({
-                    siteId:  siteId,
-                    id:      sample.id,
-                    label:   wpl._label || sample.client_uid || String(sample.id),
-                    payload: wpl
-                }));
-            } catch(e) {}
+            // GH-586 (D6): the choice travels as a run parameter now, not
+            // through `localStorage`. `_gilbaActiveWaterSample` is what the
+            // Re-run press reads to build it, and it is set above — nothing is
+            // written to the browser here, and no copy of the sample's payload
+            // leaves the server's hands.
+            global._gilbaActiveWaterSample = sample;
+
             // Show inline status next to the water selector
             var waterStatus = document.getElementById('wb-water-status');
             if (waterStatus) waterStatus.innerHTML =

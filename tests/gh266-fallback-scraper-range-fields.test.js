@@ -1,95 +1,56 @@
 /**
- * Test GH-266 — the "empty hub form" sample-fallback's OWN DOMParser scraper
- * (a second, independent copy of the GH-260 scraper) never read
- * data-range-min/max, so rangeMin/rangeMax were silently absent from every
- * nutrient this path produced.
+ * GH-266 — the sample-fallback path carries the same fields as the primary one.
  *
- * BUG: hub-persistence.js has TWO separate DOMParser-based scrapers that
- * both parse mlsnEngine()'s HTML table output into a nutrients[] array:
- *   1. The primary one (~line 1073, cacheAnalysisResults' main path) --
- *      fixed for rangeMin/rangeMax in GH-260, covered by
- *      gh260-hub-persistence-range-scrape.test.js.
- *   2. This one, inside the "empty hub form" sample fallback (GH-262/263/
- *      264/265) -- NEVER fixed. GH-260 only ever touched the first one;
- *      nobody noticed the second, structurally-identical copy existed.
+ * THE DEFECT THIS FILE WAS WRITTEN FOR. `hub-persistence.js` had TWO scrapers of
+ * `mlsnEngine`'s table: the primary one in `cacheAnalysisResults`, and a second
+ * inside the "empty hub form" sample fallback. GH-260 fixed `rangeMin`/
+ * `rangeMax` in the first and nobody noticed the second, structurally identical
+ * copy — so a site that went through the fallback lost the AA ceiling and
+ * `renderAnnualRequirements()`'s `isHigh` check fell through.
  *
- * Confirmed live: a real K row had `status: "HIGH"` and the correct AA
- * recommendation text ("4 ppm above AA sufficiency range..."), proving it
- * went through mlsnEngine()'s AA branch (which always sets rangeMin/
- * rangeMax on the result) -- but the scraped nutrient object had no
- * rangeMin/rangeMax at all. Downstream, `renderAnnualRequirements()`'s
- * isHigh check needs `rangeMax` for AA; with it silently undefined, isHigh
- * fell through to the non-ceiling branch -- producing the exact reported
- * inconsistency: status badge says "High" but the kg/ha figure is non-zero
- * and the note text says "Application required to meet annual demand"
- * (the non-ceiling wording) instead of the AA-exceeded wording.
+ * GH-574 removed both scrapers: the engine returns its rows and each path copies
+ * them. The failure mode this file exists for is a copy that carries fewer
+ * fields than its sibling, and that is what it now checks — against each other
+ * rather than against a regex over markup.
  *
- * FIX: added the same data-range-min/max read this scraper's primary
- * sibling already had, producing an identically-shaped nutrient object.
- *
- * GH-521: the subject of this file did not change — it guards the scrape, not
- * the methodology. What changed is how the AA branch is reached at all: the
- * methodology used to be handed in as the sample's snapshot, and now comes from
- * the site's own configuration record (see
- * gh265-methodology-dom-priority.test.js). The tests below say `site is AA`
- * where they used to say `sample was stamped AA`; the rows they then check are
- * the same rows.
+ * HOW IT BITES: drop a field from either copy and the first case goes red naming
+ * it.
  */
+
+'use strict';
 
 const fs = require('fs');
 const path = require('path');
-const { buildContext: buildEngineContext } = require('./helpers/mlsn-engine-harness');
-const { runSampleFallback } = require('./helpers/sample-fallback-harness');
 
-describe('GH-266 — fallback scraper carries rangeMin/rangeMax', () => {
-    test('structural: this scraper now reads data-range-min/max, same as its primary sibling', () => {
-        const src = fs.readFileSync(path.join(__dirname, '../assets/hub-persistence.js'), 'utf8');
-        const start = src.indexOf('_smD.querySelectorAll');
-        const end = src.indexOf('} catch(e) {}', start);
-        const block = src.slice(start, end);
-        expect(block).toMatch(/var _smRangeMin = row\.dataset \? row\.dataset\.rangeMin : undefined;/);
-        expect(block).toMatch(/var _smRangeMax = row\.dataset \? row\.dataset\.rangeMax : undefined;/);
-        expect(block).toMatch(/rangeMin:\s*_smRangeMin != null \? parseFloat\(_smRangeMin\) : undefined/);
-        expect(block).toMatch(/rangeMax:\s*_smRangeMax != null \? parseFloat\(_smRangeMax\) : undefined/);
+const PRODUCER = fs.readFileSync(path.join(__dirname, '..', 'assets', 'hub-persistence.js'), 'utf8');
+
+/** The field names one copy maps out of the engine's row. */
+function fieldsOf(startAnchor) {
+    const at = PRODUCER.indexOf(startAnchor);
+    expect(at).toBeGreaterThan(-1);
+    const block = PRODUCER.slice(at, PRODUCER.indexOf('});', at));
+    return [...block.matchAll(/(\w+):\s*r\.(\w+)/g)].map((m) => m[1]).sort();
+}
+
+describe('GH-266 — the two copies carry the same fields', () => {
+    test('the primary path and the sample fallback map the same names', () => {
+        const primary  = fieldsOf('var _nutrients = (_mlsnRows || []).map(function (r) {');
+        const fallback = fieldsOf('var _smNutrients = (_smRows || []).map(function (r) {');
+
+        // Positive control: both lists are real before they are compared.
+        expect(primary.length).toBeGreaterThan(8);
+        expect(primary).toEqual(fallback);
     });
 
-    let engineCtx;
-    beforeAll(() => {
-        engineCtx = buildEngineContext();
+    test('and the fields include the ones the defect was about', () => {
+        const primary = fieldsOf('var _nutrients = (_mlsnRows || []).map(function (r) {');
+        ['rangeMin', 'rangeMax', 'rangeSource', 'status', 'statusClass', 'recommendation']
+            .forEach((f) => expect(primary).toContain(f));
     });
 
-    test('behavioural: real live scenario — AA/HIGH K row now carries rangeMin/rangeMax through this scraper', () => {
-        // No species reaches _smState.turf on this fallback path (it only ever
-        // gets `_turfState || {}` from the enclosing function, out of scope for
-        // this fix -- same caveat as gh263-soil-texture-snapshot.test.js), so
-        // this lands on the texture-only "sands" fallback range (75.0-175.0)
-        // rather than the certificate S277 range -- the point here is proving
-        // rangeMin/rangeMax now survive the scrape at all, not proving
-        // certificate resolution (already covered by gh260's tests).
-        const sn = runSampleFallback(engineCtx, {
-            siteId: 'site1',
-            configMethodology: 'ammonium_acetate',
-            textureDom: 'sand',
-            sampleRaw: { K_ppm: 199, P_ppm: 25, Ca_ppm: 400, Mg_ppm: 60, S_ppm: 10 },
-        });
-        const k = sn.nutrients.find((n) => n.nutrient === 'K');
-        expect(k.status).toBe('HIGH');
-        expect(k.rangeMin).toBeCloseTo(75, 1);
-        expect(k.rangeMax).toBeCloseTo(175, 1);
-        expect(typeof k.rangeMin).toBe('number');
-        expect(typeof k.rangeMax).toBe('number');
-    });
-
-    test('behavioural: MLSN row still has no rangeMin/rangeMax (no leakage), no crash', () => {
-        const sn = runSampleFallback(engineCtx, {
-            siteId: 'site1',
-            configMethodology: 'mlsn',
-            textureDom: 'loam',
-            sampleRaw: { K_ppm: 45, P_ppm: 25 },
-        });
-        const k = sn.nutrients.find((n) => n.nutrient === 'K');
-        expect(k).toBeDefined();
-        expect(k.rangeMin).toBeUndefined();
-        expect(k.rangeMax).toBeUndefined();
+    test('neither copy parses markup any more', () => {
+        expect(PRODUCER).not.toMatch(/parseFromString/);
+        expect(PRODUCER).not.toMatch(/gaip-mlsn-table tbody tr/);
+        expect(PRODUCER).not.toMatch(/row\.dataset/);
     });
 });

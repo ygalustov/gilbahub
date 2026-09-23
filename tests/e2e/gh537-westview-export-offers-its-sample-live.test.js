@@ -39,7 +39,8 @@
  * Capture-and-restore would be the wrong tool here even so: `restoreConfigs()`
  * cannot put an `analysis_cache` row back at all — the base64 of every one of
  * them exceeds the 128 KB single-argument limit inside the container, measured
- * and filed as Question 39. Detection works, restoration does not. So the only
+ * and filed: the stand-restore remedy cannot put a row over that limit back.
+ * Detection works, restoration does not. So the only
  * safe posture is to stop the write, not to undo it.
  *
  * The one thing the guard does NOT cover is the active-site pointer, which this
@@ -158,9 +159,9 @@ function docxText(xml) {
 
 if (!ENABLED) {
     process.stdout.write('[e2e] gh537-westview-export skipped (needs the live stack)\n');
-    test.skip('Question 33 Westview (disabled)', () => {});
+    test.skip('GH-537 Westview (disabled)', () => {});
 } else {
-    describe('Question 33 — Westview: is its sample offered, and what does the document print', () => {
+    describe('GH-537 — Westview: is its sample offered, and what does the document print', () => {
         let browser, context, page, guard, previousActiveSiteId = null;
         let docxPath = null;
         const m = { store: null, enumerated: null, picker: null, doc: null, stopped: null };
@@ -418,7 +419,8 @@ if (!ENABLED) {
 
         test('no write to a protected table reached the server', () => {
             // Held, not undone: restoreConfigs() cannot put an analysis_cache
-            // row back (Question 39), so nothing may be allowed to land.
+            // row back once it is over the container's argument limit, so nothing
+            // may be allowed to land.
             //
             // An earlier draft of this assertion said "no non-GET reached at
             // all" and went red on its own run. That was the assertion being

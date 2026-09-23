@@ -353,6 +353,11 @@ function gpProducers(src, label) {
                     const bare = v.type === 'Identifier' ? v.name : null;
                     weightedProps.push({
                         line: o.node.loc ? o.node.loc.start.line : null,
+                        // GH-589: the node's own source, so an exemption can be
+                        // anchored on WHAT it exempts instead of on where that
+                        // happened to sit this morning. See EXEMPT_NODES below.
+                        text: typeof v.start === 'number' && typeof v.end === 'number'
+                            ? src.slice(v.start, v.end).replace(/\s+/g, ' ').trim() : null,
                         guardedHere: v.type === 'ConditionalExpression' && nodeMentionsNull(v.test),
                         carriedBy: bare,
                         value: v
@@ -438,6 +443,7 @@ function gpProducers(src, label) {
                 numericOnNull: realNumericOnNull.map((n) => ({ line: n.line, value: n.value })),
                 weighted: realWeighted.map((w) => ({
                     line: w.line,
+                    text: w.text,
                     guarded: w.guardedHere || (w.carriedBy ? !!combinedVars[w.carriedBy] : false),
                     carriedBy: w.carriedBy
                 }))
@@ -482,8 +488,26 @@ const WEIGHTED_EXEMPTIONS = [
             + 'appearing means the question is which of them should exist at all'
     }
 ];
-const exemptionKeyOf = (file, fn, line) => file + '|' + fn + '|' + line;
-const EXEMPT_LINES = { 'hub-tissue-v3.js|gaip_render_results|6183': WEIGHTED_EXEMPTIONS[0] };
+// 6183 → 6206 (GH-574) → 6279 (GH-577) → 6560 (GH-589). FOUR MOVES, and not
+// one of them was about this combiner: the key used to carry a LINE NUMBER, so
+// every edit above it in `hub-tissue-v3.js` rotted it. It failed loudly rather
+// than passing quietly, which was the right direction — but the cost was a red
+// run and a hand edit each time, and what it names has not changed since the
+// day it was written. The note left here by GH-577 said an anchor on the node
+// was the repair and left it for whoever owns this mechanism; GH-589 moved the
+// file again and made it, because a fifth hand edit is the same cost paid a
+// fifth time.
+//
+// THE ANCHOR IS THE NODE'S OWN SOURCE. It survives every edit that is not about
+// this expression, and an edit that IS about it — a guard added, the average
+// changed — stops matching, which is exactly when the exemption should be
+// looked at again. The assertion below that every exemption still matches
+// something is what makes that visible rather than silent.
+const exemptionKeyOf = (file, fn, text) => file + '|' + fn + '|' + text;
+const EXEMPT_NODES = {
+    ['hub-tissue-v3.js|gaip_render_results|'
+        + '(calcC3GrowthPotential(ft) + calcC4GrowthPotential(ft)) / 2']: WEIGHTED_EXEMPTIONS[0],
+};
 
 describe('GH-510 — a growth potential that was not computed is not printed', () => {
     jest.setTimeout(120000);
@@ -524,8 +548,8 @@ describe('GH-510 — a growth potential that was not computed is not printed', (
             gpProducers(src, f).forEach((g) => {
                 g.weighted.forEach((w) => {
                     if (w.guarded) return;
-                    const key = exemptionKeyOf(f, g.name, w.line);
-                    if (EXEMPT_LINES[key]) { exemptedSeen.push(key); return; }
+                    const key = exemptionKeyOf(f, g.name, w.text);
+                    if (EXEMPT_NODES[key]) { exemptedSeen.push(key); return; }
                     unguarded.push(f + ':' + w.line + ' in ' + g.name);
                 });
             });
@@ -534,7 +558,7 @@ describe('GH-510 — a growth potential that was not computed is not printed', (
             .toEqual({ weightedBuiltFromAPossibleNull: [] });
         // an exemption that no longer matches anything is a hole nobody can see
         expect({ exemptionsMatchingNothing:
-            Object.keys(EXEMPT_LINES).filter((k) => exemptedSeen.indexOf(k) < 0) })
+            Object.keys(EXEMPT_NODES).filter((k) => exemptedSeen.indexOf(k) < 0) })
             .toEqual({ exemptionsMatchingNothing: [] });
     });
 

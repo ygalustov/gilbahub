@@ -1904,7 +1904,20 @@
 
         const sample = {
             id: sampleId,
-            label: sampleData.label || sampleId,
+            // GH-563 — A SAMPLE NOBODY NAMED IS SAVED WITHOUT A NAME.
+            //
+            // This was `sampleData.label || sampleId`, so a sample with no
+            // label was written to the store with its own generated identifier
+            // as its name — `Soil_1_3cbn`. Every later reader then had a name to
+            // print, and no way left to tell a name somebody gave from one the
+            // store invented: the substitution happened at the moment of SAVING,
+            // which is why repairing the printing alone repaired nothing.
+            //
+            // The identifier above is still generated and is still the store's
+            // key. It does not leave: what a zone with no name is called on a
+            // screen or in a report is `GaipZoneKey.displayName()`, and it is
+            // nothing at all (the owner's decision, 22.09.2026).
+            label: sampleData.label || null,
             date: sampleData.date || new Date().toISOString().split('T')[0],
             notes: sampleData.notes || '',
             zoneType: sampleData.zoneType || detectZoneType(sampleId),
@@ -2620,7 +2633,10 @@
             var changed = siteId !== _currentSite;
             _currentSite = siteId;
             _initSite(siteId);
-            log('Switched to site: ' + siteId + ' (' + (_sites[siteId].label || siteId) + ')');
+            // GH-563: the id is already the first thing on this line, so the
+            // bracket added nothing when a site had a name and printed the id a
+            // second time as though it were one when it did not.
+            log('Switched to site: ' + siteId + (_sites[siteId].label ? ' (' + _sites[siteId].label + ')' : ''));
             if (changed) {
                 document.dispatchEvent(new CustomEvent('gaip:site-changed', {
                     detail: { siteId: siteId, label: _sites[siteId].label }

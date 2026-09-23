@@ -164,8 +164,8 @@ const EXEMPT = [
         file: 'word-export-combined.js', fn: 'exportCombinedWithSamples',
         lhs: 'data.site.sampleLabel',
         rhs: 'resolvedLabel',
-        roots: ['samples'],
-        why: 'the label comes out of the array the caller handed this export, which this reader cannot follow past the parameter; during a leak a report can be labelled with the previous site\'s sample. Section 10.4, moves with samples-by-id'
+        roots: ['global.GaipZoneKey', 'subject'],
+        why: 'the label comes out of the array the caller handed this export, which this reader cannot follow past the parameter; during a leak a report can be labelled with the previous site\'s sample. Section 10.4, moves with samples-by-id. GH-563 CHANGED THE ROOT THIS READER SEES, and the change is a narrowing of its sight rather than of the leak. The value still comes from the same entry of the same array; it now passes through `GaipZoneKey.displayName`, and this reader does not follow a value through a call, so the array is no longer visible to it and the module is. The module cannot SUPPLY an identity — it is a pure function of the entry it is handed and only decides whether that entry has a name at all, returning nothing when the "name" is the store\'s own generated id. So what leaks here is what leaked before, by the same route, and the exemption is no wider. `subject` is the guarded wrapper\'s own parameter, which this reader cannot follow past — the same kind of unfollowable local it already records elsewhere. Noted because a root that changed for a reason has to be told apart from one that changed because something moved'
     },
     {
         file: 'word-export-combined.js', fn: 'exportCombinedWithSamples',
@@ -906,7 +906,11 @@ const RATCHET = {
         "word-export.js | collectData | construction = wm.compactionRisk.construction | roots window.GAIP_STATE",
         "word-export.js | collectData | speciesKey = cr._companionSpecies || '' | roots window.GAIP_COMPANION_DISEASE_RESULT",
         "word-export.js | collectData | species = phyto.species | roots window.GAIP_PHYTOTOXICITY_RESULT",
-        "word-export-combined.js | exportCombinedWithSamples | data.site.sampleLabel = resolvedLabel | roots samples",
+        // GH-563: the root this reader sees changed from the array to
+        // `GaipZoneKey.displayName`, because it does not follow a value through
+        // a call. The module cannot supply an identity, only withhold one, so
+        // the leak is the one that was always here, by the same route.
+        "word-export-combined.js | exportCombinedWithSamples | data.site.sampleLabel = resolvedLabel | roots global.GaipZoneKey,subject",
         "word-export-combined.js | exportCombinedWithSamples | data.site.siteLabel = entry.siteLabel | roots samples",
         "word-export-combined.js | exportCombinedWithSamples | species = _turfCfg ? _turfCfg.species : null | roots global.GilbaNutritionSummary"
     ],

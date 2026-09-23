@@ -84,29 +84,40 @@ function buildState(opts) {
  * the <tr> for a given nutrient from the no-N-programme table (5 columns:
  * Nutrient/Actual/Range-or-MLSN/Status/Recommendation).
  */
+/**
+ * GH-574: the rows come from the engine's result, not from a regex over its
+ * markup.
+ *
+ * This harness used to recover each row by matching the rendered `<tr>` — the
+ * same read-the-page-instead-of-the-data shape that `hub-persistence.js` had,
+ * in test clothes. It proved the TABLE said something, which is one step away
+ * from proving the ENGINE decided something, and it went blind whenever the
+ * markup changed shape. `mlsnEngine` returns `{ html, nutrients }` now;
+ * `row()` reads `nutrients` and `html` stays available for the few assertions
+ * that really are about the markup.
+ */
 function run(ctx, opts) {
-    const html = ctx.mlsnEngine(buildState(opts), null);
+    const out = ctx.mlsnEngine(buildState(opts), null);
+    const html = typeof out === 'string' ? out : (out && out.html) || '';
+    const rows = (out && out.nutrients) || [];
     return {
         html,
+        rows,
         row(nutrient) {
-            const re = new RegExp(
-                `<tr class="status-([a-z]+)"([^>]*)>\\s*<td><strong>${nutrient}</strong></td>\\s*<td>([\\d.-]+)</td>\\s*<td>([^<]+)</td>[\\s\\S]{0,300}?<span class="status-badge [a-z]+">([A-Z ]+)</span>`
-            );
-            const m = html.match(re);
-            if (!m) return null;
-            const attrs = m[2];
-            const rMin = attrs.match(/data-range-min="([\d.]+)"/);
-            const rMax = attrs.match(/data-range-max="([\d.]+)"/);
-            const rSrc = attrs.match(/data-range-source="([a-z-]+)"/);
+            const r = rows.filter((x) => x.nutrient === nutrient)[0];
+            if (!r) return null;
             return {
-                statusClass: m[1],
-                actual: m[3],
-                col: m[4],
-                status: m[5],
-                rangeMin: rMin ? parseFloat(rMin[1]) : undefined,
-                rangeMax: rMax ? parseFloat(rMax[1]) : undefined,
-                rangeSource: rSrc ? rSrc[1] : undefined,
-                hasRangeAttrs: /data-range-min/.test(attrs),
+                statusClass: r.statusClass,
+                actual: r.actual,
+                // The threshold column: what the table printed under the
+                // methodology heading.
+                col: String(r.mlsn),
+                status: r.status,
+                rangeMin: r.rangeMin,
+                rangeMax: r.rangeMax,
+                rangeSource: r.rangeSource,
+                hasRangeAttrs: r.rangeMin != null && r.rangeMax != null,
+                recommendation: r.recommendation,
             };
         },
     };

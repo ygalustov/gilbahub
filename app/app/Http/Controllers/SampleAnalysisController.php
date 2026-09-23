@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ClassificationConstants;
 use App\Models\Sample;
 use App\Models\SiteConfig;
 use App\Services\HillLabsSampleTypesService;
@@ -10,11 +11,17 @@ use Illuminate\Http\Request;
 
 class SampleAnalysisController extends Controller
 {
-    private const MLSN_DEFAULTS = [
-        'K'  => 37,   'P'  => 21,  'Ca' => 331, 'Mg' => 47,
-        'S'  => 7,    'Fe' => 49,  'Mn' => 5,   'Zn' => 2.2,
-        'Cu' => 0.9,  'B'  => 0.5,
-    ];
+    /**
+     * GH-546: the thresholds come from the canonical source
+     * now. The table that stood here agreed with the product on the four
+     * macronutrients and disagreed on all five micronutrients — Fe 49 against 2,
+     * Mn 5 against 1, Zn 2.2 against 1, Cu 0.9 against 0.3, B 0.5 against 0.3 —
+     * and that never showed, because the controller preferred thresholds lifted
+     * out of the analysis cache, which carried the canonical numbers. The wrong
+     * table applied only to a site with no cached run: the same sample
+     * classified one way before a Re-run and another way after.
+     */
+    private const MLSN_DEFAULTS = ClassificationConstants::MLSN_THRESHOLDS;
 
     // GH-268 (D07 item 4): texture-only fallback for AA — used when
     // HillLabsSampleTypesService::deriveCode() can't resolve a certificate-
@@ -63,9 +70,22 @@ class SampleAnalysisController extends Controller
         // "NOT MEASURED" placeholders for untested nutrients instead of
         // omitting them). Also silently meant buildThresholdMap() never
         // picked up any site-specific MLSN thresholds from the real cache.
-        $config              = SiteConfig::where('site_id', $sample->site_id)->where('namespace', 'gaip')->first();
-        $analysisCacheConfig = SiteConfig::where('site_id', $sample->site_id)->where('namespace', 'analysis_cache')->first();
-        $cachedSn            = data_get($analysisCacheConfig?->config ?? [], 'computed.soilNutrition', []);
+        // GH-546: this controller no longer reads the
+        // analysis cache. It used to begin its answer with the whole
+        // `computed.soilNutrition` object of the site's last browser run and
+        // then overwrite eight of its nineteen keys — so `zones`, `annualDemand`,
+        // `monthlyN`, `tissue`, `depthCm`, `bulkDensity`, `turfType`, `species`
+        // and `fromSample` reached the page from WHICHEVER SAMPLE was active
+        // during that run, under the requested sample's label. One object's data
+        // beside another object's name, inside a single response.
+        //
+        // It has nothing to take from there. The MLSN thresholds are constants
+        // (above), the AA ranges the server already derives itself
+        // (HillLabsSampleTypesService, GH-268), the nutrient order is a constant
+        // (GH-271), and pH/ECe/soilNa/CEC are properties of the sample being
+        // asked about. The run's own keys stay with the run and reach the page
+        // from the result projection, where they are honest.
+        $config = SiteConfig::where('site_id', $sample->site_id)->where('namespace', 'gaip')->first();
 
         $site = $sample->site;
         $lat  = $site->latitude  !== null ? (float) $site->latitude  : null;
@@ -102,8 +122,7 @@ class SampleAnalysisController extends Controller
         ) ?? $sample->soil_texture_snapshot ?? 'sands';
         $species     = $config?->config['turf']['species'] ?? $config?->config['turf']['grassSpecies'] ?? null;
 
-        $thresholds = $this->buildThresholdMap($cachedSn);
-        $nutrients  = $this->computeNutrients($payload, $thresholds, $cachedSn, $methodology, $soilTexture, $species);
+        $nutrients = $this->computeNutrients($payload, $methodology, $soilTexture, $species);
 
         $statuses = array_column($nutrients, 'statusClass');
         $verdict  = in_array('deficient', $statuses)
@@ -112,36 +131,23 @@ class SampleAnalysisController extends Controller
 
         $validation = $this->validatePayload($payload);
 
-        $sn = array_merge($cachedSn, [
+        $sn = ([
             'nutrients'   => $nutrients,
             'verdict'     => $verdict,
             'ratios'      => null,
             'sampleDate'  => $sample->lab_date?->toDateString() ?? $sample->sample_date?->toDateString(),
             'sampleLabel' => $sample->client_uid,
-            'pH'          => $payload['pH_Water'] ?? $payload['pH'] ?? $payload['ph'] ?? ($cachedSn['pH'] ?? null),
-            'ECe'         => $payload['ECe'] ?? $payload['EC_paste'] ?? $this->computeEce($payload) ?? ($cachedSn['ECe'] ?? null),
-            'soilNa'      => (($v = (float)($payload['Na'] ?? $payload['Na_ppm'] ?? 0)) > 0 ? $v : null) ?? ($cachedSn['soilNa'] ?? null),
-            'CEC'         => $payload['CEC'] ?? $payload['cec'] ?? ($cachedSn['CEC'] ?? null),
+            // A field the sample does not carry is null. It is not filled from
+            // somebody else's run (owner's rule on defaults).
+            'pH'          => $payload['pH_Water'] ?? $payload['pH'] ?? $payload['ph'] ?? null,
+            'ECe'         => $payload['ECe'] ?? $payload['EC_paste'] ?? $this->computeEce($payload) ?? null,
+            'soilNa'      => (($v = (float)($payload['Na'] ?? $payload['Na_ppm'] ?? 0)) > 0 ? $v : null),
+            'CEC'         => $payload['CEC'] ?? $payload['cec'] ?? null,
             'validation'  => ($validation['errors'] || $validation['warnings']) ? $validation : null,
             'methodology' => $methodology,
         ]);
 
         return response()->json(['data' => $sn]);
-    }
-
-    private function buildThresholdMap(array $cachedSn): array
-    {
-        $thresholds = self::MLSN_DEFAULTS;
-
-        foreach (data_get($cachedSn, 'nutrients', []) as $n) {
-            $nut  = $n['nutrient'] ?? null;
-            $mlsn = isset($n['mlsn']) ? floatval($n['mlsn']) : null;
-            if ($nut && $mlsn > 0) {
-                $thresholds[$nut] = $mlsn;
-            }
-        }
-
-        return $thresholds;
     }
 
     /**
@@ -164,7 +170,7 @@ class SampleAnalysisController extends Controller
      * invented and no threshold is applied.
      */
     private function computeNutrients(
-        array $payload, array $thresholds, array $cachedSn,
+        array $payload,
         ?string $methodology = null, string $soilTexture = 'sands', ?string $species = null
     ): array {
         $isAA    = $methodology !== null && strtolower($methodology) === 'ammonium_acetate';
@@ -183,9 +189,9 @@ class SampleAnalysisController extends Controller
         $cec = isset($payload['CEC']) ? floatval($payload['CEC'])
             : (isset($payload['cec']) ? floatval($payload['cec']) : null);
 
-        $cachedNutrients = data_get($cachedSn, 'nutrients', []);
-
-        if (empty($cachedNutrients)) {
+        // GH-546: the canonical order is the only path now. It used to be the
+        // branch taken when the cache had no nutrient list; with the cache gone
+        // there is one order and it is the product's.
             // GH-271: canonical order, matching mlsnEngine()'s own nutrient
             // loop (assets/hub-tissue-v3.js) exactly -- not
             // array_keys(array_intersect_key($payload, MLSN_DEFAULTS)),
@@ -199,15 +205,15 @@ class SampleAnalysisController extends Controller
             // Only reached when a site has never had a Re-run at all (the
             // 'analysis_cache'-namespace fix above means this is no longer
             // the common case it silently was before).
-            $canonicalOrder = ['P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn', 'Zn', 'Cu', 'B'];
-            $cachedNutrients = array_map(
-                fn ($nut) => ['nutrient' => $nut, 'mlsn' => self::MLSN_DEFAULTS[$nut]],
-                $canonicalOrder
-            );
-        }
+        $canonicalOrder = array_keys(self::MLSN_DEFAULTS);
+        $nutrientList = array_map(
+            fn ($nut) => ['nutrient' => $nut, 'mlsn' => self::MLSN_DEFAULTS[$nut]],
+            $canonicalOrder
+        );
 
         return array_values(array_map(
-            function (array $n) use ($payload, $thresholds, $isAA, $texKey, $sampleTypeCode, $cec, $methodology) {
+            function (array $n) use ($payload, $isAA, $texKey, $sampleTypeCode, $cec, $methodology) {
+                $thresholds = self::MLSN_DEFAULTS;
                 $nut    = $n['nutrient'];
                 $raw    = $payload[$nut] ?? null;
                 $actual = $raw !== null ? floatval($raw) : null;
@@ -290,7 +296,7 @@ class SampleAnalysisController extends Controller
                     'mlsn'        => (string) $mlsn,
                 ]);
             },
-            $cachedNutrients
+            $nutrientList
         ));
     }
 

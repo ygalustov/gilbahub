@@ -149,10 +149,13 @@ function runSampleFallback(engineCtx, opts) {
         cache,
         _gaipState: o.gaipState || {},
         _turfStateOverride: o.turfState,
-        // Both falsy so the primary path short-circuits and this fallback's
+        // All falsy so the primary path short-circuits and this fallback's
         // `!cache.computed.soilNutrition` guard fires — the real "empty hub
-        // form" race this block exists for.
+        // form" race this block exists for. GH-574 added `_mlsnRows` to that
+        // gate: the primary path takes the engine's rows now instead of
+        // scraping its markup.
         _mlsnHtml: '',
+        _mlsnRows: null,
         _soilIn: null,
         DOMParser: DOMParserStub,
         document: { querySelector: (sel) => (domValues[sel] !== undefined ? { value: domValues[sel] } : null) },

@@ -16,6 +16,23 @@ use Illuminate\Validation\Rule;
 
 class UsersController extends Controller
 {
+    /**
+     * GH-565 — who outranks whom, in one place.
+     *
+     * It was written out twice, and both copies carried `'owner' => 4` for a
+     * role that has not existed since
+     * `2026_06_04_000000_add_rbac_and_auth_tables` rewrote every such row to
+     * `manager`. Neither path that assigns a role can produce it
+     * (`Rule::in(['manager', 'editor', 'viewer'])`, here and in
+     * `InvitationController`), so the rank could only ever be read off a row
+     * left over from before — and it ranked that row above everybody.
+     *
+     * A role not on this list scores 0, and that is the deliberate answer
+     * rather than a gap: an unknown role is not a rank, and the `?? 0` at both
+     * readers says so.
+     */
+    private const ROLE_LEVELS = ['viewer' => 1, 'editor' => 2, 'manager' => 3];
+
     public function index(Request $request): JsonResponse
     {
         $actor = $request->user();
@@ -78,7 +95,17 @@ class UsersController extends Controller
             $query->where('site_user.site_id', $siteId);
         }
 
-        $roleHierarchy = ['viewer' => 1, 'editor' => 2, 'manager' => 3, 'owner' => 4];
+        // GH-565: `owner` is gone from this table. The role was withdrawn by
+        // `2026_06_04_000000_add_rbac_and_auth_tables`, which rewrote every
+        // `owner` row to `manager`, and nothing can create another: both places
+        // that set a role — this controller's `updateRole` and
+        // `InvitationController` — allow only manager/editor/viewer.
+        //
+        // A rank for a role nobody can hold is a rank that outranks everyone,
+        // silently: a row that still said `owner` scored 4 and could therefore
+        // be removed by nobody, manager included. Unknown roles score 0, which
+        // is the answer for a role that does not exist.
+        $roleHierarchy = self::ROLE_LEVELS;
         $actorSiteRoles = $managedSites->keyBy('id')->map(fn($s) => $s->pivot->role);
 
         $members = $query->get()->map(function ($m) use ($actor, $roleHierarchy, $actorSiteRoles) {
@@ -138,7 +165,7 @@ class UsersController extends Controller
 
         abort_if($target->is_admin, 403, 'Cannot remove an admin user.');
 
-        $roleHierarchy = ['viewer' => 1, 'editor' => 2, 'manager' => 3, 'owner' => 4];
+        $roleHierarchy = self::ROLE_LEVELS;
         $actorLevel  = $actor->is_admin ? 99 : ($roleHierarchy[$actor->roleOnSite($siteModel)] ?? 0);
         $targetLevel = $roleHierarchy[$target->roleOnSite($siteModel)] ?? 0;
         abort_unless($actorLevel > $targetLevel, 403, 'Cannot remove a user with equal or higher role.');
@@ -219,7 +246,11 @@ class UsersController extends Controller
     {
         abort_if($targetRole === 'admin', 403);
 
-        $hierarchy = ['viewer' => 1, 'editor' => 2, 'manager' => 3];
+        // GH-565: the third copy, and the proof that copies drift — this one
+        // had already lost `owner` while the other two still carried it, so the
+        // same question had two answers depending on which method asked it. The
+        // values here are unchanged; only the literal is gone.
+        $hierarchy = self::ROLE_LEVELS;
         $actorLevel = $actor->is_admin ? 3 : ($hierarchy[$actor->roleOnSite($site)] ?? 0);
         $targetLevel = $hierarchy[$targetRole] ?? 0;
 

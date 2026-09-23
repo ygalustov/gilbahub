@@ -33,6 +33,21 @@
     /**
      * Primary identity keys and their enforcement tiers
      */
+    /**
+     * GH-581 (stage 2) — WHERE A DEFAULTED KEY IS SET, so the assumption
+     * can be told to a person instead of to a console.
+     *
+     * A tier-1 key that was not supplied is filled with an "unknown" value and
+     * the run goes on. That is correct and it was invisible: the assumption went
+     * to `console.warn` and to the forensic report, and the stored result said
+     * nothing. A reader saw numbers computed on "unknownProfile" and numbers
+     * computed on a real rootzone and could not tell them apart.
+     *
+     * `settingsField` is where a person changes it and `settingsLabel` is what
+     * it is called there. `null` means there is no field to send them to — the
+     * key is derived, not entered, and telling someone to go and set it would be
+     * sending them to a screen that has no such control.
+     */
     const IDENTITY_KEYS = {
         speciesKey: {
             tier: 0,  // Hard fail
@@ -66,7 +81,9 @@
             displayName: 'Rootzone Profile',
             defaultImpact: 'medium',
             confidencePenalty: 15,
-            affectedEngines: ['wear-recovery', 'irrigation-scheduler', 'soil-structure']
+            affectedEngines: ['wear-recovery', 'irrigation-scheduler', 'soil-structure'],
+            settingsField: 'turf.construction',
+            settingsLabel: 'Construction type, Settings \u2192 Turf'
         },
 
         climateRegimeKey: {
@@ -83,7 +100,12 @@
             displayName: 'Climate Regime',
             defaultImpact: 'medium',
             confidencePenalty: 10,
-            affectedEngines: ['disease-engine', 'irrigation-scheduler', 'stress-trajectory']
+            affectedEngines: ['disease-engine', 'irrigation-scheduler', 'stress-trajectory'],
+            // Derived from the site's latitude, never entered. There is no
+            // field to send anyone to, and inventing one would give twelve
+            // empty controls for a value that is already correct.
+            settingsField: null,
+            settingsLabel: null
         },
 
         turfIntentKey: {
@@ -100,7 +122,11 @@
             displayName: 'Turf Intent',
             defaultImpact: 'high',
             confidencePenalty: 20,
-            affectedEngines: ['wear-recovery', 'pgr-module', 'nutrition-demand']
+            affectedEngines: ['wear-recovery', 'pgr-module', 'nutrition-demand'],
+            // Derived from turf type and surface. The owner decided on
+            // 22.09.2026 not to add a field for it.
+            settingsField: null,
+            settingsLabel: null
         },
 
         regionKey: {
@@ -116,7 +142,10 @@
             displayName: 'Geographic Region',
             defaultImpact: 'low',
             confidencePenalty: 5,
-            affectedEngines: ['fungicide-filter', 'variety-traits']
+            affectedEngines: ['fungicide-filter', 'variety-traits'],
+            // Derived from the site's coordinates.
+            settingsField: null,
+            settingsLabel: null
         }
     };
 
@@ -151,11 +180,34 @@
             optional: ['surfaceKey', 'turfIntentKey'],
             canRunUnknown: {
                 surfaceKey: true,
-                turfIntentKey: false  // Cannot run - recovery defined by intent
+                // GH-580 — THE TABLE SAYS WHAT THE CODE DOES.
+                //
+                // This read `false` with the note "Cannot run - recovery defined
+                // by intent", and it was not true. `wear-recovery-engine-pure.js`
+                // does not contain the string `turfIntent` at all, and
+                // `hub-orchestrator.js` computes `wearCanRun`, logs it and calls
+                // the engine regardless. Measured on the stand: rows 24, 29, 31
+                // and 34 all carry "Wear engine blocked by identity enforcement"
+                // AND a complete fourteen-key `computed.wear` stamped in the same
+                // millisecond as the warning.
+                //
+                // The declaration cost more than untidiness. The server's rule of
+                // GH-569 read the word "BLOCKED" out of that message and marked
+                // whole runs partial for a module that had produced — an owner
+                // was told part of her analysis had not been computed when it
+                // had. That rule is gone (GH-573, the verdict comes from the
+                // result), and this is the other half: a block that is announced
+                // and never enforced is a lie the product tells about itself.
+                //
+                // NOT enforced instead. The owner decided on 22.09.2026 that
+                // recommendation bans are not switched on — "we are fixing the
+                // incoming data, not the recommendations". So the table is
+                // brought to the code, not the code to the table.
+                turfIntentKey: true
             },
             unknownBehaviour: {
                 surfaceKey: 'Uses median recovery coefficients',
-                turfIntentKey: 'BLOCKED - recovery windows require defined intent'
+                turfIntentKey: 'Runs without intent: recovery windows are not tailored to a playing intent'
             },
             canEmitRecommendations: {
                 surfaceKey: false,
@@ -323,6 +375,10 @@
                     impact: keyDef.defaultImpact,
                     confidencePenalty: keyDef.confidencePenalty,
                     affectedEngines: keyDef.affectedEngines || [],
+                    // GH-581: where a person fixes it, or null when there is
+                    // nowhere to send them because the key is derived.
+                    settingsField: keyDef.settingsField || null,
+                    settingsLabel: keyDef.settingsLabel || null,
                     reason: value ? `"${value}" is not a recognised ${keyDef.displayName.toLowerCase()}` : `No ${keyDef.displayName.toLowerCase()} specified`
                 };
 

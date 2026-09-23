@@ -140,6 +140,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/lab-reports/parse', [LabReportParseController::class, 'store'])->name('lab-reports.parse');
 
         Route::post('/analysis-cache', [AnalysisCacheController::class, 'store'])->name('analysis-cache.store');
+        // GH-548 (stage 3): a run reporting that it did not finish.
+        Route::post('/analysis-cache/runs', [AnalysisCacheController::class, 'storeRun'])->name('analysis-cache.runs.store');
         Route::get('/geocode', [GeocodingController::class, 'search'])->name('geocode.search');
         Route::get('/geocode/{placeId}', [GeocodingController::class, 'details'])->name('geocode.details');
         Route::post('/sensors/hydrosight/proxy', [SensorProxyController::class, 'hydrosight'])->name('sensors.hydrosight.proxy');

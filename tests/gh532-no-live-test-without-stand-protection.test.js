@@ -49,6 +49,17 @@ const REMEDIES = ['guardStand', 'captureConfigsOnce', 'restoreConfigs', 'fillOwn
  * backlog, not an argument that they are safe.
  */
 const EXEMPT = {
+    'gh591-restore-a-row-live.test.js': {
+        why: 'ITS PURPOSE IS THE WRITE. It presses Re-run once, for one named site, to restore a '
+            + 'stored row whose numbers were computed before the sample arrived (GH-532, item 2) — so '
+            + '`guardStand` would hold back the only POST the file exists to make, and a green run '
+            + 'would mean nothing happened. It is not a regression test and it is never run '
+            + 'unannounced: every press is put to the coordinator beforehand, one at a time, with '
+            + 'both outcomes named first and the row snapshotted before and after in the database. '
+            + 'Bounded by GILBA_E2E and GILBA_RESTORE_SITE; it touches no configuration and no '
+            + 'sample, only the active-site pointer through the product\'s own switcher.',
+        until: '2026-10-15',
+    },
     'gh395-nz-methodology-gate-live.test.js': {
         why: 'Reads the rendered Settings options and switches the active site, restoring the '
             + 'pointer in afterAll. Not assessed against the GH-519 remedies.',

@@ -796,6 +796,10 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
     {{-- ── PAGE HEADER (rendered by plan-ui.js → renderPlanHeader) ─── --}}
     <div id="plan-header-content"></div>
 
+    {{-- GH-548 (stage 3): the plan is built from the analysis result, so it
+         says which one. --}}
+    @include('partials.analysis-notice')
+
     {{-- ── TABS BAR ─────────────────────────────────────────────────── --}}
     <nav class="gl-tabs-bar">
         <div class="gl-tabs-inner">

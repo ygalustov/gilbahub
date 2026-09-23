@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\AnalysisResults;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -34,12 +35,11 @@ class SettingsController extends Controller
         $turfMethodology  = self::effectiveMethodology($savedMethodology);
         $turfMethodology  = $turfMethodology === null ? null : strtoupper($turfMethodology);
 
-        $cacheRecord   = $activeSite?->configs()->where('namespace', 'analysis_cache')->first();
-        $analysisCache = $cacheRecord ? [
-            'metrics'    => $cacheRecord->config['metrics'] ?? null,
-            'computed'   => $cacheRecord->config['computed'] ?? null,
-            'analyzedAt' => $cacheRecord->synced_at?->toISOString(),
-        ] : null;
+        // GH-546 (stage 1): one projection, from the owner of the
+        // result. This was eight hand-built copies of the same three keys
+        // across seven controllers; a ninth field would have been eight
+        // edits and would have reached some screens and not others.
+        $analysisCache = AnalysisResults::forSite($activeSite);
 
         $activeSiteRole = $activeSite ? $user?->roleOnSite($activeSite) : null;
 

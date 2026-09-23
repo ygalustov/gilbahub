@@ -157,7 +157,12 @@ describe('GH-263 — soil texture / methodology snapshot reaches mlsnEngine()', 
             });
             expect(sn.methodology).toBe('mlsn');
             const k = sn.nutrients.find((n) => n.nutrient === 'K');
-            expect(k.mlsn).toBe('37'); // the MLSN literal threshold, not an AA range
+            // GH-574: the threshold is a NUMBER now. It was `'37'` while these
+            // rows were scraped out of table cells, where everything is text;
+            // taken from the engine's own row it is the value the engine
+            // decided. The assertion is about which threshold was chosen — the
+            // MLSN literal, not an AA range — and that is unchanged.
+            expect(Number(k.mlsn)).toBe(37);
         });
 
         test('methodology: a sample carrying no snapshot at all changes nothing', () => {

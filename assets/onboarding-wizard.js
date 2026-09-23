@@ -602,7 +602,16 @@
                         turfType:    self.d.turfType    || '',
                         subCategory: self.d.subCategory || '',
                         species:     self.d.species     || '',
-                        variety:     'generic',
+                        // GH-583 (stage 3): the wizard no longer writes a
+                        // cultivar it did not ask for. `generic` was written on
+                        // every site it created and read as a choice; it is the
+                        // absence of one, and the server refuses it now. The
+                        // field is left out, so Settings shows it empty and
+                        // required until someone chooses — which is the truth
+                        // about the site rather than a stand-in for it.
+                        // The wizard does not yet ASK for the cultivar; that is
+                        // the other half of this stage and is not built.
+
                         methodology: self.d.methodology || 'slan',
                     },
                     wizard: { complete: true, completedAt: new Date().toISOString(), version: '1.0' },

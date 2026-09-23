@@ -42,7 +42,7 @@
     </div>
 
     <div class="db-topbar-right">
-        <span class="db-analysis-ts" id="db-analysis-ts">{{ $analysisTs ? 'Analysis: '.$analysisTs : 'Analysis: —' }}</span>
+        @include('partials.analysis-pill')
         <button class="db-rerun-btn" id="db-rerun-btn" type="button">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="5,3 19,12 5,21"/>

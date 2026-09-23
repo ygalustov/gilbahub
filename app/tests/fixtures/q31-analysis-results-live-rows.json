@@ -1,0 +1,561 @@
+{
+  "$comment": "GH-570 - THE LIVE ROWS, COPIED WITH SELECT AND NOT EDITED. Taken from `analysis_results` on the stand on 22.09.2026. They are the input of `Gh569RunCompletenessAsAnEventTest`, so that the rule is judged on the run the owner actually made rather than on a reconstruction of it. `storedOutcome` is what the row says today and is deliberately kept: for id 31 it is the defect itself. It lives under `app/tests/fixtures/` rather than beside the jest fixtures in `tests/fixtures/`, because the application container mounts `./app` and `./assets` and nothing else \u2014 a PHP test cannot read a file the process cannot see.",
+  "source": {
+    "table": "analysis_results",
+    "stand": "local docker (gilba_mysql), database `gilba`",
+    "takenAt": "2026-09-22",
+    "statement": "SELECT r.id, s.name, r.run_id, r.outcome, r.reason, r.completed_at, r.metrics, r.detail FROM analysis_results r JOIN sites s ON s.id = r.site_id WHERE r.id IN (30, 31, 34)"
+  },
+  "specimen": {
+    "$comment": "id 31, Test5 - NZ, 22.09.2026 08:23:29 - the owner's own Re-run. Thirteen required metrics, none of them null (`detail.nulls` is empty), so every rule that counts VALUES calls it complete; its own journal says the wear engine was blocked and `detail.skipped` is empty. Stored as `complete`. This is the row the fix is about. `computedSoilNutrition` is that row's `computed.soilNutrition` block, whole: eighteen keys, `nutrients` of length 0, `verdict` \"NO DATA\", `CEC` null while the site's sample holds 5.9. It is what the screen was handed on 22.09.",
+    "id": 31,
+    "site": "Test5 - NZ",
+    "runId": "run-1790065407323-f6lu4n",
+    "detail": {
+      "nulls": [],
+      "skipped": [],
+      "warnings": [
+        {
+          "at": 1790065409810,
+          "data": null,
+          "module": "disease",
+          "message": "[b35fix365 writer1-mainBlock] GAIP_DISEASE_RESULT written, species: \"perennialRyegrass\" diseases: 10 topRisk: 69"
+        },
+        {
+          "at": 1790065409812,
+          "data": "BLOCKED - recovery windows require defined intent",
+          "module": "wear",
+          "message": "Wear engine blocked by identity enforcement:"
+        }
+      ]
+    },
+    "metrics": {
+      "peakDay": 4,
+      "soilTemp": 14.4,
+      "timestamp": "2026-09-22T08:23:29.837Z",
+      "topDisease": "Drechslera Melting-Out",
+      "diseaseRisk": 55,
+      "stressIndex": 10,
+      "forecastPeak": 58,
+      "weatherSource": "live",
+      "irrigationNeed": 10.9,
+      "trendDirection": "improving",
+      "forecastDisease": "Drechslera Melting-Out",
+      "growthPotential": 41,
+      "irrigationDeficit": -14.2
+    },
+    "completedAt": "2026-09-22 08:23:29",
+    "storedReason": null,
+    "storedOutcome": "complete",
+    "computedSoilNutrition": {
+      "pH": 6,
+      "CEC": null,
+      "ECe": 1.12,
+      "soilNa": null,
+      "tissue": {
+        "status": {
+          "B": {
+            "band": "Missing",
+            "range": {
+              "hi": 20,
+              "lo": 3
+            },
+            "score": null
+          },
+          "K": {
+            "band": "Deficient",
+            "range": {
+              "hi": 3.5,
+              "lo": 2.2
+            },
+            "score": 0,
+            "value": 1.05
+          },
+          "N": {
+            "band": "Sufficient",
+            "range": {
+              "hi": 5,
+              "lo": 4
+            },
+            "score": 2,
+            "value": 4.57
+          },
+          "P": {
+            "band": "High",
+            "range": {
+              "hi": 0.6,
+              "lo": 0.3
+            },
+            "score": 3,
+            "value": 0.62
+          },
+          "S": {
+            "band": "Sufficient",
+            "range": {
+              "hi": 0.75,
+              "lo": 0.25
+            },
+            "score": 2,
+            "value": 0.47
+          },
+          "Ca": {
+            "band": "Marginal",
+            "range": {
+              "hi": 0.75,
+              "lo": 0.25
+            },
+            "score": 1,
+            "value": 0.27
+          },
+          "Cu": {
+            "band": "High",
+            "range": {
+              "hi": 15,
+              "lo": 5
+            },
+            "score": 3,
+            "value": 24.2
+          },
+          "Fe": {
+            "band": "High",
+            "range": {
+              "hi": 300,
+              "lo": 50
+            },
+            "score": 3,
+            "value": 588
+          },
+          "Mg": {
+            "band": "Marginal",
+            "range": {
+              "hi": 0.4,
+              "lo": 0.2
+            },
+            "score": 1,
+            "value": 0.21
+          },
+          "Mn": {
+            "band": "Sufficient",
+            "range": {
+              "hi": 300,
+              "lo": 25
+            },
+            "score": 2,
+            "value": 189
+          },
+          "Na": {
+            "band": "Missing",
+            "range": {
+              "hi": 1000,
+              "lo": 0,
+              "tox": 1500
+            },
+            "score": null
+          },
+          "Zn": {
+            "band": "High",
+            "range": {
+              "hi": 70,
+              "lo": 20
+            },
+            "score": 3,
+            "value": 87
+          }
+        },
+        "summary": [],
+        "headline": null,
+        "testDate": null,
+        "normalized": {
+          "K": 1.05,
+          "N": 4.57,
+          "P": 0.62,
+          "S": 0.47,
+          "Ca": 0.27,
+          "Cu": 24.2,
+          "Fe": 588,
+          "Mg": 0.21,
+          "Mn": 189,
+          "Zn": 87
+        },
+        "sampleType": "whole-leaf",
+        "antagonisms": [],
+        "growthState": "active",
+        "decisionBias": null,
+        "speciesGroup": "bentgrass",
+        "stressSignal": false,
+        "dilutionFlags": [],
+        "limitingNutrients": [
+          "K",
+          "Ca",
+          "Mg"
+        ]
+      },
+      "depthCm": 10,
+      "mulders": null,
+      "species": "Perennial Ryegrass",
+      "verdict": "NO DATA",
+      "monthlyN": [
+        {
+          "n": 30.3,
+          "gp": 0.9992713399819064,
+          "c3Frac": 1
+        },
+        {
+          "n": 30.3,
+          "gp": 0.9976160692276091,
+          "c3Frac": 1
+        },
+        {
+          "n": 29.9,
+          "gp": 0.9861073237911332,
+          "c3Frac": 1
+        },
+        {
+          "n": 26.2,
+          "gp": 0.8626292830364788,
+          "c3Frac": 1
+        },
+        {
+          "n": 19.2,
+          "gp": 0.6329804750101398,
+          "c3Frac": 1
+        },
+        {
+          "n": 12.4,
+          "gp": 0.4074650976125277,
+          "c3Frac": 1
+        },
+        {
+          "n": 8.9,
+          "gp": 0.29449909796187634,
+          "c3Frac": 1
+        },
+        {
+          "n": 9.9,
+          "gp": 0.32553855358130024,
+          "c3Frac": 1
+        },
+        {
+          "n": 13.3,
+          "gp": 0.43668833209982166,
+          "c3Frac": 1
+        },
+        {
+          "n": 17.5,
+          "gp": 0.5778793999738282,
+          "c3Frac": 1
+        },
+        {
+          "n": 23.3,
+          "gp": 0.7686326293697787,
+          "c3Frac": 1
+        },
+        {
+          "n": 28.8,
+          "gp": 0.9500886338026268,
+          "c3Frac": 1
+        }
+      ],
+      "turfType": "cool-season",
+      "nutrients": [],
+      "sampleDate": "2026-09-22",
+      "validation": {
+        "errors": [],
+        "warnings": []
+      },
+      "bulkDensity": 1.4,
+      "methodology": "ammonium_acetate",
+      "sampleLabel": null,
+      "annualDemand": {
+        "B": 0.15375,
+        "K": 82,
+        "N": 102.5,
+        "P": 10.25,
+        "S": 12.3,
+        "Ca": 20.5,
+        "Cu": 0.205,
+        "Fe": 2.5625,
+        "Mg": 10.25,
+        "Mn": 1.23,
+        "Zn": 0.41
+      }
+    }
+  },
+  "fullRun": {
+    "$comment": "id 30, Canberra, 22.09.2026 08:22:59 - thirty seconds earlier, same batch of Re-runs. Thirteen metrics and a journal carrying one entry, a receipt for a disease result that WAS computed. A run where everything ran. It is the control: a rule that turns this one partial has learned to call any journal entry a failure.",
+    "id": 30,
+    "site": "Canberra",
+    "runId": "run-1790065377214-3btnr4",
+    "detail": {
+      "nulls": [],
+      "skipped": [],
+      "warnings": [
+        {
+          "at": 1790065379873,
+          "data": null,
+          "module": "disease",
+          "message": "[b35fix365 writer1-mainBlock] GAIP_DISEASE_RESULT written, species: \"bentgrass\" diseases: 9 topRisk: 69"
+        }
+      ]
+    },
+    "metrics": {
+      "peakDay": 5,
+      "soilTemp": 14.4,
+      "timestamp": "2026-09-22T08:22:59.898Z",
+      "topDisease": "Drechslera Melting-Out",
+      "diseaseRisk": 41,
+      "stressIndex": 9,
+      "forecastPeak": 54,
+      "weatherSource": "live",
+      "irrigationNeed": 11.4,
+      "trendDirection": "improving",
+      "forecastDisease": "Anthracnose",
+      "growthPotential": 41,
+      "irrigationDeficit": -13.3
+    },
+    "completedAt": "2026-09-22 08:22:59",
+    "storedReason": null,
+    "storedOutcome": "complete"
+  },
+  "afterTheFix": {
+    "$comment": "id 34, Test5 - NZ, 22.09.2026 08:33:18 - ten minutes after id 31, the same site, the same blocked engine, recorded once GH-569 was in place. Stored as `partial`, with `wear` named in `detail.skipped`. Kept here as the live before/after of the same situation; it is not an input to the completeness assertions, because a row the fix already corrected cannot show whether the fix was needed.",
+    "id": 34,
+    "site": "Test5 - NZ",
+    "runId": "run-1790065995508-6tn3ge",
+    "detail": {
+      "nulls": [],
+      "skipped": [
+        {
+          "step": "wear",
+          "module": "wear",
+          "reason": "engine-did-not-produce"
+        }
+      ],
+      "warnings": [
+        {
+          "at": 1790065998037,
+          "data": null,
+          "module": "disease",
+          "message": "[b35fix365 writer1-mainBlock] GAIP_DISEASE_RESULT written, species: \"perennialRyegrass\" diseases: 10 topRisk: 69"
+        },
+        {
+          "at": 1790065998038,
+          "data": "BLOCKED - recovery windows require defined intent",
+          "module": "wear",
+          "message": "Wear engine blocked by identity enforcement:"
+        }
+      ]
+    },
+    "metrics": {
+      "peakDay": 4,
+      "soilTemp": 14.4,
+      "timestamp": "2026-09-22T08:33:18.063Z",
+      "topDisease": "Drechslera Melting-Out",
+      "diseaseRisk": 55,
+      "stressIndex": 10,
+      "forecastPeak": 58,
+      "weatherSource": "live",
+      "irrigationNeed": 10.9,
+      "trendDirection": "improving",
+      "forecastDisease": "Drechslera Melting-Out",
+      "growthPotential": 41,
+      "irrigationDeficit": -14.2
+    },
+    "completedAt": "2026-09-22 08:33:18",
+    "storedReason": "engine-did-not-produce",
+    "storedOutcome": "partial"
+  },
+  "wearRanAnyway": {
+    "id": 29,
+    "site": "Russley",
+    "runId": "run-1790065286292-zr3dr5",
+    "detail": {
+      "nulls": [],
+      "skipped": [],
+      "warnings": [
+        {
+          "at": 1790065290908,
+          "data": null,
+          "module": "disease",
+          "message": "[b35fix365 writer1-mainBlock] GAIP_DISEASE_RESULT written, species: \"browntopBent\" diseases: 9 topRisk: 69"
+        },
+        {
+          "at": 1790065290910,
+          "data": "BLOCKED - recovery windows require defined intent",
+          "module": "wear",
+          "message": "Wear engine blocked by identity enforcement:"
+        }
+      ]
+    },
+    "metrics": {
+      "peakDay": 4,
+      "soilTemp": 14.4,
+      "timestamp": "2026-09-22T08:21:30.940Z",
+      "topDisease": "Drechslera Melting-Out",
+      "diseaseRisk": 41,
+      "stressIndex": 20,
+      "forecastPeak": 44,
+      "weatherSource": "live",
+      "irrigationNeed": 11.4,
+      "trendDirection": "improving",
+      "forecastDisease": "Drechslera Melting-Out",
+      "growthPotential": 41,
+      "irrigationDeficit": -13.3
+    },
+    "completedAt": "2026-09-22 08:21:30",
+    "computedWear": {
+      "_meta": {
+        "engine": "wear-recovery-engine",
+        "version": "1.1.0",
+        "timestamp": 1790065290910,
+        "applicable": true,
+        "confidence": {
+          "color": "#d97706",
+          "label": "Medium Confidence",
+          "level": "medium",
+          "score": 75,
+          "factors": [
+            {
+              "factor": "Growth potential calculated",
+              "impact": 15
+            }
+          ]
+        },
+        "applicabilityReason": null
+      },
+      "inputs": {
+        "species": "browntopBent",
+        "variety": "generic",
+        "schedule": {
+          "ageGroup": "adult",
+          "teamSize": "medium",
+          "matchCode": "soccer",
+          "trainingCode": "training_drills",
+          "matchDuration": 1.5,
+          "matchesPerWeek": 2,
+          "sessionDuration": 1.5,
+          "sessionsPerWeek": 3,
+          "trainingRotation": 100
+        },
+        "poaPercent": 0,
+        "construction": "native"
+      },
+      "effectiveLoad": {
+        "breakdown": [
+          {
+            "name": "Soccer (matches)",
+            "type": "soccer",
+            "factor": 1,
+            "rawHours": 3,
+            "effectiveHours": 3
+          },
+          {
+            "name": "Skills & Drills",
+            "type": "training_drills",
+            "factor": 0.5,
+            "rawHours": 4.5,
+            "effectiveHours": 2.25,
+            "rotationFactor": 1,
+            "rotationPercent": 100
+          }
+        ],
+        "totalEffectiveHours": 5.25
+      },
+      "actionPriority": {
+        "color": "#2e7d32",
+        "score": null,
+        "priority": "Low",
+        "components": {
+          "physical": 100,
+          "biological": null
+        }
+      },
+      "compactionRisk": {
+        "maxHours": 3.5,
+        "moisture": {
+          "level": "optimal",
+          "wearFactor": 0.95,
+          "compactionFactor": 1
+        },
+        "usageRatio": 1.5,
+        "riskPercent": 100,
+        "capacityData": {
+          "base": 3.5,
+          "season": "spring",
+          "species": "generic",
+          "effective": 3.5,
+          "construction": "native",
+          "overseedNote": null,
+          "overseedStatus": "none",
+          "seasonModifier": 1
+        },
+        "construction": "native",
+        "adjustedRatio": 1.5
+      },
+      "recoveryWindow": 19,
+      "wearResistance": 3.6,
+      "recommendations": [
+        {
+          "text": "Field is over capacity. Reduce events or rest immediately.",
+          "type": "critical",
+          "action": "Reduce weekly hours by 3 hours",
+          "category": "load"
+        }
+      ],
+      "adjustedRecovery": {
+        "warning": null,
+        "baseDays": 19,
+        "adjustments": [],
+        "isRealistic": false,
+        "adjustedDays": 19,
+        "baseProbability": 80,
+        "adjustedProbability": 80
+      },
+      "aerationSchedule": {
+        "reason": "Reduced interval due to high usage",
+        "baseWeeks": 10,
+        "recommendedWeeks": 7
+      },
+      "cumulativeStress": {
+        "status": "stable",
+        "debtHours": 0,
+        "statusColor": "#4caf50",
+        "weeklyHistory": [],
+        "weeksToRecover": 0
+      },
+      "recoveryCapacity": {
+        "days": 19,
+        "baseDays": 5.5,
+        "modifiers": {
+          "poa": null,
+          "shade": 1,
+          "growth": 2.5,
+          "moisture": 1,
+          "nitrogen": {
+            "note": null,
+            "factor": 1,
+            "source": "default"
+          },
+          "salinity": {
+            "note": null,
+            "factor": 1
+          },
+          "rootDepth": 1.35,
+          "soilHealth": 1,
+          "temperatureStress": {
+            "esi": 8.825,
+            "factor": 1
+          }
+        },
+        "baseRating": 7.5
+      },
+      "recoveryProbability": 11,
+      "shadeTrafficCompound": {
+        "isCompounding": false,
+        "compoundFactor": 1.3
+      }
+    },
+    "storedOutcome": "complete",
+    "$comment": "GH-571. id 29, Russley, 22.09.2026 08:21:30 - the row that disproves the reading the day was built on. Its journal says \"Wear engine blocked by identity enforcement\", and its `computed.wear` is FOURTEEN keys of real result: effectiveLoad with a breakdown, recoveryWindow 19, wearResistance 3.6, `_meta.applicable` true, and `_meta.timestamp` 1790065290910 - the same millisecond as the warning's own `at`. The engine ran. `computedWear` is that block, whole."
+  }
+}

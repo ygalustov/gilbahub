@@ -73,6 +73,11 @@
             <span id="db-verdict-text"></span>
         </div>
 
+        {{-- GH-548 (stage 3): the dashboard prints the numbers and never
+             said a word about them. This is the panel three analysis pages
+             already had. --}}
+        @include('partials.analysis-notice')
+
         {{-- Shown by JS when weather failed AND no manual data → GP could not be calculated --}}
         <div id="db-analysis-error" style="display:none;align-items:center;gap:10px;padding:10px 20px;background:#fef2f2;border-bottom:1px solid #fecaca;font-size:13px;color:#991b1b;font-family:inherit">
             <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;color:#dc2626">

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\AnalysisResults;
 use App\Models\Sample;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -82,14 +83,9 @@ class DataController extends Controller
             $turfMethodology = $turfMethodology === null ? null : strtoupper($turfMethodology);
             $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
 
-            $cacheRecord = $activeSite->configs()->where('namespace', 'analysis_cache')->first();
-            if ($cacheRecord) {
-                $analysisCache = [
-                    'metrics'    => $cacheRecord->config['metrics'] ?? null,
-                    'computed'   => $cacheRecord->config['computed'] ?? null,
-                    'analyzedAt' => $cacheRecord->synced_at?->toISOString(),
-                ];
-            }
+            // GH-546 (stage 1): one projection, from the owner of the result.
+            // See AnalysisResults; this was one of eight hand-built copies.
+            $analysisCache = AnalysisResults::forSite($activeSite);
         }
 
         return view('data', [

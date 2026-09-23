@@ -60,7 +60,7 @@ describe('GH-265/521 — methodology comes from the site config, by site id', ()
         test('the page field `.gaip-soil-methodology` is not read on this path at all', () => {
             const start = code.indexOf('if (!cache.computed.soilNutrition && global.GAIP_SampleManager');
             expect(start).toBeGreaterThan(-1);
-            const end = code.indexOf('var _smHtml = global.mlsnEngine', start);
+            const end = code.indexOf('var _smOut  = global.mlsnEngine', start);
             expect(end).toBeGreaterThan(start);
             expect(code.slice(start, end)).not.toMatch(/gaip-soil-methodology/);
             expect(code).not.toMatch(/_smMethodDom/);
@@ -121,7 +121,9 @@ describe('GH-265/521 — methodology comes from the site config, by site id', ()
             expect(sn).toBeDefined();
             expect(sn.methodology).toBe('mlsn');
             const k = sn.nutrients.find((n) => n.nutrient === 'K');
-            expect(k.mlsn).toBe('37'); // the MLSN literal, not an AA range
+            // GH-574: a number now, not the text of a table cell. Which
+            // threshold was chosen is the claim, and it is unchanged.
+            expect(Number(k.mlsn)).toBe(37); // the MLSN literal, not an AA range
             expect(k.rangeMin).toBeUndefined();
         });
 

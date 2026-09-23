@@ -313,15 +313,24 @@
                                     </select>
                                 </div>
                                 <div class="stg-field">
-                                    <label for="stg-turf-species">Species</label>
-                                    <select id="stg-turf-species" name="species" data-saved-species="{{ $turfVal('species') }}">
+                                    {{-- GH-583 (stage 3): required. Owner's decision 22.09.2026. --}}
+                                    <label for="stg-turf-species">Species <span aria-hidden="true">*</span></label>
+                                    <select id="stg-turf-species" name="species" required data-saved-species="{{ $turfVal('species') }}">
                                         <option value="">— select turf type first —</option>
                                     </select>
                                 </div>
                                 <div class="stg-field">
-                                    <label for="stg-turf-variety">Cultivar / variety</label>
-                                    <select id="stg-turf-variety" name="variety">
-                                        <option value="generic">Generic / Unknown</option>
+                                    {{-- GH-583 (stage 3): required, and "Generic / Unknown" is gone.
+                                         It was the absence of a choice wearing a value's clothes: every
+                                         multiplier keyed on cultivar quietly used 1.00 for it, so a site
+                                         with a real cultivar and a site with none produced the same
+                                         numbers and looked equally settled. Owner, 22.09.2026: the
+                                         cultivar comes from the site's profile. A site still carrying
+                                         `generic` keeps showing the empty prompt until someone chooses,
+                                         rather than being silently reassigned. --}}
+                                    <label for="stg-turf-variety">Cultivar / variety <span aria-hidden="true">*</span></label>
+                                    <select id="stg-turf-variety" name="variety" required>
+                                        <option value="">— select —</option>
                                         @if($turfVal('variety') && $turfVal('variety') !== 'generic')
                                         <option value="{{ $turfVal('variety') }}" selected>{{ $turfVal('variety') }}</option>
                                         @endif
@@ -353,8 +362,11 @@
                             </div>
                             <div class="stg-form-grid">
                                 <div class="stg-field">
-                                    <label for="stg-turf-construction">Construction type</label>
-                                    <select id="stg-turf-construction" name="construction">
+                                    {{-- GH-583 (stage 3): required. Without it the soil-structure
+                                         engine takes the clay path in silence, and wear and irrigation
+                                         run on median coefficients. --}}
+                                    <label for="stg-turf-construction">Construction type <span aria-hidden="true">*</span></label>
+                                    <select id="stg-turf-construction" name="construction" required>
                                         <option value="">— select —</option>
                                         @foreach([
                                             'sand_carpet'  => 'Sand carpet',

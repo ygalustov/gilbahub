@@ -37,6 +37,12 @@
             siteConfig: @json($siteConfig),
             gaipConfig: @json($activeGaipConfig ?: null)
         });
+        {{-- GH-553: the declared form of an analysis result, from the one file
+             that states it. The runner builds its body from this list rather
+             than from whichever engines answered, so a key its engines could not
+             produce travels as `null` instead of vanishing. The server refuses a
+             body that is missing one, reading the same file. --}}
+        window.GAIP_ANALYSIS_SCHEMA = @json(\App\Support\AnalysisResultSchema::forClient());
         window.GAIP_FIELD_LOG_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG, window.GAIP_FIELD_LOG_CONFIG || {});
         window.GAIP_WIZARD_CONFIG = Object.assign({}, window.GAIP_WIZARD_CONFIG || {}, {
             nonce: "{{ csrf_token() }}",

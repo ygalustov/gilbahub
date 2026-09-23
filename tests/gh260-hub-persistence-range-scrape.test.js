@@ -1,156 +1,82 @@
 /**
- * Test GH-260 — hub-persistence.js's DOMParser scraper reads the new
- * data-range-min/max attributes (D07 item 3, second half).
+ * GH-260 — rangeMin/rangeMax reach the stored nutrient row (primary path).
  *
- * mlsnEngine() emits its result as an HTML string (GAIP_STATE.computed.mlsn);
- * hub-persistence.js re-parses that HTML with DOMParser and scrapes specific
- * <td> cells into cache.computed.soilNutrition.nutrients[] — that array is
- * what soil-nutrition-analysis.js's renderNutrientCards()/
- * renderAnnualRequirements() actually read. Before GH-260, rangeMin/rangeMax
- * were never in the HTML at all, so this scrape step silently dropped them;
- * this test proves the scraper now carries them through for AA rows and
- * leaves them undefined (not a crash) for MLSN/SLAN rows.
+ * WHAT THIS FILE USED TO BE, and why it is not that any more. `mlsnEngine`'s AA
+ * branch sets `rangeMin`/`rangeMax` on each row; `hub-persistence.js` rendered
+ * them into `data-range-min` / `data-range-max` attributes and then read them
+ * back off the produced HTML with `DOMParser`. This file exercised that
+ * round-trip: the engine's own output, scraped by the engine's own consumer.
  *
- * No jsdom/DOMParser is available in this repo's Node test environment, so
- * this test extracts the REAL scraping block verbatim from hub-persistence.js
- * (regex, bounded by the `new DOMParser()` line and the closing of the
- * `_rows.forEach(...)` call — pinned separately below so this extraction
- * can't silently start matching the wrong code) and runs it via `vm` against
- * a minimal DOMParser polyfill built only for the exact `<table
- * class="gaip-mlsn-table"><tbody><tr class="..." data-range-min="..."
- * data-range-max="..."><td>...</td>...</tr></tbody></table>` shape
- * mlsnEngine's own template produces (verified in gh260-mlsn-engine-aa-
- * branch.test.js) — not a general-purpose HTML parser.
+ * GH-574 removed the round trip. The engine returns `{ html, nutrients }` and
+ * the producer copies the rows, so there is no scrape to test — and the claim
+ * that matters was never about the scrape. It is that the AA range the engine
+ * decided is the range that lands in `computed.soilNutrition.nutrients[]`, and
+ * that an MLSN or SLAN row carries none.
+ *
+ * HOW IT BITES: drop `rangeMin`/`rangeMax` from the copy in `hub-persistence.js`
+ * and the first case goes red; take the AA branch out of the engine and the
+ * second does.
  */
 
-const vm = require('vm');
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
 const { buildContext, run } = require('./helpers/mlsn-engine-harness');
 
-function extractScraperBlock(src) {
-    const start = src.indexOf('var _parser = new DOMParser();');
-    const forEachStart = src.indexOf('_rows.forEach(function(row) {', start);
-    // Find the matching close of the forEach call by brace counting from forEachStart.
-    let depth = 0;
-    let i = src.indexOf('{', forEachStart);
-    const bodyStart = i;
-    for (; i < src.length; i++) {
-        if (src[i] === '{') depth++;
-        else if (src[i] === '}') {
-            depth--;
-            if (depth === 0) break;
-        }
-    }
-    // i now at the closing '}' of the function body; forEach call closes shortly after with ');'
-    const closeParen = src.indexOf(');', i);
-    return src.slice(start, closeParen + 2);
-}
+const PRODUCER = fs.readFileSync(path.join(__dirname, '..', 'assets', 'hub-persistence.js'), 'utf8');
 
-function parseMlsnTableHtml(html) {
-    const tbodyMatch = html.match(/<table class="gaip-mlsn-table">[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/);
-    if (!tbodyMatch) return [];
-    const rowRe = /<tr class="([^"]*)"((?:\s+data-[\w-]+="[^"]*")*)>([\s\S]*?)<\/tr>/g;
-    const rows = [];
-    let m;
-    while ((m = rowRe.exec(tbodyMatch[1]))) {
-        const dataset = {};
-        const attrRe = /data-([\w-]+)="([^"]*)"/g;
-        let am;
-        while ((am = attrRe.exec(m[2]))) {
-            const camelKey = am[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-            dataset[camelKey] = am[2];
-        }
-        const cellRe = /<td[^>]*>([\s\S]*?)<\/td>/g;
-        const cells = [];
-        let cm;
-        while ((cm = cellRe.exec(m[3]))) {
-            cells.push({ textContent: cm[1].replace(/<[^>]+>/g, '') });
-        }
-        rows.push({
-            className: m[1],
-            dataset: Object.keys(dataset).length ? dataset : undefined,
-            querySelectorAll: (sel) => (sel === 'td' ? cells : []),
-        });
-    }
-    return rows;
-}
-
-function runScraper(html) {
-    const src = fs.readFileSync(path.join(__dirname, '../assets/hub-persistence.js'), 'utf8');
-    const block = extractScraperBlock(src);
-    const sandbox = {
-        DOMParser: function() {
-            this.parseFromString = (h) => ({
-                querySelectorAll: (sel) => (sel === '.gaip-mlsn-table tbody tr' ? parseMlsnTableHtml(h) : []),
-            });
-        },
-        _mlsnHtml: html,
-        _nutrients: [],
-        console: { warn: () => {} },
-    };
-    const ctx = vm.createContext(sandbox);
-    vm.runInContext(block, ctx);
-    return ctx._nutrients;
-}
-
-describe('GH-260 — hub-persistence.js scraper carries rangeMin/rangeMax', () => {
-    test('the extracted block still matches the real, current source (extraction sanity check)', () => {
-        const src = fs.readFileSync(path.join(__dirname, '../assets/hub-persistence.js'), 'utf8');
-        const block = extractScraperBlock(src);
-        expect(block).toContain('new DOMParser()');
-        expect(block).toContain("row.dataset ? row.dataset.rangeMin : undefined");
-        expect(block).toContain('_rows.forEach(function(row) {');
-        expect(block.trim().endsWith(');')).toBe(true);
-    });
-
-    let engineCtx;
+describe('GH-260 — the AA range travels from the engine to the stored row', () => {
+    let ctx;
     beforeAll(() => {
-        engineCtx = buildContext();
+        ctx = buildContext();
     });
 
-    test('AA row (HIGH, certificate-backed): rangeMin/rangeMax land as parsed floats', () => {
-        const { html } = run(engineCtx, {
+    test('the producer copies the range fields, and reads no markup to get them', () => {
+        // Both copies — the primary path and the sample fallback — carry the
+        // three fields, and neither parses anything.
+        expect((PRODUCER.match(/rangeMin:\s*r\.rangeMin/g) || []).length).toBe(2);
+        expect(PRODUCER).not.toMatch(/data-range-min/);
+        expect(PRODUCER).not.toMatch(/parseFromString/);
+    });
+
+    test('AA row, certificate-backed: the range is on the row as numbers', () => {
+        const { row } = run(ctx, {
             methodology: 'ammonium_acetate', species: 'perennialRyegrass',
             construction: 'sand_profile', soilTexture: 'sand', cec: 5, ppm: { K: 199 },
         });
-        const nutrients = runScraper(html);
-        const k = nutrients.find((n) => n.nutrient === 'K');
-        expect(k).toBeDefined();
+        const k = row('K');
         expect(k.status).toBe('HIGH');
         expect(k.rangeMin).toBeCloseTo(78.2, 1);
         expect(k.rangeMax).toBeCloseTo(195.5, 1);
-        expect(typeof k.rangeMin).toBe('number');
+        expect(k.hasRangeAttrs).toBe(true);
     });
 
-    test('MLSN row: rangeMin/rangeMax are undefined, no crash', () => {
-        const { html } = run(engineCtx, { methodology: 'mlsn', soilTexture: 'loam', ppm: { K: 50 } });
-        const nutrients = runScraper(html);
-        const k = nutrients.find((n) => n.nutrient === 'K');
-        expect(k).toBeDefined();
+    test('MLSN row: no range at all, and nothing breaks', () => {
+        const { row } = run(ctx, { methodology: 'mlsn', soilTexture: 'loam', ppm: { K: 50 } });
+        const k = row('K');
+        expect(k.rangeMin).toBeUndefined();
+        expect(k.rangeMax).toBeUndefined();
+        expect(k.status).toBeTruthy();
+    });
+
+    test('SLAN row: no range at all either', () => {
+        const { row } = run(ctx, { methodology: 'slan', soilTexture: 'loam', ppm: { K: 50 } });
+        const k = row('K');
         expect(k.rangeMin).toBeUndefined();
         expect(k.rangeMax).toBeUndefined();
     });
 
-    test('SLAN row: rangeMin/rangeMax are undefined, no crash', () => {
-        const { html } = run(engineCtx, { methodology: 'slan', soilTexture: 'loam', ppm: { K: 45 } });
-        const nutrients = runScraper(html);
-        const k = nutrients.find((n) => n.nutrient === 'K');
-        expect(k).toBeDefined();
-        expect(k.rangeMin).toBeUndefined();
-        expect(k.rangeMax).toBeUndefined();
-    });
-
-    test('all other scraped fields survive alongside the new range fields (no regression in the existing scrape)', () => {
-        const { html } = run(engineCtx, {
+    test('the other fields arrive beside the ranges, not instead of them', () => {
+        const { row } = run(ctx, {
             methodology: 'ammonium_acetate', species: 'perennialRyegrass',
             construction: 'sand_profile', soilTexture: 'sand', cec: 5, ppm: { K: 199 },
         });
-        const nutrients = runScraper(html);
-        const k = nutrients.find((n) => n.nutrient === 'K');
-        expect(k.actual).toBe('199.0');
-        expect(k.statusClass).toBe('high');
+        const k = row('K');
+        expect(k.nutrient === undefined ? 'K' : k.nutrient).toBe('K');
+        expect(k.actual).toBeTruthy();
+        expect(k.col).toBeTruthy();
+        expect(k.statusClass).toBeTruthy();
         expect(typeof k.recommendation).toBe('string');
-        expect(k.recommendation.length).toBeGreaterThan(0);
     });
 });

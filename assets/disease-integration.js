@@ -110,19 +110,34 @@
         } catch (e) { return null; }
     }
 
+    /**
+     * GH-547 (stage 2, K2 of the plan's browser-copy list) — the disease
+     * result is no longer copied into the browser.
+     *
+     * It used to write `gilba_disease_cache_<site>` after every run. The reader
+     * is `/field-log`, which served a copy up to twenty-four hours old as if it
+     * were current — and, when the copy was over six hours old, served it
+     * "immediately … then triggered a silent background recalculation". Showing
+     * the old figures and quietly recomputing behind them is the same copy with
+     * a delay, which is the shape CLAUDE.md names.
+     *
+     * The write goes; the site id is still attached to the result object, which
+     * is what the page itself reads in memory during the run.
+     *
+     * The READER is not changed here and that is a named boundary, not an
+     * oversight: `/field-log` is a `layouts.app` page reached only from the old
+     * hub, and its own path without the copy — "recalculating with stripped-down
+     * hardcoded inputs" — is a substitution of a different kind. It belongs to
+     * `PLAN-no-substitution-surfaces-RU.md`, not here.
+     */
     function cacheDiseaseResult(result) {
         if (!result || !result.diseases) { return; }
         try {
             var siteId = getActiveSiteIdForCache();
             if (!siteId || siteId === 'default' || siteId === '__all_sites__') { return; }
-            // Attach siteId to the result so mobile can validate it matches the active site
+            // Kept: consumers on this page check it against the active site.
             result.siteId = siteId;
-            _ls.setItem('gilba_disease_cache_' + siteId, JSON.stringify({
-                result:   result,
-                siteId:   siteId,
-                cachedAt: Date.now()
-            }));
-        } catch (e) { /* quota or private browsing — silently ignore */ }
+        } catch (e) { /* nothing to do */ }
     }
 
     /* ============================================================

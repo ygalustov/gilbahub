@@ -748,7 +748,10 @@ function renderMLSNContextSection(context) {
  */
 function convertMLSNToProgressive(state, weather) {
     // Run existing mlsnEngine function
-    const mlsnHTML = window.mlsnEngine(state, weather);
+    // GH-574: the engine returns `{ html, nutrients }`; this surface wants the
+    // markup. The string branch keeps an older build working.
+    const _mlsnOut = window.mlsnEngine(state, weather);
+    const mlsnHTML = typeof _mlsnOut === 'string' ? _mlsnOut : ((_mlsnOut && _mlsnOut.html) || '');
     
     // Parse the existing output to extract nutrient data
     const nutrients = parseMLSNTableHTML(mlsnHTML);

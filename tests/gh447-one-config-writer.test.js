@@ -131,9 +131,23 @@ describe('GH-447 — nothing but SiteConfigWriter writes the config column', () 
     });
 
     test('the callers that used to write for themselves now go through it', () => {
+        // GH-546 (stage 1): `AnalysisCacheController` left this list and
+        // `Support/AnalysisResults.php` took its place. The controller no longer
+        // writes anything — it resolves the site, checks nothing itself and
+        // hands the actor and the body to the owner of the analysis result,
+        // which is what calls the writer. The guard is unchanged in strength:
+        // the number of files reaching the config column is the same, and the
+        // one that reaches it is the one that owns what is being written.
+        //
+        // Listed rather than exempted. An exemption says "this file may write
+        // and we accept it"; what is true here is "this file does not write at
+        // all, and another one does".
+        // GH-550 (stage 4): `Support/AnalysisResults.php` leaves this list
+        // in its turn, and for a stronger reason than the controller did — the
+        // analysis result is not in the config column any more. It has its own
+        // table, so there is nothing here for it to lock.
         const callers = {
             'Http/Controllers/SiteController.php': ['patchConfig', 'update', 'store', 'updateConfig'],
-            'Http/Controllers/AnalysisCacheController.php': ['store'],
             'Console/Commands/RepairSiteConfigs.php': ['repair'],
         };
 
@@ -142,5 +156,37 @@ describe('GH-447 — nothing but SiteConfigWriter writes the config column', () 
             expect({ file, usesWriter: /SiteConfigWriter::(mutate|createEmpty)\(/.test(src) })
                 .toEqual({ file, usesWriter: true });
         });
+
+        // And the file that left the list really did stop writing, rather than
+        // being dropped from it. Without this, shortening the list would be a
+        // way past the guard.
+        [
+            'Http/Controllers/AnalysisCacheController.php',
+            'Support/AnalysisResults.php',
+        ].forEach((gone) => {
+            const goneSrc = fs.readFileSync(path.join(APP_DIR, gone), 'utf8');
+            expect({ file: gone, usesWriter: /SiteConfigWriter::(mutate|createEmpty)\(/.test(goneSrc) })
+                .toEqual({ file: gone, usesWriter: false });
+        });
+    });
+
+    /**
+     * GH-550 — the writer's own shape, now that its one special caller is gone.
+     *
+     * `mutate()` grew two parameters for the analysis result alone: `$syncedAt`,
+     * because that row kept its produced-at date in `synced_at`, and then
+     * `$keepSyncedAt`, to hold the same column still when a failed run wrote a
+     * reason beside numbers it had not produced. The column meant one thing for
+     * settings and another for that namespace, which is how two readers end up
+     * disagreeing about a timestamp. With the result in its own table the column
+     * means one thing again, and the parameters have no callers.
+     */
+    test('the config stamp says one thing — when the server stored the row', () => {
+        const src = fs.readFileSync(path.join(APP_DIR, 'Support/SiteConfigWriter.php'), 'utf8');
+        const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+        expect(code).toMatch(/function mutate\(string \$siteId, string \$namespace, Closure \$mutator\)/);
+        expect(code).not.toMatch(/\$syncedAt/);
+        expect(code).not.toMatch(/\$keepSyncedAt/);
+        expect(code).toMatch(/'synced_at' => now\(\)/);
     });
 });

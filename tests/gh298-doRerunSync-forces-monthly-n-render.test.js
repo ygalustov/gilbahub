@@ -32,8 +32,16 @@ const path = require('path');
 const src = fs.readFileSync(path.join(__dirname, '../assets/hub-persistence.js'), 'utf8');
 
 describe('GH-298 — _doRerunSync forces a direct renderNutritionSummary() call before caching', () => {
-    test('_doRerunSync calls window.GilbaNutritionSummary.renderNutritionSummary() between the bounded wait and cacheAnalysisResults()', () => {
-        const idx = src.indexOf('async function _doRerunSync(source)');
+    /**
+     * GH-547 (stage 2): the ORDER is the invariant, and it moved intact.
+     * `_doRerunSync` is gone — it fired on a timer — and the single write lives
+     * in `_writeResult`, reached only on completion. GH-298's point is unchanged:
+     * the monthly-N render is forced at the latest possible moment before the
+     * one save that persists, rather than left to whichever reactive listener
+     * happened to fire in time.
+     */
+    test('the single write renders monthly N between the bounded wait and cacheAnalysisResults()', () => {
+        const idx = src.indexOf('async function _writeResult()');
         expect(idx).toBeGreaterThan(-1);
         const body = src.slice(idx, idx + 2500);
 
@@ -43,7 +51,7 @@ describe('GH-298 — _doRerunSync forces a direct renderNutritionSummary() call 
         // occurrences inside this function's own explanatory comment
         // (mentioning cacheAnalysisResults() by name) would otherwise match
         // first and give a false-low index.
-        const cacheIdx = body.indexOf('var snap    = cacheAnalysisResults();', renderIdx);
+        const cacheIdx = body.indexOf('cacheAnalysisResults();', renderIdx);
 
         expect(awaitIdx).toBeGreaterThan(-1);
         expect(renderIdx).toBeGreaterThan(-1);
@@ -63,12 +71,21 @@ describe('GH-298 — _doRerunSync forces a direct renderNutritionSummary() call 
         expect(before + after).toMatch(/catch\s*\(e\)/);
     });
 
-    test('other _doRerunSync behaviour (bounded wait, non-async cacheAnalysisResults, sibling call sites) is unchanged from GH-251', () => {
+    /**
+     * GH-547: the third clause of this test named the sensor re-sync as a
+     * sibling call site that must NOT render monthly N. There is no sibling: the
+     * re-sync posted a second result for the same run and is gone. Replaced by
+     * the claim that now carries the meaning — the render happens once, on the
+     * one path that writes.
+     */
+    test('the bounded wait survives, cacheAnalysisResults stays plain, and the render happens once', () => {
         expect(src).toMatch(/function _withTimeout\(promise, ms\)/);
         expect(src).toMatch(/(?<!async )function cacheAnalysisResults\(\)/);
-        const sensorIdx = src.indexOf("document.addEventListener('gaip:sensor-upgrade-complete'");
-        expect(sensorIdx).toBeGreaterThan(-1);
-        const sensorBody = src.slice(sensorIdx, sensorIdx + 400);
-        expect(sensorBody).not.toMatch(/renderNutritionSummary/);
+
+        // One forced render in the whole file, and it is inside the write.
+        const renders = src.match(/window\.GilbaNutritionSummary\.renderNutritionSummary\(\)/g) || [];
+        expect(renders.length).toBe(1);
+        const writeIdx = src.indexOf('async function _writeResult()');
+        expect(src.indexOf('window.GilbaNutritionSummary.renderNutritionSummary()')).toBeGreaterThan(writeIdx);
     });
 });

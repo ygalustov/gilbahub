@@ -1,11 +1,14 @@
 /**
  * Dashboard Init v1.0.0
- * Populates the new dashboard page from localStorage analysis cache.
+ * Populates the new dashboard page.
  *
  * Reads:
- *   gilba_hub_cache         — last hub analysis results (written by hub-persistence.js)
- *   gilba_hub_site_configs  — site turf species / region
- *   gaip_weather_cache_*    — Open-Meteo weather data (written by weather-resilience.js)
+ *   window.GAIP_DASHBOARD_DATA — the analysis result, from the server
+ *                                (GH-548: this is its ONLY source; the
+ *                                `gilba_hub_cache` copy that used to stand in
+ *                                for it is gone)
+ *   gilba_hub_site_configs     — site turf species / region
+ *   gaip_weather_cache_*       — Open-Meteo weather data (written by weather-resilience.js)
  */
 (function (global) {
     'use strict';
@@ -341,7 +344,7 @@
     }
 
     // =========================================================================
-    // VITALS — from gilba_hub_cache.dashboard
+    // VITALS — from the server's analysis result (GAIP_DASHBOARD_DATA.metrics)
     // =========================================================================
 
     function populateVitals(m, computed) {
@@ -638,13 +641,18 @@
     // ANALYSIS TIMESTAMP
     // =========================================================================
 
-    function populateTimestamp(ts) {
-        if (!ts) return;
-        var d = new Date(ts);
-        if (isNaN(d.getTime())) return;
-        var label = d.toLocaleDateString('en', { month:'short', day:'numeric' }) + ' ' +
-                    d.toLocaleTimeString('en', { hour:'2-digit', minute:'2-digit', hour12:false });
-        setText('db-analysis-ts', 'Analysis: ' + label);
+    /**
+     * GH-548 (stage 3): the pill is rendered by the server and nothing
+     * here rewrites it.
+     *
+     * This function re-derived the label from `analyzedAt` after load. It could
+     * only ever say the date, so on a site whose last re-run FAILED it quietly
+     * overwrote the server's "· re-run failed" with a plain date -- the numbers
+     * went back to looking current the moment the page finished loading. The
+     * text now arrives ready from `App\Support\AnalysisNotice::pill()`.
+     */
+    function populateTimestamp() {
+        // Intentionally empty. See above.
     }
 
     // =========================================================================
@@ -1664,39 +1672,35 @@
         var config = global.GAIP_HUB_CONFIG || {};
         var siteId = config.activeSiteId || 'default';
 
-        // Primary source: DB-backed data injected by DashboardController via window.GAIP_DASHBOARD_DATA
-        // Fallback: localStorage cache written by hub-persistence.js (supports first load before any DB data)
+        // GH-548 (stage 3) — THE ANALYSIS RESULT HAS ONE SOURCE: THE SERVER.
+        //
+        // What stood here: when the server had no result for this site, the
+        // dashboard read `gilba_hub_cache` out of localStorage and drew the
+        // vitals, the verdict, the action queue and the timestamp from it. K1 of
+        // the plan's browser-copy list, and the shape the project rule names --
+        // what a screen prints comes from the data of the object it is about,
+        // not from what this browser happens to be holding. The copy belonged to
+        // whichever site was last run in THIS browser; the site check below it
+        // only helped when the copy carried a site id, and the fallback keys
+        // (`gilba_hub_cache` with no user suffix) had none to check.
+        //
+        // The server having nothing is now an OUTCOME and it is shown as one:
+        // the panel says "no analysis has been run for this site yet" and the
+        // cards stay empty. An empty screen and a week-old screen must not look
+        // alike.
+        //
+        // The sensor and weather reads further down this file are a DIFFERENT
+        // object (items D1-D3 of the plan's list) and are deliberately untouched
+        // here; they are carried in the main defects document.
         var dbData   = global.GAIP_DASHBOARD_DATA || null;
-        var metrics  = null;
-        var computed = null;
-        var ts       = null;
-
-        if (dbData) {
-            metrics  = dbData.metrics    || null;
-            computed = dbData.computed   || null;
-            ts       = dbData.analyzedAt || null;
-        } else {
-            var uid      = config.userId || 0;
-            var cacheKey = 'gilba_hub_cache' + (uid ? '_' + uid : '');
-            var cacheRaw = _ls.getItem(cacheKey)
-                        || localStorage.getItem(cacheKey)
-                        || _ls.getItem('gilba_hub_cache')
-                        || localStorage.getItem('gilba_hub_cache');
-            var cache    = safeJson(cacheRaw);
-            // Discard cache if it belongs to a different site
-            if (cache && cache.siteId && cache.siteId !== (config.activeSiteId || 'default')) {
-                cache = null;
-            }
-            metrics  = cache && cache.dashboard ? cache.dashboard : null;
-            computed = cache && cache.computed  ? cache.computed  : null;
-            ts       = metrics ? (metrics.timestamp || (cache && cache.cachedAt)) : null;
-        }
+        var metrics  = dbData && dbData.metrics    || null;
+        var computed = dbData && dbData.computed   || null;
 
         populateVitals(metrics, computed);
         populateSensorReadings(siteId);
         populateVerdict(metrics);
         populateActionQueue(metrics, computed);
-        populateTimestamp(ts);
+        populateTimestamp();
         populatePills(siteId);
         populateSensorSource(siteId);
         initInfoPopovers();

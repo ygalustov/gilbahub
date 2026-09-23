@@ -515,6 +515,9 @@ function gaip_extractCascadeResults(cascadeResult, domState, weather) {
             status: "Not computed",
             recommendations: []
         },
+        // GH-574: and the rows the MLSN engine produced, so the nutrient cards
+        // are built from them instead of being scraped back out of `l`.
+        lRows: computed.mlsnRows || null,
         // d = Water quality results
         d: computed.water || computed.waterBlend || {
             status: "Not computed"
@@ -565,12 +568,369 @@ function gaip_extractCascadeResults(cascadeResult, domState, weather) {
     };
 }
 
+/**
+ * The engines the hub's cascade pass runs. Named once: a repeat pass that ran a
+ * different set would not be a repeat of anything.
+ */
+var GAIP_CASCADE_ENGINES = [
+    "mlsn-engine",
+    "water-engine",
+    "climate-engine",
+    "firmness-engine",
+    "nopt-engine",
+    "traffic-engine",
+    "shade-engine",
+    "salinity-penalty-engine",
+    "soil-structure-engine",
+    "phytotoxicity-engine",
+    "wear-recovery-engine",
+    "turf-manager-engine",
+    "tissue-engine",
+];
+
+/**
+ * GH-589 (link 4) — A CASCADE PASS, AND IT COLLECTS ITS OWN STATE.
+ *
+ * WHAT WAS WRONG, measured inside the runner's own frame on 23.09.2026: the
+ * cascade ran ONCE per press, inside the click handler, on a state built at the
+ * top of that handler. The site's samples arrive about two seconds later. So
+ * the nutrient list — and every other cascade output whose input is a sample —
+ * was fixed to the moment of the PRESS, and the engine answered with ten rows
+ * of "NOT MEASURED" over a soil sample holding K 40, Ca 803, CEC 5.9.
+ *
+ * GH-588 made the runner wait for the sample before it WRITES. That is the
+ * wrong end: the writing was never early, the COMPUTING was. A pass that began
+ * before its inputs arrived is not a pass on them, however late it finishes —
+ * the same rule section 15 already applies to the orchestrator and the weather.
+ *
+ * SO THE PASS COLLECTS ITS STATE AT ITS OWN START. Not handed a state built
+ * somewhere earlier: that is precisely the defect, and a repeat pass fed the
+ * previous state would satisfy "it ran twice" while producing the same empty
+ * numbers twice.
+ *
+ * WHAT IS CARRIED FORWARD, and it is two things and they are named rather than
+ * merged wholesale: the historical-weather window the handler opens from the
+ * PGR application date, and the ambient DLI the run computes from the weather
+ * it just fetched. Both are produced BY the run, cannot be read off the page,
+ * and are gone if the state is simply rebuilt. Everything else is re-read.
+ */
+function gaip_carryRunComputedInto(state, previous) {
+    if (!state || !previous) return state;
+    try {
+        if (previous.climate && previous.climate.historical && state.climate) {
+            state.climate.historical = previous.climate.historical;
+        }
+        if (previous.ambientDLI) state.ambientDLI = previous.ambientDLI;
+        if (previous.turf && previous.turf.ambientDLI != null) {
+            state.turf = state.turf || {};
+            state.turf.ambientDLI = previous.turf.ambientDLI;
+            state.turf.ambientDLISource = previous.turf.ambientDLISource;
+        }
+    } catch (e) {
+        console.warn("[GH-589] carrying the run's own values into the new pass failed:", e && e.message);
+    }
+    return state;
+}
+
+/**
+ * Which samples the pass computed on, as a fact rather than as a timestamp.
+ *
+ * A repeat pass is owed when the store now holds different samples from the
+ * ones the last pass read. Comparing the IDs says that directly; comparing
+ * clocks says it by inference, and `gaip:site-samples-ready` is known to fire
+ * before the store holds anything (GH-588), so a clock would order a pass
+ * against nothing.
+ */
+function gaip_activeSampleIds() {
+    try {
+        var SM = window.GAIP_SampleManager;
+        if (!SM || typeof SM.getActiveSample !== "function") return "no-store";
+        return ["soil", "water", "tissue"].map(function (kind) {
+            var active = SM.getActiveSample(kind);
+            return kind + ":" + ((active && active.id) || "-");
+        }).join("|");
+    } catch (e) {
+        return "unreadable";
+    }
+}
+
+var GAIP_LAST_CASCADE_PASS = null;
+
+function gaip_runCascadePass(reason, hubRoot, weather, previousState) {
+    if (typeof GilbaCascadeOrchestrator === "undefined") {
+        throw new Error("GilbaCascadeOrchestrator is required for SSOT operation");
+    }
+    var passStartedAt = Date.now();
+    var state = gaip_carryRunComputedInto(gaip_build_state(hubRoot), previousState);
+    var sampleIds = gaip_activeSampleIds();
+
+    var cascadeState = gaip_transformToCascadeFormat(state, weather);
+    console.log("📦 Cascade state prepared (" + reason + "):", Object.keys(cascadeState.inputs));
+
+    var result = GilbaCascadeOrchestrator.runCascade(cascadeState, {}, {
+        fullRecompute: true,
+        hubRoot: hubRoot,
+        passStartedAt: passStartedAt,
+        includeEngines: GAIP_CASCADE_ENGINES,
+    });
+
+    var pass = {
+        reason: reason,
+        passStartedAt: passStartedAt,
+        sampleIds: sampleIds,
+        state: state,
+        weather: weather,
+        result: result,
+        extracted: (result && result.success) ? gaip_extractCascadeResults(result, state, weather) : null,
+    };
+    GAIP_LAST_CASCADE_PASS = pass;
+    window.GAIP_LAST_CASCADE_PASS = pass;
+    return pass;
+}
+
+/**
+ * GH-589: what a REPEAT pass replaces on the shared state.
+ *
+ * The first pass publishes through the big assignment in the run handler, which
+ * also carries things no pass produces (region, variety, spray context). A
+ * repeat pass replaces exactly what it recomputed — its inputs and its own
+ * outputs — and leaves the rest of the state standing, so nothing a later
+ * reader depends on disappears because the samples were late.
+ */
+function gaip_republishCascadePass(pass) {
+    var x = pass && pass.extracted;
+    if (!x) return false;
+    // THE STATE IS PUBLISHED BY ASSIGNMENT, not by mutation, and that is not a
+    // style choice. `window.GAIP_STATE` is a property with a getter and a
+    // setter (`gilba-hub-v2.js`): the getter BUILDS A FRESH OBJECT on every
+    // read, so `GAIP_STATE.soil = …` writes to something nobody will ever read
+    // again, and the setter is what routes `soil`, `water` and `tissue` into
+    // the store. Measured while writing this: mutating left the producer
+    // reading `pH: null` beside a nutrient list full of the sample's numbers —
+    // the exact half-repaired row this ticket exists to remove.
+    var prev = window.GAIP_STATE || {};
+    var next = {};
+    Object.keys(prev).forEach(function (key) { next[key] = prev[key]; });
+    next.soil = pass.state.soil;
+    next.water = pass.state.water;
+    next.tissue = pass.state.tissue;
+    next.mlsnResults = x.l;
+    next.mlsnRows = x.lRows;
+    next.waterResults = x.d;
+    next.fertiliserIndex = x.ne;
+    next.nitrogenStatus = x.ae || null;
+    next.tissueResults = x.oe;
+    next.shadeMetrics = x.se || null;
+    next.wearMetrics = x.le || null;
+    next.salinityPenalty = x.fe ? {
+        active: x.fe.growthPenaltyPct > 0,
+        growthModifier: x.fe.relativeYieldPct / 100,
+        penaltyPct: x.fe.growthPenaltyPct,
+        ecw: x.fe.ecwInput,
+        status: x.fe.status,
+        species: x.fe.species,
+    } : null;
+    window.GAIP_STATE = next;
+    if (x.climateMetrics) window.climateMetrics = x.climateMetrics;
+    if (x.pe) window.GAIP_PHYTOTOXICITY_RESULT = x.pe;
+    try {
+        gaip_render_results(pass.state, pass.weather, x.l, x.d, x.oe, x.ne, x.ae, x.me, x.se, x.le);
+    } catch (e) {
+        console.warn("[GH-589] re-rendering after the repeat pass failed:", e && e.message);
+    }
+    try {
+        document.dispatchEvent(new CustomEvent("gaip:hub-state-update", {
+            detail: { state: window.GAIP_STATE },
+        }));
+    } catch (e) { /* the state is published either way */ }
+    return true;
+}
+
 // =============================================================================
 // END CASCADE ORCHESTRATOR INTEGRATION
 // =============================================================================
 
 function safeNum(e, t) {
     return ((e = parseFloat(e)), isFinite(e) ? e : t);
+}
+
+/**
+ * GH-577 — THE SOIL VALUES COME FROM THE SAMPLE, NOT FROM THE PAGE.
+ *
+ * `gaip_build_state()` read the soil grid with `collectGridValues`, and that was
+ * the only source it had. Measured with a probe inside the runner's own frame on
+ * 22.09.2026: the sample IS written into those fields — K 40, P 40, Ca 803, Mg
+ * 129, S 75, Fe 168, Mn 28.3, Cu 1.3, Zn 5.7, B 0.2 — but 2,091 ms after the
+ * press, and the state is built before that. So the engine was handed an empty
+ * `ppm`, produced ten rows of "NOT MEASURED", and the owner was shown ten dashes
+ * where her lab values belong.
+ *
+ * THIS IS THE CLASS THE PROJECT BANNED AFTER GH-459: what a screen or a document
+ * prints is taken from the DATA of the object it is about, never from the state
+ * of the page it was drawn on. There it printed one site's climate under another
+ * site's name while every annual total still matched. Here it printed dashes.
+ * The race is a symptom; the page read is the defect, and waiting for the fields
+ * to fill would have cured the symptom and kept the defect.
+ *
+ * THE FORM IS NOT A SECOND OPINION. When a sample is active it is the source,
+ * and a nutrient it does not carry stays absent — the form does not fill the
+ * gap, because a value that reached the page from somewhere else is exactly the
+ * plausible-looking number this whole question has been removing. `/hub` is a
+ * calculation runner and nobody types into it (see the project rules), so there
+ * is no hand-entered value to protect here.
+ *
+ * GH-589 AMENDED THE LAST SENTENCE THIS BLOCK USED TO CARRY. It said that with
+ * no sample at all the form is the only input there is and stays the source.
+ * That is the reading in `gaip_build_state` below, and it is gone: the grid is
+ * filled from the sample store, so the fallback could only ever return the
+ * store's own numbers by a slower road, or the previous site's leftovers before
+ * the clear. No sample is now no readings, said out loud by the run.
+ *
+ * METHODOLOGY IS NOT TAKEN FROM THE SAMPLE, and that is deliberate rather than
+ * an omission: it has exactly one owner, `config.turf.methodology`, settled by
+ * the owner on 18.09.2026. A sample's stamp is written FROM the config and is
+ * never read back to interpret anything.
+ *
+ * The precedence is the one already in this tree — `nutrition-calendar.js`,
+ * b35fix383, "PRIORITY 1 SampleManager, PRIORITY 2 DOM" — rather than a new
+ * idiom invented here.
+ */
+function gaip_soilFromActiveSample() {
+    try {
+        var SM = window.GAIP_SampleManager;
+        var active = (SM && typeof SM.getActiveSample === "function") ? SM.getActiveSample("soil") : null;
+        if (!active) return null;
+
+        // GH-591 — THE READINGS COME FROM THE DECLARED NORMALISER, AND NOT FROM
+        // `normalized`.
+        //
+        // MEASURED ON THE STAND, and it is why this changed. The first restoring
+        // Re-run on `Test5 - NZ` brought back all ten nutrients and lost the pH:
+        // row 53 stored `pH: null` where row 52 had 6, over a sample whose
+        // payload says `pH: 6`. The reader looked in `active.normalized` FIRST
+        // and asked for `pH_Water` / `pH` / `ph`. None of those is there: the
+        // normaliser derives its key from the form selector, `.gaip-soil-ph`
+        // becomes `soil_ph`, and pH is deliberately absent from the three
+        // canonical-key overrides (`sample-manager.js`, b35fix409 — its comment
+        // says pH is "intentionally NOT overridden"). `CEC` IS overridden, which
+        // is why CEC arrived in the same row and pH did not.
+        //
+        // This was not visible before GH-589 because the producer read the sample
+        // store a second time at assembly (`_soilSmpPH`), off `rawData`, and put
+        // the pH back. A measured value was being dropped here and replaced
+        // there — the same shape GH-572 closed for CEC, the mirror of a
+        // substitution: not a number invented, a number lost.
+        //
+        // `readingsOf` is the sample manager's own normaliser (GH-484/490), the
+        // one the form filling and the Word export use, and it names soil pH
+        // `pH` because the name comes out of the field map rather than out of a
+        // second table here. Water and tissue were put on it by GH-589; soil
+        // joins them, so there is one reader and not three.
+        if (SM && typeof SM.readingsOf !== "function") {
+            // `getActiveSample` and `readingsOf` are two methods of the same
+            // public object, so this cannot happen in this tree. Said out loud
+            // rather than answered with an empty soil block, because an empty
+            // block reads as "the sample has nothing in it".
+            console.warn("[GH-591] the sample manager has no readingsOf — the soil readings cannot be normalised");
+        }
+        var readings = (SM && typeof SM.readingsOf === "function") ? SM.readingsOf("soil", active) : null;
+        // The two fields the map does not carry, named rather than dropped:
+        // `pH_CaCl2` and `bulkDensity` have no entry in `SOIL_FIELD_MAP`, so no
+        // declared reader exists for them and they are taken off the lab row
+        // itself. `normalized` is not consulted for these either — its key shape
+        // is a derivative, which is the whole finding above.
+        var raw = active.rawData || active.values || null;
+        if ((!readings || !Object.keys(readings).length) && (!raw || !Object.keys(raw).length)) return null;
+        readings = readings || {};
+        raw = raw || {};
+
+        var num = function (v) {
+            if (v === null || v === undefined || v === "") return null;
+            var n = parseFloat(v);
+            return isNaN(n) ? null : n;
+        };
+        var ppm = {};
+        ["P", "K", "Ca", "Mg", "S", "Fe", "Mn", "Zn", "Cu", "B", "Na"].forEach(function (nut) {
+            var v = num(readings[nut]);
+            if (v !== null) ppm[nut] = v;
+        });
+
+        return {
+            ppm: ppm,
+            pH_water: num(readings.pH),
+            pH_cacl2: num(raw.pH_CaCl2 !== undefined ? raw.pH_CaCl2 : raw.pH_cacl2),
+            CEC: num(readings.CEC),
+            // GH-589: EC joins its three siblings. It was the one reading of the
+            // four that still came off the form, so `ECe` — which is EC times a
+            // texture factor — was computed from the page while pH and CEC came
+            // from the sample. Two moments in one row of the same result.
+            EC: num(readings.EC),
+            OM: num(readings.OM),
+            bulkDensity: num(raw.bulkDensity),
+        };
+    } catch (e) {
+        console.warn("[GH-577] reading the active soil sample failed:", e && e.message);
+        return null;
+    }
+}
+
+/**
+ * GH-589 (link 4, point 4a) — THE WATER AND THE TISSUE COME FROM THE
+ * SAMPLE, THE SAME WAY THE SOIL DOES SINCE GH-577.
+ *
+ * The soil was moved off the page and these two were left on it: the water ions
+ * were `collectGridValues(".gaip-water-grid")` and the tissue readings were the
+ * `[data-val]` inputs. Both grids are filled from the store by
+ * `site-selector-ui.js`, so the numbers in them are right today — and they are
+ * right BY THE ORDER THINGS HAPPEN, not by where they were read from. On a
+ * site whose water sample lands after the press, the water engine gets the
+ * previous site's grid or an empty one, exactly as the soil did.
+ *
+ * That is the rule the project settled after GH-459: what a result is about is
+ * taken from the DATA of the object it is about, never from the state of the
+ * page it was drawn on.
+ *
+ * THE READINGS COME OUT OF `readingsOf`, the sample manager's own normaliser
+ * (GH-484/490) — the same code the form filling and the Word export use. A
+ * second table of column names here is a second source, and this whole question
+ * has been removing those.
+ */
+function gaip_sampleReadings(kind) {
+    try {
+        var SM = window.GAIP_SampleManager;
+        if (!SM || typeof SM.getActiveSample !== "function" || typeof SM.readingsOf !== "function") return null;
+        var active = SM.getActiveSample(kind);
+        if (!active) return null;
+        var readings = SM.readingsOf(kind, active);
+        if (!readings || !Object.keys(readings).length) return null;
+        return readings;
+    } catch (e) {
+        console.warn("[GH-589] reading the active " + kind + " sample failed:", e && e.message);
+        return null;
+    }
+}
+
+/**
+ * The water block of the run's state, from the site's active water sample.
+ *
+ * `EC` and `pH` are the sample's own two named readings; everything else it
+ * carries is an ion. The split is taken from the reading names rather than from
+ * a list written here, so an ion added to the sample manager's map arrives
+ * without a second edit.
+ */
+function gaip_waterFromActiveSample() {
+    var readings = gaip_sampleReadings("water");
+    if (!readings) return null;
+    var ions = {};
+    Object.keys(readings).forEach(function (key) {
+        if (key === "EC" || key === "pH") return;
+        ions[key] = readings[key];
+    });
+    return {
+        ions: ions,
+        ecw: readings.EC !== undefined ? readings.EC : null,
+        pH: readings.pH !== undefined ? readings.pH : null,
+    };
 }
 
 function collectGridValues(e, t) {
@@ -969,6 +1329,9 @@ function getClimateMetricsWithFallback(e, t) {
 }
 
 function gaip_build_state(e) {
+    // GH-577: the site's own soil sample, read once, before anything looks at
+    // the page. When it is there, it is the source for the soil block below.
+    var _gaipSoilSample = gaip_soilFromActiveSample();
     var t = !!e.querySelector(".gaip-use-live-weather")?.checked,
         r = convertDateToISO(e.querySelector(".gaip-start-date")?.value || ""),
         n = convertDateToISO(e.querySelector(".gaip-end-date")?.value || "");
@@ -1032,8 +1395,23 @@ function gaip_build_state(e) {
             soil: {
                 testDate: e.querySelector(".gaip-soil-date")?.value || null,
                 depthCm: safeNum(e.querySelector(".gaip-depth")?.value, 10),
-                bulkDensity: safeNum(e.querySelector(".gaip-bd")?.value, 1.4),
-                ppm: collectGridValues(".gaip-soil-grid", "data-mlsn"),
+                bulkDensity: _gaipSoilSample?.bulkDensity ?? safeNum(e.querySelector(".gaip-bd")?.value, 1.4),
+                // GH-589 (link 4, point 3) — AND THE FORM IS NOT THE
+                // SOURCE WHEN THERE IS NO SAMPLE EITHER.
+                //
+                // GH-577 left the grid standing as the source for a site with
+                // no sample at all, on the grounds that it was then the only
+                // input there is. It is not an input: `/hub` is a calculation
+                // runner, nobody types into it (project rules), and the grid is
+                // filled from the store by `site-selector-ui.js`. So the only
+                // thing the fallback could ever return was the store's numbers
+                // arriving by a second, slower road — the page — or the
+                // previous site's leftovers before the clear.
+                //
+                // No sample is now no readings, and the run says the soil was
+                // not computed and why (GH-588 state 1). Ten dashes with a
+                // reason, instead of ten dashes with a verdict of ACCEPTABLE.
+                ppm: _gaipSoilSample ? _gaipSoilSample.ppm : {},
                 methodology: e.querySelector(".gaip-soil-methodology")?.value || "mlsn",
                 surfaceType: e.querySelector(".gaip-subcategory-option.selected")?.dataset?.surface ||
                     window.gaipTurfProfile?.state?.subCategory ||
@@ -1041,17 +1419,21 @@ function gaip_build_state(e) {
                 // Not measured → null, not 0 - a pH of "0" reads as real (implausibly
                 // acidic) data to disease models that use `??` to detect missing input
                 // (e.g. SpringDeadSpotModel's phFactor gate), not "not tested yet".
-                pH_water: safeNum(e.querySelector(".gaip-soil-ph")?.value, null),
-                pH_cacl2: safeNum(e.querySelector(".gaip-soil-ph-cacl2")?.value, null),
+                pH_water: _gaipSoilSample ? _gaipSoilSample.pH_water : null,
+                pH_cacl2: _gaipSoilSample ? _gaipSoilSample.pH_cacl2 : null,
                 Na_ppm: 0,
                 // Not measured → null, not 0 - CEC/EC1_5/ECe of "0" reads as a real (implausible)
                 // lab result to the input-range validator, not "not tested".
-                CEC: safeNum(e.querySelector(".gaip-cec")?.value, null),
-                EC1_5: safeNum(e.querySelector(".gaip-soil-ec")?.value, null),
+                CEC: _gaipSoilSample ? _gaipSoilSample.CEC : null,
+                EC1_5: _gaipSoilSample ? _gaipSoilSample.EC : null,
+                // The site's soil texture is a SITE property, not a sample one
+                // (GH-270/272: the field is rendered from the site's own
+                // `soil_texture_override` on every load), so it stays where it
+                // is. Only the measured EC moved.
                 soilTexture: e.querySelector(".gaip-soil-texture")?.value || "loam",
                 ECe: (function() {
-                    const ec1_5 = safeNum(e.querySelector(".gaip-soil-ec")?.value, null);
-                    if (ec1_5 === null) return null;
+                    const ec1_5 = _gaipSoilSample ? _gaipSoilSample.EC : null;
+                    if (ec1_5 === null || ec1_5 === undefined) return null;
                     return ec1_5 *
                         ({
                             sand: 5,
@@ -1103,11 +1485,15 @@ function gaip_build_state(e) {
                         }
                     );
                 }
+                // GH-589 (point 4a): the site's own water sample, by the same
+                // rule as the soil. No sample is no ions — the grid is not a
+                // second opinion, it is the store arriving by a slower road.
+                var _gaipWaterSample = gaip_waterFromActiveSample();
                 return {
                     testDate: e.querySelector(".gaip-water-date")?.value || null,
-                    ions: collectGridValues(".gaip-water-grid", "data-ion"),
-                    ecw: safeNum(e.querySelector(".gaip-ecw")?.value, 0),
-                    pH: safeNum(e.querySelector(".gaip-water-ph")?.value, 7),
+                    ions: _gaipWaterSample ? _gaipWaterSample.ions : {},
+                    ecw: _gaipWaterSample ? (_gaipWaterSample.ecw || 0) : 0,
+                    pH: _gaipWaterSample && _gaipWaterSample.pH !== null ? _gaipWaterSample.pH : 7,
                     recycledWater: !!(e.querySelector(".gaip-recycled-water-flag")?.checked),
                 };
             })(),
@@ -1475,25 +1861,40 @@ function renderBasicClimateInfo(e, t, r) {
     }
 }
 
+/**
+ * GH-589 (link 4, point 4a) — THE TISSUE READINGS COME FROM THE SAMPLE.
+ *
+ * This is the cascade's tissue input: `executeTissueEngine` calls it with the
+ * hub root (`cascade-orchestrator.js`). It read the twelve `[data-val]` inputs
+ * on the page — the last place in the run still taking a lab measurement off
+ * the markup, and the reason the stored tissue block was intact only because
+ * `tissue-ui.js` happened to write its snapshot after the form was filled.
+ *
+ * The READINGS move to the active tissue sample. The three selects below do
+ * not: species group, growth state and sample type are CHOICES about how to
+ * interpret the readings, not measurements, and they have no sample equivalent
+ * — the same line GH-577 drew for the soil, where methodology and texture
+ * stayed put while the numbers moved. Units keep their existing rule for the
+ * same reason.
+ */
 function gaip_read_tissue_data(e) {
+    var readings = gaip_sampleReadings("tissue");
+    if (!readings) return null;
     for (
         var t = ["N", "P", "K", "Ca", "Mg", "S", "Fe", "Mn", "Zn", "Cu", "B", "Na"], r = {}, n = {}, i = !1, a = 0; a < t.length; a++
     ) {
         var o = t[a],
-            s = e.querySelector('[data-val="' + o + '"]'),
-            l = e.querySelector('[data-unit="' + o + '"]');
-        if (s && s.value) {
-            var d = parseFloat(s.value);
-            isFinite(d) && d > 0 && ((r[o] = d), (n[o] = l ? l.value : a < 6 ? "%" : "mgkg"), (i = !0));
-        }
+            l = e && e.querySelector ? e.querySelector('[data-unit="' + o + '"]') : null;
+        var d = parseFloat(readings[o]);
+        isFinite(d) && d > 0 && ((r[o] = d), (n[o] = l ? l.value : a < 6 ? "%" : "mgkg"), (i = !0));
     }
     return i ?
         {
             tissue: r,
             units: n,
-            speciesGroup: e.querySelector('[data-tissue="speciesGroup"]')?.value || "C3",
-            growthState: e.querySelector('[data-tissue="growthState"]')?.value || "active",
-            sampleType: e.querySelector('[data-tissue="sampleType"]')?.value || "whole-leaf",
+            speciesGroup: e?.querySelector('[data-tissue="speciesGroup"]')?.value || "C3",
+            growthState: e?.querySelector('[data-tissue="growthState"]')?.value || "active",
+            sampleType: e?.querySelector('[data-tissue="sampleType"]')?.value || "whole-leaf",
         } :
         null;
 }
@@ -3363,8 +3764,26 @@ function mlsnEngine(state, weather) {
   ` :
         "";
 
-    // Assemble final output
-    return (
+    // GH-574 — THE ENGINE HANDS BACK ITS ROWS, NOT ONLY ITS MARKUP.
+    //
+    // `nutrientResults` is built above: a row per nutrient with its actual
+    // value, its threshold, its status class, its recommendation and its AA
+    // range. It was rendered into a table and thrown away, and
+    // `hub-persistence.js` recovered it by running the produced HTML back
+    // through `DOMParser` and reading the cells BY POSITION.
+    //
+    // That is the class this project banned after GH-459: what a document or a
+    // screen prints is taken from the DATA of the object it is about, not from
+    // the state of the page it was drawn on. There it cost a client another
+    // site's climate in a report. Here it cost less and failed more often — the
+    // seven-column variant of this table reads its `recommendation` out of the
+    // deficit cell, and a run where this engine threw produced no HTML at all,
+    // so the nutrient list came back empty with nothing able to say why. That
+    // is the owner's Re-run on Test5 - NZ.
+    //
+    // The HTML stays exactly as it was and is still what `computed.mlsn` holds;
+    // the rows travel beside it.
+    const html = (
         rootzoneSummary +
         "<br><br>" +
         growthConditionsHTML +
@@ -3390,6 +3809,8 @@ function mlsnEngine(state, weather) {
         establishmentRisk +
         citationHTML // NEW: Citation
     );
+
+    return { html: html, nutrients: nutrientResults };
 }
 
 function generateSoilQualityHTML(e) {
@@ -7051,7 +7472,9 @@ function initTurfTypeMode() {
                                 le,
                                 de = null,
                                 me,
-                                fe = null;
+                                fe = null,
+                                // GH-574: the MLSN engine's own rows, carried beside `l`.
+                                _b35_mlsnRows = null;
 
                             // Verify cascade orchestrator is available
                             if (typeof GilbaCascadeOrchestrator === "undefined") {
@@ -7061,42 +7484,27 @@ function initTurfTypeMode() {
                             }
 
                             try {
-                                // Build cascade state from DOM state (t) and weather (a)
-                                var cascadeState = gaip_transformToCascadeFormat(t, a);
-                                console.log("📦 Cascade state prepared:", Object.keys(cascadeState.inputs));
-
-                                // Execute cascade with all required engines
-                                var cascadeResult = GilbaCascadeOrchestrator.runCascade(
-                                    cascadeState, {}, {
-                                        fullRecompute: true,
-                                        hubRoot: e, // Pass DOM root for tissue data reading
-                                        includeEngines: [
-                                            "mlsn-engine",
-                                            "water-engine",
-                                            "climate-engine",
-                                            "firmness-engine",
-                                            "nopt-engine",
-                                            "traffic-engine",
-                                            "shade-engine",
-                                            "salinity-penalty-engine",
-                                            "soil-structure-engine",
-                                            "phytotoxicity-engine",
-                                            "wear-recovery-engine",
-                                            "turf-manager-engine",
-                                            "tissue-engine",
-                                        ],
-                                    },
-                                );
+                                // GH-589 (link 4): the cascade is a PASS, and
+                                // the pass collects its own state. `t` was built at
+                                // the top of this handler, before the weather fetch
+                                // above — which is the two seconds in which the
+                                // site's samples arrive. Everything below computes
+                                // on the state the pass actually ran on.
+                                var _cascadePass = gaip_runCascadePass("run-button", e, a, t);
+                                var cascadeResult = _cascadePass.result;
+                                t = _cascadePass.state;
+                                window.currentState = t;
 
                                 if (cascadeResult.success) {
                                     console.log("✅ Cascade completed in " + cascadeResult.duration + "ms");
                                     console.log("   Engines: " + cascadeResult.executionOrder.join(", "));
 
                                     // Extract results to legacy variable format for render compatibility
-                                    var extracted = gaip_extractCascadeResults(cascadeResult, t, a);
+                                    var extracted = _cascadePass.extracted;
 
                                     // Map to legacy variables (required by gaip_render_results)
                                     l = extracted.l; // MLSN results
+                                    _b35_mlsnRows = extracted.lRows || null; // GH-574: and its rows
                                     d = extracted.d; // Water quality results
                                     ne = extracted.ne; // Firmness results
                                     ae = extracted.ae; // Nitrogen status
@@ -7122,8 +7530,15 @@ function initTurfTypeMode() {
                                     throw new Error(cascadeResult.error || "Cascade execution failed");
                                 }
                             } catch (cascadeErr) {
+                                // GH-547 (stage 2): no `alert()`. This code
+                                // runs inside a hidden iframe on every Re-run,
+                                // where a modal dialog has nobody to dismiss it
+                                // and stops that frame's JavaScript — its timers
+                                // included — until somebody who cannot see it
+                                // presses OK. The failure travels as the event
+                                // below instead, which the runner reports to its
+                                // opener with a reason.
                                 console.error("❌ Cascade error:", cascadeErr);
-                                alert("Analysis failed: " + cascadeErr.message);
                                 throw cascadeErr;
                             }
 
@@ -7210,6 +7625,9 @@ function initTurfTypeMode() {
                                     nitrogenStatus: ae || null,
                                     varietyTraits: window.selectedVarietyTraits || null,
                                     mlsnResults: l,
+                                    // GH-574: the same result as data. `mlsnResults`
+                                    // stays the HTML every existing reader expects.
+                                    mlsnRows: _b35_mlsnRows,
                                     tissueResults: oe,
                                     waterResults: d,
                                     fertiliserIndex: ne,
@@ -7246,12 +7664,18 @@ function initTurfTypeMode() {
                                 window.GaipTurfProfile.markAnalysisRun());
                         } catch (e) {
                             _analysisRunning = false; // PATCH: release re-entry lock on error
+                            // GH-547 (stage 2): the message travels with
+                            // the event so the runner can report WHY, and the
+                            // `alert()` that stood here is gone for the reason
+                            // above — a dialog in a hidden frame is a stopped
+                            // frame, not a warning.
                             document.dispatchEvent(new CustomEvent("gaip:analysis-complete", {
                                 detail: {
-                                    error: true
+                                    error: true,
+                                    message: (e && e.message) || null
                                 }
                             }));
-                            (console.error("❌ CRITICAL ERROR:", e), alert("Analysis failed: " + e.message));
+                            console.error("❌ CRITICAL ERROR:", e);
                         }
                     } else {
                         _analysisRunning = false;
@@ -7288,6 +7712,77 @@ function initTurfTypeMode() {
                 btn.click();
             }
         };
+
+        // ═══════════════════════════════════════════════════════════════════
+        // GH-589 (link 4) — THE PASS IS REPEATED WHEN ITS INPUTS ARRIVE
+        // AFTER IT.
+        //
+        // The samples land about two seconds after the press. The pass above
+        // has already run; it read an empty store and produced ten rows of
+        // "NOT MEASURED". Nothing ran the cascade again: the listeners on
+        // `gaip:site-samples-ready` call `triggerAutoRun`/`tryRun`, and both are
+        // held by the one-run-per-load latch.
+        //
+        // WAITING BEFORE THE FIRST PASS WAS TRIED AND IS NOT THIS. GH-579 put
+        // the wait inside the run button's own handler and stalled the run
+        // altogether — the weather was never fetched and the runner wrote
+        // nothing; the cause is still not established, so nothing here depends
+        // on waiting "before".
+        //
+        // WHAT DECIDES is which samples the last pass read, compared with which
+        // ones the store holds now. Not a clock: `gaip:site-samples-ready`
+        // fires before the store holds anything (measured, GH-588), so ordering
+        // a pass against that event orders it against nothing. Ids change once
+        // per arrival, so this converges instead of chasing itself, and the cap
+        // below is a second guarantee of that rather than the first.
+        // ═══════════════════════════════════════════════════════════════════
+        var _cascadeRepeats = 0;
+        var _CASCADE_REPEAT_CAP = 3;
+        var _cascadeRepeatDebounce = null;
+
+        function _repeatCascadeIfInputsArrivedLate() {
+            var pass = window.GAIP_LAST_CASCADE_PASS;
+            if (!pass || _analysisRunning) return;
+            if (_cascadeRepeats >= _CASCADE_REPEAT_CAP) return;
+
+            // The runner's own budget when there is a runner on this page. No
+            // runner, no budget to share, and none is invented here — the cap
+            // above is what bounds it then.
+            var budget = (window.GilbaPersistence && window.GilbaPersistence.RUN_BUDGET_MS) || null;
+            if (budget && Date.now() - pass.passStartedAt > budget) return;
+
+            if (gaip_activeSampleIds() === pass.sampleIds) return;
+
+            var root = document.querySelector("#gaip-hub");
+            if (!root) return;
+
+            _cascadeRepeats += 1;
+            try {
+                var next = gaip_runCascadePass("samples-arrived", root, pass.weather, pass.state);
+                if (next.result && next.result.success) {
+                    gaip_republishCascadePass(next);
+                    console.log("[GH-589] cascade re-run on the samples that arrived after the pass |",
+                        pass.sampleIds, "->", next.sampleIds);
+                } else {
+                    console.warn("[GH-589] repeat cascade pass failed:",
+                        next.result && next.result.error);
+                }
+            } catch (err) {
+                // A repeat that throws leaves the first pass's result standing,
+                // which is what was stored before this existed.
+                console.warn("[GH-589] repeat cascade pass threw:", err && err.message);
+            }
+        }
+
+        function _scheduleCascadeRepeat() {
+            if (_cascadeRepeatDebounce) clearTimeout(_cascadeRepeatDebounce);
+            // `reloadActiveSample()` loads four types in one loop, each with its
+            // own event. One arrival, one pass.
+            _cascadeRepeatDebounce = setTimeout(_repeatCascadeIfInputsArrivedLate, 50);
+        }
+
+        document.addEventListener("gaip:sample-loaded", _scheduleCascadeRepeat);
+        document.addEventListener("gaip:site-samples-ready", _scheduleCascadeRepeat);
     }),
     document.addEventListener("DOMContentLoaded", function() {
         (document.querySelectorAll(".gaip-card-header").forEach(function(e) {
@@ -7493,6 +7988,66 @@ document.addEventListener("DOMContentLoaded", function() {
     var _siteSamplesReady = false;
     var _samplesReadyDebounce = null;
 
+    /**
+     * GH-578: is the site's soil sample here, or have we waited long enough?
+     *
+     * Returns false while it is worth waiting — the caller returns, and the next
+     * trigger (or this function's own retry) tries again. Returns true when the
+     * sample is in hand, and also when the budget has run out, having recorded
+     * that the pass is going ahead without it.
+     */
+    var _gaipSoilWaitStartedAt = 0;
+    var _gaipSoilWaitRetry = null;
+    function _gaipSoilSampleReadyOrGivenUp() {
+        var budget = (window.GilbaPersistence && window.GilbaPersistence.RUN_BUDGET_MS) || null;
+        // No runner on this page means no run budget to share. Nothing to wait
+        // for and nothing to wait with: do not invent a second limit here.
+        if (!budget) return true;
+
+        var has = false;
+        try {
+            var SM = window.GAIP_SampleManager;
+            var active = (SM && typeof SM.getActiveSample === "function") ? SM.getActiveSample("soil") : null;
+            var src = active && (active.normalized || active.rawData || active.values);
+            has = !!(src && Object.keys(src).length);
+        } catch (e) {
+            has = false;
+        }
+        if (has) {
+            if (_gaipSoilWaitRetry) { clearTimeout(_gaipSoilWaitRetry); _gaipSoilWaitRetry = null; }
+            return true;
+        }
+
+        if (!_gaipSoilWaitStartedAt) _gaipSoilWaitStartedAt = Date.now();
+        if (Date.now() - _gaipSoilWaitStartedAt < budget) {
+            // Try again shortly. The retry is what makes this a wait rather than
+            // a refusal: no other trigger is guaranteed to fire again.
+            if (!_gaipSoilWaitRetry) {
+                _gaipSoilWaitRetry = setTimeout(function () {
+                    _gaipSoilWaitRetry = null;
+                    triggerAutoRun();
+                }, 150);
+            }
+            return false;
+        }
+
+        // The limit is up. The pass goes on, and it says what it is going on
+        // without — so the result comes out partial with a reason rather than
+        // confidently empty.
+        window.GAIP_SOIL_SAMPLE_UNAVAILABLE = true;
+        try {
+            if (window.GaipOrchestrator && typeof window.GaipOrchestrator.noteSkipped === "function") {
+                window.GaipOrchestrator.noteSkipped("mlsn", "mlsn", "soil-sample-not-loaded", "mlsn");
+            }
+            if (window.GaipOrchestrator && typeof window.GaipOrchestrator.recordProblem === "function") {
+                window.GaipOrchestrator.recordProblem("mlsn",
+                    "Soil sample did not arrive inside the run budget; the soil analysis is not computed for this run");
+            }
+        } catch (e) { /* bookkeeping must not stop the run */ }
+        console.warn("[GH-578] soil sample did not arrive in " + budget + " ms — running without it");
+        return true;
+    }
+
     function triggerAutoRun() {
         if (_autoRunFired) return;
         // GH-441 (GH-439 stage 2, review): one rule, checked wherever a run
@@ -7515,6 +8070,48 @@ document.addEventListener("DOMContentLoaded", function() {
         // left _autoRunFired stuck false whenever AutoRefresh was the one that
         // actually ran it — the 6s safety fallback further down would then see
         // "no run yet" and fire a redundant extra analysis pass on every load.
+        // GH-578 — THE PASS WAITS FOR THE SOIL SAMPLE, WITH A LIMIT.
+        //
+        // *** THIS GATE IS ON THE BACKUP DOOR AND DOES NOT FIRE ON A RE-RUN. ***
+        // Measured 22.09.2026: `auto-refresh.js:250` is the primary auto-run and
+        // clicks the run button itself, so a Re-run never reaches here — this
+        // file's own comment below says as much, and I put the gate here anyway.
+        // The same shape as the two findings closed an hour earlier: a guard on
+        // one door of two. Moving it to the door every path uses — the run
+        // button's own handler — was tried (GH-579) and STALLED THE RUN: the
+        // runner reported "the run did not finish inside its time budget" and
+        // wrote nothing. Reverted; the cause is not established. The gate is
+        // left here because its behaviour is correct where it does fire (a page
+        // opened by hand), and it is labelled rather than removed so nobody
+        // reads it as the repair of link 4. Link 4 is NOT closed.
+        //
+        // WHAT WAS MEASURED, inside the runner's own frame on 22.09.2026: at
+        // 144 ms after the press the soil grid is empty AND the sample manager
+        // holds nothing; both fill at 2,134 ms, from one load; the cascade runs
+        // once, before that. So the engine was handed no soil, answered with ten
+        // rows of "NOT MEASURED", and the owner saw ten dashes where her lab
+        // values belong. GH-577 moved the read from the page to the sample and
+        // did not help: both sources are empty at the same instant. The defect
+        // is not where the run reads, it is when it computes.
+        //
+        // `_siteSamplesReady` did not stop it, and that is the point: it is set
+        // by an EVENT saying the samples are ready, and the event fires before
+        // the manager holds one. A signal named as a fact, which is not the
+        // fact. So this waits for the fact itself.
+        //
+        // AND IT DOES NOT WAIT FOREVER. Coordinator's decision, 22.09.2026,
+        // pending the owner's confirmation: past the limit the pass GOES ON and
+        // records the soil as not computed, with a reason. It does not refuse
+        // the whole run — the owner settled the same shape for the weather
+        // (a stale cache is computed and signed, not refused), and the third
+        // outcome exists for exactly this: part not computed, said out loud,
+        // previous numbers not replaced. Refusing would send her back to press
+        // Re-run again with no new information.
+        //
+        // The limit is the runner's own `RUN_BUDGET_MS` — the same fifteen
+        // seconds the weather is allowed (GH-545). There is one limit in a run.
+        if (!_gaipSoilSampleReadyOrGivenUp()) return;
+
         _autoRunFired = true;
         // Defer to AutoRefresh if it already handled the run (returning users).
         // AutoRefresh is the primary auto-run mechanism; this gate is backup for

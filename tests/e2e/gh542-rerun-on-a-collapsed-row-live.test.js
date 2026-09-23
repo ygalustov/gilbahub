@@ -1,5 +1,5 @@
 /**
- * Question 31 — DOES PRESSING RE-RUN BRING A COLLAPSED ROW BACK. A measurement.
+ * GH-542 — DOES PRESSING RE-RUN BRING A COLLAPSED ROW BACK. A measurement.
  *
  * WHY IT DECIDES THE WEIGHT OF THE WHOLE DEFECT. Russley and Federal Golf have
  * been sitting thin since yesterday and nobody has pressed anything on them. If
@@ -82,9 +82,9 @@ function shape(ns) {
 
 if (!ENABLED) {
     process.stdout.write('[e2e] gh542-rerun-on-a-collapsed-row skipped (needs the live stack)\n');
-    test.skip('Question 31 Re-run on a collapsed row (disabled)', () => {});
+    test.skip('GH-542 Re-run on a collapsed row (disabled)', () => {});
 } else {
-    describe('Question 31 — Re-run on a row that collapsed', () => {
+    describe('GH-542 — Re-run on a row that collapsed', () => {
         let browser, context, guard, page, previousActiveSiteId = null;
         let before = null, after = null, gaipBefore = null, gaipAfter = null;
         let posts = [], pressed = false;
@@ -185,7 +185,22 @@ if (!ENABLED) {
             expect(gaipAfter.updated).toBe(gaipBefore.updated);
         });
 
-        test('the press happened and produced a write', () => {
+        /**
+         * GH-547 (stage 2) — UNCHANGED IN SUBJECT, STRONGER IN CLAIM, AND
+         * NOT RUN (live tests banned for that work).
+         *
+         * A press still produces a write; that was true before and is true now.
+         * What stage 2 adds is that the write is the ONLY one for that run and
+         * that it happens on completion — so a second POST arriving from a late
+         * sensor reading, which this file would previously have seen as a
+         * perfectly normal extra, is now a defect.
+         */
+        test('the press happened and produced exactly one write', () => {
+            expect(pressed).toBe(true);
+            expect(posts.length).toBe(1);
+        });
+
+        test.skip('SUPERSEDED — the press produced at least one write', () => {
             expect(pressed).toBe(true);
             expect(posts.length).toBeGreaterThan(0);
         });

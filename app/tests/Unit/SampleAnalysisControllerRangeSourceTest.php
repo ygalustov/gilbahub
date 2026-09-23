@@ -34,7 +34,10 @@ class SampleAnalysisControllerRangeSourceTest extends TestCase
         $method = new ReflectionMethod(SampleAnalysisController::class, 'computeNutrients');
         $method->setAccessible(true);
 
-        return $method->invoke($controller, $payload, $thresholds, $cachedSn, $methodology, $soilTexture, $species);
+        // GH-546: `$thresholds` and `$cachedSn` no longer
+        // reach the controller — it classifies against the canonical MLSN table
+        // and reads no analysis cache at all.
+        return $method->invoke($controller, $payload, $methodology, $soilTexture, $species);
     }
 
     private function findNutrient(array $nutrients, string $nut): ?array

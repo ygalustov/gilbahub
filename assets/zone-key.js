@@ -92,5 +92,88 @@
         return key || String(original).toLowerCase().trim();
     }
 
-    global.GaipZoneKey = { derive: derive };
+    /**
+     * GH-549 — WHAT A ZONE WITH NO NAME IS CALLED, in one place.
+     *
+     * The owner's decision of 22.09.2026, twice: "do not substitute — on screen
+     * 'a zone with no name', and group by identifier internally without showing
+     * it", and then, for the report: "it must be the same as in the interface.
+     * If there is no name, there is none in the interface either, but the sample
+     * itself is displayed. And it must be the same in the report."
+     *
+     * So three rules, and the third is the one that costs something:
+     *   - nothing is substituted: not the identifier, not a position number;
+     *   - the sample is still shown, with its own figures;
+     *   - the screen and the document say the SAME thing, which is why this
+     *     constant lives in the module both of them already load rather than
+     *     once in each.
+     *
+     * WHAT IS PRINTED, and why it is nothing rather than a word. The owner
+     * offered two forms — "the name's place is empty, or carries an explicit
+     * mark that there is no name" — and left the choice here. It is the empty
+     * one, for a reason worth writing down: a mark is a non-empty string
+     * standing where a name is missing, which is the exact shape
+     * `gh477-substitution-for-emptiness.test.js` exists to catch, and that
+     * ratchet may shrink and may not grow. Printing "Unnamed" was measured and
+     * adds two entries to it. The empty form removes a substitution instead of
+     * exchanging one for another, and it is the owner's own first alternative.
+     *
+     * What it costs, said out loud rather than discovered: two unnamed zones on
+     * the same chart read alike and cannot be told apart. Numbering them was
+     * ruled out by name — a position number is a name nobody gave the zone, and
+     * it changes when the sort order changes. Grouping is unaffected: that is
+     * `derive()` above, which keeps them apart by identity. The sample itself is
+     * still drawn, with its own figures, which is the requirement.
+     */
+    var UNNAMED = '';
+
+    /**
+     * What `sample-manager.js`'s `generateSampleId()` produces: `Type_N_hash`,
+     * where the hash is base-36 from `Date.now()`. A slugged label cannot take
+     * this shape, which is what makes it a signature rather than a guess.
+     */
+    var GENERATED_ID = /^[A-Za-z][A-Za-z0-9]*_\d+_[0-9a-z]{4,}$/;
+
+    /**
+     * The name to print for a zone or a sample.
+     *
+     * Accepts either shape — a zone entry `{label}` from the analysis result or
+     * a sample record — because the screen holds one and the document holds the
+     * other, and one answer is the point.
+     */
+    function displayName(subject) {
+        var label = subject && typeof subject === 'object'
+            ? subject.label
+            : subject;
+        label = typeof label === 'string' ? label.trim() : '';
+
+        // GH-563 — A LABEL THAT IS A GENERATED IDENTIFIER IS NOT A NAME.
+        //
+        // The substitution used to happen when a sample was SAVED, not when it
+        // was printed: `sample-manager.js` stored `label: sampleData.label ||
+        // sampleId`, so a sample nobody named was written down as
+        // `Soil_1_3cbn`. That is fixed at the source, and it fixes nothing for
+        // the samples already in the store — their label IS the identifier.
+        //
+        // WHY "GENERATED" AND NOT SIMPLY "EQUAL TO THE ID". The first draft of
+        // this rule was `label === id`, and it ate real names: an id is derived
+        // from the label by slugging it, so a sample genuinely called `green_1`
+        // gets the id `green_1` and would have lost its name. Caught by
+        // `gh372-tissue-sample-selection-consistency`, whose zones are named
+        // exactly as their ids.
+        //
+        // `generateSampleId()` produces `Type_N_hash` — `Soil_1_3cbn` — and a
+        // slug never does, because slugging lowercases and cannot invent a
+        // four-character base-36 suffix. So the shape is the signature, and a
+        // label matching it while ALSO being the id is the store's own
+        // invention, not anybody's name.
+        if (label && subject && typeof subject === 'object' && subject.id != null
+            && label === String(subject.id).trim() && GENERATED_ID.test(label)) {
+            return UNNAMED;
+        }
+
+        return label || UNNAMED;
+    }
+
+    global.GaipZoneKey = { derive: derive, displayName: displayName, UNNAMED: UNNAMED };
 })(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));

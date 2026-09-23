@@ -1,0 +1,215 @@
+{
+  "$comment": [
+    "GH-546 (stage 0) \u2014 THE DECLARED FORM OF AN ANALYSIS RESULT.",
+    "",
+    "Why this file exists. Until now the form of the analysis result was whatever the",
+    "browser happened to hold at the moment it posted: the producer emitted a key only",
+    "when its value was not undefined, the server checked 'is it an array', and the",
+    "consumers each guarded with ?? null. A row of 5 keys and a row of 14 were equally",
+    "valid to everyone except a person reading the database. This file is the one place",
+    "that says what a complete result IS, and it is read by the producer when it builds",
+    "the body and by the server when it validates one.",
+    "",
+    "Where the numbers come from \u2014 three sources, and they agree.",
+    "  1. The producer, read from source: collectDashboardMetrics() in",
+    "     assets/hub-persistence.js can emit 17 keys, listed under producer.emits with",
+    "     the branch that emits each.",
+    "  2. The rows on the stand, read 22.09 (SELECT only): 11 rows carry the 13 core",
+    "     keys, one of those 11 carries companionDisease as a 14th, one carries 12 (no",
+    "     weatherSource), and one carries 5.",
+    "  3. The consumers, read from source \u2014 see divergence below.",
+    "",
+    "What this file does NOT do yet. Nothing reads it at runtime: the producer still",
+    "assembles by presence and the server still validates 'is it an array'. Stage 1",
+    "gives the server a service that validates against this; stage 2 gives the producer",
+    "a body built from it. Stage 0 is the declaration and the test that it matches the",
+    "tree \u2014 a schema nobody checks is a comment.",
+    "",
+    "Live tests were banned for this work and the stand was not touched: no run was",
+    "performed to snapshot the form. The producer enumeration is static, and the stand",
+    "rows are corroboration read with SELECT, not a measurement of a run."
+  ],
+  "version": 1,
+  "ticket": "GH-546",
+  "measuredAt": "2026-09-22",
+  "metrics": {
+    "$comment": [
+      "required: a completed run must carry every one of these. A run that could not",
+      "produce a value sends the key with null and the outcome says why \u2014 'twelve keys'",
+      "must become impossible to express, which is what Russley's row is today.",
+      "",
+      "The 13 below are exactly the intersection of the eleven full rows on the stand."
+    ],
+    "required": [
+      "timestamp",
+      "growthPotential",
+      "soilTemp",
+      "weatherSource",
+      "diseaseRisk",
+      "topDisease",
+      "forecastPeak",
+      "peakDay",
+      "forecastDisease",
+      "stressIndex",
+      "trendDirection",
+      "irrigationNeed",
+      "irrigationDeficit"
+    ],
+    "conditional": {
+      "$comment": [
+        "Emitted only when the named condition holds. Present in the schema so that a",
+        "row carrying one is not 'an unknown key', and a row lacking one is not",
+        "'incomplete'."
+      ],
+      "companionDisease": "the site has a companion surface \u2014 GAIP_COMPANION_DISEASE_RESULT._companionSurface; on the stand: Test6 - UK only",
+      "vwc": "a sensor reading was available at the run; on the stand: no row carries it"
+    },
+    "branchDependent": {
+      "$comment": [
+        "THE FINDING OF THIS STAGE, and it contradicts one line of the plan.",
+        "",
+        "collectDashboardMetrics() has two mutually exclusive climate branches:",
+        "  if (_cm)       \u2014 global.climateMetrics \u2014 emits growthPotential, gdd, et, soilTemp",
+        "  else if (_cc)  \u2014 orchestrator computed.climate \u2014 emits growthPotential, soilTemp",
+        "",
+        "So gdd and et ARE emitted by today's producer, on the _cm branch. The plan's",
+        "section 4 says 'no run today emits them'; its section 1 says the opposite and is",
+        "right \u2014 Federal Golf's five-key row carries et and gdd and is the _cm branch.",
+        "",
+        "What the stand shows and what it means: all eleven full rows went through _cc",
+        "(none carries gdd or et), and the one _cm row is the thinnest on the stand. The",
+        "branch is therefore not chosen by whether the run completed, and a body built",
+        "from this schema must decide which branch is the contract rather than inherit",
+        "whichever fired. That decision belongs to stage 2, not here; the keys are",
+        "declared so that the choice is visible instead of silent."
+      ],
+      "gdd": "emitted only by the _cm branch (global.climateMetrics present)",
+      "et": "emitted only by the _cm branch (global.climateMetrics present)"
+    }
+  },
+  "computed": {
+    "$comment": [
+      "The top-level keys of the computed subtree. Unlike metrics these are not",
+      "enumerated by a single producer function \u2014 `computed` is the orchestrator's state",
+      "subtree copied wholesale \u2014 so this list is the CONSUMER side: the top-level keys",
+      "that files reading GAIP_DASHBOARD_DATA actually read.",
+      "",
+      "Declared as observed, not as required: stage 0 does not decide which of these a",
+      "completed run must carry, because no single function produces them. Stage 1's",
+      "service validates metrics against `required` above; computed is validated only as",
+      "'an object'. Named here so the next stage has a list to work from rather than a",
+      "grep."
+    ],
+    "readByConsumers": [
+      "applicationWindow",
+      "climate",
+      "confidence",
+      "dew",
+      "disease",
+      "forecast",
+      "irrigation",
+      "pgr",
+      "preEmergent",
+      "shade",
+      "soilNutrition",
+      "soilTempPhysics",
+      "stress",
+      "stressTrajectory",
+      "tissue",
+      "waterBalance",
+      "wear"
+    ]
+  },
+  "envelope": {
+    "$comment": [
+      "GH-557 (section 15) \u2014 THE ENVELOPE A RESULT TRAVELS IN, and what its",
+      "outcome means.",
+      "",
+      "There were two outcomes and `complete` meant 'the POST was accepted'. With",
+      "GH-553 the producer sends every required key, null where its engine could",
+      "not answer, and the server accepts null as a complete value - so a run that",
+      "computed six of thirteen numbers was stored as a completed analysis and",
+      "replaced the numbers of one that had computed all thirteen.",
+      "",
+      "`complete` now means ALL REQUIRED VALUES WERE COMPUTED. A run that finished",
+      "but could not compute some of them is `partial`. The server decides which,",
+      "from the body - the client's word is not the outcome."
+    ],
+    "outcome": [
+      "complete",
+      "partial",
+      "failed"
+    ],
+    "outcomeRule": {
+      "complete": "every required metric has a value, and the run reported no skipped step",
+      "partial": "the run finished and the body passed the form, but a required metric is null or a step was skipped",
+      "failed": "no result was produced; `reason` says why"
+    },
+    "detail": {
+      "$comment": "Carried by the producer, stored with the row, returned by the projection and printed by the panel.",
+      "nulls": "required metrics the run could not compute",
+      "skipped": "[{step, module, reason}] - steps that did not run, from the orchestrator's own account",
+      "warnings": "[{module, message, at, data}] - everything the pass said while running",
+      "assumptions": "[{key, displayName, providedValue, assumedValue, impact, confidencePenalty, affectedEngines, settingsField, settingsLabel, reason}] - GH-581: what the run PUT IN PLACE of something it was not given. Not the same as `skipped`: an assumption is a run that went ahead on a stand-in, a skip is a part that did not run at all, and the reader needs that difference. Taken from `GilbaIdentityEnforcement.getIdentityState().assumptions`, not re-derived."
+    },
+    "inputs": {
+      "$comment": "GH-581 (stage 2) - WHAT THE RUN WAS GIVEN. The column has existed since GH-550 and was written null on every row, because nothing sent it. Two runs - one on live weather, one on a week-old cache; one on a site with a rootzone profile, one where the profile was filled in - were indistinguishable in the stored result. Identities and states only: the numbers are already in `metrics` and `computed`, and a second copy of them here would be a second source. Absent as a whole (null) means the record could not be assembled, which is a fact about the run, not a default.",
+      "weather": "{status, source, readyAt} - what the weather was and when it arrived",
+      "normals": "{present, source} - whether monthly climate normals were there",
+      "samples": "{soil, water, tissue} - the id of the active sample of each type, or null",
+      "sensors": "{vwc, soilTemp} - which of them answered, or null"
+    }
+  },
+  "divergence": {
+    "$comment": [
+      "Producer against consumers \u2014 the list stage 0 owes the owner. NO FIXES IN THIS",
+      "PASS: this is the perimeter, and each line is for a decision, not for a change.",
+      "",
+      "HOW IT WAS MEASURED, AND THE LIMIT OF IT. The producer side is exact: every key",
+      "collectDashboardMetrics() can assign, read from source. The consumer side is NOT",
+      "exact and cannot be made so by grep: consumers alias the object first",
+      "(`var metrics = dbData.metrics`) and then pass it into functions, so a search for",
+      "`metrics.<key>` finds reads of any object called metrics and misses reads through",
+      "a differently named local. Both errors are real: a wide search returns 23 names",
+      "including `push`, `length` and `js`; a narrow one returns 5. The list below is",
+      "therefore what can be said with certainty from the three sources, and the",
+      "uncertain part is named rather than rounded off."
+    ],
+    "producerEmitsNoStandRowCarries": {
+      "$comment": "Emitted by the producer, absent from all 12 rows on the stand.",
+      "keys": [
+        "vwc"
+      ],
+      "why": "needs a sensor reading at the moment of the run; no site on the stand had one"
+    },
+    "onlyOnTheThinRow": {
+      "$comment": [
+        "Present ONLY on Federal Golf's 5-key row and on no complete row. This is the",
+        "pair that made the thin row look like 'a different collector' until the plan",
+        "traced it to the _cm branch."
+      ],
+      "keys": [
+        "gdd",
+        "et"
+      ]
+    },
+    "carriedByOneRowOnly": {
+      "keys": [
+        "companionDisease"
+      ],
+      "why": "conditional on a companion surface; Test6 - UK"
+    },
+    "missingFromARowThatShouldHaveIt": {
+      "$comment": [
+        "Not a schema divergence but the defect this whole question is about, recorded",
+        "here because the schema is what makes it expressible: Russley carries 12 of the",
+        "13 required keys. Under this schema that row is incomplete and nameable;",
+        "today it is merely shorter than its neighbours."
+      ],
+      "site": "Russley",
+      "missing": [
+        "weatherSource"
+      ]
+    }
+  }
+}

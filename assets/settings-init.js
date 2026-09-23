@@ -1592,7 +1592,10 @@
         impAgainBtn.addEventListener('click', impReset);
     }
 
-    function runAnalysisAndRedirect(afterMsg) {
+    // GH-547 (stage 2): the site is named by the caller. After an import
+    // the run belongs to the site that was imported into, which is not
+    // necessarily the one the active-site pointer happens to hold.
+    function runAnalysisAndRedirect(afterMsg, runSiteId) {
         if (impSuccessMsg) {
             impSuccessMsg.innerHTML =
                 '<div>' + afterMsg + '</div>' +
@@ -1600,28 +1603,81 @@
                 '<div style="font-size:12px;color:#6b7f76;">You will be redirected to the dashboard when complete.</div>';
         }
 
+        var runId = 'run-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        var siteForRun = runSiteId
+            || (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId) || '';
+
         var iframe = document.createElement('iframe');
-        iframe.src = '/hub';
+        iframe.src = '/hub?rerun=' + encodeURIComponent(runId) + '&site=' + encodeURIComponent(siteForRun);
         iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;border:0';
         iframe.setAttribute('aria-hidden', 'true');
         document.body.appendChild(iframe);
 
         var done = false;
-        function finish() {
+        function cleanUp() {
+            try { document.body.removeChild(iframe); } catch (e) {}
+        }
+        function succeed() {
             if (done) return;
             done = true;
-            try { document.body.removeChild(iframe); } catch (e) {}
+            cleanUp();
             window.location.href = '/dashboard';
+        }
+        /**
+         * GH-547: a run that did not finish leaves the user on Settings with a
+         * reason, instead of sending them to the dashboard to look at the
+         * previous result under the impression that the import produced it.
+         * That is the plan's wording exactly: the import after a refusal stays
+         * where it is.
+         */
+        /**
+         * GH-548 (stage 3): the reason in words, from the one map — the
+         * server renders it into `GAIP_ANALYSIS_TEXTS` with the topbar pill.
+         * This box used to print the bare code in brackets.
+         */
+        function failureSentence(reason) {
+            var api = window.GilbaAnalysisNotice;
+            return api && typeof api.failureText === 'function'
+                ? api.failureText(reason)
+                : 'The re-run did not complete (' + (reason || 'run-not-completed') + '). Try Re-run from the dashboard.';
+        }
+
+        function stall(reason) {
+            if (done) return;
+            done = true;
+            cleanUp();
+            if (impSuccessMsg) {
+                impSuccessMsg.innerHTML =
+                    '<div>' + afterMsg + '</div>' +
+                    '<div style="font-size:15px;font-weight:600;color:#8a5a00;">Analysis did not complete</div>' +
+                    '<div style="font-size:12px;color:#6b7f76;">The import was saved. The previous analysis is kept'
+                    + '.</div>'
+                    + '<div style="font-size:12px;color:#6b7f76;">' + failureSentence(reason) + '</div>';
+            }
+            console.warn('[GilbaImport] re-run did not complete:', reason);
         }
 
         window.addEventListener('message', function onMsg(e) {
-            if (e.data === 'gilba:analysis-complete') {
+            var d = e && e.data;
+            if (!d || typeof d !== 'object' || d.runId !== runId) return;
+            if (d.type === 'gilba:analysis-complete') {
                 window.removeEventListener('message', onMsg);
-                finish();
+                succeed();
+            } else if (d.type === 'gilba:analysis-partial') {
+                // GH-557 (section 15): a run that finished without
+                // part of its result does NOT reload the page. The
+                // numbers on screen are the last complete ones, and
+                // reloading would replace them with blanks — the same
+                // rule as a failure (GH-548).
+                window.removeEventListener('message', onMsg);
+                stall('values-not-computed');
+            } else if (d.type === 'gilba:analysis-failed') {
+                window.removeEventListener('message', onMsg);
+                stall(d.reason);
             }
         });
 
-        setTimeout(finish, 30000);
+        setTimeout(function () { stall('no-report'); }, 30000);
     }
 
     // Apply siteConfig from bundle: update DB site record + gaip config + localStorage hub state
@@ -1828,7 +1884,7 @@
                     impStepDone.classList.remove('stg-hidden');
                     var checkmark = '<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
                     var msg = checkmark + ' ' + synced + ' record' + (synced !== 1 ? 's' : '') + ' imported successfully.';
-                    runAnalysisAndRedirect(msg);
+                    runAnalysisAndRedirect(msg, siteId);
                 })
                 .catch(function (err) {
                     // GH-526 (stage 1, item 7): say what the server said. "Please

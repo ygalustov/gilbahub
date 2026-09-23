@@ -180,50 +180,51 @@ function runPrimaryScraper(html) {
     return ctx._nutrients;
 }
 
-describe('GH-304 — hub-persistence.js scraper carries rangeSource', () => {
-    test('structural: primary scraper reads row.dataset.rangeSource', () => {
-        const src = fs.readFileSync(path.join(__dirname, '../assets/hub-persistence.js'), 'utf8');
-        const block = extractPrimaryScraperBlock(src);
-        expect(block).toContain('row.dataset ? row.dataset.rangeSource : undefined');
-        expect(block).toContain('rangeSource:    _rangeSource || undefined');
-    });
-
-    test('structural: GH-266 sample-switch fallback scraper also reads rangeSource (both paths must agree)', () => {
-        const src = fs.readFileSync(path.join(__dirname, '../assets/hub-persistence.js'), 'utf8');
-        const smIdx = src.indexOf('_smD.querySelectorAll(\'.gaip-mlsn-table tbody tr\')');
-        expect(smIdx).toBeGreaterThan(-1);
-        const smBlock = src.slice(smIdx, smIdx + 3200);
-        expect(smBlock).toContain('row.dataset ? row.dataset.rangeSource : undefined');
-        expect(smBlock).toContain('rangeSource: _smRangeSource || undefined');
-    });
-
+describe('GH-304 — rangeSource reaches the stored nutrient row', () => {
+    /**
+     * GH-574 CHANGED WHAT THIS PROTECTS, not whether it is protected.
+     *
+     * These cases asked whether `rangeSource` survived a `DOMParser` scrape of
+     * the engine's own table — the producer read it back off a `data-` attribute
+     * it had just written. The scrape is gone: the engine returns its rows and
+     * `hub-persistence.js` copies them. So the claim is now the one that
+     * actually matters — the label the engine decided is the label that lands in
+     * `computed.soilNutrition.nutrients[]` — and it is made against the row.
+     */
     let engineCtx;
     beforeAll(() => {
         engineCtx = buildContext();
     });
 
-    test('behavioural: certificate row -> rangeSource "certificate" survives the scrape', () => {
-        const { html } = run(engineCtx, {
+    test('structural: the producer carries rangeSource through, and scrapes nothing', () => {
+        const src = fs.readFileSync(path.join(__dirname, '../assets/hub-persistence.js'), 'utf8');
+        expect(src).toMatch(/rangeSource:\s+r\.rangeSource/);
+        expect(src).toMatch(/rangeSource: r\.rangeSource/);
+        // and the read it replaced is not in the tree any more
+        expect(src).not.toMatch(/row\.dataset\.rangeSource/);
+        expect(src).not.toMatch(/parseFromString/);
+    });
+
+    test('behavioural: certificate row -> the engine labels it "certificate"', () => {
+        const { row } = run(engineCtx, {
             methodology: 'ammonium_acetate', species: 'perennialRyegrass',
             construction: 'sand_profile', soilTexture: 'sand', cec: 5, ppm: { K: 199 },
         });
-        const k = runPrimaryScraper(html).find((n) => n.nutrient === 'K');
-        expect(k.rangeSource).toBe('certificate');
+        expect(row('K').rangeSource).toBe('certificate');
     });
 
-    test('behavioural: texture-fallback row (S on S277) -> rangeSource "texture-fallback" survives the scrape', () => {
-        const { html } = run(engineCtx, {
+    test('behavioural: texture-fallback row (S on S277) -> "texture-fallback", K still certificate', () => {
+        const { row } = run(engineCtx, {
             methodology: 'ammonium_acetate', species: 'perennialRyegrass',
             construction: 'sand_profile', soilTexture: 'sand', cec: 5, ppm: { K: 199, S: 75 },
         });
-        const s = runPrimaryScraper(html).find((n) => n.nutrient === 'S');
-        expect(s.rangeSource).toBe('texture-fallback');
+        expect(row('S').rangeSource).toBe('texture-fallback');
+        expect(row('K').rangeSource).toBe('certificate');
     });
 
-    test('regression: MLSN row has no rangeSource, no crash', () => {
-        const { html } = run(engineCtx, { methodology: 'mlsn', soilTexture: 'loam', ppm: { K: 50 } });
-        const k = runPrimaryScraper(html).find((n) => n.nutrient === 'K');
-        expect(k.rangeSource).toBeUndefined();
+    test('regression: an MLSN row carries no rangeSource at all', () => {
+        const { row } = run(engineCtx, { methodology: 'mlsn', soilTexture: 'loam', ppm: { K: 50 } });
+        expect(row('K').rangeSource).toBeUndefined();
     });
 });
 

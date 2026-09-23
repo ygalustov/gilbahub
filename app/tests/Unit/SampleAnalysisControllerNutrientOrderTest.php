@@ -38,13 +38,18 @@ use Tests\TestCase;
  */
 class SampleAnalysisControllerNutrientOrderTest extends TestCase
 {
-    private function computeNutrients(array $payload, array $cachedSn): array
+    private function computeNutrients(array $payload): array
     {
         $controller = new SampleAnalysisController();
         $method = new ReflectionMethod(SampleAnalysisController::class, 'computeNutrients');
         $method->setAccessible(true);
 
-        return $method->invoke($controller, $payload, [], $cachedSn, 'mlsn', 'sands', null);
+        // GH-546: `$thresholds` and `$cachedSn` no longer
+        // reach the controller — it classifies against the canonical MLSN table
+        // and reads no analysis cache at all. The helper used to keep an unused
+        // `$cachedSn` parameter, which made this file read as though a cache
+        // were still being handed over somewhere.
+        return $method->invoke($controller, $payload, 'mlsn', 'sands', null);
     }
 
     public function test_empty_cache_fallback_uses_the_canonical_order_not_payload_key_order(): void
@@ -77,18 +82,45 @@ class SampleAnalysisControllerNutrientOrderTest extends TestCase
         $this->assertSame('no-data', $s['statusClass']);
     }
 
-    public function test_present_cache_is_used_as_is_and_still_wins_over_the_fallback(): void
+    /**
+     * GH-546 — this test's subject is gone, and it is
+     * replaced rather than deleted, because the replacement says the thing the
+     * change is FOR.
+     *
+     * It used to assert that a cached nutrient list "wins over the fallback":
+     * when the site's last browser run had produced a list, the server answered
+     * with that list rather than with the canonical one. That is the dependency
+     * GH-546 removes — the server building its answer out of whatever a
+     * browser last posted — so there is no longer a path for a cache to win.
+     *
+     * What is asserted instead is the consequence: a cached list cannot change
+     * the answer, because the controller no longer takes one. The old inputs are
+     * handed over unchanged and the result is the canonical ten in canonical
+     * order, not the one nutrient the cache named.
+     */
+    public function test_a_cached_nutrient_list_can_no_longer_be_handed_to_the_method(): void
     {
-        // When $cachedSn genuinely has a nutrients array (the correct-
-        // namespace case, once the run()-level fix applies), that shape is
-        // used verbatim -- this pins that the fallback branch's new
-        // canonical-order logic doesn't leak into the "cache present" path.
-        $nutrients = $this->computeNutrients(
-            ['K' => 199],
-            ['nutrients' => [['nutrient' => 'K', 'mlsn' => 37]]]
-        );
+        // GH-546 review, and the correction is mine: the first version of this
+        // test called computeNutrients(['K' => 199]) with no cache at all and
+        // then said in a comment that "the cache said one nutrient, K". Nothing
+        // handed a cache to anything. It measured what
+        // test_empty_cache_fallback_includes_all_ten_nutrients... already
+        // measures, and the claim in its name rested on the comment.
+        //
+        // What makes "a cached list can no longer change the answer" true is the
+        // SIGNATURE: there is no longer a parameter to put one in. That is what
+        // is asserted here, by asking the method itself.
+        $method = new ReflectionMethod(SampleAnalysisController::class, 'computeNutrients');
+        $names  = array_map(fn ($p) => $p->getName(), $method->getParameters());
 
-        $this->assertCount(1, $nutrients);
-        $this->assertSame('K', $nutrients[0]['nutrient']);
+        $this->assertNotContains('cachedSn', $names,
+            'computeNutrients still accepts a cached result; the server can be handed '
+            .'what a browser last computed, which is the dependency GH-546 removes.');
+        $this->assertNotContains('thresholds', $names,
+            'computeNutrients still accepts a threshold override; the canonical MLSN '
+            .'table is meant to be the only one it classifies against.');
+
+        // And the parameters it does take are the sample's own facts.
+        $this->assertSame(['payload', 'methodology', 'soilTexture', 'species'], $names);
     }
 }

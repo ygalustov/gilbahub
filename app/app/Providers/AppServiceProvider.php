@@ -2,8 +2,8 @@
 
 namespace App\Providers;
 
+use App\Support\AnalysisResults;
 use App\Models\Site;
-use App\Models\SiteConfig;
 use App\Models\User;
 use App\Services\SpeciesService;
 use Illuminate\Support\Facades\Auth;
@@ -109,22 +109,12 @@ class AppServiceProvider extends ServiceProvider
                 ? Site::pluck('id')
                 : $user->sites()->pluck('sites.id');
 
-            $caches = SiteConfig::whereIn('site_id', $siteIds)
-                ->where('namespace', 'analysis_cache')
-                ->get()
-                ->keyBy('site_id');
-
-            $statusMap = [];
-            foreach ($siteIds as $siteId) {
-                $config = is_array($caches->get($siteId)?->config) ? $caches->get($siteId)->config : [];
-                $gpRaw  = $config['metrics']['growthPotential'] ?? null;
-                if ($gpRaw !== null) {
-                    $gp = (float) $gpRaw >= 1 ? (float) $gpRaw : (float) $gpRaw * 100;
-                    $statusMap[$siteId] = $gp >= 70 ? 'green' : ($gp >= 40 ? 'amber' : 'red');
-                } else {
-                    $statusMap[$siteId] = null;
-                }
-            }
+            // GH-546 (stage 1): through the owner of the result. This
+            // composer runs on every page carrying a topbar, so it reads many
+            // sites at once — `forSites` keeps that one query — and the growth
+            // potential thresholds (70 / 40) live with the result rather than as
+            // a second copy here.
+            $statusMap = AnalysisResults::statusMap($siteIds);
 
             $view->with('siteStatusMap', $statusMap);
 
@@ -137,7 +127,7 @@ class AppServiceProvider extends ServiceProvider
             $turfSpecies     = null;
             $turfMethodology = null;
             $locationName    = null;
-            $analysisTs      = null;
+            $analysisResult  = null;
 
             if ($activeSite) {
                 $gaipRecord = $activeSite->configs()->where('namespace', 'gaip')->first();
@@ -149,11 +139,17 @@ class AppServiceProvider extends ServiceProvider
                     : null;
                 $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
 
-                $cacheRecord = $caches->get($activeSite->id);
-                if ($cacheRecord?->synced_at) {
-                    $tz = $activeSite->timezone ?: 'UTC';
-                    $analysisTs = $cacheRecord->synced_at->setTimezone($tz)->format('M j H:i');
-                }
+                // GH-546 (stage 1): the date of the numbers comes from the
+                // same projection as the numbers. `$caches` — the hand-built
+                // query that stood above — is gone with the hand-built status
+                // map; this is the only other thing that read it.
+                //
+                // GH-548 (stage 3): the projection itself travels, not a
+                // formatted date pulled out of it. The pill has to say whether
+                // the last re-run failed as well as when the numbers are from,
+                // and that is `AnalysisNotice`'s job in one place rather than a
+                // second date format here.
+                $analysisResult = AnalysisResults::forSite($activeSite);
             }
 
             $view->with([
@@ -162,7 +158,7 @@ class AppServiceProvider extends ServiceProvider
                 'turfSpecies'     => $turfSpecies,
                 'turfMethodology' => $turfMethodology,
                 'locationName'    => $locationName,
-                'analysisTs'      => $analysisTs,
+                'analysisCache'   => $analysisResult,
             ]);
         });
     }

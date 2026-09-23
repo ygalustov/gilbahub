@@ -43,6 +43,11 @@
 
     <div class="rp-content">
 
+        {{-- GH-548 (stage 3): this page prints "Last analysis: N days ago"
+             and the confidence table from the result, and had no way to say that
+             the last attempt to refresh it failed. --}}
+        @include('partials.analysis-notice')
+
         {{-- Page header --}}
         <div style="margin-bottom:22px">
             <div style="font-size:20px;font-weight:700;color:var(--gaip-text);margin-bottom:4px">Forecast Accuracy</div>

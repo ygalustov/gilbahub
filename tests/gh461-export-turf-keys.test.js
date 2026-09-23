@@ -187,7 +187,8 @@ describe('GH-461 — data.turf holds the resolver\'s values and their derivation
  *     planted value under an excused path passed. Each table is compared whole,
  *     as a value.
  *
- * Question 10.8(7) — what a report SHOULD say for a site with no species — is
+ * What a report SHOULD say for a site with no species — the client audit's own
+ * clause 10.8(7) — is
  * the owner's and stays frozen. This pins what is printed today.
  */
 

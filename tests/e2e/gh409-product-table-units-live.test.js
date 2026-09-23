@@ -16,10 +16,11 @@
  * DOES NOT GUARD: both surfaces moving together. Proved by a mutation of the
  * temperature series handed to the programme (nutrition-calendar.js:1496,
  * +2 degC): applications 3 -> 1, volume 90 -> 30 L/ha, granular 4 -> 5 and
- * 61.6 -> 70.9 g/m2 — and the test stayed green. That is Question 32, not an
+ * 61.6 -> 70.9 g/m2 — and the test stayed green. That is the class where both
+ * surfaces drift together, not an
  * oversight of this file.
  *
- * The class "both surfaces drift together" is Question 32 in the defects list
+ * The class "both surfaces drift together" is carried in the defects list
  * and is not being worked on now.
  *
  * Two reports from the product owner, both of the same shape: the .docx did not

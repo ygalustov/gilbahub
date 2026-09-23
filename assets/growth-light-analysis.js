@@ -2030,31 +2030,9 @@
 
         container.innerHTML = html;
 
-        // --- Notification bar ---
-        var notice = document.getElementById('db-analysis-notice');
-        var noticeText = document.getElementById('db-analysis-notice-text');
-        var noticeDismiss = document.getElementById('db-analysis-notice-dismiss');
-        if (notice && noticeText) {
-            var msg = null;
-            if (!data || !cm) {
-                msg = 'No analysis data found — run analysis from the hub to populate this page.';
-                notice.className = 'db-verdict warning';
-            } else if (data.analyzedAt) {
-                var ageMs = Date.now() - new Date(data.analyzedAt).getTime();
-                var ageDays = ageMs / (1000 * 60 * 60 * 24);
-                if (ageDays > 2) {
-                    msg = 'Analysis data is ' + Math.floor(ageDays) + ' days old — re-run for the latest conditions.';
-                    notice.className = 'db-verdict warning';
-                }
-            }
-            if (msg) {
-                noticeText.textContent = msg;
-                notice.style.display = 'flex';
-                if (noticeDismiss) {
-                    noticeDismiss.onclick = function () { notice.style.display = 'none'; };
-                }
-            }
-        }
+        // GH-548 (stage 3): the notification bar is rendered by the server
+        // from the result's projection. See disease-analysis.js for the same
+        // note; this was the second of the two copies.
 
     }
 

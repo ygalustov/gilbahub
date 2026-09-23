@@ -42,7 +42,19 @@
 /** Endpoints whose writes land in a table the stand snapshot watches. */
 const SITE_STATE_WRITES = [
     { re: /\/api\/sites\/[^/]+\/config\//, table: 'site_configs' },
-    { re: /\/api\/analysis-cache(\?|$)/, table: 'site_configs (analysis_cache)' },
+    // GH-546 (stage 1): sub-paths too, not just the exact route.
+    // This was anchored at `(\?|$)`, so it covered `/api/analysis-cache`
+    // and nothing under it. Stage 2 adds the run's failure report at
+    // `/api/analysis-cache/runs` — a write to the same storage — and it
+    // would have arrived UNGUARDED, with the guard still reporting that it
+    // protects this table. The other entries here already read `(\/|\?|$)`
+    // for the same reason. Widened now rather than with the route, because
+    // a guard is worth least on the day the thing it guards is new.
+    // GH-550 (stage 4): the storage moved out of the settings table into
+    // `analysis_results`. The route did not move, so the pattern is unchanged
+    // and the TABLE it is labelled with is not — a guard that names the wrong
+    // table tells the reader of its report the wrong thing about what was held.
+    { re: /\/api\/analysis-cache(\/|\?|$)/, table: 'analysis_results' },
     { re: /\/api\/samples(\/|\?|$)/, table: 'samples' },
     { re: /\/api\/site-summaries(\/|\?|$)/, table: 'site_summaries' },
     { re: /\/api\/predictions(\/|\?|$)/, table: 'predictions' },
@@ -229,7 +241,7 @@ module.exports.fillOwnAnnualN = fillOwnAnnualN;
 const { execFileSync } = require('child_process');
 
 /**
- * Question 39 — THE STATEMENT TRAVELS ON STDIN, NOT IN THE ARGUMENT LIST.
+ * THE STATEMENT TRAVELS ON STDIN, NOT IN THE ARGUMENT LIST.
  *
  * WHAT WAS BROKEN, and it was broken in the half nobody checks. This function
  * put the whole statement into one `argv` element after `-e`. For the short
@@ -277,6 +289,7 @@ function sqlRaw(query) {
 }
 
 let _captured = null;
+let _capturedRuns = null; // GH-550: the analysis_results high-water mark
 
 /**
  * Every gaip config, as bytes, with its timestamp and its hash.
@@ -303,6 +316,11 @@ function captureConfigsOnce() {
     if (!n) throw new Error('GH-519: captured no site configurations — nothing could be put back');
     _captured = rows;
     process.stdout.write('[e2e] GH-519 captured ' + n + ' site configuration row(s), bytes and timestamps\n');
+    // GH-550: the analysis result left this table. Taken here rather than in a
+    // second call every live test would have to learn, because "capture the
+    // stand's state" is one act and ten files should not have to be edited to
+    // keep it whole.
+    captureAnalysisRunsOnce();
     return _captured;
 }
 
@@ -339,10 +357,78 @@ function restoreConfigs() {
         if (String(back[1]) !== String(want.updated)) { failed.push(key + ': the timestamp did not go back'); return; }
         restored.push(key);
     });
+    // GH-550: and the rows the run APPENDED to analysis_results. A failure here
+    // joins the same list rather than printing quietly, because a restore that
+    // half-worked and reported success is the thing this file exists against.
+    const runs = restoreAnalysisRuns();
+    if (runs.ok === false) failed.push('analysis_results: rows above id ' + runs.deleted + ' are still there');
+
     process.stdout.write('[e2e] GH-519 put back ' + restored.length + ' row(s), ' + unchanged
         + ' were untouched' + (failed.length ? '; FAILED: ' + JSON.stringify(failed) : '') + '\n');
-    return { restored: restored, failed: failed, unchanged: unchanged };
+    return { restored: restored, failed: failed, unchanged: unchanged, runs: runs };
 }
 
+/**
+ * GH-550 (stage 4) — THE SNAPSHOT FOLLOWED THE DATA, AND IT HAD TO BE MADE
+ * TO.
+ *
+ * `captureConfigsOnce` / `restoreConfigs` above watch `site_configs` and nothing
+ * else. That was the whole of the analysis result's storage until this stage;
+ * it is now a table they had never heard of, so a run that reached the server
+ * during a live test would have left a row behind with the snapshot reporting
+ * that everything was put back. The guard would have gone on being right about
+ * the table it watches and wrong about the stand.
+ *
+ * The two tables need different treatment, and pretending otherwise is how this
+ * goes wrong quietly. `site_configs` is overwritten in place, so the remedy is
+ * to put the bytes back. `analysis_results` is APPENDED to — one row per run —
+ * so a row written during a test is a row that did not exist before, and the
+ * remedy is to delete exactly those. Nothing is ever put back into it, and
+ * nothing already there is touched.
+ *
+ * NOT EXERCISED. Live tests are banned for this work, so this code has never
+ * run against the stand. It is written now rather than with the first live run
+ * because that run is the one it protects, and it is said here rather than left
+ * to be discovered.
+ */
+function captureAnalysisRunsOnce() {
+    if (_capturedRuns) return _capturedRuns;
+    let high;
+    try {
+        const out = sqlRaw('SELECT IFNULL(MAX(id), 0) FROM analysis_results;').trim();
+        high = Number(out.split('\n').filter((l) => l.trim()).pop());
+    } catch (e) {
+        // The table arrives with GH-550's migration. A stand that has not been
+        // migrated yet says so and carries on, rather than taking every live
+        // test down with it — but it says so, because a silent skip here is a
+        // snapshot that does not cover what it claims to.
+        _capturedRuns = { high: null, note: 'analysis_results is not on this stand yet' };
+        process.stdout.write('[e2e] GH-550 analysis_results NOT PRESENT — runs are not covered by this snapshot\n');
+        return _capturedRuns;
+    }
+    if (!Number.isFinite(high)) {
+        throw new Error('GH-550: could not read the high-water mark of analysis_results');
+    }
+    _capturedRuns = { high: high };
+    process.stdout.write('[e2e] GH-550 analysis_results high-water mark: ' + high + '\n');
+    return _capturedRuns;
+}
+
+/** Delete the rows this run appended, and prove the table is back where it was. */
+function restoreAnalysisRuns() {
+    if (!_capturedRuns) return { deleted: 0, note: 'nothing was captured' };
+    const before = _capturedRuns.high;
+    if (before === null) return { deleted: 0, note: _capturedRuns.note };
+    sqlRaw('DELETE FROM analysis_results WHERE id > ' + before + ';');
+    const after = Number(sqlRaw('SELECT IFNULL(MAX(id), 0) FROM analysis_results;')
+        .trim().split('\n').filter((l) => l.trim()).pop());
+    const ok = after <= before;
+    process.stdout.write('[e2e] GH-550 analysis_results back to ' + after
+        + (ok ? '' : ' — FAILED, wanted <= ' + before) + '\n');
+    return { deleted: before, high: after, ok: ok };
+}
+
+module.exports.captureAnalysisRunsOnce = captureAnalysisRunsOnce;
+module.exports.restoreAnalysisRuns = restoreAnalysisRuns;
 module.exports.captureConfigsOnce = captureConfigsOnce;
 module.exports.restoreConfigs = restoreConfigs;

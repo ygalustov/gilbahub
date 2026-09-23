@@ -29,8 +29,13 @@
  *                        resolves data sources, fires gaip:orchestrator-complete.
  * cascade-orchestrator.js (THIS FILE) = ADAPTER. Provides runCascade() interface
  *                           for hub-tissue-v3.js. Wraps each downstream engine
- *                           in try/catch, populates computed.* results on _hubState,
- *                           fires gaip:cascade-complete when done.
+ *                           in try/catch, returns its results in
+ *                           `result.state.computed`, publishes them onto
+ *                           _hubState through GaipOrchestrator.mergeComputed()
+ *                           (GH-575 — until then this line claimed it populated
+ *                           _hubState and it did not, and twelve results a run
+ *                           were dropped because of it), and fires
+ *                           gaip:cascade-complete when done.
  *
  * USAGE:
  *   Include this file AFTER hub-orchestrator.js and BEFORE hub-tissue-v3.js
@@ -83,12 +88,56 @@
         }
     }
 
+    /**
+     * GH-573 — THE CASCADE'S OWN WARNINGS REACH THE RUN'S JOURNAL.
+     *
+     * This file had its own `warn`, separate from the orchestrator's, and it
+     * went to the console and stopped there. That is why the owner's Re-run on
+     * Test5 - NZ showed no Soil & Nutrition and said nothing about it: the MLSN
+     * engine threw on values the sample store holds as strings, this adapter
+     * caught it, "MLSN engine failed" went to a console nobody had open, and the
+     * run reported itself complete.
+     *
+     * It now delegates to the orchestrator, which owns the journal. The fallback
+     * is the old behaviour, for a page that loaded this file without the
+     * orchestrator — not silence, and not an exception either.
+     */
     function warn(message, data) {
-        if (data !== undefined) {
-            console.warn('[CascadeAdapter]', message, data);
-        } else {
-            console.warn('[CascadeAdapter]', message);
+        var reached = false;
+        try {
+            if (global.GaipOrchestrator && typeof global.GaipOrchestrator.recordProblem === 'function') {
+                global.GaipOrchestrator.recordProblem('cascade', message, data);
+                reached = true;
+            }
+        } catch (e) {
+            // never let bookkeeping break the cascade
         }
+        if (!reached) {
+            if (data !== undefined) {
+                console.warn('[CascadeAdapter]', message, data);
+            } else {
+                console.warn('[CascadeAdapter]', message);
+            }
+        }
+    }
+
+    /**
+     * Did this engine produce a result?
+     *
+     * Every `executeXEngine` above answers failure with `{status:'Error'}` or
+     * `{status:'Not available'}` rather than by throwing, so the verdict is in
+     * the returned value and does not have to be inferred from anything said
+     * about it.
+     */
+    function producedSomething(value) {
+        if (value === undefined || value === null) return false;
+        if (Array.isArray(value)) return value.length > 0;
+        if (typeof value === 'object') {
+            var status = String(value.status || '');
+            if (status === 'Error' || status === 'Not available') return false;
+            return Object.keys(value).length > 0;
+        }
+        return true;
     }
 
     // =========================================================================
@@ -101,16 +150,25 @@
      * @param {Object} weather - Weather data
      * @returns {Object} MLSN results
      */
+    /**
+     * GH-574: the engine returns `{ html, nutrients }` now. The HTML is what
+     * `computed.mlsn` has always held and is left alone; the rows are what the
+     * nutrient cards are built from, instead of being scraped back out of the
+     * markup. A failure keeps the shape it had, with both halves empty.
+     */
     function executeMLSNEngine(state, weather) {
         if (typeof global.mlsnEngine === 'function') {
             try {
-                return global.mlsnEngine(state, weather);
+                var out = global.mlsnEngine(state, weather);
+                // A build of the engine older than GH-574 returns the string.
+                if (typeof out === 'string') return { html: out, nutrients: null };
+                return { html: (out && out.html) || '', nutrients: (out && out.nutrients) || null };
             } catch (e) {
                 warn('MLSN engine failed:', e);
-                return { status: 'Error', recommendations: [] };
+                return { status: 'Error', recommendations: [], html: '', nutrients: null };
             }
         }
-        return { status: 'Not available', recommendations: [] };
+        return { status: 'Not available', recommendations: [], html: '', nutrients: null };
     }
 
     /**
@@ -580,11 +638,16 @@
      * @param {boolean} options.fullRecompute - Force full recomputation
      * @param {string[]} options.includeEngines - List of engines to run
      * @param {Element} options.hubRoot - DOM root for tissue data reading
+     * @param {number} options.passStartedAt - When the caller began this pass
+     *        (GH-589). It is the CALLER's moment, not this function's: the
+     *        state was collected there, and the runner compares it with the
+     *        moment its inputs arrived. Absent: this function's own start.
      * @returns {Object} Result with { success, state, error, executionOrder }
      */
     function runCascade(cascadeState, overrides, options) {
         const startTime = Date.now();
         options = options || {};
+        const passStartedAt = typeof options.passStartedAt === 'number' ? options.passStartedAt : startTime;
         
         log('Starting cascade computation', {
             hasInputs: !!cascadeState?.inputs,
@@ -627,7 +690,11 @@
             // ─────────────────────────────────────────────────────────────────
             
             if (engines.includes('mlsn-engine') || engines.includes('climate-engine')) {
-                computed.mlsn = executeMLSNEngine(state, weather);
+                var mlsnOut = executeMLSNEngine(state, weather);
+                // `computed.mlsn` keeps its meaning — the rendered table — so
+                // every reader of it is untouched. The rows travel beside it.
+                computed.mlsn = mlsnOut.status ? mlsnOut : mlsnOut.html;
+                computed.mlsnRows = mlsnOut.nutrients;
                 executionOrder.push('mlsn-engine');
             }
 
@@ -760,6 +827,41 @@
             // ─────────────────────────────────────────────────────────────────
 
             const duration = Date.now() - startTime;
+
+            // GH-573 — THE SWEEP, and it is one place rather than sixteen.
+            // `computed` holds what this cascade ran, keyed by module, and each
+            // engine's own return value says whether it produced. So every
+            // module that answered with nothing is named here, from the result
+            // and not from anything written about it.
+            try {
+                if (global.GaipOrchestrator && typeof global.GaipOrchestrator.noteSkipped === 'function') {
+                    Object.keys(computed).forEach(function (key) {
+                        if (producedSomething(computed[key])) return;
+                        global.GaipOrchestrator.noteSkipped(key, key, 'engine-produced-nothing', key);
+                    });
+                }
+            } catch (e) {
+                // never let bookkeeping break the cascade
+            }
+
+            // GH-575 — AND THE RESULTS GO WHERE THE REST OF THE RUN CAN SEE
+            // THEM. Everything above was built into a local object, handed back
+            // and forgotten: `hub-persistence.js` assembles the stored result
+            // from `GAIP_STATE`, which is the hub orchestrator's state, so the
+            // cascade's fifteen results reached nobody. Twelve of them were
+            // lost on every run, `mlsn` among them — the nutrient cards the
+            // owner could not see.
+            try {
+                if (global.GaipOrchestrator && typeof global.GaipOrchestrator.mergeComputed === 'function') {
+                    var merged = global.GaipOrchestrator.mergeComputed(computed);
+                    log('Cascade results published to the hub state', merged);
+                } else {
+                    warn('Hub orchestrator not available: cascade results reach nobody');
+                }
+            } catch (e) {
+                warn('Publishing cascade results failed:', e);
+            }
+
             log(`Cascade completed in ${duration}ms`, { 
                 enginesRun: executionOrder.length 
             });
@@ -772,7 +874,13 @@
                     derived: cascadeState.derived || {}
                 },
                 executionOrder: executionOrder,
-                duration: duration
+                duration: duration,
+                // GH-589 (link 4): WHEN this pass began. The runner will
+                // not store a result whose cascade pass began before the site's
+                // samples arrived — the pass that answered with ten rows of
+                // "NOT MEASURED" over a sample it never saw — and it has no
+                // other way to tell that pass from the one that replaced it.
+                passStartedAt: passStartedAt
             };
 
             // ─────────────────────────────────────────────────────────────────
@@ -795,7 +903,8 @@
             return {
                 success: false,
                 error: e.message || 'Unknown cascade error',
-                state: cascadeState
+                state: cascadeState,
+                passStartedAt: passStartedAt
             };
         }
     }

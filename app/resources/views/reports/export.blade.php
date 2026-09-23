@@ -215,9 +215,13 @@
 @endsection
 
 @section('scripts')
-{{-- Suppress automatic analysis_cache DB writes while the hidden hub runs for export.
-     Only the topbar Re-run (iframe path) should update the main cache. --}}
-<script>window.GILBA_REPORTS_EXPORT = true;</script>
+{{-- GH-547 (stage 2): the `GILBA_REPORTS_EXPORT` flag is gone with the
+     writer it fenced off. It suppressed the analysis-cache write on THIS page,
+     and only on this page — /reports/forensic and /reports/scenarios embed the
+     same hub and never had it, so both wrote a result on every plain open. A
+     prohibition is a permission turned inside out and it is forgotten on the
+     next view that embeds the bundle. Nothing to suppress now: a page that was
+     not opened as `/hub?rerun=&site=` does not write. --}}
 @php
     $hubScripts = [
         'gilba-hub-v2.js','growth-potential-engine.js',

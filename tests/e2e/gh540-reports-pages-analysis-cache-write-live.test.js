@@ -1,5 +1,5 @@
 /**
- * Question 31, fourth measurement — DO THE /reports PAGES WRITE THE ANALYSIS
+ * GH-540, fourth measurement — DO THE /reports PAGES WRITE THE ANALYSIS
  * CACHE WHEN THEY ARE MERELY OPENED, AND IF SO WHICH WRITER SENDS IT.
  *
  * WHY THIS EXISTS, AND IT CORRECTS THE FOUNDATION OF QUESTION 31. All three
@@ -101,9 +101,9 @@ function rowMd5(site) {
 
 if (!ENABLED) {
     process.stdout.write('[e2e] gh540-reports-pages skipped (needs the live stack)\n');
-    test.skip('Question 31 fourth measurement (disabled)', () => {});
+    test.skip('GH-540 fourth measurement (disabled)', () => {});
 } else {
-    describe('Question 31 — do the /reports pages write on a plain open', () => {
+    describe('GH-540 — do the /reports pages write on a plain open', () => {
         let browser, context, guard, page, previousActiveSiteId = null;
         let md5Before = null;
         const perPage = {};
@@ -214,7 +214,29 @@ if (!ENABLED) {
             expect(Object.keys(perPage).sort()).toEqual(PAGES.slice().sort());
         });
 
-        test('what each page did, recorded', () => {
+        /**
+         * GH-547 (stage 2) — THE VERDICT SURVIVES, THE REASON DOES NOT, AND
+         * THIS REWRITE HAS NOT BEEN RUN (live tests banned for that work).
+         *
+         * This file found that /reports/forensic and /reports/scenarios wrote a
+         * result on a plain open while /reports/export did not, and traced the
+         * difference to `GILBA_REPORTS_EXPORT` standing in one view out of the
+         * three. That flag is gone. The writer it fenced off — `syncToServer`,
+         * posting on every state save — is gone with it, and a prohibition set
+         * in one view out of four was the reason the other two leaked.
+         *
+         * So all four pages must now read zero, and the two that used to write
+         * read zero for a different reason than export did: not because they are
+         * forbidden, but because nothing on a page that was not opened as a
+         * runner writes at all.
+         */
+        test('none of the four pages writes on a plain open any more', () => {
+            process.stdout.write('[q31d] by page: ' + JSON.stringify(perPage) + '\n');
+            expect(Object.keys(perPage).sort()).toEqual(PAGES.slice().sort());
+            PAGES.forEach((p) => expect([p, perPage[p]]).toEqual([p, 0]));
+        });
+
+        test.skip('SUPERSEDED by the test above — what each page did before stage 2', () => {
             const writers = PAGES.filter((p) => perPage[p] > 0);
             process.stdout.write('[q31d] pages that wrote: ' + JSON.stringify(writers) + '\n');
             // Asserted as a measurement rather than a demand: both outcomes were

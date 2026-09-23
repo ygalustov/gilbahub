@@ -1,5 +1,5 @@
 /**
- * Question 31 — WHAT ARRIVES AT THE ANALYSIS-CACHE WRITE WHEN A PAGE IS MERELY
+ * GH-539 — WHAT ARRIVES AT THE ANALYSIS-CACHE WRITE WHEN A PAGE IS MERELY
  * OPENED. A measurement. No fix, and no direction for one.
  *
  * THE RECORD. Three rows shrank on the stand in one day with no action but a
@@ -38,7 +38,7 @@
  * page writes) and answers it without letting it reach the server. The payload
  * is recorded on the way past. Nothing is written, so nothing needs restoring
  * and no row is put at risk — which is why this measurement does not damage the
- * stand the way the Question 39 round trips had to.
+ * stand the way the stand-restore round trips had to.
  *
  * THE DISEASE PAGE IS NOT OPENED. Russley's case was on /analysis/disease, and
  * that page is under a standing instruction not to open. /analysis alone
@@ -51,7 +51,7 @@
  * `metrics` 13 keys, `computed` 17 keys — so a thin payload is visible against
  * it. It is none of the rows under protection: not one of the four marked
  * configurations, not the Test5 - NZ trace, not Canberra, not Test1 - Sports or
- * test4 - USA, which were the Question 39 round trips.
+ * test4 - USA, which were the stand-restore round trips.
  *
  * WHAT WAS EXPECTED, WRITTEN DOWN BEFORE THE RUN, BOTH OUTCOMES NAMED.
  *   A: opening /analysis produces at least one POST to /api/analysis-cache, and
@@ -112,9 +112,9 @@ function storedShape(site) {
 
 if (!ENABLED) {
     process.stdout.write('[e2e] gh539-empty-analysis-cache-write skipped (needs the live stack)\n');
-    test.skip('Question 31 (disabled)', () => {});
+    test.skip('GH-539 (disabled)', () => {});
 } else {
-    describe('Question 31 — what an opened page sends to the analysis cache', () => {
+    describe('GH-539 — what an opened page sends to the analysis cache', () => {
         let browser, context, guard, page, previousActiveSiteId = null;
         let stored = null, posts = [], pageSaw = null;
         const perPage = {};
@@ -248,7 +248,33 @@ if (!ENABLED) {
             expect(storedShape(SITE.id).md5).toBe(stored.md5);
         });
 
-        test('the walk finds which opened page writes, and which do not', () => {
+        /**
+         * GH-547 (stage 2) — THE PREMISE OF THIS FILE HAS CHANGED, AND THE
+         * REWRITE HAS NOT BEEN RUN. Live tests are banned for that work, so what
+         * follows states the new truth and is unverified; it is marked here
+         * rather than left to be discovered on the first run after the ban ends.
+         *
+         * What it measured: which OPENED PAGE writes the analysis result. The
+         * answer was /hub, because the page decided it was the runner from
+         * `window.parent !== window` and because `save()` posted on every state
+         * save.
+         *
+         * What is true now: NO page writes by being opened. The runner writes
+         * only when it was opened AS a runner — `/hub?rerun=<id>&site=<id>` —
+         * and only when the run completed. So the walk below must find zero
+         * everywhere, /hub included, and a zero for /hub is the FINDING rather
+         * than a broken measurement.
+         */
+        test('no opened page writes the result any more, /hub included', () => {
+            process.stdout.write('[q31] POSTs by page: ' + JSON.stringify(perPage) + '\n');
+            expect(Object.keys(perPage)).toEqual(['/analysis', '/data', '/hub']);
+            expect(perPage['/analysis']).toBe(0);
+            expect(perPage['/data']).toBe(0);
+            // Was > 0 before stage 2. A plain `/hub` carries no run token.
+            expect(perPage['/hub']).toBe(0);
+        });
+
+        test.skip('SUPERSEDED by the test above — kept for the record of what changed', () => {
             // /analysis produced nothing on the first run of this file — the
             // named outcome B for that page, and the reason the walk exists.
             process.stdout.write('[q31] POSTs by page: ' + JSON.stringify(perPage) + '\n');
@@ -256,14 +282,13 @@ if (!ENABLED) {
             expect(posts.length).toBeGreaterThan(0);
         });
 
-        test('/hub is the one that writes, and the other two do not', () => {
+        test.skip('/hub is the one that writes, and the other two do not', () => {
+            // Superseded by GH-547: /hub writes only with a run token now.
             expect(perPage['/hub']).toBeGreaterThan(0);
-            expect(perPage['/analysis']).toBe(0);
-            expect(perPage['/data']).toBe(0);
         });
 
         /**
-         * Question 31, third measurement — IS THE WRITE THE POINT OF RE-RUN, OR
+         * GH-539, third measurement — IS THE WRITE THE POINT OF RE-RUN, OR
          * A SIDE EFFECT OF IT.
          *
          * Read first, so this run measures only what reading cannot settle:
@@ -305,6 +330,9 @@ if (!ENABLED) {
             await p.close();
 
             expect(hasButton).toBe(true);
+            // GH-547: unchanged in meaning — a press still produces the write.
+            // What changed is that this is now the ONLY thing that does, and the
+            // iframe it opens carries `?rerun=&site=`.
             expect(made.length).toBeGreaterThan(0);
         }, 180000);
 

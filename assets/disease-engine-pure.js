@@ -273,7 +273,8 @@ function normalizeSpecies(sp) {
 // =============================================================================
 // b35fix419 (C4) — Species-aware disease display name resolver
 // b35fix432 — extended _TAKEALL_ROOTROT_SPECIES from {paspalum} to AU-
-//             relevant warm-season scope (closes Open Question 10).
+//             relevant warm-season scope (closes the take-all root rot species
+//             gap in the migration ledger).
 //
 // The default disease label "Take-all Patch" is taxonomically correct for
 // bentgrass / cool-season grasses where the pathogen is Gaeumannomyces
@@ -316,7 +317,7 @@ const _DISEASE_DISPLAY_DEFAULTS = Object.freeze({
     takeAllPatch: 'Take-all Patch',
 });
 
-// b35fix432 (closes Open Question 10 from post-395 migration ledger):
+// b35fix432 (closes the take-all root rot species gap, post-395 migration ledger):
 // Extended from {seashore_paspalum} to all AU-relevant warm-season species
 // where the disease, when it occurs, is "take-all root rot" (sensu CABI /
 // US terminology) caused by Gaeumannomyces graminis var. graminis or

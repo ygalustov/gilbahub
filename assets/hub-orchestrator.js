@@ -182,6 +182,41 @@
     },
   };
 
+  /**
+   * GH-589 (link 4): what THIS module published into `computed`, by
+   * reference, so a later cascade pass can tell its own earlier result from
+   * somebody else's. See `mergeComputed`.
+   */
+  const _cascadePublished = Object.create(null);
+
+  /**
+   * GH-589: which input OBJECTS a pass read, as a token that changes when one of
+   * them is replaced and not otherwise.
+   *
+   * Identity, not contents: the samples and the weather arrive as new objects
+   * when they arrive, and hashing their contents would call an unchanged reading
+   * a new arrival and a re-read of the same store a change. Ids come from a
+   * WeakMap so nothing is retained.
+   */
+  const _objectIds = new WeakMap();
+  let _nextObjectId = 0;
+  function _identityOf(value) {
+    if (value === null || value === undefined) return "-";
+    if (typeof value !== "object") return String(value);
+    if (!_objectIds.has(value)) {
+      _nextObjectId += 1;
+      _objectIds.set(value, _nextObjectId);
+    }
+    return "#" + _objectIds.get(value);
+  }
+  function _passInputFingerprint() {
+    const inputs = _hubState.inputs || {};
+    return ["climate", "turf", "soil", "water", "tissue"]
+      .map((key) => key + _identityOf(inputs[key]))
+      .concat(["weather" + _identityOf(global.rawWeatherData)])
+      .join("|");
+  }
+
   // =========================================================================
   // GLOBAL STATE ALIASES — single source of truth
   // =========================================================================
@@ -1283,12 +1318,210 @@
     }
   }
 
+  /**
+   * GH-557 (section 15) — an explanation that survives the console.
+   *
+   * There are 24 `warn(` calls inside `computeAll` across eleven modules, and
+   * every one of them went to `console.warn` and nowhere else. A run that
+   * skipped its disease engine said so several times and handed on a state, a
+   * body, a row and a screen that carried no trace of it — which is how Federal
+   * Golf's Re-run was stored as a completed analysis with seven blanks in it.
+   *
+   * The message now also goes into the state, so it travels with the result: the
+   * runner puts the list in the body, the server stores it, the projection
+   * returns it and the panel prints it.
+   *
+   * `data` is summarised rather than carried: an orchestrator warning can be
+   * handed a whole engine result, and a body is not a place for one. An Error
+   * becomes its message, which is the case that matters — step 5's catch is the
+   * only record of why the stress engine threw, and it is why "the stress engine
+   * threw before assigning" is still unestablished.
+   */
+  const WARNINGS_CAP = 200;
+
+  function summariseWarnData(data) {
+    if (data === undefined || data === null) return null;
+    if (data instanceof Error) return data.message || String(data);
+    if (typeof data === 'string') return data.slice(0, 200);
+    if (typeof data === 'number' || typeof data === 'boolean') return data;
+    try {
+      const s = JSON.stringify(data);
+      return s == null ? null : s.slice(0, 200);
+    } catch (e) {
+      return String(data).slice(0, 200);
+    }
+  }
+
+  /**
+   * GH-570 — THE LEVEL IS A FIELD, AND IT IS FILLED BY WHICH FUNCTION WROTE IT.
+   *
+   * Until now a journal record carried `module`, `message`, `at` and `data`, and
+   * nothing else. An obstruction and a receipt for work that succeeded had the
+   * same four fields, so three separate readers — the outcome on the server, the
+   * panel's sentence, the panel's detail list — each had to decide what a record
+   * MEANT by looking at the words in it. Recognising a kind by the letters of a
+   * string is what we spent the day removing from zone labels.
+   *
+   * The level is not a fifth thing for an author to remember. It follows from
+   * the call: `warn()` reports that something went wrong and writes `problem`;
+   * `note()` records that something happened and writes `info`. Forty-eight
+   * `warn` calls in this file did not change and did not need to, because every
+   * one of them is already a report of trouble — the two records in a live
+   * journal that were NOT trouble were the two debug receipts saying a disease
+   * result had been written, and those are the two calls that moved to `note`.
+   *
+   * A new `warn` therefore defaults to being SEEN rather than hidden, which is
+   * the safe direction for a field like this.
+   */
+  const WARN_LEVEL = 'problem';
+  const NOTE_LEVEL = 'info';
+
+  function record(level, module, message, data) {
+    try {
+      const log = (_hubState.computed.warnings = _hubState.computed.warnings || []);
+      // A cap, because a pathological run must not post a megabyte of prose.
+      // The overflow is COUNTED rather than dropped silently: a list that
+      // quietly stops growing is the defect this whole section is about.
+      if (log.length < WARNINGS_CAP) {
+        log.push({ module: module, message: String(message), at: Date.now(), data: summariseWarnData(data), level: level });
+      } else if (log.length === WARNINGS_CAP) {
+        log.push({ module: 'orchestrator', message: 'warning log full — further warnings this pass are not recorded', at: Date.now(), data: null, level: WARN_LEVEL });
+      }
+    } catch (e) {
+      // Never let bookkeeping break a run.
+    }
+  }
+
+  /**
+   * Something happened and nothing is missing because of it.
+   *
+   * It goes in the same journal — the run said it, and the run's account should
+   * hold everything the run said — but it never turns an outcome partial and it
+   * is not printed under a heading about what could not be computed.
+   */
+  function note(module, message, data) {
+    record(NOTE_LEVEL, module, message, data);
+
+    const prefix = `[Orchestrator:${module}]`;
+    if (data !== undefined) {
+      console.log(prefix, message, data);
+    } else {
+      console.log(prefix, message);
+    }
+  }
+
   function warn(module, message, data) {
+    record(WARN_LEVEL, module, message, data);
+
     const prefix = `[Orchestrator:${module}]`;
     if (data !== undefined) {
       console.warn(prefix, message, data);
     } else {
       console.warn(prefix, message);
+    }
+  }
+
+  /**
+   * A step that did not run, recorded as a fact rather than as a sentence.
+   *
+   * `warnings` says what was said; `skipped` says what is MISSING from the
+   * result and why — which is what decides the run's outcome on the server and
+   * what the panel names to the reader.
+   */
+  /**
+   * GH-573 — THE PASS SAYS WHAT IT TOOK ON, AND THE RESULT SAYS WHETHER IT
+   * ARRIVED.
+   *
+   * WHAT WENT WRONG WITH THE PREVIOUS ANSWER, measured rather than recalled.
+   * GH-569 taught the server to read the journal for a module that had not
+   * produced, and it read it BY THE WORDS: "blocked", "failed", "error". That is
+   * recognising a kind by the letters of a string, the same thing this question
+   * removed from zone labels — and it was wrong on real data.
+   * `analysis_results` id 29 carries "Wear engine blocked by identity
+   * enforcement" AND a complete fourteen-key `computed.wear` written in the same
+   * millisecond; the wear engine does not read `turfIntent` at all, so the block
+   * is announced and never enforced. The sentence was false and the rule
+   * believed it, turning whole runs partial.
+   *
+   * SO THE VERDICT COMES FROM THE RESULT. A step records, at the moment it calls
+   * an engine, that it expects one — and at the end of the pass every expected
+   * result that is not there becomes a skip, by name. Nothing reads a message.
+   *
+   * `notApplicable()` is the third answer and it is not a failure: an engine
+   * that ran and said it does not apply here has produced its answer. Dew is the
+   * one step in this pass that has such a verdict.
+   */
+  function attempting(module, resultKey) {
+    try {
+      const list = (_hubState.computed.attempted = _hubState.computed.attempted || []);
+      if (!list.some((a) => a.module === module)) {
+        list.push({ module: module, resultKey: resultKey || module });
+      }
+    } catch (e) {
+      // Never let bookkeeping break a run.
+    }
+  }
+
+  /** The engine ran and said this site is not a case for it. Not a gap. */
+  function notApplicable(module, why) {
+    try {
+      const list = (_hubState.computed.attempted = _hubState.computed.attempted || []);
+      _hubState.computed.attempted = list.filter((a) => a.module !== module);
+    } catch (e) {
+      // as above
+    }
+    note(module, why || 'engine reports this site is not a case for it');
+  }
+
+  /**
+   * Did this value come out of an engine that produced something?
+   *
+   * The cascade's engines answer failure with `{status:'Error'}` or
+   * `{status:'Not available'}` rather than by throwing, and the climate step
+   * writes `{}` when it falls back — so "the key is there" is not the question.
+   * The question is whether there is a result in it.
+   */
+  function producedSomething(value) {
+    if (value === undefined || value === null) return false;
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === 'object') {
+      const status = String(value.status || '');
+      if (status === 'Error' || status === 'Not available') return false;
+      return Object.keys(value).length > 0;
+    }
+    return true;
+  }
+
+  /**
+   * The sweep. Every result this pass took on and did not produce, named.
+   *
+   * It runs once, at the end, and it is the only thing that decides. A step that
+   * was never entered is not here; a step that produced is not here; a step that
+   * declined is not here because `notApplicable` took it out.
+   */
+  function noteWhatProducedNothing() {
+    try {
+      (_hubState.computed.attempted || []).forEach(function (a) {
+        if (producedSomething(_hubState.computed[a.resultKey])) return;
+        noteSkipped(a.module, a.module, 'engine-produced-nothing', a.resultKey);
+      });
+    } catch (e) {
+      // as above
+    }
+  }
+
+  function noteSkipped(step, module, reason, resultKey) {
+    try {
+      const list = (_hubState.computed.skipped = _hubState.computed.skipped || []);
+      if (!list.some((s) => s.step === step && s.module === module)) {
+        // GH-573: `resultKey` travels with the declaration so the server can
+        // check it against the result. Three modules spell their result
+        // differently from their own name (`pre-emergent`/`preEmergent`), and a
+        // second copy of that spelling on the server is a second source.
+        list.push({ step: step, module: module, reason: reason, resultKey: resultKey || module });
+      }
+    } catch (e) {
+      // as above
     }
   }
 
@@ -1494,6 +1727,38 @@
    *   3. Cached window.climateMetrics
    *   4. Manual inputs
    */
+  /**
+   * GH-560 — THE PAGE'S CLIMATE IS MERGED IN, NOT PUT IN PLACE OF.
+   *
+   * Two state-synchronisation handlers did `computed.climate = state.climateMetrics`,
+   * a replacement. Step 2 of every pass stores `getAuthoritativeClimate()`,
+   * which carries `soilTemp` from the canonical state along with `quality`,
+   * `humidity`, `dewpoint` and `solar`; the climate ENGINE's own object has
+   * none of those. So on every run the wider object was thrown away for the
+   * narrower one, and `collectDashboardMetrics` — which reads
+   * `climate.soilTemp.depths.d100mm` — found nothing.
+   *
+   * Measured rather than reasoned: `soilTemp` is null in thirteen of the
+   * fourteen rows on the stand, `computed.climate` in every one of them has the
+   * engine's shape, and the one row with a value took a different branch of the
+   * collector entirely.
+   *
+   * The merge keeps what the incoming object does not mention and takes what it
+   * does — the engine's figures are the fresher ones for the fields it has.
+   *
+   * WHAT THIS DOES NOT DO: put a number anywhere. If the canonical state has no
+   * soil temperature, none appears, the metric stays `null`, and the run is
+   * `partial` with the reason on the screen (GH-557). A missing measurement
+   * stays missing.
+   */
+  function mergeClimateFromHub(incoming) {
+    const existing = _hubState.computed.climate;
+    if (!existing || typeof existing !== "object") return incoming;
+    if (!incoming || typeof incoming !== "object") return existing;
+
+    return Object.assign({}, existing, incoming);
+  }
+
   function getAuthoritativeClimate() {
     const state = _hubState;
 
@@ -3183,7 +3448,13 @@
         if (isGolf) {
           log("wear", "Wear/traffic engine not applicable for golf profiles");
         } else {
-          warn("wear", "Wear engine blocked by identity enforcement:", wearCheck.reason);
+          // GH-580: `note`, not `warn`. Nothing is blocked — `wearCanRun` is
+          // computed here, said out loud, and never consulted again; the engine
+          // is called a few lines below whatever it holds. Filed as a problem,
+          // this sentence made the server call complete runs partial (GH-569,
+          // withdrawn in GH-573) and put "blocked" in front of the reader. It is
+          // information about identity, and it is filed as information.
+          note("wear", "Wear engine runs without a defined intent: " + wearCheck.reason);
         }
       }
     }
@@ -3975,6 +4246,24 @@
   /**
    * Run full hub computation with proper sequencing
    * This is the main entry point for orchestrated execution
+   *
+   * GH-557 (section 15) — THE GUARD IS NOW RELEASED WHATEVER HAPPENS.
+   *
+   * `_isComputingAll` was set here and cleared by the last statement of the
+   * pass, with nothing in between. Any exception anywhere in five hundred lines
+   * left it set FOR THE LIFE OF THE PAGE, and every later pass became a silent
+   * no-op — including the one the orchestrator re-runs when the weather arrives
+   * (`:5057` tests this very flag), which is the pass that was supposed to fill
+   * in the disease and forecast the first one skipped.
+   *
+   * Found while measuring section 15's root, not by reading: the bench's second
+   * `computeAll` returned the first pass's state, because the first had thrown
+   * on a step that needs a page. It is repaired here rather than reported,
+   * because the half of this section that makes the runner WAIT for the pass
+   * after the weather waits for a pass that, after any exception, can never come.
+   *
+   * The body is unchanged and unindented — it moved into `runComputePass` — so
+   * that what this commit did is legible next to five hundred lines it did not.
    */
   async function computeAll(inputs) {
     // Guard against re-entry (prevents infinite loop)
@@ -3983,9 +4272,29 @@
       return _hubState.computed;
     }
     _isComputingAll = true;
+    try {
+      return await runComputePass(inputs);
+    } finally {
+      _isComputingAll = false;
+    }
+  }
 
+  async function runComputePass(inputs) {
     const startTime = Date.now();
     _hubState.computeSequence++;
+
+    // GH-557 (section 15): the journal is per PASS, not per page. A run that
+    // skipped disease on its first pass and computed it on its second must not
+    // report both, or the reader is told about a gap that the run closed.
+    _hubState.computed.warnings = [];
+    _hubState.computed.skipped = [];
+    // GH-573: and what this pass takes on, so the sweep at the end is about
+    // THIS pass and not about what a previous one attempted.
+    _hubState.computed.attempted = [];
+    // When THIS pass began. The runner uses it to tell a pass that ran before
+    // the weather from the one the orchestrator re-runs after it — the two are
+    // indistinguishable today, and the first one's body is what got stored.
+    _hubState.computed.passStartedAt = startTime;
 
     log("main", `Starting computation sequence #${_hubState.computeSequence}`);
 
@@ -4010,6 +4319,11 @@
       Object.assign(_hubState.inputs, inputs);
     }
 
+    // GH-589: which input objects THIS pass is reading. Recorded here, after
+    // the refresh above and before any engine runs, so a later arrival can be
+    // told from the same objects being announced twice.
+    _hubState.computed.passInputs = _passInputFingerprint();
+
     // ─────────────────────────────────────────────────────────────────────
     // 2. POPULATE CANONICAL STATE (single source of truth)
     // ─────────────────────────────────────────────────────────────────────
@@ -4021,6 +4335,7 @@
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 2: Climate");
     let climate = {};
+    attempting("climate");
     try {
       climate = getAuthoritativeClimate();
       _hubState.computed.climate = wrapWithConfidence("climate", climate);
@@ -4043,6 +4358,7 @@
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 2: Dew prediction");
     if (global.gaip_dew_prediction) {
+      attempting("dew");
       try {
         const { state: dewState, weather: weatherForDew } = buildDewInputs();
         const hasCloudData = !!weatherForDew?.forecast?.hourly?.cloud_cover;
@@ -4069,6 +4385,11 @@
             totalWetHours: dewResult.leafWetness?.totalWetHours,
             averageWetHours: dewResult.leafWetness?.averageWetHours,
           });
+        } else if (dewResult) {
+          // GH-573: the engine ran and answered "not here". That is a result,
+          // not a gap, and the pass stops expecting one — otherwise every site
+          // without dew conditions would report a module that failed.
+          notApplicable("dew", "dew prediction does not apply to this site's conditions");
         }
       } catch (e) {
         warn("dew", "Dew engine error", e);
@@ -4081,6 +4402,7 @@
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 3: Shade analysis");
     if (global.gaip_shade_engine && _hubState.inputs.turf) {
+      attempting("shade");
       try {
         const { state: shadeState, weather: weatherForShade } = buildShadeInputs();
         _hubState.computed.shade = wrapWithConfidence("shade", global.gaip_shade_engine(shadeState, weatherForShade));
@@ -4104,6 +4426,7 @@
         if (global.SalinityEnginePure) {
           const salInputs = buildSalinityInputs();
           if (salInputs.ecw > 0) {
+            attempting("salinity");
             const salResult = global.SalinityEnginePure.analyse(salInputs);
             if (salResult && !salResult.error) {
               _hubState.computed.salinity = wrapWithConfidence("salinity", salResult);
@@ -4142,10 +4465,15 @@
     // 6. STRESS AGGREGATION (depends on 2,3,4)
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 5: Stress aggregation");
+    attempting("stress");
     try {
       calculateStressAggregates();
     } catch (e) {
       warn("stress", "Stress aggregation error, downstream engines will use defaults", e);
+      // GH-557: the exception's own text now travels with the result. It is the
+      // only record of why this step threw — and its absence is precisely why
+      // "the stress engine threw before assigning" is still unestablished.
+      noteSkipped("stress", "stress", "engine-error");
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -4155,6 +4483,7 @@
     log("main", "Step 6: Disease analysis");
     let _diseaseFreshThisPass = false;
     if (global.DiseaseEngine || (global.GILBA_USE_PURE_DISEASE && global.DiseaseEnginePure)) {
+      attempting("disease");
       try {
         const diseaseInputs = buildDiseaseInputs();
 
@@ -4183,6 +4512,9 @@
             "disease",
             "Skipping disease computeAll pass — climate temperature not yet available, keeping previous disease result rather than persisting a degraded read",
           );
+          // GH-557: and it is recorded as a missing part of the result, not only
+          // said. This is the branch that produced Federal Golf's row.
+          noteSkipped("disease", "disease", "climate-late");
         } else {
           const rawDiseaseResult = runDiseaseAnalysis(diseaseInputs);
 
@@ -4297,7 +4629,7 @@
             _hubState.computed.disease._writerTag = "b35fix365:writer1-mainBlock";
             global.GAIP_DISEASE_RESULT = _hubState.computed.disease;
             // Confirm disease result write for dashboard debugging
-            warn(
+            note(
               "disease",
               `[b35fix365 writer1-mainBlock] GAIP_DISEASE_RESULT written, species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)}`,
             );
@@ -4381,6 +4713,7 @@
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 7: Wear/recovery analysis");
     if (global.gaip_wear_recovery_engine) {
+      attempting("wear");
       try {
         const { state, weather, shadeData } = buildWearRecoveryInputs();
         const baseWearResult = global.gaip_wear_recovery_engine(
@@ -4430,6 +4763,7 @@
           trajWeather,
           { days: 14, startDate: new Date() }, // pure engine requires explicit startDate
         );
+        attempting("stress-trajectory", "stressTrajectory");
         if (trajResult) {
           // Inject metadata.species so the UI subtitle shows the actual species name
           if (!trajResult.metadata) trajResult.metadata = {};
@@ -4508,6 +4842,7 @@
               preEmInputs.soilTempSource + ' single-point, awaiting sensor fetch');
             console.log('[PreEmergent] race guard, holding prior sensor result, skipping physics single-point');
           } else {
+          attempting("pre-emergent", "preEmergent");
           const preEmResult = global.GAIP_PreEmergent.analyse(preEmInputs);
           // Stamp source so race guard can check it on next run
           preEmResult._soilTempSource = preEmInputs.soilTempSource;
@@ -4544,6 +4879,11 @@
     //    day0ActiveThreats from a stale/absent disease result.
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 9: Disease forecast (7-day)");
+    if (!_diseaseFreshThisPass) {
+      // GH-557: the forecast is chained to the disease step, so one skip costs
+      // four keys rather than two. Said out loud instead of inferred from a gap.
+      noteSkipped("forecast", "forecast", "disease-not-computed");
+    }
     if (_diseaseFreshThisPass && global.DiseaseForecast && typeof global.DiseaseForecast.generateForecast === "function") {
       try {
         const fcInputs = buildDiseaseInputs(); // cheap, pure — re-derive rather than
@@ -4623,6 +4963,7 @@
           day0ActiveThreats: day0ActiveThreats,
         };
 
+        attempting("forecast");
         const forecastResult = global.DiseaseForecast.generateForecast(forecastState);
         if (forecastResult && !forecastResult.error) {
           _hubState.computed.forecast = wrapWithConfidence("forecast", forecastResult);
@@ -4659,6 +5000,7 @@
     // v1.3.0: Calculate and attach confidence summary
     let confidenceSummary = null;
     if (global.GilbaEngineConfidence) {
+      attempting("confidence");
       confidenceSummary = global.GilbaEngineConfidence.getConfidenceSummary(_hubState);
       _hubState.computed.confidence = confidenceSummary;
 
@@ -4679,10 +5021,27 @@
       }
     }
 
+    // GH-573: everything this pass took on and did not produce, worked out
+    // from the results themselves. It runs here, after the last step and before
+    // anyone is told the pass is over, so the account that travels with the
+    // result is complete.
+    noteWhatProducedNothing();
+
     // Dispatch event for UI updates
     document.dispatchEvent(
       new CustomEvent("gaip:orchestrator-complete", {
-        detail: { state: _hubState, duration: duration, confidence: confidenceSummary },
+        detail: {
+          state: _hubState,
+          duration: duration,
+          confidence: confidenceSummary,
+          // GH-557 (section 15): what this pass could not compute, and when
+          // it began. The runner reads both — the first to say the result is
+          // partial, the second to tell this pass from one that ran before the
+          // weather arrived.
+          warnings: _hubState.computed.warnings || [],
+          skipped: _hubState.computed.skipped || [],
+          passStartedAt: _hubState.computed.passStartedAt || startTime,
+        },
       }),
     );
 
@@ -4713,9 +5072,6 @@
         _hubState.inputs.turf.construction = ct.construction;
       }
     }
-
-    // Clear re-entry guard
-    _isComputingAll = false;
 
     return _hubState;
   }
@@ -4762,7 +5118,7 @@
           // read lat/lon on GSSH pages where no saved site config exists
           location: state.location || state.site?.location || null,
         };
-        if (state.climateMetrics) _hubState.computed.climate = state.climateMetrics;
+        if (state.climateMetrics) _hubState.computed.climate = mergeClimateFromHub(state.climateMetrics);
         if (state.shadeMetrics) _hubState.computed.shade = state.shadeMetrics;
         if (state.wearMetrics) _hubState.computed.wear = state.wearMetrics;
         log("integration", "State synchronized from hub");
@@ -4791,19 +5147,20 @@
           site: state.site || null,
           pgr: state.pgr || null, // v1.7.0
         };
-        if (state.climateMetrics) _hubState.computed.climate = state.climateMetrics;
+        if (state.climateMetrics) _hubState.computed.climate = mergeClimateFromHub(state.climateMetrics);
         if (state.shadeMetrics) _hubState.computed.shade = state.shadeMetrics;
         if (state.wearMetrics) _hubState.computed.wear = state.wearMetrics;
       }
-      // b35fix240: Do NOT pre-set _weatherReadyFired here.
+      // b35fix240: nothing here may pre-empt the weather-ready retry.
       // analysis-complete always arrives before gaip:weather-ready (hub-tissue
       // dispatches analysis-complete synchronously; weather fetch is async).
-      // Pre-setting the flag caused the weather-ready handler to bail before
+      // Marking the weather as handled here caused that retry to bail before
       // computeAll could run with live rawWeatherData, leaving _hubState.computed.dew
       // null every run and forcing the disease engine into the climate-fallback path
       // (fixed estimatedWetHours, leafWetHrs stuck at 6).
-      // The weather-ready handler's own one-shot guard (_weatherReadyFired set inside
-      // that handler) is sufficient to prevent double-runs.
+      // GH-589 replaced the one-shot latch that stood there with the question
+      // the latch was standing in for — did the last pass begin before this
+      // input arrived — which cannot be pre-set from here at all.
       // Clear deferred-pending flag so a second gaip:site-config-applied
       // dispatch (e.g. from site-config-persistence init re-running on the shade hub)
       // doesn't trigger the safety-net computeAll after a clean analysis has completed.
@@ -4908,7 +5265,7 @@
     // Timing: hub-tissue's site-config-applied listener fires btn.click() immediately,
     // analysis runs, and gaip:analysis-complete arrives ~300-500ms later — which already
     // triggers orchestrator computeAll via the analysis-complete handler above (setting
-    // _weatherReadyFired and clearing _autoComputeTimer). So this listener's 800ms delay
+    // the late-input retry and clearing _autoComputeTimer). So this listener's 800ms delay
     // means gaip:analysis-complete will almost always have fired first and set
     // _orchestratorDeferredPending = false before this setTimeout callback runs.
     // The flag ensures we don't double-fire if the page is slow and analysis-complete
@@ -4923,7 +5280,7 @@
       clearTimeout(_autoComputeTimer);
       // 800ms: hub-tissue btn.click fires at ~0ms post-event, analysis runs ~300ms,
       // analysis-complete triggers our handler above. By 800ms that's done and
-      // _weatherReadyFired is true, so this is a pure safety net for slow pages.
+      // a pass has begun after the weather, so this is a pure safety net for slow pages.
       _autoComputeTimer = setTimeout(() => {
         log(
           "integration",
@@ -4935,38 +5292,96 @@
       }, 800);
     });
 
+    /**
+     * GH-589 (link 4, point 5) — A PASS THAT BEGAN BEFORE AN INPUT
+     * ARRIVED IS NOT THE LAST PASS, AND THAT IS TRUE OF EVERY INPUT.
+     *
+     * The weather already had this retry and it was a ONE-SHOT: `once per page
+     * load`, whatever arrived afterwards. The site's samples had no retry at
+     * all — they land about two seconds after a press, and the pass that ran
+     * before them was the last one there was.
+     *
+     * What decides is the same question for both, asked of the pass rather than
+     * of a latch: did the last pass BEGIN before this input arrived? The pass
+     * records that itself (`computed.passStartedAt`), so once a pass has run
+     * after the arrival the answer is no and this stops of its own accord. The
+     * cap is a second guarantee of termination, not the first.
+     */
+    var _lateInputRetries = 0;
+    var _LATE_INPUT_RETRY_CAP = 6;
+
+    function _retriggerAfterLateInput(what) {
+      // WHAT DECIDES IS WHETHER THE INPUTS CHANGED, not when the announcement
+      // fired. Measured while writing this: comparing the pass's start against
+      // `Date.now()` re-ran the pass on EVERY announcement, because every
+      // announcement is later than the last pass — a rule that never
+      // terminates, wearing the shape of one that does. An event is not an
+      // arrival (the same lesson `gaip:site-samples-ready` taught GH-588), so
+      // the question is asked of the inputs themselves.
+      if (_passInputFingerprint() === _hubState.computed.passInputs) {
+        log("integration", what + " announced, but the inputs are the ones the last pass read");
+        return;
+      }
+      if (_lateInputRetries >= _LATE_INPUT_RETRY_CAP) {
+        console.warn("[Orchestrator] not re-running computeAll for " + what + ": retry cap reached");
+        return;
+      }
+      _lateInputRetries += 1;
+      var arrivedAt = Date.now();
+      log("integration", what + " arrived after the last pass began, re-triggering computeAll");
+      clearTimeout(_autoComputeTimer);
+      _autoComputeTimer = setTimeout(function _runLateInputRetry(attemptsLeft) {
+        // b35fix: computeAll() has its own _isComputingAll re-entrancy guard
+        // that silently no-ops (log() is behind ORCHESTRATOR_CONFIG.debug) if
+        // another computeAll is still mid-flight when this fires. That silent
+        // no-op used to permanently strand the disease/GP result on the
+        // pre-weather (or, on a concurrent site-switch, stale-species) pass
+        // with no retry — observed as disease risk numbers differing between
+        // reruns of the same site/inputs depending on timing. Poll until
+        // computeAll is free instead of firing once and giving up.
+        if (_isComputingAll) {
+          if (attemptsLeft > 0) {
+            _autoComputeTimer = setTimeout(_runLateInputRetry, 200, attemptsLeft - 1);
+          } else {
+            console.warn("[Orchestrator] " + what + " retry gave up waiting for computeAll to free up");
+          }
+          return;
+        }
+        // The pass we were waiting for may have happened while we waited.
+        if ((_hubState.computed.passStartedAt || 0) > arrivedAt
+            || _passInputFingerprint() === _hubState.computed.passInputs) {
+          log("integration", "a pass began after " + what + " while this retry waited; nothing to do");
+          return;
+        }
+        computeAll().catch((err) => {
+          console.error("[Orchestrator] computeAll (" + what + " retry) FAILED:", err);
+        });
+      }, 500, 25); // up to 500ms + 25*200ms = ~5.5s total wait
+    }
+
     // Re-trigger computeAll when real weather data arrives.
     // Handles cold-start race where the first computeAll fired before
     // weather fetch completed — disease engine skipped with guard, this
     // ensures it runs once real climate data is available.
-    var _weatherReadyFired = false;
     document.addEventListener("gaip:weather-ready", function () {
-      if (_weatherReadyFired) return; // only retry once per page load
-      _weatherReadyFired = true;
-      log("integration", "gaip:weather-ready, re-triggering computeAll for disease");
-      clearTimeout(_autoComputeTimer);
-      _autoComputeTimer = setTimeout(function _runWeatherReadyRetry(attemptsLeft) {
-        // b35fix: computeAll() has its own _isComputingAll re-entrancy guard
-        // that silently no-ops (log() is behind ORCHESTRATOR_CONFIG.debug) if
-        // another computeAll is still mid-flight when this fires. Since
-        // _weatherReadyFired is a one-shot latch, that silent no-op used to
-        // permanently strand the disease/GP result on the pre-weather (or, on
-        // a concurrent site-switch, stale-species) pass with no retry —
-        // observed as disease risk numbers differing between reruns of the
-        // same site/inputs depending on timing. Poll until computeAll is free
-        // instead of firing once and giving up.
-        if (_isComputingAll) {
-          if (attemptsLeft > 0) {
-            _autoComputeTimer = setTimeout(_runWeatherReadyRetry, 200, attemptsLeft - 1);
-          } else {
-            console.warn("[Orchestrator] weather-ready retry gave up waiting for computeAll to free up");
-          }
-          return;
-        }
-        computeAll().catch((err) => {
-          console.error("[Orchestrator] computeAll (weather-ready retry) FAILED:", err);
-        });
-      }, 500, 25); // up to 500ms + 25*200ms = ~5.5s total wait
+      _retriggerAfterLateInput("the weather");
+    });
+
+    // GH-589: and when the site's samples do. This is the arrival the nutrient
+    // list, the water engine and the tissue engine were all missing.
+    //
+    // TWO EVENTS, because the announcement and the arrival are two things. This
+    // orchestrator's inputs are `GAIP_STATE.soil/water/tissue`, which a CASCADE
+    // PASS publishes — so at `site-samples-ready` the store has the sample and
+    // this state does not yet, and the pass that puts it here is the event that
+    // matters. Both are listened to and both are answered by the same question
+    // about the inputs, so whichever comes first is the one that acts and the
+    // other finds nothing to do.
+    document.addEventListener("gaip:site-samples-ready", function () {
+      _retriggerAfterLateInput("the site's samples");
+    });
+    document.addEventListener("gaip:cascade-complete", function () {
+      _retriggerAfterLateInput("a cascade pass");
     });
 
     // Re-trigger computeAll when Hydrosight sensor data arrives after initial analysis.
@@ -5249,7 +5664,7 @@
               // localise the overwrite.
               _hubState.computed.disease._writerTag = "b35fix365:writer2-cascadeCase";
               global.GAIP_DISEASE_RESULT = _hubState.computed.disease;
-              warn(
+              note(
                 "disease",
                 `[b35fix365 writer2-cascadeCase] GAIP_DISEASE_RESULT written, species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)} diseaseInputs.species: "${diseaseInputs.species || "none"}"`,
               );
@@ -5622,6 +6037,80 @@
     computeSelective: computeSelective,
     computeIsolated: computeIsolated,
     executeEngine: executeEngine,
+
+    /**
+     * GH-575 — WHERE THE CASCADE'S RESULTS GO.
+     *
+     * The adapter's own docblock has always said it "populates computed.*
+     * results on _hubState". It does not: it builds a local object, hands it
+     * back in `result.state.computed` and dispatches an event. Measured on the
+     * stand — `analysis_results` id 36 carries twenty-one computed blocks and
+     * not one of them is the cascade's, while the cascade produced fifteen.
+     * Twelve results were being thrown away every run, `mlsn` among them, which
+     * is why the owner's soil analysis came back empty however many times she
+     * pressed Re-run.
+     *
+     * A KEY THIS STATE ALREADY HAS IS NOT REPLACED. The hub orchestrator is the
+     * primary: it computes `shade`, `wear` and `stressTrajectory` in its own
+     * pass, and the cascade computes its own versions of them. Overwriting
+     * would swap results that reach the row today for results from a different
+     * pass, silently. So the merge fills gaps only — and says what it declined
+     * to overwrite, in the run's journal, rather than deciding quietly.
+     *
+     * @param {Object} source `computed` from a cascade run
+     */
+    mergeComputed: function (source) {
+      if (!source || typeof source !== "object") return { added: [], kept: [], replaced: [] };
+      const added = [];
+      const kept = [];
+      const replaced = [];
+      Object.keys(source).forEach(function (key) {
+        if (source[key] === undefined) return;
+        const present = Object.prototype.hasOwnProperty.call(_hubState.computed, key);
+        // GH-589 (link 4) — A LATER CASCADE PASS REPLACES ITS OWN EARLIER
+        // ONE, AND NOTHING ELSE.
+        //
+        // The gap-filling rule above was written when the cascade ran once per
+        // run, so "the key is already there" could only mean the hub
+        // orchestrator had computed it. It can now mean the cascade's own first
+        // pass put it there — the pass that ran before the site's soil sample
+        // arrived and answered with ten rows of "NOT MEASURED". Under the old
+        // rule the second pass, the one holding K 40 and Ca 803, was declined
+        // in full and reached nobody: the whole repair would have published
+        // nothing.
+        //
+        // What is replaced is decided by IDENTITY, not by a list of names: the
+        // value has to be the very object this function published. If anything
+        // has written that key since — and the hub orchestrator writes `shade`
+        // and `wear` itself, in its own pass — the value is not ours and it is
+        // kept, exactly as GH-575 requires. Every replacement is named in the
+        // journal, so a value that changed under a reader is visible rather
+        // than silent.
+        if (present && _hubState.computed[key] !== _cascadePublished[key]) {
+          kept.push(key);
+          return;
+        }
+        _hubState.computed[key] = source[key];
+        _cascadePublished[key] = source[key];
+        (present ? replaced : added).push(key);
+      });
+      if (kept.length) {
+        note("cascade", "results this pass already had, kept as computed here: " + kept.join(", "));
+      }
+      if (replaced.length) {
+        note("cascade", "results of an earlier cascade pass, replaced by this one: " + replaced.join(", "));
+      }
+      return { added: added, kept: kept, replaced: replaced };
+    },
+
+    // GH-573: the journal, for the cascade adapter. It populates `computed.*`
+    // on this same state and had no way to say anything about a pass — its own
+    // `warn` reached a console and stopped. Two entries, no more: record a
+    // problem, and name a module that produced nothing.
+    recordProblem: function (module, message, data) {
+      warn(module, message, data);
+    },
+    noteSkipped: noteSkipped,
 
     // State access
     getState: function () {

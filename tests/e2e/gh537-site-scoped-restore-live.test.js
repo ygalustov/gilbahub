@@ -15,7 +15,7 @@
  * routes and lets nothing land. Chosen over capture-and-restore on a
  * measurement rather than a habit: `restoreConfigs()` cannot put an
  * `analysis_cache` row back for nine of the twelve sites — the base64 exceeds
- * the 128 KB single-argument limit inside the container (Question 39) — so a
+ * the 128 KB single-argument limit inside the container — so a
  * write must be stopped, not undone. Measured earlier the same evening on this
  * same harness: with the guard installed the page still renders and the stand
  * did not move by a line.

@@ -192,11 +192,51 @@
     /**
      * Build a summary of all sites and their soil samples
      */
+    /**
+     * GH-563 — the one answer to "what is this called", shared with the screen.
+     *
+     * `zone-key.js` is loaded by every view that loads this file; the guarded
+     * call is the same shape `nutrient-trend.js` uses, because a missing module
+     * must not take a report down — and must not bring the substitution back
+     * either, which is why the fallback is the module's own answer and not the
+     * identifier.
+     */
+    function _zoneDisplayName(subject) {
+        try {
+            if (global.GaipZoneKey && typeof global.GaipZoneKey.displayName === 'function') {
+                return global.GaipZoneKey.displayName(subject);
+            }
+        } catch (e) { /* fall through */ }
+
+        // No module, no name. The first draft repeated the module's rule here
+        // as a fallback, which put a second copy of "what counts as a name" in
+        // the tree — the exact shape this whole question is about — and
+        // `gh461`'s identity reader saw straight through it, reporting this
+        // function's own locals as roots of the label. Returning nothing is
+        // both simpler and stricter: without the module we cannot say whether a
+        // sample has a name, and an unknown name is not a name.
+        return '';
+    }
+
     // Humanize a raw generated sample ID into a display label.
     // Generated IDs look like: Soil_1_3cbn, Soil_12_6tf5, Water_2_abc1
     // Strip the trailing hash suffix and replace underscores with spaces.
     function humanizeSampleLabel(label, id) {
-        var raw = label || id || '';
+        // GH-563 — IT FORMATS A NAME; IT DOES NOT MAKE ONE.
+        //
+        // This read `label || id`, so a sample with no name was handed its own
+        // generated identifier and the code below then TIDIED IT UP —
+        // `Soil_1_3cbn` came out as "Soil 1", which reads like a name somebody
+        // chose. A substitution wearing the clothes of formatting, and the
+        // hardest of the four in this chain to see.
+        //
+        // A label equal to the identifier is the same case: the store used to
+        // write one there (sample-manager.js), and those samples are still in
+        // it. Both go to `GaipZoneKey.displayName`, which is the one place that
+        // says what a thing with no name is called.
+        var named = _zoneDisplayName({ label: label, id: id });
+        if (!named) return '';
+        var raw = named;
         // If it matches the generated pattern (Word_N_HASH or Word_NN_HASH), clean it up
         var m = raw.match(/^([A-Za-z][A-Za-z0-9]*)_(\d+)_[0-9a-z]{4,}$/);
         if (m) {
@@ -260,7 +300,11 @@
                     // `label` carries what deriveZoneKeyLocal() fed the deriver
                     // (`o.label || o.id`), so the key is unchanged; `id` stays
                     // the STORE key, which is what callers index the store by.
-                    return { id: id, label: (o && (o.label || o.id)) || null,
+                    // GH-563: the name is the name, or nothing. The zone KEY
+                    // this feeds still falls back to the id inside
+                    // `GaipZoneKey.derive` — a key is not a caption and does not
+                    // leave — so grouping is unchanged and only the caption is.
+                    return { id: id, label: (o && o.label) || null,
                              date: (o && o.date) || '', sample: o };
                 }));
                 var out = {};
@@ -841,7 +885,7 @@
                 // Use entry.sampleLabel from enumerateSamples — already humanized and correct per sample.
                 // Do NOT read data.soil.sampleLabel (DOM-sourced) here: during a multi-sample loop the
                 // DOM label input reflects the last-active sample, not the current iteration's sample.
-                var resolvedLabel = entry.sampleLabel || entry.sampleId;
+                var resolvedLabel = _zoneDisplayName({ label: entry.sampleLabel, id: entry.sampleId });
 
                 // Override site label with the site name + sample ID for clarity
                 data.site = data.site || {};
@@ -1426,7 +1470,11 @@
         for (var ri = 0; ri < reports.length; ri++) {
             var rep = reports[ri];
             var d = rep.data;
-            var zoneLabel = rep.sampleLabel || rep.sampleId || ('Zone ' + (ri + 1));
+            // GH-563: "Zone 3" was a third substitution — a position number
+            // is a name nobody gave, and it moves when the sort moves. The
+            // owner ruled it out with the others: no identifier, no number,
+            // nothing. The row is still drawn, with its own figures.
+            var zoneLabel = _zoneDisplayName({ label: rep.sampleLabel, id: rep.sampleId });
             var rowCells = [makeZoneLabelCell(zoneLabel)];
 
 
@@ -1557,7 +1605,11 @@
             var rep = reports[ri];
             var d = rep.data;
             var soil = d.soil || {};
-            var zoneLabel = rep.sampleLabel || rep.sampleId || ('Zone ' + (ri + 1));
+            // GH-563: "Zone 3" was a third substitution — a position number
+            // is a name nobody gave, and it moves when the sort moves. The
+            // owner ruled it out with the others: no identifier, no number,
+            // nothing. The row is still drawn, with its own figures.
+            var zoneLabel = _zoneDisplayName({ label: rep.sampleLabel, id: rep.sampleId });
             var issues = [];
             var actions = [];
 

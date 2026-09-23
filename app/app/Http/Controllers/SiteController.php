@@ -48,8 +48,44 @@ class SiteController extends Controller
         ['turf', 'species'],
         ['turf', 'methodology'],
         ['turf', 'turfType'],
+        // GH-583 (stage 3) — CULTIVAR AND CONSTRUCTION ARE NOT HERE, AND
+        // THAT IS A DECISION RATHER THAN AN OMISSION.
+        //
+        // They were, for twenty minutes, and it turned
+        // `GH439SiteConfigPatchTest::…text_is_emptied_with_clear` red: `clear`
+        // on `turf.variety` answered 422 where it had always answered 200.
+        //
+        // "REQUIRED" AND "CANNOT BE EMPTIED" ARE TWO DIFFERENT REQUIREMENTS.
+        // The owner asked for required fields on 22.09.2026 — "we need the
+        // grass and the cultivar to be required fields" — and did not ask for
+        // unclearable ones. A field can be required when a form is saved and
+        // still be emptied in an intermediate edit. Reading her instruction as
+        // the larger of the two would decide, on her behalf, a question nobody
+        // put to her.
+        //
+        // So the requirement lives where she asked for it — the Settings form
+        // marks all three `required`, and `generic` is refused as a value below
+        // — and `clear` keeps the contract it has always had. Coordinator's
+        // decision of 22.09.2026, pending the owner's confirmation: if she says
+        // a cultivar may not be emptied, the two lines come back here AND the
+        // GH-439 case is changed deliberately, which is a different act from
+        // changing it quietly tonight.
         ['location', 'lat'],
         ['location', 'lon'],
+    ];
+
+    /**
+     * GH-583: values that are a stand-in rather than an answer.
+     *
+     * `generic` was the cultivar the wizard wrote for every site it created, and
+     * it reads as a choice. It is not one: it is the absence of a choice wearing
+     * a value's clothes, and every multiplier keyed on cultivar (wear, disease,
+     * irrigation, nutrient demand) quietly uses 1.00 for it. The owner's
+     * decision is that the cultivar comes from the site's profile; this refuses
+     * the stand-in at the door so it cannot come back through a page.
+     */
+    private const GAIP_REFUSED_VALUES = [
+        'turf.variety' => ['generic'],
     ];
 
     /** GH-439: sections `clear` may not remove whole. */
@@ -708,6 +744,19 @@ class SiteController extends Controller
                 'message' => 'null is not a value; empty these with "clear" instead: '.implode(', ', $nulls).'.',
                 'invalid_keys' => $nulls,
             ];
+        }
+
+        // GH-583: a stand-in is refused as a value, wherever it arrives from.
+        foreach (self::GAIP_REFUSED_VALUES as $path => $refused) {
+            [$section, $field] = explode('.', $path, 2);
+            $value = $patch[$section][$field] ?? null;
+            if (is_string($value) && in_array(strtolower(trim($value)), $refused, true)) {
+                return [
+                    'message' => $path.' may not be "'.$value.'": that is the absence of a choice, not a choice. '
+                        .'Send the site\'s own value, or leave the field out.',
+                    'invalid_keys' => [$path],
+                ];
+            }
         }
 
         $blanked = [];

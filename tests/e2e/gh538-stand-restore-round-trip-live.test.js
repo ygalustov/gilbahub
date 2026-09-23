@@ -1,5 +1,5 @@
 /**
- * Question 39 — the stand-restore remedy can now put back what it captures.
+ * GH-538 — the stand-restore remedy can now put back what it captures.
  *
  * WHAT WAS BROKEN. `stand-guard.js`'s `sqlRaw()` passed the whole statement as
  * one `argv` element after `mysql -e`. For the short SELECTs around it that is
@@ -11,7 +11,8 @@
  * which is the worse half to lose: a remedy that reports a failure it cannot
  * fix still counts as "a remedy is named" to the GH-532 census.
  *
- * WHAT MAKES THIS FILE THE ACCEPTANCE RATHER THAN THE DIFF. Question 39 is not
+ * WHAT MAKES THIS FILE THE ACCEPTANCE RATHER THAN THE DIFF. The stand-restore
+ * remedy is not
  * done when the code changes; it is done when a REAL row over the limit has
  * been taken, moved, put back, and the two byte-for-byte comparisons PRINTED.
  * So this run deliberately damages the stand and repairs it, and prints what it
@@ -100,9 +101,9 @@ function repairFromCopy(row, updated) {
 
 if (!ENABLED) {
     process.stdout.write('[e2e] gh538-stand-restore-round-trip skipped (needs the live stack)\n');
-    test.skip('Question 39 round trip (disabled)', () => {});
+    test.skip('GH-538 round trip (disabled)', () => {});
 } else {
-    describe('Question 39 — capture, damage, restore, compare', () => {
+    describe('GH-538 — capture, damage, restore, compare', () => {
         const before = {};
         const after = {};
         const copies = {};

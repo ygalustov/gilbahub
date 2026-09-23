@@ -423,11 +423,13 @@ class SampleController extends Controller
             if (array_key_exists('notes', $data))       $sample->notes       = $data['notes'];
             if (array_key_exists('payload', $data)) {
                 // GH-526 (stage 1, item 3): one zone rule on this path too.
-                $sample->payload = $this->applyZoneMeta(
+                // GH-574: the third write path, and the only one that does not
+                // go through saveSampleRecord().
+                $sample->payload = $this->normaliseMeasurements($this->applyZoneMeta(
                     $data['payload'],
                     $data['payload']['_label'] ?? null,
                     $data['payload']['_zone'] ?? ($data['payload']['zoneType'] ?? null)
-                );
+                ));
 
                 // GH-526 (stage 1, item 3, decision D-6): renaming a sample here
                 // registers the name on its site, as store() and sync() already
@@ -647,6 +649,10 @@ class SampleController extends Controller
 
     private function saveSampleRecord(Site $site, int $accountId, int $userId, string $sampleType, ?string $clientUid, array $payload, array $meta, ?array $restorableTrashedIds = null, bool $ignoreTrashedMatch = false): ?Sample
     {
+        // GH-574: the one door store() and the import both come through, so a
+        // measurement cannot be stored as text by either of them.
+        $payload = $this->normaliseMeasurements($payload);
+
         if ($clientUid !== null && $clientUid !== '') {
             $attributes = [
                 'site_id' => $site->id,
@@ -761,6 +767,70 @@ class SampleController extends Controller
      * `_zone` keeps the raw key (what was sent), `zone` is what is printed.
      * A blank zone sets neither: an absent zone is absent, not "Other".
      */
+    /**
+     * GH-574 — A MEASUREMENT IS STORED AS A NUMBER.
+     *
+     * WHY THIS IS A WRITE-SIDE FIX. `payload` was validated as an array and
+     * stored exactly as the browser sent it, and a form input sends its value as
+     * a string. So `samples` id 141 on Test5 - NZ holds `K: "40"`, `Ca: "803"`,
+     * `CEC: "5.9"`, `pH: "6"` — measurements, stored as text. The MLSN engine
+     * multiplies them and throws `e.toFixed is not a function`, the cascade
+     * catches it, and the site's soil analysis comes back empty. 33 of the 148
+     * rows in the table are in this state, across eight sites.
+     *
+     * Reading around it was the other option and it is the wrong one: parsing on
+     * read is a substitution turned inside out — guessing what the writer meant,
+     * at every reader, forever. The value is wrong in the column, so the column
+     * is where it is fixed.
+     *
+     * THIS IS NOT A DEFAULT AND NOT A GUESS. `"40"` becomes `40`: the same
+     * value, in the type the field is. A string that is not a number is left
+     * exactly as it is — it may be a texture, a lab note, a zone. Nothing is
+     * invented, nothing is dropped, and a key with no value keeps having none.
+     *
+     * DESCRIPTIVE KEYS ARE NEVER CAST, and the list is what the table actually
+     * holds rather than what seemed likely: `Texture`, `_label`, `_source`,
+     * `_zone`, `zone`, `zoneType` are the only keys in `samples` carrying a
+     * non-numeric string today. A label such as "18th Green" would survive the
+     * numeric test anyway; a label of plain "18" would not, which is why the
+     * key matters and not only the value.
+     *
+     * @param  array<string,mixed> $payload
+     * @return array<string,mixed>
+     */
+    private const DESCRIPTIVE_KEYS = [
+        'zone', 'zonetype', 'texture', 'soil_texture', 'sample_type', 'type',
+        'notes', 'date', 'lab', 'lab_name', 'lab_ref', 'label', 'name', 'source',
+    ];
+
+    private function normaliseMeasurements(array $payload): array
+    {
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $payload[$key] = $this->normaliseMeasurements($value);
+                continue;
+            }
+            if (! is_string($value)) {
+                continue;
+            }
+            // Keys the product stores words in: anything meta (`_label`,
+            // `_zone`, `_source`) and the named descriptive fields.
+            if (str_starts_with((string) $key, '_')
+                || in_array(strtolower((string) $key), self::DESCRIPTIVE_KEYS, true)) {
+                continue;
+            }
+            $trimmed = trim($value);
+            if ($trimmed === '' || ! is_numeric($trimmed)) {
+                continue;
+            }
+            // `+ 0` gives an int for "40" and a float for "5.9", which is what
+            // the JSON column then holds and what every engine expects.
+            $payload[$key] = $trimmed + 0;
+        }
+
+        return $payload;
+    }
+
     private function applyZoneMeta(array $payload, ?string $label, ?string $zone): array
     {
         if ($label !== null && $label !== '') {

@@ -601,6 +601,24 @@
     // 4. ZONE ALERT LIST
     // =========================================================================
 
+    /**
+     * GH-549: what a zone with no name is called on this screen — and it is the
+     * same word the report will use, which is why it comes out of `zone-key.js`
+     * rather than being written here.
+     *
+     * Until now the producer put the sample's array index in `label`, so this
+     * screen printed a zone called "0". Nothing is substituted now, so `label`
+     * can be null and every place that prints it goes through here.
+     */
+    function zoneName(z) {
+        if (global.GaipZoneKey && typeof global.GaipZoneKey.displayName === 'function') {
+            return global.GaipZoneKey.displayName(z);
+        }
+        // Same answer as the module's, for a page that did not load it: the
+        // name, or nothing at all. Nothing is put in its place.
+        return z && typeof z.label === 'string' ? z.label.trim() : '';
+    }
+
     function renderZoneAlerts(zones) {
         var alerts = (zones || []).filter(function(z){ return z.alerts && z.alerts.length; });
         if (!alerts.length) return '';
@@ -608,7 +626,7 @@
             '<div class="sn-alerts">'+
             alerts.map(function(z){
                 return '<div class="sn-alert-item">'+
-                    '<span class="sn-alert-zone">'+esc(z.label)+'</span>'+
+                    '<span class="sn-alert-zone">'+esc(zoneName(z))+'</span>'+
                     '<span class="sn-alert-nuts">'+esc(z.alerts.join(', '))+' at/below threshold</span>'+
                     '</div>';
             }).join('')+'</div>';
@@ -655,7 +673,7 @@
 
         var charts = activeNuts.map(function(nut){
             var thresh = threshMap[nut] || 0;
-            var vals = zones.map(function(z){ return { label:z.label, val:z.ppm&&z.ppm[nut]!=null?z.ppm[nut]:null, alert:z.alerts&&z.alerts.indexOf(nut)>=0 }; })
+            var vals = zones.map(function(z){ return { label:zoneName(z), val:z.ppm&&z.ppm[nut]!=null?z.ppm[nut]:null, alert:z.alerts&&z.alerts.indexOf(nut)>=0 }; })
                             .filter(function(r){ return r.val != null; });
             if (!vals.length) return '';
 
@@ -963,47 +981,43 @@
     // 10. ANNUAL NUTRIENT REQUIREMENTS
     // =========================================================================
 
-    // Mirrors calculateAnnualDemand() from mlsn-progressive-disclosure.js
-    var ANNUAL_RATIOS = {
-        'cool-season': { K:0.8, P:0.10, Ca:0.20, Mg:0.10, S:0.12, Fe:0.025, Mn:0.012, Zn:0.004, Cu:0.002, B:0.0015 },
-        'warm-season': { K:1.0, P:0.08, Ca:0.25, Mg:0.12, S:0.10, Fe:0.020, Mn:0.010, Zn:0.003, Cu:0.002, B:0.001  },
-    };
-
-    function calcAnnualDemand(turfType, gp, nProgram) {
-        var baseN = (turfType === 'warm-season') ? 180 : 150;
-        if (nProgram && nProgram > 0) baseN = nProgram;
-        var gpFactor  = gp ? Math.max(0.3, gp / 100) : 0.7;
-        var effectiveN = baseN * gpFactor;
-        var ratios    = ANNUAL_RATIOS[turfType] || ANNUAL_RATIOS['cool-season'];
-        var demand    = { N: effectiveN };
-        Object.keys(ratios).forEach(function(nut) { demand[nut] = effectiveN * ratios[nut]; });
-        return demand;
-    }
-
-    function readNProgramFromStorage() {
-        try {
-            var uid = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.userId;
-            var key = 'gilba_hub_state' + (uid ? '_' + uid : '');
-            var saved = JSON.parse(localStorage.getItem(key) || 'null');
-            var nProg = saved && saved.turf && parseFloat(saved.turf.nProgram);
-            return (nProg && nProg > 0) ? nProg : null;
-        } catch(e) { return null; }
-    }
-
+    /**
+     * GH-548 (stage 3) — THE ANNUAL FIGURES ARE THE RUN'S, OR THEY ARE NOT
+     * SHOWN.
+     *
+     * What stood here: when the analysis result carried no `annualDemand`, this
+     * section computed one of its own — a second copy of
+     * `calculateAnnualDemand()` from mlsn-progressive-disclosure.js — and took
+     * the site's annual nitrogen programme out of `localStorage`
+     * (`gilba_hub_state.turf.nProgram`, K3 of the plan's browser-copy list). Two
+     * things were wrong with that and only one of them is the copy:
+     *
+     *   - `annualDemand` is produced BY A RUN (hub-persistence.js), not by a
+     *     sample. Substituting one made a site that has never been analysed, or
+     *     whose result has no soil-nutrition block, print kg/ha/yr figures in the
+     *     same cards, in the same type, as a site that had.
+     *   - The nitrogen programme is a SETTING. It lives in
+     *     `config.turf.nProgram` on the server; the browser copy belonged to
+     *     whoever last had the runner open on this machine. And where there was
+     *     no copy the formula fell back to a flat 150 or 180 kg N/ha — a default
+     *     nobody entered, printed as this site's programme.
+     *
+     * So the section says what happened instead. `calcAnnualDemand`,
+     * `ANNUAL_RATIOS` and `readNProgramFromStorage` are gone with it.
+     */
     function renderAnnualRequirements(sn) {
         var demand = sn.annualDemand;
         var nutrients = sn.nutrients || [];
 
-        // Fallback: same algorithm as calculateAnnualDemand() in mlsn-progressive-disclosure.js
-        if (!demand && nutrients.length) {
-            var data = global.GAIP_DASHBOARD_DATA;
-            var gp   = data && data.computed && data.computed.climate &&
-                       data.computed.climate.growth && data.computed.climate.growth.weighted;
-            var nProg = readNProgramFromStorage();
-            demand = calcAnnualDemand(sn.turfType || 'cool-season', gp || null, nProg);
-        }
+        if (!nutrients.length) return '';
 
-        if (!demand || !nutrients.length) return '';
+        if (!demand) {
+            return '<div class="sn-section"><div class="sn-section-title">Annual Nutrient Requirements</div></div>'+
+                '<div class="sn-annual-empty" style="padding:14px 0;font-size:13px;color:var(--gaip-text-secondary)">'+
+                'Annual requirements come from an analysis run, and the latest run for this site did not produce them. '+
+                'Press Re-run to calculate them.'+
+                '</div>';
+        }
 
         var isAA = (sn.methodology || '').toLowerCase() === 'ammonium_acetate';
         var ANNUAL_NUTS = ['P','K','Ca','Mg','S'];

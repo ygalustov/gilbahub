@@ -74,7 +74,7 @@ describe('GH-262 — sample-store fallback computes with the site\'s real method
 
         test('CEC is set on _smState.soil (needed for AA %BS-axis conversions, e.g. S81/Fescue)', () => {
             const stateBlockStart = code.indexOf('var _smState = {');
-            const stateBlockEnd = code.indexOf('var _smHtml = global.mlsnEngine', stateBlockStart);
+            const stateBlockEnd = code.indexOf('var _smOut  = global.mlsnEngine', stateBlockStart);
             const stateBlock = code.slice(stateBlockStart, stateBlockEnd);
             expect(stateBlock).toMatch(/CEC:\s*parseFloat\(_smRaw\.CEC \|\| _smRaw\.cec\)/);
         });

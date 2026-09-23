@@ -46,30 +46,246 @@
     //   2. gaip:orchestrator-complete (second pass) → _readyToSignal = true
     //   3. syncToServer().then() → postMessage fires
     // =========================================================================
-    var _rerunIframe     = (window.parent !== window);
-    var _weatherReady    = false;
-    var _readyToSignal   = false;
-    var _rerunSignalSent = false;
+    // =========================================================================
+    // GH-547 (stage 2) -- THE RUNNER, AND WHEN IT IS ONE
+    //
+    // WHAT THIS REPLACES. The block that stood here decided it was the analysis
+    // runner by looking at `window.parent !== window` -- true in ANY frame: a
+    // test harness, a preview, somebody else's page. That is a circumstance, not
+    // an intention, and it is why `/reports/export` could post an analysis
+    // result on a night when the weather hung. It then sent that result on a
+    // TIMER: three seconds after the engines said they had finished, or ten
+    // seconds after load whether they had or not, or again when sensor data
+    // turned up late. A timer named after an event is not the event; the
+    // ten-second path is the likeliest author of the row on the stand that is
+    // missing `weatherSource`, because it fires before the weather arrives.
+    //
+    // WHAT IT IS NOW. The page is the runner only when it was OPENED as one:
+    // `/hub?rerun=<runId>&site=<siteId>`. Both are required and both come from
+    // the opener -- the site travels as a parameter rather than being read from
+    // the active-site pointer, because the pointer can move in another tab
+    // between the press and the write, and then the result is filed under a site
+    // nobody asked about.
+    //
+    // It writes ONCE, on completion, and completion is three events rather than
+    // a clock: weather ready, orchestrator complete, and the analysis itself
+    // reporting `gaip:analysis-complete` without `detail.error`. If they do not
+    // all arrive inside the budget, or the analysis reports an error, the runner
+    // writes NOTHING and reports the reason to its opener, which keeps the
+    // previous result and says so instead of reloading onto numbers it believes
+    // are new.
+    // =========================================================================
+    var _runIntent = (function () {
+        try {
+            var q = new URLSearchParams(window.location.search || '');
+            var runId = q.get('rerun');
+            var siteId = q.get('site');
+            if (!runId || !siteId) return null;
+            return { runId: runId, siteId: siteId };
+        } catch (e) {
+            return null;
+        }
+    })();
 
-    function _signalRerunComplete() {
-        if (!_rerunIframe || _rerunSignalSent) return;
-        _rerunSignalSent = true;
-        try { window.parent.postMessage('gilba:analysis-complete', window.location.origin); } catch (e) {}
+    /**
+     * How long the whole run may take before the runner gives up on it.
+     *
+     * The same fifteen seconds the weather fetch is allowed (GH-545), and for
+     * the same reason: it is the longest single thing a run waits on. This is a
+     * deadline for REPORTING, not a delay before writing -- the write happens
+     * the moment the run completes, which is usually long before this.
+     */
+    /**
+     * GH-586: the run asked for a particular water sample and could not use it.
+     *
+     * Said out loud rather than passed over. The run goes on — the rest of the
+     * analysis is real — and the water part is named as not computed, with which
+     * of the two reasons it was, so the reader is not told a number that came
+     * from a sample nobody chose.
+     */
+    function noteWaterSampleUnresolved(reason, requestedId) {
+        try {
+            if (global.GaipOrchestrator && typeof global.GaipOrchestrator.noteSkipped === 'function') {
+                global.GaipOrchestrator.noteSkipped('water', 'water', reason, 'water');
+            }
+            if (global.GaipOrchestrator && typeof global.GaipOrchestrator.recordProblem === 'function') {
+                global.GaipOrchestrator.recordProblem('water',
+                    'The water sample this run was asked for (' + requestedId + ') could not be used: ' + reason);
+            }
+        } catch (e) { /* bookkeeping must not stop a run */ }
+        console.warn('[GilbaPersist] requested water sample unusable:', requestedId, reason);
     }
 
-    if (_rerunIframe) {
-        // GH-251: cacheAnalysisResults()'s monthlyNormal field (GH-250) reads
-        // climateMetrics.monthlyTemps, resolved fire-and-forget by
-        // GilbaClimateNormalsService alongside the live weather fetch
-        // (climate-engine-v2.js ClimateFetchCoordinator) — no guarantee it has
-        // completed by the time gaip:weather-ready/orchestrator-complete fire,
-        // since those events mark the START of that fetch, not its completion.
-        // Give it a bounded chance to finish before building the cache, rather
-        // than silently omitting monthlyNormal on every Re-run. Bounded (not a
-        // bare await) because the NASA POWER/Open-Meteo fetch chain in
-        // climate-normals-service.js has no timeout of its own — an unbounded
-        // await here could stall the ENTIRE Re-run (soil/water/PGR/etc., not
-        // just this one field) on a slow or hanging network request.
+    var RUN_BUDGET_MS = 15000;
+
+    if (_runIntent) {
+        /**
+         * GH-588 (link 4) — WHAT THIS RUN WAS TOLD ABOUT THE SOIL SAMPLE.
+         *
+         * The opener asks the server BEFORE the runner starts and puts the
+         * answer here: an id, `none`, or `unknown`. The runner never guesses.
+         *
+         * THREE STATES, and the first and the third must not look alike:
+         *   `none`      nothing to wait for. Compute what can be computed and
+         *               say the soil was not computed BECAUSE THERE IS NO
+         *               SAMPLE. The run COMPLETES — the numbers it did produce
+         *               are real and are stored — and nothing suggests pressing
+         *               again, because pressing again would change nothing.
+         *   `<id>`      the run must have it. Arrived: compute in full. Not
+         *               arrived inside the budget: the run FAILS with a delivery
+         *               reason, nothing is written, the previous numbers stay on
+         *               screen, and pressing again is worth doing.
+         *   `unknown`   the question could not be put. Treated as `<id>` — wait
+         *               and, failing, report delivery — because assuming "none"
+         *               would turn a failed request into "you have no sample".
+         *
+         * WHY WAIT AT ALL, in the owner's words on 23.09.2026: "we have to wait,
+         * because if we have no sample then all the data will be computed
+         * wrongly". A run on a sample that has not arrived produces WRONG
+         * NUMBERS, not empty ones — which is what the ten "NOT MEASURED" cards
+         * over a sample holding K 40, Ca 803 were.
+         */
+        var _soilExpected = (function () {
+            try {
+                var v = new URLSearchParams(window.location.search || '').get('soil');
+                if (v === 'none') return { expect: false, id: null, told: 'none' };
+                if (v && v !== 'unknown') return { expect: true, id: v, told: 'id' };
+                if (v === 'unknown') return { expect: true, id: null, told: 'unknown' };
+                // NO PARAMETER AT ALL is an opener that never asked — the export
+                // and report pages open `/hub` without one, and so did every
+                // opener before GH-588. It CANNOT be gated: gating on a fact
+                // nobody supplied means waiting for something nobody promised,
+                // and the run would never complete. Measured the hard way: the
+                // first draft treated it like `unknown` and twenty-four runner
+                // tests stopped writing a result at all.
+                return { expect: false, id: null, told: 'absent' };
+            } catch (e) {
+                return { expect: false, id: null, told: 'absent' };
+            }
+        })();
+        var _soilReady   = !_soilExpected.expect;   // nothing to wait for when there is none
+        var _soilReadyAt = 0;
+
+        /**
+         * GH-589 (link 4) — AND A CASCADE PASS THAT RAN BEFORE THE SAMPLE
+         * IS NOT A RESULT EITHER.
+         *
+         * GH-588 made this runner wait for the sample to ARRIVE. It waits, and
+         * then it stores numbers computed before it arrived: the cascade runs
+         * once inside the run button's handler, on a state collected at the
+         * press, and the samples land about two seconds later. The row that
+         * came out of that is `analysis_results` id 31 — ten nutrient cards
+         * reading "NOT MEASURED" over a sample holding K 40, Ca 803, CEC 5.9.
+         *
+         * So completion gains the condition the weather already has (section
+         * 15): the pass that produced these numbers must have BEGUN after the
+         * input arrived.
+         *
+         * `false` UNTIL A PASS SAYS OTHERWISE, deliberately. A page that never
+         * dispatches `gaip:cascade-complete` has no cascade at all, and gating
+         * on a fact nobody supplies is how GH-588's first draft stopped
+         * twenty-four runs from writing anything. What is refused here is a
+         * pass we have SEEN and know to be older than its inputs.
+         */
+        var _cascadeStale  = false;
+        var _cascadePassAt = 0;
+
+        var _weatherReady    = false;
+        var _weatherReadyAt  = 0;
+        var _orchestratorDone = false;
+        // GH-557 (section 15): what the completing pass could not compute.
+        // Empty on a pass that computed everything; the server reads it to
+        // decide the run's outcome, so it travels with the body rather than
+        // staying in the browser's console.
+        var _passSkipped  = [];
+        var _passWarnings = [];
+        var _runReported     = false;
+        // Set SYNCHRONOUSLY when the write begins, not when it answers.
+        // `_writeResult` awaits the bounded normals wait before it posts, and
+        // two of the three completion events can arrive inside that gap — the
+        // orchestrator's and the analysis's — so a latch that only closed on the
+        // server's reply let both through and sent the same result twice. Found
+        // by the sandbox, not by reading.
+        var _writeStarted    = false;
+
+        /**
+         * One exit, whichever way the run ended.
+         *
+         * `gilba:analysis-complete` and `gilba:analysis-failed` are both objects
+         * now, carrying the run they are about. The openers used to compare
+         * `e.data` with a string and reload on anything that matched; a failure
+         * had no way to say so, so a run that never happened arrived as a
+         * successful one.
+         */
+        function _report(type, extra) {
+            if (_runReported) return;
+            _runReported = true;
+            clearTimeout(_runDeadline);
+            var message = { type: type, runId: _runIntent.runId, siteId: _runIntent.siteId };
+            if (extra) { Object.keys(extra).forEach(function (k) { message[k] = extra[k]; }); }
+            try { window.parent.postMessage(message, window.location.origin); } catch (e) {}
+        }
+
+        /**
+         * GH-548 (stage 3): where the CSRF token and the API root come from.
+         * Both writes need them, so they are read in one place rather than twice.
+         */
+        function _api() {
+            return {
+                csrf: (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.csrfToken)
+                      || ((document.querySelector('meta[name="csrf-token"]') || {}).content) || '',
+                root: (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.restUrl) || '/api/',
+            };
+        }
+
+        /**
+         * A run that did not finish says so ON THE SERVER, not just in a console.
+         *
+         * GH-548 (stage 3). Until now the reason reached `console.warn` and
+         * `window.GilbaRerunOutcome` in the tab that pressed the button — gone on
+         * the next reload, absent on a second device, and absent for whoever opens
+         * the dashboard tomorrow and reads last week's figures as today's. The
+         * report goes into the same row as the numbers, so every screen that
+         * prints the numbers prints the reason with them.
+         *
+         * It writes the REASON ONLY: the server does not touch `metrics`,
+         * `computed` or their date (`AnalysisResults::recordFailure`). The
+         * previous result is kept deliberately — the owner's decision — but it is
+         * no longer kept silently.
+         */
+        function _fail(reason, detail) {
+            if (_runReported) return;
+            console.warn('[GilbaRun] not completed:', reason, detail || '');
+
+            var api = _api();
+            try {
+                fetch(api.root + 'analysis-cache/runs', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': api.csrf, 'Accept': 'application/json' },
+                    body: JSON.stringify({
+                        site_id: _runIntent.siteId,
+                        run_id:  _runIntent.runId,
+                        outcome: 'failed',
+                        reason:  reason,
+                        detail:  detail || null,
+                    }),
+                    // The frame is removed as soon as the opener hears from us,
+                    // which can be before a plain fetch has been sent.
+                    keepalive: true,
+                }).catch(function (e) {
+                    console.warn('[GilbaRun] could not report the failure:', e && e.message);
+                });
+            } catch (e) {
+                console.warn('[GilbaRun] could not report the failure:', e && e.message);
+            }
+
+            _report('gilba:analysis-failed', { reason: reason, detail: detail || null });
+        }
+
+        // GH-251 keeps its invariant: the monthly normals get a BOUNDED chance to
+        // arrive before the result is built. The fetch chain in
+        // climate-normals-service.js has no timeout of its own, so an unbounded
+        // wait here would stall the whole run on one field.
         function _withTimeout(promise, ms) {
             return Promise.race([
                 promise,
@@ -83,140 +299,492 @@
                     await _withTimeout(svc.ensureFromPage(), 4000);
                 }
             } catch (e) {
-                console.warn('[GilbaRerun] ensureFromPage (monthly normals) failed, proceeding without it:', e);
+                console.warn('[GilbaRun] ensureFromPage (monthly normals) failed, proceeding without it:', e);
             }
         }
 
-        /* Shared: do a dedicated DB write then signal the parent. */
-        async function _doRerunSync(source) {
-            if (_rerunSignalSent) return;
+        /**
+         * GH-553 — THE BODY IS BUILT FROM THE DECLARED FORM, NOT FROM WHAT THE
+         * ENGINES HAPPENED TO ANSWER.
+         *
+         * What it replaces, and it is measured rather than argued: on 22.09.2026
+         * a real Re-run on Federal Golf wrote SIX of the thirteen required keys
+         * with `outcome = 'complete'`. Its disease and stress engines had
+         * returned null, and `collectDashboardMetrics()` adds a key only inside
+         * `if (source)` — so seven keys did not travel as `null`, they did not
+         * travel at all, and nothing downstream could tell a run that measured
+         * nothing from a run that had nothing to measure.
+         *
+         * The plan's section 3 point 4 in one line: a key the run could not
+         * produce is sent as `null`, so "twelve keys" cannot be expressed.
+         *
+         * WHERE THE LIST COMES FROM. `window.GAIP_ANALYSIS_SCHEMA`, rendered by
+         * the server out of `assets/analysis-result.schema.json` — the same file
+         * the server validates against. Not a copy of the names in this file: two
+         * lists of thirteen drift, and this whole question began with a form
+         * nobody owned.
+         *
+         * WHAT IS NOT FILLED IN. `conditional` keys (`companionDisease`, `vwc`)
+         * are absent when their condition does not hold — a companion surface, a
+         * sensor — and `branchDependent` ones (`gdd`, `et`) belong to whichever
+         * climate branch fired. Padding those with `null` would state that a
+         * sensor was read and gave nothing.
+         *
+         * NO SCHEMA, NO RUN. If the page was not given the form, the run reports
+         * `schema-unavailable` and writes nothing. The alternative is to fall
+         * back to the old behaviour, which is this defect with a fallback in
+         * front of it — and a silent one, since the body would look exactly as
+         * it does today.
+         */
+        function _bodyMetrics(raw) {
+            var schema = window.GAIP_ANALYSIS_SCHEMA;
+            var required = schema && schema.metrics && schema.metrics.required;
+            if (!Array.isArray(required) || !required.length) return null;
+
+            var out = {};
+            // Declared first, in the schema's own order, so a stored row reads
+            // the way the form reads.
+            required.forEach(function (key) {
+                out[key] = (raw && raw[key] !== undefined) ? raw[key] : null;
+            });
+            // Then everything the run did produce that the form does not require
+            // -- conditional keys, branch-dependent ones, anything new. Dropping
+            // them would make this function a filter, and a body that silently
+            // loses a value is the same defect pointing the other way.
+            Object.keys(raw || {}).forEach(function (key) {
+                if (!(key in out)) out[key] = raw[key];
+            });
+            return out;
+        }
+
+        /** The one write. Reached only when the run completed. */
+        async function _writeResult() {
+            if (_runReported || _writeStarted) return;
+            _writeStarted = true;
+
             await _ensureMonthlyNormalsBounded();
-            // GH-298: cacheAnalysisResults() below only picks up whatever
-            // window.__GAIP_MONTHLY_N__ happens to already contain -- set by
-            // nutrition-summary-integration.js's renderNutritionSummary(), which
-            // itself only runs reactively, on a fixed list of events
-            // (gaip:soil-data-update / gaip:mlsn-calculated / gaip:turf-profile-
-            // change / gaip:monthly-normals-ready / ~100ms after gaip:analysis-
-            // complete). GH-295/296/297 each fixed a real, live-confirmed gap in
-            // that reactive chain (persistence not re-triggered, climate-normals
-            // wiped by Re-run, soil data not yet synced on site switch) -- but
-            // each fix only closed the specific gap that reproduction exposed,
-            // and a fresh site switch (new coordinates, new sample) kept finding
-            // a new one. Rather than keep chasing individual event-ordering
-            // gaps, force a direct, synchronous render call here -- the one
-            // place that actually matters, immediately before the one save that
-            // actually persists to the DB (_doRerunSync is the real,
-            // POST-triggering path; the debounced gaipEvents-driven
-            // scheduleSave() elsewhere only writes to localStorage). Whatever
-            // soil/climate state is available at this exact moment -- the latest
-            // possible point before persisting -- gets one last, guaranteed
-            // computation attempt, independent of which reactive listener did or
-            // didn't fire in time.
+
+            // GH-298 keeps its invariant: the monthly-N render is forced here,
+            // immediately before the one save that persists, rather than left to
+            // whichever reactive listener did or did not fire in time.
             try {
                 if (window.GilbaNutritionSummary && typeof window.GilbaNutritionSummary.renderNutritionSummary === 'function') {
                     window.GilbaNutritionSummary.renderNutritionSummary();
                 }
             } catch (e) {
-                console.warn('[GilbaRerun] renderNutritionSummary (monthly N) failed, proceeding without it:', e);
+                console.warn('[GilbaRun] renderNutritionSummary (monthly N) failed, proceeding without it:', e);
             }
-            var snap    = cacheAnalysisResults();
-            var siteId  = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId)
-                          || (snap && snap.siteId);
-            console.log('[GilbaRerun] _doRerunSync called from:', source || 'unknown',
-                '| siteId:', siteId,
-                '| GP(growth.weighted):', window.climateMetrics && window.climateMetrics.growth && window.climateMetrics.growth.weighted,
-                '| diseaseRisk:', window.GAIP_DISEASE_RESULT && window.GAIP_DISEASE_RESULT.overallScore,
-                '| snap.dashboard:', snap && snap.dashboard);
-            if (!siteId) { _signalRerunComplete(); return; }
-            var csrf    = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.csrfToken)
-                          || ((document.querySelector('meta[name="csrf-token"]') || {}).content);
-            var restUrl = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.restUrl) || '/api/';
-            fetch(restUrl + 'analysis-cache', {
+
+            var snap = cacheAnalysisResults();
+
+            var metrics = _bodyMetrics(snap.dashboard);
+            if (!metrics) {
+                _fail('schema-unavailable', { reason: 'GAIP_ANALYSIS_SCHEMA was not on the page' });
+                return;
+            }
+
+            // The site is the one the opener named. It is NOT taken from
+            // GAIP_HUB_CONFIG.activeSiteId: the pointer belongs to whatever the
+            // user is looking at now, and this result belongs to the site the
+            // button was pressed for.
+            var siteId = _runIntent.siteId;
+
+            var api = _api();
+
+            // GH-557 (section 15): the account of the pass travels with its
+            // result. `nulls` is what the body itself shows and the server
+            // recomputes rather than trusts — it is here so the two can be
+            // compared, not so the server can be told.
+            var _nulls = Object.keys(metrics).filter(function (k) { return metrics[k] === null; });
+
+            // GH-581 (stage 2) — WHAT THE RUN WAS GIVEN, AND WHAT IT
+            // ASSUMED, travelling with what it produced.
+            //
+            // The row said what the run COULD NOT DO (`nulls`, `skipped`) and
+            // what it SAID (`warnings`), and nothing about what it was handed.
+            // Two runs, one on live weather and one on a week-old cache, one on
+            // a site with a rootzone profile and one where the profile was
+            // filled in with "unknownProfile", were indistinguishable in the
+            // stored result and on the screen. The numbers differ; the account
+            // of them did not.
+            //
+            // `inputs` is what arrived. `assumptions` is what was put in place
+            // of something that did not, taken from the identity enforcer's own
+            // list rather than re-derived here — it already records the key, the
+            // value it assumed, the impact and, since GH-581, where a person
+            // sets it. It is NOT the same list as `skipped`: an assumption is a
+            // run that went ahead on a stand-in, a skip is a part that did not
+            // run at all, and collapsing them would lose exactly the difference
+            // the reader needs.
+            var _inputs = (function () {
+                try {
+                    var w = global.rawWeatherData || null;
+                    var out = {
+                        weather: {
+                            status:    (w && w._weatherStatus) || (global.climateMetrics ? 'cached' : 'none'),
+                            source:    (snap.dashboard && snap.dashboard.weatherSource) || null,
+                            readyAt:   _weatherReadyAt || null,
+                        },
+                        normals: {
+                            present: !!(global.climateMetrics && global.climateMetrics.monthlyTemps),
+                            source:  (global.climateMetrics && global.climateMetrics.monthlyTempsSource) || null,
+                        },
+                        samples: {},
+                        sensors: { vwc: null, soilTemp: null },
+                    };
+                    ['soil', 'water', 'tissue'].forEach(function (type) {
+                        try {
+                            var SM = global.GAIP_SampleManager;
+                            var a = (SM && typeof SM.getActiveSample === 'function') ? SM.getActiveSample(type) : null;
+                            // The sample's IDENTITY, not its numbers: the numbers
+                            // are already in the result, and a second copy of them
+                            // would be a second source.
+                            out.samples[type] = a ? (a.id || null) : null;
+                        } catch (e) { out.samples[type] = null; }
+                    });
+                    try {
+                        var st = global.GAIP_SOIL_TEMP && global.GAIP_SOIL_TEMP.summary;
+                        out.sensors.soilTemp = st && st.available ? (st.source || 'sensor') : null;
+                        out.sensors.vwc = (global.GAIP_SENSOR_VWC != null) ? 'sensor' : null;
+                    } catch (e) { /* a sensor that is not there is not an error */ }
+                    return out;
+                } catch (e) {
+                    // An input record that could not be assembled is absent, not
+                    // invented: `null` says "not recorded", which is true.
+                    return null;
+                }
+            })();
+
+            // GH-588 — STATE 1: this site has no soil sample at all.
+            //
+            // The run completes: the numbers it produced are real and are
+            // stored. The soil part is named as not computed, with a reason that
+            // tells the reader what to DO — add a soil sample — and, unlike the
+            // delivery failure, nothing suggests pressing Re-run, because
+            // pressing it again would change nothing.
+            if (_soilExpected.told === 'none') {
+                try {
+                    if (global.GaipOrchestrator && typeof global.GaipOrchestrator.noteSkipped === 'function') {
+                        global.GaipOrchestrator.noteSkipped('mlsn', 'mlsn', 'no-soil-sample', 'mlsn');
+                    }
+                } catch (e) { /* bookkeeping must not stop a run */ }
+            }
+
+            var _assumptions = (function () {
+                try {
+                    var IE = global.GilbaIdentityEnforcement;
+                    var st = (IE && typeof IE.getIdentityState === 'function') ? IE.getIdentityState() : null;
+                    return (st && Array.isArray(st.assumptions)) ? st.assumptions : [];
+                } catch (e) {
+                    return [];
+                }
+            })();
+
+            fetch(api.root + 'analysis-cache', {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf || '', 'Accept': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': api.csrf, 'Accept': 'application/json' },
                 body: JSON.stringify({
                     site_id:     siteId,
+                    detail: {
+                        nulls:       _nulls,
+                        skipped:     _passSkipped,
+                        warnings:    _passWarnings,
+                        assumptions: _assumptions,
+                    },
+                    // GH-581: the column has existed since GH-550 and has been
+                    // written `null` ever since, because nothing sent it.
+                    inputs:      _inputs,
+                    // GH-548 (stage 3): the result is signed by the run that
+                    // produced it. The row could not say which run its numbers
+                    // came from, so a failure mark and a set of numbers had no way
+                    // of being about the same attempt.
+                    run_id:      _runIntent.runId,
                     analyzed_at: (snap.dashboard && snap.dashboard.timestamp) || snap.cachedAt || new Date().toISOString(),
-                    metrics:     snap.dashboard,
+                    metrics:     metrics,
                     computed:    snap.computed || null,
                 }),
             }).then(function (r) {
-                console.log('[GilbaRerun] POST /api/analysis-cache success, signalling parent');
-                try { localStorage.removeItem('gilba_wb_water_override'); } catch(_e) {}
-                _signalRerunComplete();
+                // A refusal is a failure of the run, not a detail of it. The old
+                // code signalled the parent to reload on both answers, including
+                // the 403 a viewer now gets, so the page reloaded onto the
+                // previous result believing it was the new one.
+                if (!r.ok) {
+                    // GH-553: a 422 names the keys it refused the body for, and
+                    // that list is what the screen needs — "the server refused
+                    // the result" says nothing a person can act on.
+                    if (r.status === 422) {
+                        r.json().then(function (j) {
+                            _fail('incomplete-result', { status: 422, keys: (j && j.missing) || null });
+                        }).catch(function () {
+                            _fail('incomplete-result', { status: 422 });
+                        });
+                        return;
+                    }
+                    _fail('rejected', { status: r.status });
+                    return;
+                }
+                // GH-557: the server decides the outcome from the data, and the
+                // opener is told which one it was. A partial run does NOT
+                // reload the page — the same rule as a failure (GH-548): the
+                // numbers on screen are still the last complete ones, and
+                // reloading onto a partial result would replace them with
+                // blanks.
+                r.json().then(function (j) {
+                    var outcome = (j && j.outcome) || 'complete';
+                    if (outcome === 'partial') {
+                        _report('gilba:analysis-partial', {
+                            skipped: _passSkipped,
+                            nulls:   _nulls,
+                        });
+                    } else {
+                        _report('gilba:analysis-complete');
+                    }
+                }).catch(function () {
+                    _report('gilba:analysis-complete');
+                });
             }).catch(function (e) {
-                console.warn('[GilbaRerun] POST /api/analysis-cache FAILED:', e, '— signalling anyway');
-                try { localStorage.removeItem('gilba_wb_water_override'); } catch(_e) {}
-                _signalRerunComplete();
+                _fail('rejected', { message: e && e.message });
             });
         }
 
+        function _maybeComplete() {
+            // GH-588: a third condition, built the way the weather's was. When
+            // the run was told there IS a soil sample, a pass that finished
+            // before it arrived is the same stale pass the weather rule already
+            // refuses — and the numbers it produced are wrong rather than
+            // missing, which is why it is refused rather than stored.
+            if (_runReported || _writeStarted || !_weatherReady || !_orchestratorDone || !_soilReady) return;
+            // GH-589: and the cascade's own pass, which is where the nutrient
+            // list is computed. The soil having arrived says nothing about
+            // which state the list was built on.
+            if (_cascadeStale) return;
+            _writeResult();
+        }
+
+        /**
+         * GH-589: a cascade pass, weighed against the moment its inputs arrived.
+         *
+         * The runner holds `_soilReadyAt` already — the moment the STORE was
+         * found to hold the sample, not the moment an event said so — so the
+         * comparison is against a fact. A pass that began before it is stale and
+         * the run waits for the next one; a pass that began after it clears the
+         * mark.
+         */
+        function _judgeCascadePass(startedAt) {
+            if (!_soilExpected.expect || !_soilReadyAt) { _cascadeStale = false; return; }
+            _cascadeStale = (startedAt === null || startedAt < _soilReadyAt);
+        }
+
+        document.addEventListener('gaip:cascade-complete', function (e) {
+            var d = (e && e.detail) || {};
+            _cascadePassAt = typeof d.passStartedAt === 'number' ? d.passStartedAt : null;
+            _judgeCascadePass(_cascadePassAt);
+            if (_cascadeStale) {
+                console.warn('[GilbaRun] a cascade pass that began before the soil sample arrived is not this run\'s result');
+                return;
+            }
+            _maybeComplete();
+        });
+
+        /**
+         * GH-588: the site's soil samples have arrived.
+         *
+         * `gaip:site-samples-ready` announces the load; the FACT is whether the
+         * store now holds one, and the two are not the same — measured on
+         * 22.09.2026, the event precedes the store by enough for a whole pass to
+         * run in between. So the event is only the prompt to look.
+         */
+        function _soilSampleHasArrived() {
+            try {
+                var SM = global.GAIP_SampleManager;
+                var a = (SM && typeof SM.getActiveSample === 'function') ? SM.getActiveSample('soil') : null;
+                var src = a && (a.normalized || a.rawData || a.values);
+                return !!(src && Object.keys(src).length);
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function _noteSoilArrived() {
+            if (_soilReady || !_soilExpected.expect) return;
+            if (!_soilSampleHasArrived()) return;
+            _soilReady = true;
+            _soilReadyAt = Date.now();
+            // GH-589: a pass already seen is judged again now that there is a
+            // moment to judge it against. Until this line there was none, so
+            // the pass could not have been called stale when it arrived.
+            if (_cascadePassAt !== 0) _judgeCascadePass(_cascadePassAt);
+            _maybeComplete();
+        }
+
+        document.addEventListener('gaip:site-samples-ready', _noteSoilArrived);
+        // The event can precede the store, so the fact is also polled. This is
+        // not a second budget: it stops at the run's own, the same fifteen
+        // seconds the weather is allowed.
+        if (_soilExpected.expect) {
+            var _soilPollStartedAt = Date.now();
+            var _soilPoll = setInterval(function () {
+                _noteSoilArrived();
+                if (_soilReady || Date.now() - _soilPollStartedAt >= RUN_BUDGET_MS) clearInterval(_soilPoll);
+            }, 100);
+        }
+
         document.addEventListener('gaip:weather-ready', function () {
-            console.log('[GilbaRerun] gaip:weather-ready received, setting _weatherReady=true');
             _weatherReady = true;
+            if (!_weatherReadyAt) _weatherReadyAt = Date.now();
+            _maybeComplete();
         });
 
-        /* FAST PATH — standard case: weather loads from API after hub starts.
-           gaip:weather-ready fires → _weatherReady = true → next orchestrator-complete
-           triggers a 3s delayed sync (gives async calcs time to finish). */
-        document.addEventListener('gaip:orchestrator-complete', function () {
-            console.log('[GilbaRerun] gaip:orchestrator-complete | _weatherReady:', _weatherReady, '| _readyToSignal:', _readyToSignal);
-            if (_weatherReady && !_readyToSignal) {
-                _readyToSignal = true;
-                setTimeout(function() { _doRerunSync('fast-path-3s'); }, 3000);
+        /**
+         * GH-557 (section 15) — A PASS THAT RAN BEFORE THE WEATHER IS NOT
+         * COMPLETION.
+         *
+         * `_orchestratorDone` used to be set by ANY `orchestrator-complete`,
+         * including the pass that finished while the weather fetch was still in
+         * flight. In that pass the disease step skips itself for want of a
+         * temperature, the forecast step skips behind it, and the orchestrator
+         * re-runs once the weather lands — but the runner had already posted the
+         * first pass's body. That is Federal Golf's row: a pass without climate,
+         * stored as a completed analysis.
+         *
+         * The condition is an EVENT, not a timer: the pass must have STARTED
+         * after the weather was ready. A pass that started earlier and happened
+         * to finish later is the same stale pass.
+         *
+         * A build of the orchestrator that does not say when its pass began
+         * cannot be told apart, so it is accepted — with the gap recorded, so
+         * that "we could not check" is distinguishable from "we checked".
+         */
+        document.addEventListener('gaip:orchestrator-complete', function (e) {
+            var d = (e && e.detail) || {};
+            var startedAt = typeof d.passStartedAt === 'number' ? d.passStartedAt : null;
+
+            // A pass that ENDS before the weather has arrived began before it
+            // too, whatever it says about itself — and this is the common case,
+            // because the first pass runs on page load while the fetch is in
+            // flight. Checked first, because `passStartedAt` cannot help here:
+            // there is no weather timestamp yet to compare it with.
+            if (!_weatherReady) {
+                console.warn('[GilbaRun] ignoring an orchestrator pass that finished before the weather arrived');
+                return;
             }
+
+            // And a pass that began before the weather but finished after it is
+            // the same stale pass wearing better timing.
+            if (startedAt !== null && _weatherReadyAt && startedAt < _weatherReadyAt) {
+                console.warn('[GilbaRun] ignoring an orchestrator pass that began before the weather arrived');
+                return;
+            }
+
+            // GH-588: and the same for the soil sample, when the run was told
+            // there is one. This is the pass that produced ten "NOT MEASURED"
+            // cards over a sample holding K 40 and Ca 803 — it did not lack the
+            // numbers, it had the wrong ones.
+            if (_soilExpected.expect && !_soilReady) {
+                console.warn('[GilbaRun] ignoring an orchestrator pass that finished before the soil sample arrived');
+                return;
+            }
+            if (_soilExpected.expect && startedAt !== null && _soilReadyAt && startedAt < _soilReadyAt) {
+                console.warn('[GilbaRun] ignoring an orchestrator pass that began before the soil sample arrived');
+                return;
+            }
+
+            _orchestratorDone = true;
+            _passSkipped  = Array.isArray(d.skipped) ? d.skipped : [];
+            _passWarnings = Array.isArray(d.warnings) ? d.warnings : [];
+            if (startedAt === null) {
+                _passSkipped = _passSkipped.concat([{
+                    step: 'orchestrator', module: 'orchestrator', reason: 'pass-start-unknown',
+                }]);
+            }
+            _maybeComplete();
         });
 
-        /* SLOW PATH — catches the case where gaip:weather-ready fired from a
-           localStorage cache *before* hub-persistence.js registered its listener
-           (weather-resilience.js runs earlier in the script list).  By 10 s the
-           single weather-inclusive analysis pass and all async calculations are
-           guaranteed to have finished. */
-        setTimeout(function () {
-            console.log('[GilbaRerun] 10s slow path | _readyToSignal:', _readyToSignal, '| _weatherReady:', _weatherReady);
-            if (!_readyToSignal) {
-                _readyToSignal = true;
-                _doRerunSync('slow-path-10s');
+        // The analysis reporting on itself. `detail.error` is the catch branch of
+        // hub-tissue-v3.js, which until now also raised an `alert()` inside a
+        // hidden iframe -- a dialog nobody could reach, stopping that frame's
+        // JavaScript with it.
+        document.addEventListener('gaip:analysis-complete', function (e) {
+            var d = (e && e.detail) || {};
+            if (d.error) {
+                _fail('calculation-error', { message: d.message || null });
+                return;
             }
-        }, 10000);
+            // GH-557: this is the analysis reporting on itself, not an
+            // orchestrator pass, and it no longer sets `_orchestratorDone`.
+            //
+            // It used to — which made it a second door into the same gate, and
+            // the door the listener above had just locked. A stale pass rejected
+            // there walked in here a moment later and the run completed on it
+            // anyway. Found by the case that rejects a pass which BEGAN before
+            // the weather: the rejection worked and the run wrote regardless.
+            //
+            // Completion is still three events; what counts as the second one is
+            // now an orchestrator pass that began after the weather, which is
+            // what it was always meant to be.
+            _maybeComplete();
+        });
 
-        /* Absolute fallback: if nothing saved to DB, just signal at 20 s */
-        setTimeout(function () {
-            console.log('[GilbaRerun] 20s absolute fallback firing, _rerunSignalSent:', _rerunSignalSent);
-            _signalRerunComplete();
-        }, 20000);
+        // The run cannot start at all when the site's settings did not load:
+        // computing on the form's own defaults produces figures that look
+        // measured (GH-441).
+        document.addEventListener('gaip:site-config-failed', function (e) {
+            _fail('site-settings-unavailable', { reason: (e && e.detail && e.detail.reason) || null });
+        });
 
-        /* Sensor-upgrade re-sync: hub-orchestrator dispatches gaip:sensor-upgrade-complete
-           when Hydrosight data arrived after the initial analysis (race condition where
-           sensor fetch completes after first computeAll). Re-POST the updated computed
-           state so Plan/dashboard pages show sensor soil temp instead of physics_model.
-           Only fires once and only after the first sync has already completed. */
-        var _sensorUpgradeSynced = false;
-        document.addEventListener('gaip:sensor-upgrade-complete', function () {
-            if (_sensorUpgradeSynced || !_rerunSignalSent) return;
-            _sensorUpgradeSynced = true;
-            var snap    = cacheAnalysisResults();
-            var siteId  = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId) || (snap && snap.siteId);
-            if (!siteId) return;
-            var csrf    = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.csrfToken)
-                          || ((document.querySelector('meta[name="csrf-token"]') || {}).content);
-            var restUrl = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.restUrl) || '/api/';
-            console.log('[GilbaRerun] Sensor upgrade re-sync for site', siteId);
-            fetch(restUrl + 'analysis-cache', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf || '', 'Accept': 'application/json' },
-                body: JSON.stringify({
-                    site_id:     siteId,
-                    analyzed_at: new Date().toISOString(),
-                    metrics:     snap.dashboard,
-                    computed:    snap.computed || null,
-                }),
-            }).then(function () {
-                console.log('[GilbaRerun] Sensor upgrade re-sync success');
-            }).catch(function (e) {
-                console.warn('[GilbaRerun] Sensor upgrade re-sync failed:', e);
+        var _runDeadline = setTimeout(function () {
+            // GH-557: a run that had its weather and never saw a pass started
+            // after it is a named case, not a generic timeout — it is the exact
+            // shape that produced Federal Golf's row, and the reader is told so.
+            // GH-588: the DELIVERY failure — state 3 — named before the
+            // generic ones, because it is the one with an action attached. The
+            // run was told this site has a soil sample and it never arrived;
+            // pressing Re-run again is worth doing, which is exactly what
+            // distinguishes it from a site that has no sample at all (state 1,
+            // which completes and never reaches here).
+            if (_soilExpected.expect && !_soilReady) {
+                _fail('soil-sample-not-delivered', {
+                    soilSampleId: _soilExpected.id,
+                    toldBy: _soilExpected.told,
+                    weatherReady: _weatherReady,
+                    orchestratorDone: _orchestratorDone,
+                });
+                return;
+            }
+            // GH-589: the sample arrived and no cascade pass began after it
+            // inside the budget. This is NOT a failure — the rest of the run is
+            // real and is stored — it is the third outcome: the soil part is
+            // named as not computed, with the reason, the server reads that and
+            // returns `partial`, and the previous complete numbers are not
+            // replaced by this one.
+            if (_cascadeStale) {
+                try {
+                    if (global.GaipOrchestrator && typeof global.GaipOrchestrator.noteSkipped === 'function') {
+                        global.GaipOrchestrator.noteSkipped('mlsn', 'mlsn', 'soil-sample-not-loaded', 'mlsn');
+                    }
+                } catch (e) { /* bookkeeping must not stop a run */ }
+                // The gap is named now, so it no longer holds the write back:
+                // holding it further would turn a partial result into nothing
+                // at all.
+                _cascadeStale = false;
+                _maybeComplete();
+                if (_writeStarted) return;
+            }
+            // GH-557: a run that had its weather and never saw a pass started
+            // after it is a named case, not a generic timeout — it is the exact
+            // shape that produced Federal Golf's row, and the reader is told so.
+            if (_weatherReady && !_orchestratorDone) {
+                _fail('climate-late', {
+                    weatherReadyAt: _weatherReadyAt || null,
+                    note: 'no orchestrator pass began after the weather arrived inside the run budget',
+                });
+                return;
+            }
+            _fail('run-not-completed', {
+                weatherReady: _weatherReady,
+                orchestratorDone: _orchestratorDone,
             });
-        });
+        }, RUN_BUDGET_MS);
     }
 
     // =========================================================================
@@ -897,6 +1465,26 @@
     // ANALYSIS CACHE (For Dashboard)
     // =========================================================================
 
+    /**
+     * GH-589 (link 4, point 4a): the tissue result of THIS run's last
+     * cascade pass.
+     *
+     * One author. `window.__GAIP_TISSUE_LAST__`, which this replaces, is
+     * written by the cascade's tissue engine AND by the screen module
+     * `tissue-ui.js`, and whichever wrote last won the stored row — so a row's
+     * tissue block belonged to whatever had happened on the page most recently
+     * rather than to the run the row is about.
+     */
+    function _cascadeTissueOfThisRun() {
+        try {
+            var pass = global.GAIP_LAST_CASCADE_PASS;
+            var computed = pass && pass.result && pass.result.state && pass.result.state.computed;
+            return (computed && computed.tissue) || null;
+        } catch (e) {
+            return null;
+        }
+    }
+
     function cacheAnalysisResults() {
         // Stamp the active siteId so standalone pages (e.g. morning briefing)
         // can identify which site this cache belongs to without SampleManager.
@@ -1073,69 +1661,73 @@
         var _mlsnHtml = (_gaipState && _gaipState.computed && typeof _gaipState.computed.mlsn === 'string' && _gaipState.computed.mlsn)
                      || (_gaipState && typeof _gaipState.mlsnResults === 'string' && _gaipState.mlsnResults)
                      || '';
+        // GH-574: the MLSN engine's own rows. Everything below used to be
+        // recovered from `_mlsnHtml` by `DOMParser`, reading table cells by
+        // position — the engine's result, read back out of the page it had been
+        // drawn on. That is the class GH-459 closed, and it is why the owner's
+        // Re-run showed nothing: the engine threw on values the sample store
+        // holds as strings, the cascade caught it and returned an object rather
+        // than a string, so the markup was empty and so was the list.
+        var _mlsnRows = (_gaipState && _gaipState.computed && Array.isArray(_gaipState.computed.mlsnRows) && _gaipState.computed.mlsnRows)
+                     || (_gaipState && Array.isArray(_gaipState.mlsnRows) && _gaipState.mlsnRows)
+                     || null;
         var _turfState = (_gaipState && _gaipState.turf)
                       || (_gaipState && _gaipState.inputs && _gaipState.inputs.turf)
                       || null;
         cache.computed = Object.assign({}, cache.computed || {});
-        if (_gaipState && (_mlsnHtml || _soilIn)) {
+        if (_gaipState && (_mlsnRows || _mlsnHtml || _soilIn)) {
             try {
-                var _nutrients = [];
-                if (_mlsnHtml) {
-                    try {
-                        var _parser = new DOMParser();
-                        var _doc    = _parser.parseFromString(_mlsnHtml, 'text/html');
-                        var _rows   = _doc.querySelectorAll('.gaip-mlsn-table tbody tr');
-                        _rows.forEach(function(row) {
-                            var cells = row.querySelectorAll('td');
-                            // GH-260 (D07 item 3): AA rows carry data-range-min/max
-                            // (mlsnEngine, hub-tissue-v3.js); MLSN/SLAN rows don't set
-                            // these, so both land as undefined here — no crash either way.
-                            // GH-304 (D07 item 7): data-range-source distinguishes a
-                            // certificate-backed range from the texture-only fallback,
-                            // same undefined-on-MLSN/SLAN-rows behaviour as rangeMin/Max.
-                            var _rangeMin = row.dataset ? row.dataset.rangeMin : undefined;
-                            var _rangeMax = row.dataset ? row.dataset.rangeMax : undefined;
-                            var _rangeSource = row.dataset ? row.dataset.rangeSource : undefined;
-                            if (cells.length >= 7) {
-                                _nutrients.push({
-                                    nutrient:       cells[0].textContent.trim(),
-                                    actual:         cells[1].textContent.trim(),
-                                    mlsn:           cells[2].textContent.trim(),
-                                    uptakePpm:      cells[3].textContent.trim(),
-                                    targetPpm:      cells[4].textContent.trim(),
-                                    status:         cells[5].textContent.trim(),
-                                    statusClass:    row.className.replace('status-', ''),
-                                    recommendation: cells[6].textContent.trim(),
-                                    rangeMin:       _rangeMin != null ? parseFloat(_rangeMin) : undefined,
-                                    rangeMax:       _rangeMax != null ? parseFloat(_rangeMax) : undefined,
-                                    rangeSource:    _rangeSource || undefined
-                                });
-                            } else if (cells.length >= 5) {
-                                _nutrients.push({
-                                    nutrient:       cells[0].textContent.trim(),
-                                    actual:         cells[1].textContent.trim(),
-                                    mlsn:           cells[2].textContent.trim(),
-                                    status:         cells[3].textContent.trim(),
-                                    statusClass:    row.className.replace('status-', ''),
-                                    recommendation: cells[4].textContent.trim(),
-                                    rangeMin:       _rangeMin != null ? parseFloat(_rangeMin) : undefined,
-                                    rangeMax:       _rangeMax != null ? parseFloat(_rangeMax) : undefined,
-                                    rangeSource:    _rangeSource || undefined
-                                });
-                            }
-                        });
-                    } catch(e) {
-                        console.warn('[GilbaPersist] Failed to parse MLSN HTML:', e);
-                    }
-                }
-                // Derive verdict from nutrient status classes
+                // GH-574: taken from the engine's result. No parsing, and no
+                // second shape: `nutrientResults` is what the table was rendered
+                // FROM, so every field the scrape tried to recover is here,
+                // including the recommendation the seven-column variant used to
+                // read out of the deficit cell by mistake.
+                var _nutrients = (_mlsnRows || []).map(function (r) {
+                    return {
+                        nutrient:       r.nutrient,
+                        actual:         r.actual,
+                        mlsn:           r.mlsn,
+                        uptakePpm:      r.uptakePpm,
+                        targetPpm:      r.targetPpm,
+                        status:         r.status,
+                        statusClass:    r.statusClass,
+                        recommendation: r.recommendation,
+                        rangeMin:       r.rangeMin,
+                        rangeMax:       r.rangeMax,
+                        rangeSource:    r.rangeSource,
+                    };
+                });
+                // GH-576 — NO NUMBERS, NO VERDICT. The rule is ours and it had a
+                // guard: `gh511-no-number-no-verdict.test.js`. That guard watches
+                // ONE door — the growth-potential producer and the climate
+                // section of the Word document — and this is the other one.
+                //
+                // What it let through, measured on the stand: `analysis_results`
+                // id 37 carries ten nutrient rows, every one of them
+                // `status: "NOT MEASURED"` with `actual: "-"`, and a verdict of
+                // ACCEPTABLE. The ladder asked "is anything deficient? is
+                // anything borderline?", both answers were no, and the last rung
+                // said the soil is fine. The page then printed "Soil Nutrition:
+                // Acceptable — Operate normally. No immediate action required."
+                // over ten dashes. A conclusion of wellbeing, drawn from ten
+                // values nobody measured.
+                //
+                // A row the engine could not measure carries `actual: "-"` —
+                // its own marker, from the `!wasMeasured` branch — so the
+                // verdict is derived from the measured rows and from nothing
+                // else. None measured is NO DATA, which is what it was before
+                // the list existed at all. The rows themselves are untouched:
+                // the dash is honest and stays on the screen.
+                var _measured = _nutrients.filter(function(n) {
+                    return n && n.actual !== '-' && n.actual !== null && n.actual !== undefined && n.actual !== '';
+                });
                 var _soilVerdict = 'NO DATA';
-                if (_nutrients.length > 0) {
-                    var _hasDeficient = _nutrients.some(function(n) {
+                if (_measured.length > 0) {
+                    var _hasDeficient = _measured.some(function(n) {
                         var sc = (n.statusClass || '').toLowerCase();
                         return sc === 'deficient' || sc === 'critical' || n.status === 'LOW' || n.status === 'Very Low';
                     });
-                    var _hasBorderline = _nutrients.some(function(n) {
+                    var _hasBorderline = _measured.some(function(n) {
                         return (n.statusClass || '').toLowerCase() === 'borderline';
                     });
                     _soilVerdict = _hasDeficient ? 'HIGH_RISK' : _hasBorderline ? 'MONITOR' : 'ACCEPTABLE';
@@ -1150,38 +1742,30 @@
                 var _bulkDensity = parseFloat(_si.bulkDensity) || 1.4;
                 var _turfType    = (_turfState && _turfState.warmBase && ((_turfState.percentC3Cover || 0) < 50))
                                    ? 'warm-season' : 'cool-season';
-                // Sample-store fallback for pH/ECe/Na: read by GAIP_HUB_CONFIG.activeSiteId so
-                // a site switch to 'default' (site-config-persistence race) doesn't affect us.
-                var _soilSmpData = (function() {
-                    try {
-                        if (!global.GAIP_SampleManager) return {};
-                        var _hubSite = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
-                        if (_hubSite && typeof global.GAIP_SampleManager.getAllSamples === 'function') {
-                            var _allS = global.GAIP_SampleManager.getAllSamples();
-                            var _sSiteStore = _allS.allSites && _allS.allSites[_hubSite];
-                            var _sSoilSamples = (_sSiteStore && _sSiteStore.soil) || {};
-                            var _sActiveIds = _allS.allActive && _allS.allActive[_hubSite];
-                            var _sActiveId = _sActiveIds && _sActiveIds.soil;
-                            var _sSmp = (_sActiveId && _sSoilSamples[_sActiveId]) ||
-                                        Object.values(_sSoilSamples).sort(function(a,b){ return (b.date||'')>(a.date||'')?1:-1; })[0];
-                            if (_sSmp) return (_sSmp.rawData || _sSmp.values) || {};
-                        }
-                        var _ss = global.GAIP_SampleManager.getActiveSample('soil');
-                        return (_ss && (_ss.rawData || _ss.values)) || {};
-                    } catch(e) { return {}; }
-                })();
-                var _texMultipliers = {sand:5,loamy_sand:5.5,sandy_loam:6,loam:7,clay_loam:8,clay:10};
-                var _soilSmpEC15 = parseFloat(_soilSmpData.EC || _soilSmpData.EC_1_5 || _soilSmpData.EC_dSm || 0);
-                var _soilSmpTex  = _soilSmpData.Texture || _soilSmpData.texture || _soilSmpData.Soil_Texture || 'loam';
-                var _soilSmpECe  = _soilSmpEC15 > 0 ? _soilSmpEC15 * (_texMultipliers[_soilSmpTex] || 7) : 0;
-                var _soilSmpPH   = parseFloat(_soilSmpData.pH_Water || _soilSmpData.pH || _soilSmpData.ph || 0);
-                var _soilSmpNa   = parseFloat(_soilSmpData.Na || _soilSmpData.Na_ppm || 0);
+                // GH-589 (link 4, point 4) — pH, ECe, Na AND CEC COME OUT OF
+                // THE SAME PASS AS THE NUTRIENT LIST, AND OUT OF NOTHING ELSE.
+                //
+                // Four readings used to be recovered here by reading the sample
+                // store a SECOND time, at the moment the body was assembled —
+                // GH-572 added CEC to the three that were already doing it. It
+                // worked, and that is the problem: it worked at a different
+                // MOMENT from the list beside it. On 23.09.2026 that produced
+                // one stored row in which pH and CEC were the sample's real
+                // numbers and all ten nutrient cards said "NOT MEASURED", and
+                // the two disagreeing halves were read as two sources when they
+                // were one source read twice.
+                //
+                // Since GH-589 the pass collects its own state at its own start
+                // and is re-run when the sample arrives after it, so `_si` — the
+                // soil the engines actually computed on — carries all four. A
+                // second read here would be a second moment again, and the way
+                // to keep a row consistent with itself is to have one.
                 cache.computed.soilNutrition = {
                     verdict:      _soilVerdict,
                     methodology:  _si.methodology || null,
-                    pH:           _si.pH_water || _si.pH_cacl2 || _si.ph || _soilSmpPH || null,
-                    ECe:          _si.ECe || _soilSmpECe || null,
-                    soilNa:       (_si.ppm && _si.ppm.Na) || _si.Na_ppm || _soilSmpNa || null,
+                    pH:           _si.pH_water || _si.pH_cacl2 || _si.ph || null,
+                    ECe:          _si.ECe || null,
+                    soilNa:       (_si.ppm && _si.ppm.Na) || _si.Na_ppm || null,
                     CEC:          _si.CEC || _si.cec || null,
                     sampleDate:   _si.testDate || null,
                     sampleLabel:  _si.sampleLabel || null,
@@ -1204,8 +1788,27 @@
                         cache.computed.soilNutrition.annualDemand = calculateAnnualDemand(_turfType, _gp, _nPrg);
                     } catch(e) {}
                 }
-                // Tissue results from the last tissue run
-                var _tissue = global.__GAIP_TISSUE_LAST__;
+                // GH-589 (link 4, point 4a) — THE TISSUE BLOCK COMES FROM
+                // THE PASS, NOT FROM A SNAPSHOT TWO MODULES WRITE.
+                //
+                // `window.__GAIP_TISSUE_LAST__` is written by the cascade's
+                // tissue engine AND by the screen module `tissue-ui.js`, and
+                // whoever wrote last won. The block in the stored row was intact
+                // only because `tissue-ui` happened to write after the form was
+                // filled — an order, not a rule, and `computed.tissue` on fresh
+                // rows was NULL beside it. One result, two authors, no way to
+                // say which run a row's tissue belongs to.
+                //
+                // IT COMES FROM THE PASS ITSELF, and not from
+                // `computed.tissue` on the shared state, which looks like the
+                // same thing and is not: `mergeComputed` declines to overwrite a
+                // key the hub state already has, `tissue` is one of the keys
+                // that state declares up front, and so the cascade's tissue
+                // result never lands there at all. Measured while writing this
+                // — the row came out with no tissue block — which is also why
+                // `computed.tissue` was NULL on the fresh rows while a full
+                // thirteen-key block sat in `soilNutrition.tissue` beside it.
+                var _tissue = _cascadeTissueOfThisRun();
                 if (_tissue) {
                     cache.computed.soilNutrition.tissue = {
                         testDate:          _tissue.testDate || null,
@@ -1333,62 +1936,33 @@
                             },
                             turf: _turfState || {},
                         };
-                        var _smHtml = global.mlsnEngine(_smState, global.rawWeatherData || null);
-                        if (_smHtml && typeof _smHtml === 'string') {
-                            var _smNutrients = [];
-                            try {
-                                var _smP = new DOMParser();
-                                var _smD = _smP.parseFromString(_smHtml, 'text/html');
-                                _smD.querySelectorAll('.gaip-mlsn-table tbody tr').forEach(function(row) {
-                                    var cells = row.querySelectorAll('td');
-                                    // GH-266 (D07): this is a second, independent copy of the
-                                    // GH-260 scraper (the primary one, ~line 1073, was fixed;
-                                    // this one -- inside the "empty hub form" sample fallback --
-                                    // was missed) that never read data-range-min/max at all, so
-                                    // rangeMin/rangeMax were silently absent from every nutrient
-                                    // this path produced, even though mlsnEngine()'s AA branch
-                                    // always sets them. Confirmed live: a real K row had status
-                                    // HIGH and the correct AA recommendation text, but no
-                                    // rangeMin/rangeMax, so renderAnnualRequirements()'s isHigh
-                                    // check (which needs rangeMax) silently fell through to the
-                                    // non-ceiling branch -- HIGH status shown next to a non-zero
-                                    // demand figure and the wrong note text.
-                                    // GH-304 (D07 item 7): rangeSource follows the same
-                                    // "was it missed here too" precedent as GH-266 above --
-                                    // read it alongside rangeMin/rangeMax so this path can't
-                                    // silently disagree with the primary scraper on whether a
-                                    // nutrient's range is certificate-backed.
-                                    var _smRangeMin = row.dataset ? row.dataset.rangeMin : undefined;
-                                    var _smRangeMax = row.dataset ? row.dataset.rangeMax : undefined;
-                                    var _smRangeSource = row.dataset ? row.dataset.rangeSource : undefined;
-                                    if (cells.length >= 7) {
-                                        _smNutrients.push({
-                                            nutrient: cells[0].textContent.trim(), actual: cells[1].textContent.trim(),
-                                            mlsn: cells[2].textContent.trim(), uptakePpm: cells[3].textContent.trim(),
-                                            targetPpm: cells[4].textContent.trim(), status: cells[5].textContent.trim(),
-                                            statusClass: row.className.replace('status-', ''),
-                                            recommendation: cells[6].textContent.trim(),
-                                            rangeMin: _smRangeMin != null ? parseFloat(_smRangeMin) : undefined,
-                                            rangeMax: _smRangeMax != null ? parseFloat(_smRangeMax) : undefined,
-                                            rangeSource: _smRangeSource || undefined
-                                        });
-                                    } else if (cells.length >= 5) {
-                                        _smNutrients.push({
-                                            nutrient: cells[0].textContent.trim(), actual: cells[1].textContent.trim(),
-                                            mlsn: cells[2].textContent.trim(), status: cells[3].textContent.trim(),
-                                            statusClass: row.className.replace('status-', ''),
-                                            recommendation: cells[4].textContent.trim(),
-                                            rangeMin: _smRangeMin != null ? parseFloat(_smRangeMin) : undefined,
-                                            rangeMax: _smRangeMax != null ? parseFloat(_smRangeMax) : undefined,
-                                            rangeSource: _smRangeSource || undefined
-                                        });
-                                    }
-                                });
-                            } catch(e) {}
+                        // GH-574: the engine returns `{ html, nutrients }`. The
+                        // markup is still wanted here for the ratio strings; the
+                        // rows come from the result rather than from the markup.
+                        var _smOut  = global.mlsnEngine(_smState, global.rawWeatherData || null);
+                        var _smHtml = typeof _smOut === 'string' ? _smOut : ((_smOut && _smOut.html) || '');
+                        var _smRows = (_smOut && Array.isArray(_smOut.nutrients)) ? _smOut.nutrients : null;
+                        if (_smRows || _smHtml) {
+                            var _smNutrients = (_smRows || []).map(function (r) {
+                                return {
+                                    nutrient: r.nutrient, actual: r.actual, mlsn: r.mlsn,
+                                    uptakePpm: r.uptakePpm, targetPpm: r.targetPpm,
+                                    status: r.status, statusClass: r.statusClass,
+                                    recommendation: r.recommendation,
+                                    rangeMin: r.rangeMin, rangeMax: r.rangeMax,
+                                    rangeSource: r.rangeSource,
+                                };
+                            });
+                            // GH-576: the same rule on the second door of this
+                            // same file. Two copies of a ladder drift, and the
+                            // one nobody looked at is the one that drifts.
+                            var _smMeasured = _smNutrients.filter(function(n) {
+                                return n && n.actual !== '-' && n.actual !== null && n.actual !== undefined && n.actual !== '';
+                            });
                             var _smVerdict = 'NO DATA';
-                            if (_smNutrients.length > 0) {
-                                var _smDef = _smNutrients.some(function(n) { return (n.statusClass || '').toLowerCase() === 'deficient' || (n.statusClass || '').toLowerCase() === 'critical'; });
-                                var _smBord = _smNutrients.some(function(n) { return (n.statusClass || '').toLowerCase() === 'borderline'; });
+                            if (_smMeasured.length > 0) {
+                                var _smDef = _smMeasured.some(function(n) { return (n.statusClass || '').toLowerCase() === 'deficient' || (n.statusClass || '').toLowerCase() === 'critical'; });
+                                var _smBord = _smMeasured.some(function(n) { return (n.statusClass || '').toLowerCase() === 'borderline'; });
                                 _smVerdict = _smDef ? 'HIGH_RISK' : _smBord ? 'MONITOR' : 'ACCEPTABLE';
                             }
                             var _smDepth = _smRaw.depth_mm ? _smRaw.depth_mm / 10 : (_smRaw.depthCm || 10);
@@ -1434,7 +2008,10 @@
                                     cache.computed.soilNutrition.annualDemand = calculateAnnualDemand(_smTurfType, _smGp, _smNPr);
                                 } catch(e) {}
                             }
-                            var _tissue2 = global.__GAIP_TISSUE_LAST__;
+                            // GH-589: the same source on this second door. Two
+                            // copies of a read drift, and the one nobody looked
+                            // at is the one that drifts (GH-576, same file).
+                            var _tissue2 = _cascadeTissueOfThisRun();
                             if (_tissue2) {
                                 cache.computed.soilNutrition.tissue = {
                                     testDate: _tissue2.testDate || null, speciesGroup: (_tissue2.meta && _tissue2.meta.speciesGroup) || null,
@@ -1477,8 +2054,57 @@
                         var t = parseFloat(n.mlsn);
                         if (!isNaN(t)) _mlsnThresh[n.nutrient] = t;
                     });
-                    // Collect all samples, then deduplicate by zone label keeping latest date
-                    var _zoneMap  = {}; // label → sample entry (latest date wins)
+                    // GH-549 — THE ZONE'S KEY AND THE ZONE'S NAME ARE DIFFERENT THINGS.
+                    //
+                    // What stood here: the map was keyed by `s.label || sid`,
+                    // and that same string was stored as the zone's NAME. So a
+                    // soil sample with no label was charted, and saved to the
+                    // server, under whatever the key happened to be — and the
+                    // key was not even an identifier: `getSamples()` returns
+                    // `Object.values(...)`, an ARRAY, so `sid` is the array
+                    // index. An unnamed sample appeared on /analysis as a zone
+                    // called "0".
+                    //
+                    // The owner's decision of 22.09.2026: "do not substitute —
+                    // on screen 'a zone with no name', and group by identifier
+                    // internally without showing it". Skipping such samples was
+                    // ruled out in the same breath: a sample with measurements
+                    // must not vanish from the screen for want of a label.
+                    //
+                    // So the key is `GaipZoneKey.derive()` — the zone identity
+                    // this project already shares with the trend charts and the
+                    // export (b35fix311_1) — and the name is the label or
+                    // nothing. `derive()` strips dates from a label, which is
+                    // what keeps "Green 1 (June 2025)" and "Green 1 Q1 2024" one
+                    // zone; keying on the sample's own id instead would split
+                    // every named zone into one bar per visit.
+                    var _zoneMap  = {}; // zone key → sample entry (latest date wins)
+                    var _zoneKeyOf = function (sample, fallback) {
+                        // Same guarded call as nutrient-trend.js: the module is
+                        // enqueued separately and a missing one must not take
+                        // the zone chart down with it.
+                        try {
+                            if (global.GaipZoneKey && typeof global.GaipZoneKey.derive === 'function') {
+                                var k = global.GaipZoneKey.derive(sample);
+                                if (k) return k;
+                            }
+                        } catch (e) { /* fall through */ }
+                        // GH-588, surfaced by the GH-477 ratchet: NO NAME IS NO
+                        // NAME. This fell back to the sample's id, which is the
+                        // substitution removed from zone labels in GH-549 — a
+                        // number standing where a name belongs. The grouping is
+                        // unchanged: `fallback` is the store key of this very
+                        // sample, so an unnamed sample still groups with itself
+                        // and only with itself.
+                        //
+                        // It is old code and I did not write it; the ratchet saw
+                        // it only after edits elsewhere in this file moved it
+                        // into a region the scanner attributes. That the
+                        // detection is position-sensitive is worth knowing and
+                        // is not repaired here.
+                        var raw = (sample && sample.label) || fallback;
+                        return String(raw).toLowerCase().trim();
+                    };
                     var _ZONE_NUTS = ['K','P','Ca','Mg','S','Fe','Mn','Zn','Cu','B','Na'];
                     Object.keys(_allSoil).forEach(function(sid) {
                         var s   = _allSoil[sid];
@@ -1489,13 +2115,19 @@
                             if (!isNaN(v) && v > 0) ppm[nut] = v;
                         });
                         if (!Object.keys(ppm).length) return; // skip empty samples
-                        var label = s.label || sid;
-                        var date  = s.date  || '';
-                        // Keep only the most recent sample per zone label
-                        if (!_zoneMap[label] || date > (_zoneMap[label].date || '')) {
-                            _zoneMap[label] = {
-                                id:    sid,
-                                label: label,
+                        var zoneKey = _zoneKeyOf(s, sid);
+                        var date    = s.date || '';
+                        // Keep only the most recent sample per zone
+                        if (!_zoneMap[zoneKey] || date > (_zoneMap[zoneKey].date || '')) {
+                            _zoneMap[zoneKey] = {
+                                // The sample's own id. `sid` is the array index
+                                // from Object.keys() over an array and was never
+                                // an identifier; a field called `id` that is a
+                                // position is worse than no field.
+                                id:    (s && s.id) || null,
+                                // No name is no name. Nothing is put here in its
+                                // place — not the key above, not a number.
+                                label: (s && typeof s.label === 'string' && s.label.trim()) || null,
                                 date:  date || null,
                                 ppm:   ppm,
                                 pH:    parseFloat(raw.pH_Water || raw.pH || raw.pH_cacl2) || null,
@@ -1504,17 +2136,23 @@
                         }
                     });
                     // Convert map to array, compute alerts, sort
-                    var _zoneList = Object.keys(_zoneMap).map(function(label) {
-                        var z = _zoneMap[label];
+                    var _zoneList = Object.keys(_zoneMap).map(function(zoneKey) {
+                        var z = _zoneMap[zoneKey];
                         z.alerts = Object.keys(_mlsnThresh).filter(function(nut) {
                             return z.ppm[nut] != null && z.ppm[nut] < _mlsnThresh[nut];
                         });
                         return z;
                     });
                     if (_zoneList.length > 0) {
-                        // Sort: alert zones first, then alphabetically
+                        // Sort: alert zones first, then named zones
+                        // alphabetically, then the unnamed ones. An unnamed zone
+                        // has nothing to sort by, and sorting it as an empty
+                        // string put it at the TOP of the list, above every
+                        // named zone. Alerts still win, so an unnamed zone with
+                        // a deficit is not buried.
                         _zoneList.sort(function(a, b) {
                             if (a.alerts.length !== b.alerts.length) return b.alerts.length - a.alerts.length;
+                            if (!a.label !== !b.label) return a.label ? -1 : 1;
                             return (a.label || '').localeCompare(b.label || '');
                         });
                         cache.computed.soilNutrition.zones = _zoneList;
@@ -1535,29 +2173,74 @@
 
         // Water Balance data for /analysis#water-balance tab.
         try {
-            // One-shot override written by the new hub's water-balance-analysis.js when the
-            // user changes the active water sample in the WB dropdown.  We read it here
-            // synchronously — before any async SP.init() can interfere — and delete it
-            // immediately so it is never reused by a subsequent Re-run.
+            // GH-586 (D6) — THE CHOSEN WATER SAMPLE COMES FROM THE SERVER.
+            //
+            // This read `gilba_wb_water_override` from `localStorage`: the id of
+            // the sample the user picked AND A COPY OF ITS PAYLOAD, written by
+            // the page that opened this runner. It was never a store — it was a
+            // message, "compute on this water sample" — and it went through the
+            // browser because until GH-547 the runner was opened as a bare
+            // `/hub` with nowhere to put a parameter.
+            //
+            // The choice arrives as `?water=<sampleId>` now and the SAMPLE
+            // ITSELF is taken from the sample store, which is loaded from the
+            // server. Nothing about the water comes out of the browser's memory.
+            //
+            // AND WHEN THE ID CANNOT BE RESOLVED, THE RUN SAYS SO. It does not
+            // quietly fall through to the site's last water sample: the person
+            // asked for a particular one, and answering with another under the
+            // same numbers is the substitution this whole question removes. The
+            // two reasons are kept apart, because they are different facts — the
+            // sample is not on this site (a stale link, a deleted sample), or
+            // the store has not loaded yet (a race, the same shape as link 4).
             var _wbOverride = null;
+            var _wbRequestedId = null;
             try {
-                var _wbOvRaw = localStorage.getItem('gilba_wb_water_override');
-                if (_wbOvRaw) {
-                    // Do NOT delete the key here — cacheAnalysisResults() is called multiple
-                    // times during the Re-run lifecycle (once in init before analysis runs,
-                    // then again on form change events, then once more inside _doRerunSync).
-                    // Only _doRerunSync's call writes to the DB; earlier calls are discarded.
-                    // The key is deleted inside _doRerunSync after the POST succeeds so that
-                    // every cacheAnalysisResults() call in this Re-run session uses the override.
-                    var _wbOvParsed = JSON.parse(_wbOvRaw);
-                    var _hubSiteIdOv = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
-                    // Only honour the override for the current site (loose == to handle number/string)
-                    if (_wbOvParsed && String(_wbOvParsed.siteId) === String(_hubSiteIdOv)) {
-                        _wbOverride = _wbOvParsed;
-                        console.log('[GilbaPersist] WB water override found | site:', _hubSiteIdOv, '| label:', _wbOverride.label);
+                _wbRequestedId = new URLSearchParams(window.location.search || '').get('water');
+            } catch (_e) { _wbRequestedId = null; }
+
+            if (_wbRequestedId) {
+                try {
+                    var _wbSM = global.GAIP_SampleManager;
+                    var _wbSite = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
+                    var _wbAll = (_wbSM && typeof _wbSM.getAllSamples === 'function') ? _wbSM.getAllSamples() : null;
+                    var _wbStore = _wbAll && _wbAll.allSites && _wbAll.allSites[_wbSite];
+                    var _wbWater = (_wbStore && _wbStore.water) || null;
+
+                    if (!_wbWater) {
+                        // Not loaded yet — not the same as "not there".
+                        noteWaterSampleUnresolved('water-samples-not-loaded', _wbRequestedId);
+                    } else {
+                        var _wbFound = null;
+                        Object.keys(_wbWater).forEach(function (k) {
+                            var cand = _wbWater[k];
+                            if (cand && String(cand.id) === String(_wbRequestedId)) _wbFound = cand;
+                        });
+                        if (_wbFound) {
+                            var _wbPl = _wbFound.rawData || _wbFound.values || {};
+                            // GH-586, corrected by the GH-477 ratchet: NO NAME IS
+                            // NO NAME. The first draft fell back to the sample's
+                            // id, which puts a number where a name belongs and
+                            // reads as one — the same substitution removed from
+                            // zone labels in GH-549. A sample without a label
+                            // travels without one, and every place that prints it
+                            // already handles nothing.
+                            _wbOverride = {
+                                id: _wbFound.id,
+                                label: (typeof _wbPl._label === 'string' && _wbPl._label.trim())
+                                    || (typeof _wbFound.label === 'string' && _wbFound.label.trim())
+                                    || null,
+                                payload: _wbPl,
+                            };
+                            console.log('[GilbaPersist] water sample from the run parameter |', _wbOverride.label);
+                        } else {
+                            noteWaterSampleUnresolved('water-sample-not-found', _wbRequestedId);
+                        }
                     }
+                } catch (_wbE) {
+                    noteWaterSampleUnresolved('water-sample-not-found', _wbRequestedId);
                 }
-            } catch(_wbOvE) {}
+            }
 
             // GAIP_STATE.water is only set for blended water (hub-tissue-v3 line 5621).
             // For regular water the water engine captures state in __GAIP_WATER_STATE__.water.
@@ -1855,6 +2538,44 @@
         return cache;
     }
 
+    /**
+     * GH-560 — THE SOIL TEMPERATURE AT 100 mm, WHATEVER THE SOURCE CALLS IT.
+     *
+     * Two names for one depth, and they were about to matter. The canonical
+     * state writes `depths.d100mm`; the physics model writes
+     * `depths['100mm']` as `{current, mean}`. The collector asked for `d100mm`
+     * only, so the moment the climate stopped being overwritten (the other half
+     * of this fix) it would have started reading a value from one source and
+     * still reading nothing from the other — a repair that looks finished and
+     * is half done.
+     *
+     * This normalises the NAME. It does not invent a value: no default, no
+     * estimate, no falling back to air temperature. Nothing found is `null`,
+     * which is what makes the run `partial` and puts the reason on the screen
+     * (GH-557), and that is the answer when a measurement is missing.
+     */
+    function soilTempAt100mm(src) {
+        if (src == null) return null;
+        if (typeof src === 'number') return src;
+
+        var depths = src.depths || {};
+        var candidates = [depths.d100mm, depths['100mm']];
+        for (var i = 0; i < candidates.length; i++) {
+            var c = candidates[i];
+            if (typeof c === 'number') return c;
+            // The physics model reports a depth as `{current, mean}`.
+            if (c && typeof c === 'object') {
+                if (typeof c.current === 'number') return c.current;
+                if (typeof c.mean === 'number') return c.mean;
+            }
+        }
+
+        if (typeof src.estimated === 'number') return src.estimated;
+        if (typeof src.current === 'number') return src.current;
+
+        return null;
+    }
+
     function collectDashboardMetrics() {
         // Collect key metrics from various sources for dashboard display
         const metrics = {
@@ -1865,14 +2586,43 @@
         const _cm = global.climateMetrics;
         const _cc = global.GaipOrchestrator && typeof global.GaipOrchestrator.getState === 'function'
             ? global.GaipOrchestrator.getState()?.computed?.climate : null;
+        // GH-562: the soil temperature has three possible homes and the run
+        // fills whichever one it fills — the climate the collector is reading,
+        // the canonical state that climate is built from, or the physics model's
+        // own global. It is ONE measurement; which object holds it is an
+        // accident of which step got there first.
+        //
+        // Measured live, twice: with the fallback on the `_cc` branch alone the
+        // row still came back null, because this branch had fired — `gdd` and
+        // `et` are `undefined` when `climateMetrics` has no such fields, and
+        // `JSON.stringify` drops undefined, so a `_cm` run is indistinguishable
+        // from a `_cc` run in the stored row. The branch was invisible, not
+        // absent.
+        var _soilTempAnywhere = function () {
+            return soilTempAt100mm(_cm && _cm.soilTemp)
+                ?? soilTempAt100mm(_cc && _cc.soilTemp)
+                ?? soilTempAt100mm(global.GAIP_CANONICAL_STATE && global.GAIP_CANONICAL_STATE.soilTemp)
+                ?? soilTempAt100mm(global.GAIP_SOIL_TEMP && global.GAIP_SOIL_TEMP.summary);
+        };
+
         if (_cm) {
             metrics.growthPotential = _cm.growth?.weighted;
             metrics.gdd             = _cm.gdd?.today;
             metrics.et              = _cm.et?.daily;
-            metrics.soilTemp        = _cm.soilTemp?.depths?.d100mm ?? _cm.soilTemp?.estimated ?? null;
+            metrics.soilTemp        = _soilTempAnywhere();
         } else if (_cc) {
             metrics.growthPotential = _cc.growth?.weighted;
-            metrics.soilTemp        = _cc.soilTemp?.depths?.d100mm ?? _cc.soilTemp?.estimated ?? (typeof _cc.soilTemp === 'number' ? _cc.soilTemp : null);
+            // GH-561: and when the climate carries none, the physics model's own
+            // answer is the other place it can be. Same measurement, filed under
+            // another name by another step — not a substitute for it.
+            //
+            // `global.GAIP_SOIL_TEMP`, not the orchestrator's state: the model
+            // is run by `climate-module-v2-ui.js` and its result never enters
+            // `computed` at all. `cacheAnalysisResults` copies it into
+            // `cache.computed.soilTempPhysics` LATER IN THE SAME FUNCTION, after
+            // this collector has already returned — which is why reading it from
+            // there looked right and measured `null` on the live run.
+            metrics.soilTemp        = _soilTempAnywhere();
         }
         
         // Weather source — track whether data came from live API, cache, or manual override
@@ -2031,18 +2781,27 @@
         return metrics;
     }
 
+    /**
+     * GH-548 (stage 3): there is no cached result to return.
+     *
+     * Nothing writes `gilba_hub_cache` any more, and the key left behind by an
+     * older bundle is cleared on load rather than being served for the rest of
+     * its twenty-four hours. Kept as a function returning null because callers
+     * on the reports pages and the old hub test for it and handle nothing
+     * perfectly well; deleting the name would only move the question.
+     */
     function getCachedResults() {
-        const cached = safeJsonParse(storageGet(CONFIG.keys.cache));
-        if (!cached) return null;
-        
-        // Check cache age
-        const cacheAge = (Date.now() - new Date(cached.cachedAt).getTime()) / (1000 * 60 * 60);
-        if (cacheAge > CONFIG.cacheMaxAge) {
-            log('cache', 'Cache expired', { age: cacheAge.toFixed(1) + 'h' });
-            return null;
+        return null;
+    }
+
+    /** Remove the copy an older bundle may have left in this browser. */
+    function dropLegacyResultCache() {
+        try {
+            localStorage.removeItem(CONFIG.keys.cache);
+            localStorage.removeItem('gilba_hub_cache');
+        } catch (e) {
+            // A browser that refuses storage has nothing to drop.
         }
-        
-        return cached;
     }
 
     // =========================================================================
@@ -2066,6 +2825,10 @@
                 return;
             }
             
+            // GH-548 (stage 3): drop the result copy an older bundle wrote
+            // here, so it cannot be served as current for the rest of its life.
+            dropLegacyResultCache();
+
             // Bind auto-save events
             this.bindAutoSave();
             
@@ -2178,12 +2941,31 @@
             const prefs = collectPreferences();
             storageSet(CONFIG.keys.prefs, JSON.stringify(prefs));
             
-            // Cache analysis results (localStorage for same-session use)
-            const cache = cacheAnalysisResults();
-            storageSet(CONFIG.keys.cache, JSON.stringify(cache));
+            // GH-548 (stage 3): the analysis result is no longer copied
+            // into localStorage. `gilba_hub_cache` was the browser's own copy of
+            // a result the database already owns -- K1 of the plan's list -- and
+            // a copy is a copy whether it is minutes or hours old: served back,
+            // it prints figures from whenever it was written under today's
+            // heading. The dashboard read it when the server had nothing to
+            // give; it now shows the outcome instead ("no analysis has been run
+            // for this site yet"), which is the difference between an empty
+            // screen and an old one.
+            //
+            // The form's own state and preferences above are NOT a copy of a
+            // server-owned object -- they are what the user typed into this page
+            // and has not sent anywhere -- and they stay.
 
             // Persist to DB via API so the dashboard can read without localStorage
-            this.syncToServer(cache);
+            // GH-547 (stage 2): `save()` no longer posts the analysis
+            // result. This line fired on EVERY state save — every `input` and
+            // `change` inside #gaip-hub, plus fourteen `gaip:*` events including
+            // a site switch — so the result of a run was replaced by whatever
+            // the page happened to be holding a moment later. That is the defect
+            // in one line: the writer was an event of the page, not an act of a
+            // person, and the body was "everything I have right now".
+            //
+            // The result is written once, by the runner, on completion. Saving
+            // the form's own state to localStorage above is untouched.
 
             log('save', 'State saved');
 
@@ -2197,42 +2979,14 @@
          * POST analysis cache to the server so the dashboard can read from the DB.
          * Fires after every save that has a valid site_id and metrics.
          */
-        syncToServer: function(cache) {
-            if (!cache || !cache.dashboard) return;
-
-            // On the reports export page the hub runs silently for Word export globals only.
-            // Do NOT write to analysis_cache so other pages see unchanged data.
-            if (global.GILBA_REPORTS_EXPORT) return;
-
-            // Use the Laravel UUID from GAIP_HUB_CONFIG — not cache.siteId which is the
-            // Hub's internal string identifier (e.g. "burns_gc") rather than the DB primary key.
-            const siteId = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId)
-                || cache.siteId;
-            if (!siteId) return;
-
-            const csrfToken = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.csrfToken)
-                || document.querySelector('meta[name="csrf-token"]')?.content;
-            const restUrl = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.restUrl) || '/api/';
-
-            fetch(restUrl + 'analysis-cache', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken || '',
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({
-                    site_id:     siteId,
-                    analyzed_at: cache.dashboard.timestamp || cache.cachedAt || new Date().toISOString(),
-                    metrics:     cache.dashboard,
-                    computed:    cache.computed || null,
-                }),
-            }).then(function() {
-                // Signal is sent by the dedicated 3s timer in orchestrator-complete handler
-            }).catch(function() {
-                // Silently ignore — localStorage remains the fallback
-            });
-        },
+        // GH-547 (stage 2): `syncToServer()` is gone, and the flag with it.
+        // It was the second of three writers of the analysis result and the only
+        // one anybody had tried to fence off — `GILBA_REPORTS_EXPORT`, set in one
+        // view out of the four that load this file, which is why
+        // /reports/forensic and /reports/scenarios wrote a result on every plain
+        // open. A prohibition is a permission turned inside out, and it is
+        // forgotten on the next page that embeds the bundle. There is nothing
+        // left to fence: a page that was not opened as a runner does not write.
 
         /**
          * Restore all state from localStorage
@@ -2439,6 +3193,12 @@
     } else {
         setTimeout(() => GilbaPersistence.init(), 300);
     }
+
+    // GH-578: the run's one limit, published rather than copied. `triggerAutoRun`
+    // waits for the site's soil sample before starting a pass, and it must wait
+    // for the same length of time this runner allows the whole run — two limits
+    // in one run drift the way two copies of any rule drift.
+    GilbaPersistence.RUN_BUDGET_MS = RUN_BUDGET_MS;
 
     // Export to global
     global.GilbaPersistence = GilbaPersistence;

@@ -1130,26 +1130,17 @@
         var data = global.GAIP_DASHBOARD_DATA;
         var d = getDiseaseData();
 
-        // Notification bar
-        var notice = document.getElementById('db-analysis-notice');
-        var noticeText = document.getElementById('db-analysis-notice-text');
-        var noticeDismiss = document.getElementById('db-analysis-notice-dismiss');
-        if (notice && noticeText) {
-            var msg = null;
-            if (!data || !d) {
-                msg = 'No analysis data found — run analysis from the hub to populate this page.';
-            } else if (data.analyzedAt) {
-                var ageMs = Date.now() - new Date(data.analyzedAt).getTime();
-                if (ageMs / (1000 * 60 * 60 * 24) > 2) {
-                    msg = 'Analysis data is ' + Math.floor(ageMs / (1000 * 60 * 60 * 24)) + ' days old — re-run for the latest conditions.';
-                }
-            }
-            if (msg) {
-                noticeText.textContent = msg;
-                notice.style.display = 'flex';
-                if (noticeDismiss) noticeDismiss.onclick = function () { notice.style.display = 'none'; };
-            }
-        }
+        // GH-548 (stage 3): the notification bar is rendered by the server
+        // (`partials/analysis-notice.blade.php`) from the analysis result's own
+        // projection, and this file no longer writes it. The block that stood
+        // here was one of two identical copies — the other in
+        // growth-light-analysis.js — and both could only say one thing, how many
+        // days old `analyzedAt` was. A re-run that did not complete said nothing
+        // at all, on any screen, which is the defect this stage closes.
+        //
+        // "This page has no disease data" is a different statement from "this
+        // site has no analysis", and it stays where it already was: the page body
+        // below.
 
         if (!d) {
             container.innerHTML = '<div style="padding:40px;text-align:center;color:#5b6a65">No analysis data. Run analysis first.</div>';

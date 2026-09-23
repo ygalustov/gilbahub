@@ -34,15 +34,21 @@ class SiteConfigWriter
      * untouched, which is how a caller says "on second thoughts, nothing to
      * do" without a second query.
      *
-     * $syncedAt overrides the stamp for callers that record when the data was
-     * produced rather than when it was stored (the analysis cache).
+     * GH-550 (stage 4): `synced_at` means ONE thing again — when the server
+     * stored this row. It briefly meant two: the analysis result kept its
+     * produced-at date here, so this method took a `$syncedAt` override, and
+     * then a `$keepSyncedAt` flag to hold it still when a failed run wrote a
+     * reason beside numbers it had not produced. Both parameters had exactly one
+     * caller between them, and that caller now owns its own table with its own
+     * `completed_at`. A column whose meaning depends on the namespace is a
+     * column two readers disagree about.
      *
      * @param  Closure(array): ?array  $mutator
      * @return SiteConfig|null  the stored row, or null when the mutator declined
      */
-    public static function mutate(string $siteId, string $namespace, Closure $mutator, ?string $syncedAt = null): ?SiteConfig
+    public static function mutate(string $siteId, string $namespace, Closure $mutator): ?SiteConfig
     {
-        return DB::transaction(function () use ($siteId, $namespace, $mutator, $syncedAt) {
+        return DB::transaction(function () use ($siteId, $namespace, $mutator) {
             $row = SiteConfig::query()
                 ->where('site_id', $siteId)
                 ->where('namespace', $namespace)
@@ -58,7 +64,7 @@ class SiteConfigWriter
 
             return SiteConfig::query()->updateOrCreate(
                 ['site_id' => $siteId, 'namespace' => $namespace],
-                ['config' => $next, 'synced_at' => $syncedAt ?? now()],
+                ['config' => $next, 'synced_at' => now()],
             );
         });
     }

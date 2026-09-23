@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\AnalysisResults;
 use App\Models\Sample;
 use App\Models\Site;
 use Illuminate\Http\RedirectResponse;
@@ -75,14 +76,11 @@ class DashboardController extends Controller
         }
 
         // Analysis cache
-        $analysisCacheRecord = $activeSite
-            ? $activeSite->configs()->where('namespace', 'analysis_cache')->first()
-            : null;
-        $analysisCache = $analysisCacheRecord ? [
-            'metrics'    => $analysisCacheRecord->config['metrics'] ?? null,
-            'computed'   => $analysisCacheRecord->config['computed'] ?? null,
-            'analyzedAt' => $analysisCacheRecord->synced_at?->toISOString(),
-        ] : null;
+        // GH-546 (stage 1): one projection, from the owner of the
+        // result. This was eight hand-built copies of the same three keys
+        // across seven controllers; a ninth field would have been eight
+        // edits and would have reached some screens and not others.
+        $analysisCache = AnalysisResults::forSite($activeSite);
 
         $gettingStartedSteps = [
             'soil'    => !is_null($sampleDates['soil']),
