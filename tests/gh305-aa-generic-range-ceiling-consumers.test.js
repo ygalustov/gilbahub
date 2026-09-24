@@ -124,7 +124,16 @@ describe('GH-305 — nutrition-summary-integration.js _resolveAARanges() falls b
         expect(() => ctx.window.GilbaNutritionSummary.renderNutritionSummary()).not.toThrow();
         const html = ctx.window.GilbaNutritionSummary.renderNutritionSummary();
         const sBlockIdx = html.indexOf('>S</div>');
+        // GH-622 — AND THIS ONE HAD NO ANCHOR CHECK AT ALL, which is the worse
+        // half of the same fault: `indexOf` returning -1 makes `slice(-1, 399)`
+        // hand back the last character of the document, and the negative claim
+        // below then passes over one character. Measured today: the anchor sits
+        // at 4346 and the window is a full 400 characters, so the case is real
+        // — but nothing said so, and nothing would have said otherwise.
+        expect(sBlockIdx).toBeGreaterThan(-1);
         const sBlock = html.slice(sBlockIdx, sBlockIdx + 400);
+        expect(sBlock.length).toBeGreaterThan(100);
+        expect(sBlock).toContain('>S</div>');
         expect(sBlock).not.toMatch(/>\s*0\s*</);
     });
 });

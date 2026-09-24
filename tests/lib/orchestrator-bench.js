@@ -118,7 +118,21 @@ function makeSandbox() {
  *   `failed` — scripts that threw while loading. `said` — everything the run
  *   wrote to the console, which is the only place the orchestrator's warnings go.
  */
-function load() {
+/**
+ * GH-626: an optional hook, so a caller can reach a function the module keeps
+ * to itself.
+ *
+ * `cacheAnalysisResults` is internal to `hub-persistence.js` and is the one
+ * place that builds the stored row's soil surface — the thing the restoration
+ * judge has to measure. Eleven other files expose it by rewriting the module's
+ * own export line before executing it; this lets the bench do the same without
+ * every caller re-reading and re-running the whole of `/hub`.
+ *
+ * Default behaviour is unchanged: no `expose`, no rewriting, and the four sets
+ * already using this bench see exactly what they saw.
+ */
+function load(options) {
+    const expose = (options && options.expose) || {};
     const sandbox = makeSandbox();
     const said = [];
     sandbox.console.warn = (...a) => said.push('WARN ' + a.map(String).join(' '));
@@ -130,7 +144,9 @@ function load() {
         const file = path.join(ASSETS, name);
         if (!fs.existsSync(file)) { failed.push(name + ': missing from assets/'); return; }
         try {
-            vm.runInContext(fs.readFileSync(file, 'utf8'), ctx, { filename: name });
+            let src = fs.readFileSync(file, 'utf8');
+            if (expose[name]) src = expose[name](src);
+            vm.runInContext(src, ctx, { filename: name });
         } catch (e) {
             failed.push(name + ': ' + String(e && e.message).slice(0, 120));
         }

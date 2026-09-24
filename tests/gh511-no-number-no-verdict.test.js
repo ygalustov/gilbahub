@@ -39,7 +39,7 @@
  *             rows, so "no rows" cannot pass by the section vanishing.
  * carrier     The text of `word/document.xml` for the client's half; the
  *             syntax tree for the structural half.
- * ПОТРЕБИТЕЛЬ  `word-export.js:8529` copies `cm.growth.status` and
+ * CONSUMER     `word-export.js:8529` copies `cm.growth.status` and
  *             `word-export.js:12474` prints it as the "Status" row with a
  *             colour. `:8518-8527` and `:12469` do the same for the number.
  * input       The producer's own output, obtained by executing the producer.

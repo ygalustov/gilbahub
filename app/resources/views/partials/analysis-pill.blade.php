@@ -19,5 +19,8 @@
          screen with a topbar — Settings included, where an import's re-run can
          fail on a page that prints no analysis numbers and therefore has no
          panel. --}}
-    window.GAIP_ANALYSIS_TEXTS = @json(\App\Support\AnalysisNotice::clientTexts());
+    {{-- GH-640 (link 11): the projection travels too, so the server can compose
+         the sentence for every empty section and the page prints it instead of
+         deciding for itself why a section has nothing in it. --}}
+    window.GAIP_ANALYSIS_TEXTS = @json(\App\Support\AnalysisNotice::clientTexts($analysisCache ?? null));
 </script>

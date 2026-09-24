@@ -112,12 +112,20 @@
         if (all.allMeta   && all.allMeta[siteId])   siteSamples.allMeta[siteId]   = all.allMeta[siteId];
         if (all.sites     && all.sites[siteId])     siteSamples.sites[siteId]     = all.sites[siteId];
 
-        // --- Site config (turf, location, schedule) ---
+        // --- Site config: NOT exported, and the bundle says so ---
+        //
+        // GH-625, the other half of the same dead link. This read
+        // `gilba_hub_site_configs`, which `site-config-persistence.js` clears
+        // unconditionally in its `init()` — so the key is empty by the time any
+        // page can call this, and the bundle has been carrying `null` here for
+        // as long as that has been true. Reading it back was the import side,
+        // removed above.
+        //
+        // The config lives on the server now (GH-441). Exporting it would mean
+        // taking a browser-held copy and writing it into a file that another
+        // machine would push back — the shape the project's rule forbids, and
+        // the one GH-439 was opened for.
         var siteConfig = null;
-        try {
-            var configs = JSON.parse(_ls.getItem('gilba_hub_site_configs') || '{}');
-            siteConfig = configs[siteId] || null;
-        } catch (e) { warn('Could not read site config:', e); }
 
         // --- Turf profile (saved profile object for this site) ---
         var turfProfile = null;
@@ -261,16 +269,29 @@
                 }
             }
 
-            // --- Merge site config ---
+            // --- Site config: NOT restored, and no longer pretending to be ---
+            //
+            // GH-625. This wrote `bundle.siteConfig` into
+            // `gilba_hub_site_configs` and logged "Site config restored". It
+            // restored nothing: GH-441 took that key out of service, and
+            // `site-config-persistence.js` DELETES it on every page load, along
+            // with its namespaced twin. Nothing outside this file reads it. So
+            // the write landed in a key that is wiped moments later, and the
+            // line in the log said otherwise.
+            //
+            // The project rule for exactly this case: a control that stopped
+            // working because a write path was removed is REMOVED, not wired
+            // back up — and the config's write path was removed on purpose,
+            // because a page pushing a whole held config to the server is the
+            // defect GH-439 was opened for. Restoring it here would rebuild the
+            // browser copy the same work took out.
+            //
+            // The rest of the bundle is unaffected and still arrives: the
+            // samples are merged through the sample manager, and the site's
+            // coordinates are PATCHed to the server below, which is where they
+            // belong.
             if (bundle.siteConfig) {
-                try {
-                    var configs = JSON.parse(_ls.getItem('gilba_hub_site_configs') || '{}');
-                    configs[incomingSiteId] = bundle.siteConfig;
-                    _ls.setItem('gilba_hub_site_configs', JSON.stringify(configs));
-                    log('Site config restored for:', incomingSiteId);
-                } catch (err) {
-                    warn('Site config merge failed:', err);
-                }
+                log('Site config in the bundle is not restored — config lives on the server (GH-441)');
 
                 // Save location to DB so the analysis engine uses correct coordinates.
                 // localStorage-only import leaves the DB with stale coordinates, causing

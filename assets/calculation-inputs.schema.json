@@ -1,0 +1,258 @@
+{
+  "$comment": [
+    "GH-642 (queue item 6, stage 0b) - THE ONE LIST OF WHAT A CALCULATION NEEDS.",
+    "",
+    "The owner's decision, 23.09.2026: 'there will be a list of the input parameters we",
+    "need for the calculation. The wizard will look at it, the calculation will look at",
+    "it, so that we do not put different checks in different places.'",
+    "",
+    "ONE FILE, ONE READER. The server reads this; the wizard, Settings, the run and the",
+    "incomplete-run panel get it parsed, the way `analysis-result.schema.json` is already",
+    "read by the server and never copied into `assets`. A second list is the drift this",
+    "file exists to remove.",
+    "",
+    "WHAT IS NOT HERE, AND DELIBERATELY:",
+    "  - 'what breaks without it'. Who reads an input is what the dependency graph says;",
+    "    restating it here would be a second answer to that question.",
+    "  - the readings of a sample, one by one. Their names are declared once, by the lab",
+    "    name map (`sample-manager.js`, `readingKeysFor`); an entry points at it.",
+    "  - anything derived rather than asked: the climate regime, the purpose, the time",
+    "    zone, the effective species. Those are named in `derived` below so the equality",
+    "    test can exclude them BY NAME, with a reason, instead of by a rule.",
+    "",
+    "`required: null` MEANS THE OWNER HAS NOT DECIDED, and it travels with `decision`.",
+    "It is not a guess and not a default: a warning built from this list stays silent",
+    "about such an input until she answers.",
+    "",
+    "Contents drafted by the analyst (`PLAN-calculation-inputs-RU.md`, sections 14 and",
+    "14a) from a reading of the tree and the database, 22-24.09.2026."
+  ],
+  "version": 1,
+  "turfTypes": ["golf", "sports", "lawns"],
+  "inputs": {
+    "location.lat": { "required": true, "filledIn": ["wizard.step1", "settings.site"] },
+    "location.lon": { "required": true, "filledIn": ["wizard.step1", "settings.site"] },
+    "turf.turfType": { "required": true, "filledIn": ["wizard.step2", "settings.turf"] },
+    "turf.subCategory": {
+      "required": false,
+      "byTurfType": {
+        "golf": { "required": true, "wizard": { "step": 2 } },
+        "sports": { "required": null, "decision": "owner: is a sports surface required" },
+        "lawns": { "required": false }
+      },
+      "filledIn": ["settings.turf"],
+      "readAs": ["turf.surfaceType", "soil.surfaceType"]
+    },
+    "turf.species": { "required": true, "filledIn": ["wizard.step3", "settings.turf"], "readAs": ["turf.grassSpecies"] },
+    "turf.variety": { "required": true, "filledIn": ["settings.turf"], "readAs": ["turf.cultivar"] },
+    "turf.construction": {
+      "required": true,
+      "filledIn": ["settings.turf"],
+      "readAs": ["site.construction", "soil.rootzoneType"],
+      "$comment": [
+        "GH-656 (queue item 6, stage 0b, slice 1) - THE VALUE DICTIONARY LIVES IN THE",
+        "ENTRY, because a value dictionary is part of declaring the input. The physical",
+        "tables stay in the engines; this says only which row of each consumer's table a",
+        "construction corresponds to.",
+        "",
+        "EVERY `resolves` BELOW WAS READ OUT OF THE CONSUMER'S OWN TABLE, not decided",
+        "here, and `null` means that consumer's table does not carry the value - today it",
+        "substitutes something instead, and what it should mean is an owner's decision",
+        "still open. A `null` is therefore a measurement, not a gap in this file.",
+        "",
+        "`offeredFor` IS ABSENT ON PURPOSE. Which constructions are offered to which turf",
+        "type changes the list a person sees in Settings, so it is the owner's; it travels",
+        "as `offeredForDecision` until she answers, the same way `required: null` does.",
+        "",
+        "WHAT IS NOT DECLARED HERE AND WHY: `wearSandBased` and `preEmergentTexture` are",
+        "stated as measured, but their tables are not loadable on their own - one is a",
+        "list inside a minified engine, the other a comparison inside the orchestrator.",
+        "The equality test says so by name instead of pretending it checked them."
+      ],
+      "offeredFor": null,
+      "offeredForDecision": "owner: which constructions are offered to which turf type",
+      "values": {
+        "sand_carpet": {
+          "label": "Sand carpet",
+          "resolves": {
+            "surfaceKey": "sandCap", "thermalProfile": "sand-carpet",
+            "irrigationSoilType": "sand", "structurePathway": "sand",
+            "wearSandBased": true, "preEmergentTexture": "sand"
+          }
+        },
+        "sand_profile": {
+          "label": "Sand profile (USGA-style)",
+          "resolves": {
+            "surfaceKey": "sandProfile", "thermalProfile": "sand-profile",
+            "irrigationSoilType": "sandProfile", "structurePathway": "sand",
+            "wearSandBased": false, "preEmergentTexture": "loam"
+          }
+        },
+        "pipe_drained": {
+          "label": "Pipe drained + slit drained",
+          "resolves": {
+            "surfaceKey": "nativeSoil", "thermalProfile": "pipe-drained",
+            "irrigationSoilType": null, "structurePathway": "clay",
+            "wearSandBased": false, "preEmergentTexture": "loam"
+          }
+        },
+        "soil": {
+          "label": "Soil field",
+          "resolves": {
+            "surfaceKey": null, "thermalProfile": "soil-field",
+            "irrigationSoilType": null, "structurePathway": "clay",
+            "wearSandBased": false, "preEmergentTexture": "loam"
+          }
+        },
+        "hybrid": {
+          "label": "Hybrid reinforced",
+          "resolves": {
+            "surfaceKey": "hybrid", "thermalProfile": "hybrid",
+            "irrigationSoilType": null, "structurePathway": "sand",
+            "wearSandBased": false, "preEmergentTexture": "loam"
+          }
+        },
+        "california": {
+          "label": "California profile",
+          "resolves": {
+            "surfaceKey": "californiaProfile", "thermalProfile": "usga",
+            "irrigationSoilType": "sandProfile", "structurePathway": "sand",
+            "wearSandBased": false, "preEmergentTexture": "loam"
+          }
+        },
+        "push_up": {
+          "label": "Push-up native",
+          "resolves": {
+            "surfaceKey": "pushUp", "thermalProfile": "push-up",
+            "irrigationSoilType": "loam", "structurePathway": "clay",
+            "wearSandBased": false, "preEmergentTexture": "loam"
+          }
+        },
+        "native": {
+          "label": "Native soil",
+          "resolves": {
+            "surfaceKey": "nativeSoil", "thermalProfile": "native",
+            "irrigationSoilType": "sandyLoam", "structurePathway": "clay",
+            "wearSandBased": false, "preEmergentTexture": "loam"
+          }
+        },
+        "sand_capped": {
+          "label": "Sand capped",
+          "resolves": {
+            "surfaceKey": null, "thermalProfile": "sand-carpet",
+            "irrigationSoilType": null, "structurePathway": "clay",
+            "wearSandBased": false, "preEmergentTexture": "loam"
+          }
+        },
+        "imported": {
+          "label": "Imported topsoil",
+          "resolves": {
+            "surfaceKey": null, "thermalProfile": "native",
+            "irrigationSoilType": null, "structurePathway": "clay",
+            "wearSandBased": false, "preEmergentTexture": "loam"
+          }
+        },
+        "sandy_loam": {
+          "label": "Sandy loam blend",
+          "resolves": {
+            "surfaceKey": null, "thermalProfile": "native",
+            "irrigationSoilType": null, "structurePathway": "clay",
+            "wearSandBased": false, "preEmergentTexture": "loam"
+          }
+        }
+      }
+    },
+    "turf.rootDepth": { "required": true, "filledIn": ["settings.trafficAndWear", "settings.turf"] },
+    "turf.methodology": { "required": true, "filledIn": ["wizard.step3", "settings.turf"], "readAs": ["soil.methodology"] },
+    "turf.nProgram": {
+      "required": null,
+      "decision": "owner: is the nitrogen programme a required input",
+      "filledIn": ["settings.turf"],
+      "readAs": ["turf.plannedNRate"]
+    },
+    "turf.hoc": { "required": false, "filledIn": ["settings.turf"], "readAs": ["turf.heightOfCut"] },
+    "turf.overseedStatus": { "required": false, "filledIn": ["settings.turf"] },
+    "turf.overseedSpecies": { "required": false, "filledIn": ["settings.turf"] },
+    "turf.overseedVariety": { "required": false, "filledIn": ["settings.turf"] },
+    "turf.summerIntent": { "required": false, "filledIn": ["settings.turf"] },
+    "turf.coolOverseed": { "required": false, "filledIn": ["settings.turf"] },
+    "turf.companionSpecies": { "required": false, "filledIn": ["settings.turf"] },
+    "turf.poaPercent": { "required": false, "filledIn": ["settings.turf"] },
+    "turf.percentC3Cover": { "required": false, "filledIn": ["settings.turf"] },
+    "turf.warmBase": { "required": false, "filledIn": ["settings.turf"] },
+    "sites.soil_texture_override": { "required": false, "filledIn": ["settings.turf"], "readAs": ["soil.soilTexture"] },
+    "traffic.schedule": {
+      "required": false,
+      "requiredFor": ["sports"],
+      "filledIn": ["settings.trafficAndWear"],
+      "readAs": ["traffic.level", "turf.trafficLevel"]
+    },
+    "pgr.productType": { "required": false, "filledIn": ["settings.turf", "data.sprayLog"] },
+    "pgr.applicationDate": { "required": false, "filledIn": ["settings.turf", "data.sprayLog"] },
+    "schedule.efficiency": { "required": false, "filledIn": ["settings.turf"] },
+    "schedule.uniformity": { "required": false, "filledIn": ["settings.turf"] },
+    "schedule.precipRate": { "required": false, "filledIn": ["settings.turf"] },
+    "weatherOverride": { "required": false, "filledIn": ["settings.site"], "readAs": ["climate.manual"] },
+    "samples.soil": {
+      "required": false,
+      "filledIn": ["data.soil"],
+      "readings": "readingKeysFor:soil",
+      "$comment": [
+        "`readAs` here is the soil state the run assembles FROM this sample -",
+        "measured in `gaip_soilStateFrom` (GH-628), not guessed. The readings",
+        "themselves stay declared once, by the lab-name map above."
+      ],
+      "readAs": ["soil.ppm", "soil.pH_water", "soil.pH_cacl2", "soil.CEC", "soil.EC1_5",
+        "soil.ECe", "soil.LOI", "soil.OM_pct", "soil.Na_ppm"]
+    },
+    "samples.water": { "required": false, "filledIn": ["data.water"], "readings": "readingKeysFor:water" },
+    "samples.tissue": { "required": false, "filledIn": ["data.tissue"], "readings": "readingKeysFor:tissue" },
+    "soil.bulkDensity": {
+      "required": null,
+      "decision": "owner: is bulk density a property of the sample or of the site",
+      "filledIn": [],
+      "readAs": ["soil.bd"]
+    },
+    "soil.samplingDepth": {
+      "required": null,
+      "decision": "owner: is sampling depth a property of the sample or of the site",
+      "filledIn": [],
+      "readAs": ["soil.depthCm"]
+    },
+    "soil.clay": { "required": false, "filledIn": ["data.soil"], "readings": "readingKeysFor:soil" }
+  },
+  "notInputs": {
+    "$comment": [
+      "GH-644 - names the run reads out of its own state that are NOT inputs. Each one",
+      "with what it is, because 'read but not in the list' has two very different",
+      "meanings and only one of them is a defect: a result another engine wrote, or a",
+      "fact derived from an input. Anything read and in neither this block nor the list",
+      "is an input nobody declared, and the equality test names it."
+    ],
+    "turf.ambientDLI": "a result: the ambient DLI engine writes it",
+    "turf.dli": "a result: the shade engine writes it",
+    "turf.shade": "a result: the shade engine writes it",
+    "turf.pgrActive": "a result: the PGR module writes it",
+    "soil.ESP": "a result: the salinity engine writes it",
+    "climate.data": "a result: the climate engine writes it",
+    "site.hemisphere": "derived from the latitude",
+    "site.region": "derived from the coordinates",
+    "location.region": "derived from the coordinates",
+    "site.ledAvailable": "a result: the lighting step writes it"
+  },
+  "derived": {
+    "$comment": [
+      "Not inputs: worked out from an input rather than asked for. Named one by one so",
+      "the equality test excludes them with a reason instead of by a rule that would",
+      "also excuse a real omission."
+    ],
+    "climateRegime": "from the latitude",
+    "purpose": "from the turf type and the surface",
+    "timezone": "from the coordinates",
+    "effectiveSpecies": "from the species and the overseed",
+    "effectiveVariety": "from the variety and the overseed",
+    "effectiveIsC4": "from the species",
+    "c3Fraction": "from the species",
+    "c4Fraction": "from the species"
+  }
+}

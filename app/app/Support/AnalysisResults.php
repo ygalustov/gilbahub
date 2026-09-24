@@ -227,9 +227,15 @@ class AnalysisResults
      * `{status: 'Not available'}`, which is how every engine behind the cascade
      * adapter reports failure instead of throwing.
      *
+     * GH-638 (link 11, plan section 4.13b point 2) — PUBLIC, because "is this
+     * section empty" now has ONE answer and it is this one. Four pages each had
+     * their own condition and they disagreed: `computed.pgr` without `gdd` is
+     * produced to this predicate and empty to `/plan`. A predicate per page is
+     * four readers of one question.
+     *
      * @param mixed $value
      */
-    private static function producedSomething($value): bool
+    public static function producedSomething($value): bool
     {
         if ($value === null) {
             return false;
@@ -618,7 +624,99 @@ class AnalysisResults
             // cannot tell the exception above from the ordinary case, and the
             // panel has to say different things about them.
             'numbersFrom' => $numbers?->outcome,
+            // GH-638 (link 11, plan section 4.13 point 2) — THE ACCOUNT OF THE
+            // ROW WHOSE NUMBERS ARE ON SCREEN, which is not the same row as
+            // `lastRun`.
+            //
+            // `lastRun` is the last ATTEMPT and `runShape()` carries its skipped
+            // steps only when that attempt was partial. A sentence about why a
+            // SECTION is empty has to come from the row the section's numbers
+            // came from, or it describes one run standing under another's
+            // figures — GH-459's shape inside a single screen. Measured in the
+            // database this night: 45 complete rows hold 59 journal entries and
+            // the projection discarded every one of them, because a complete row
+            // carried no account at all.
+            //
+            // So: on EVERY outcome, from `$numbers`. The panel keeps reading
+            // `lastRun`; `warningLines()` and GH-573's `continue` are untouched.
+            'numbersRun' => $numbers ? self::numbersAccount($numbers) : null,
         ];
+    }
+
+    /**
+     * GH-638 — what the row whose numbers are shown says about itself.
+     *
+     * Four things, and each one is a place a reason can be recorded:
+     *  - `skipped`  — steps the run did not compute, with their codes;
+     *  - `notApplicable` — steps that do not apply to this site at all (the
+     *    shape link 11 expects once a run records it; absent today, and named
+     *    rather than invented);
+     *  - `notes`    — journal entries the panel does not print (`level: 'info'`)
+     *    that carry a reason code. GH-573's `continue` keeps them out of the
+     *    panel; this is the door they reach the composer by, so that `continue`
+     *    does not have to be removed.
+     *  - `assumptions` — what the run stood on.
+     *
+     * @return array<string,mixed>
+     */
+    private static function numbersAccount(AnalysisResult $row): array
+    {
+        $detail = is_array($row->detail) ? $row->detail : [];
+        $warnings = is_array($detail['warnings'] ?? null) ? $detail['warnings'] : [];
+
+        return [
+            'outcome' => $row->outcome,
+            'skipped' => $detail['skipped'] ?? [],
+            'notApplicable' => $detail['notApplicable'] ?? [],
+            'notes' => array_values(array_filter($warnings, function ($entry) {
+                if (! is_array($entry)) {
+                    return false;
+                }
+                if (($entry['level'] ?? null) !== 'info') {
+                    return false;
+                }
+
+                // A note with no reason code is prose for a log, not a cause a
+                // sentence can be built from.
+                //
+                // GH-649 — AND `data` ARRIVES AS A JSON STRING, not as an object.
+                // The runner summarises it before recording (`summariseWarnData`
+                // in `hub-orchestrator.js`) so that a pathological run cannot post
+                // a megabyte of prose, and the summary of an object is its JSON.
+                // Found by running the real pass on the bench: the entry was
+                // there, `data.reason` was not, and the note would have reached
+                // the composer as prose with no cause.
+                return self::reasonOfNote($entry) !== null;
+            })),
+            'assumptions' => $detail['assumptions'] ?? [],
+        ];
+    }
+
+    /**
+     * GH-649 — the reason code inside a journal entry, however that entry carries
+     * its data.
+     *
+     * The runner records `data` through a summariser, so an object becomes its
+     * JSON string (and is truncated at 200 characters). Both shapes are read here,
+     * and a truncated string that no longer parses yields null rather than a
+     * guess — a cause read out of half a string is worse than no cause.
+     */
+    private static function reasonOfNote(array $entry): ?string
+    {
+        $data = $entry['data'] ?? null;
+        if (is_array($data)) {
+            $reason = $data['reason'] ?? null;
+
+            return is_string($reason) && $reason !== '' ? $reason : null;
+        }
+        if (is_string($data) && $data !== '') {
+            $decoded = json_decode($data, true);
+            $reason = is_array($decoded) ? ($decoded['reason'] ?? null) : null;
+
+            return is_string($reason) && $reason !== '' ? $reason : null;
+        }
+
+        return null;
     }
 
     /**

@@ -457,18 +457,67 @@ function gaip_transformToCascadeFormat(domState, weather) {
             soil: {
                 bulkDensity: domState.soil?.bulkDensity || 1.4,
                 surfaceType: domState.soil?.surfaceType || "",
-                pH_water: domState.soil?.pH_water || 0,
-                pH_cacl2: domState.soil?.pH_cacl2 || 0,
-                CEC: domState.soil?.CEC || 0,
-                LOI: domState.soil?.LOI || 0,
+                // GH-619 — THE SAME DEFAULT AS GH-618, ON THE SAME LINE OF
+                // FOUR MORE READINGS.
+                //
+                // The state sets these to `null` ON PURPOSE and says why, two
+                // hundred lines up: "Not measured → null, not 0 — a pH of '0'
+                // reads as real (implausibly acidic) data to disease models
+                // that use `??` to detect missing input". This layer then wrote
+                // `|| 0` and undid that intent before any engine saw it. The
+                // readers that use `??` are real and named: the nutrition
+                // calendar (`nutrition-calendar.js:1092-1093, 1154, 1163`) and
+                // the nutrition summary (`nutrition-summary-integration.js:727,
+                // 737`) all ask `soil.CEC ?? …` and `soil.pH_water ?? …`, for
+                // which `0` is a reading that happens to be zero.
+                //
+                // Everyone else was checked and is unaffected: the scenario
+                // engines take `state.soil?.pH_water || 7`, the climate module
+                // `state.soil?.CEC || null`, engine confidence `if (soil?.CEC)`
+                // — all of which treat `null` exactly as they treated `0`.
+                //
+                // Measured: 47 of 48 live soil samples carry a pH and 43 carry
+                // a CEC, so this is about the handful that do not, and about
+                // every site with no sample at all.
+                pH_water: domState.soil?.pH_water ?? null,
+                pH_cacl2: domState.soil?.pH_cacl2 ?? null,
+                CEC: domState.soil?.CEC ?? null,
+                // GH-618 — THE DEFAULT WAS REMOVED ONE LAYER UP AND PUT BACK
+                // HERE, WHICH IS THE SAME DEFAULT.
+                //
+                // GH-615 stopped the run state reading `.gaip-loi` and let an
+                // unmeasured organic matter stay absent. This converter then
+                // turned that absence into `0` before any engine saw it —
+                // measured in a sandbox: `state.soil.LOI = null` arriving as
+                // `inputs.soil.LOI = 0`. A site with no organic matter measured
+                // was still computed at 0% OM, exactly as before, and the
+                // repair one layer up was invisible from here.
+                //
+                // Absence travels now. The engines that read it already treat a
+                // missing value as missing: the recovery engine asks
+                // `!e.soil?.LOI && !e.soil?.OM_pct`, false for `null` as it was
+                // for `0`, and the thatch and irrigation paths take
+                // `safeNum(soil.LOI, 0)` at the point of use — the fallback
+                // belongs there, where a number is needed, not here, where a
+                // fact is being carried.
+                LOI: domState.soil?.LOI ?? null,
                 ppm: domState.soil?.ppm || {},
                 meq: domState.soil?.meq || {},
             },
             // Water inputs
             water: {
-                ecw: domState.water?.ecw || 0,
-                EC: domState.water?.EC || domState.water?.ecw || 0,
-                pH: domState.water?.pH || 7,
+                // GH-619, the water half of the same line. `pH || 7` is the
+                // worse of the three: seven is a plausible reading, so an
+                // untested water became a neutral one and nothing downstream
+                // could tell. The chain for `EC` keeps its order and only stops
+                // substituting at the end. Consumers checked: the synthesis
+                // reader takes `waterState.pH || …` and now falls through to
+                // its next source instead of stopping at a seven nobody
+                // measured; the scenario engine asks `if (!state.water?.ecw)`,
+                // true for `null` as it was for `0`.
+                ecw: domState.water?.ecw ?? null,
+                EC: domState.water?.EC ?? domState.water?.ecw ?? null,
+                pH: domState.water?.pH ?? null,
                 ions: domState.water?.ions || {},
                 SAR: domState.water?.SAR || 0,
                 adjSAR: domState.water?.adjSAR || 0,
@@ -1338,6 +1387,155 @@ function getClimateMetricsWithFallback(e, t) {
     );
 }
 
+/**
+ * GH-628 — THE SOIL STATE IS ASSEMBLED BY A FUNCTION, AND THE PAGE IS READ BY
+ * ANOTHER ONE.
+ *
+ * WHY. The assembly stood inline in `gaip_build_state`, between a `querySelector`
+ * and an `e`, which meant nothing outside a page could reach it. An offline
+ * measurement of what the stored row calls each reading therefore had to start
+ * half-way along the chain, with a soil state written by hand — and a state
+ * written by hand is a second place the names live, which is the defect this
+ * tree has been removing. Split in two, the same chain a press runs can be run
+ * without a press: the sample's readings go in, the soil state comes out.
+ *
+ * MOVED, NOT CHANGED. Every line below is the line that stood inline, with its
+ * comment; the only difference is that the page is read by `gaip_readSoilForm`
+ * beforehand and handed over as plain values. Two consequences named out loud:
+ *
+ *  - The `|| "loam"` behind `soilTexture` and the `1.4` behind `bulkDensity` are
+ *    now visible at the call site instead of buried in the assembly. They are
+ *    unchanged. Whether the texture should be read off the page at all is a
+ *    separate question (the analyst's 9.7 names it), not this change.
+ *  - `Na_ppm` from `ppm.Na` moved here from the end of `gaip_build_state`. It
+ *    read `o.soil.ppm` and wrote `o.soil.Na_ppm`, and nothing between the two
+ *    places touched either field, so the result is the same one; it belongs with
+ *    the assembly because the offline chain has to include it.
+ */
+function gaip_readSoilForm(e) {
+    return {
+        testDate: e.querySelector(".gaip-soil-date")?.value || null,
+        depthCm: safeNum(e.querySelector(".gaip-depth")?.value, 10),
+        bulkDensityOnTheForm: safeNum(e.querySelector(".gaip-bd")?.value, 1.4),
+        methodology: e.querySelector(".gaip-soil-methodology")?.value || "mlsn",
+        surfaceType: e.querySelector(".gaip-subcategory-option.selected")?.dataset?.surface ||
+            window.gaipTurfProfile?.state?.subCategory ||
+            "sports",
+        soilTexture: e.querySelector(".gaip-soil-texture")?.value || "loam",
+        samplingDepth: e.querySelector(".gaip-sampling-depth")?.value || "",
+        LOI_0_2: safeNum(e.querySelector(".gaip-loi-0-2")?.value, 0),
+        LOI_2_4: safeNum(e.querySelector(".gaip-loi-2-4")?.value, 0),
+        LOI_4_6: safeNum(e.querySelector(".gaip-loi-4-6")?.value, 0),
+    };
+}
+
+function gaip_soilStateFrom(sample, form) {
+    var soil = {
+            testDate: form.testDate,
+            depthCm: form.depthCm,
+            bulkDensity: sample?.bulkDensity ?? form.bulkDensityOnTheForm,
+            // GH-589 (link 4, point 3) — AND THE FORM IS NOT THE
+            // SOURCE WHEN THERE IS NO SAMPLE EITHER.
+            //
+            // GH-577 left the grid standing as the source for a site with
+            // no sample at all, on the grounds that it was then the only
+            // input there is. It is not an input: `/hub` is a calculation
+            // runner, nobody types into it (project rules), and the grid is
+            // filled from the store by `site-selector-ui.js`. So the only
+            // thing the fallback could ever return was the store's numbers
+            // arriving by a second, slower road — the page — or the
+            // previous site's leftovers before the clear.
+            //
+            // No sample is now no readings, and the run says the soil was
+            // not computed and why (GH-588 state 1). Ten dashes with a
+            // reason, instead of ten dashes with a verdict of ACCEPTABLE.
+            ppm: sample ? sample.ppm : {},
+            methodology: form.methodology,
+            surfaceType: form.surfaceType,
+            // Not measured → null, not 0 - a pH of "0" reads as real (implausibly
+            // acidic) data to disease models that use `??` to detect missing input
+            // (e.g. SpringDeadSpotModel's phFactor gate), not "not tested yet".
+            pH_water: sample ? sample.pH_water : null,
+            pH_cacl2: sample ? sample.pH_cacl2 : null,
+            // GH-620 — SODIUM JOINS ITS NEIGHBOURS: ABSENT IS ABSENT.
+            //
+            // This line sat between `pH_cacl2` and `CEC`, both of which set
+            // `null` on purpose and carry a comment saying why. Sodium was
+            // the one that still started at zero. It is overwritten a few
+            // hundred lines down when the sample has the reading —
+            // `o.soil.ppm.Na && (o.soil.Na_ppm = …)` — so the zero only
+            // survives for a sample without it, which is 4 of the 48 live
+            // soil samples.
+            //
+            // Measured, and this is why it is a trap rather than a live
+            // defect: `assessSoilSodium` opens with `if (!e || 0 === e)
+            // return null`, so a zero and an absence already end the same
+            // way; and the record writes `soilNa: ppm.Na || Na_ppm || null`,
+            // where a zero becomes null again. Nothing moves today. What
+            // moves is that the fact is now carried honestly instead of
+            // relying on two readers to undo it.
+            Na_ppm: null,
+            // Not measured → null, not 0 - CEC/EC1_5/ECe of "0" reads as a real (implausible)
+            // lab result to the input-range validator, not "not tested".
+            CEC: sample ? sample.CEC : null,
+            EC1_5: sample ? sample.EC : null,
+            // The site's soil texture is a SITE property, not a sample one
+            // (GH-270/272: the field is rendered from the site's own
+            // `soil_texture_override` on every load), so it stays where it
+            // is. Only the measured EC moved.
+            soilTexture: form.soilTexture,
+            ECe: (function() {
+                const ec1_5 = sample ? sample.EC : null;
+                if (ec1_5 === null || ec1_5 === undefined) return null;
+                return ec1_5 *
+                    ({
+                        sand: 5,
+                        loamy_sand: 5.5,
+                        sandy_loam: 6,
+                        loam: 7,
+                        clay_loam: 8,
+                        clay: 10,
+                    } [form.soilTexture] || 7);
+            })(),
+            samplingDepth: form.samplingDepth,
+            // GH-615 — ORGANIC MATTER COMES FROM THE SAMPLE, LIKE ITS FOUR
+            // NEIGHBOURS ALREADY DO.
+            //
+            // `pH_water`, `CEC`, `EC1_5` and `bulkDensity` are read from the
+            // active soil sample a few lines above. These two still read
+            // `.gaip-loi` — A FORM FIELD OF THE OLD HUB — so the value came
+            // from the markup of the hidden runner rather than from the
+            // sample, and never arrived at all. The reader already answers
+            // it: `gaip_soilFromActiveSample()` returns `OM`, resolved by
+            // the declared normaliser, which knows `OM`, `OM_Percent`,
+            // `Organic Matter` and `LOI`. This was the last link of a chain
+            // that was otherwise complete.
+            //
+            // MEASURED BEFORE THE CHANGE: of 48 live soil samples 25 carry
+            // organic matter (`OM` 22, `OM_Percent` 19), every value
+            // non-empty. They reach the run now. Who receives it was
+            // checked rather than assumed — the recovery engine that WAITS
+            // for this reading, the thatch programs, irrigation, and the
+            // soil-temperature model, which takes it only for profiles
+            // marked `cecRefinable` (`native`, `pipe-drained`,
+            // `soil-field`); all 11 live configs are `sand_profile`, so
+            // that last one receives nothing new today.
+            //
+            // The `0` default goes with the read: unmeasured organic matter
+            // is absent, not zero, and a zero here is a number nobody
+            // measured entering a calculation that waits for this reading.
+            LOI: sample ? sample.OM : null,
+            OM_pct: sample ? sample.OM : null,
+            LOI_0_2: form.LOI_0_2,
+            LOI_2_4: form.LOI_2_4,
+            LOI_4_6: form.LOI_4_6,
+    };
+    // Moved with the assembly — see the note above.
+    if (soil.ppm && soil.ppm.Na) soil.Na_ppm = safeNum(soil.ppm.Na, 0);
+    return soil;
+}
+
+
 function gaip_build_state(e) {
     // GH-577: the site's own soil sample, read once, before anything looks at
     // the page. When it is there, it is the source for the soil block below.
@@ -1402,65 +1600,7 @@ function gaip_build_state(e) {
                     end: n,
                 },
             },
-            soil: {
-                testDate: e.querySelector(".gaip-soil-date")?.value || null,
-                depthCm: safeNum(e.querySelector(".gaip-depth")?.value, 10),
-                bulkDensity: _gaipSoilSample?.bulkDensity ?? safeNum(e.querySelector(".gaip-bd")?.value, 1.4),
-                // GH-589 (link 4, point 3) — AND THE FORM IS NOT THE
-                // SOURCE WHEN THERE IS NO SAMPLE EITHER.
-                //
-                // GH-577 left the grid standing as the source for a site with
-                // no sample at all, on the grounds that it was then the only
-                // input there is. It is not an input: `/hub` is a calculation
-                // runner, nobody types into it (project rules), and the grid is
-                // filled from the store by `site-selector-ui.js`. So the only
-                // thing the fallback could ever return was the store's numbers
-                // arriving by a second, slower road — the page — or the
-                // previous site's leftovers before the clear.
-                //
-                // No sample is now no readings, and the run says the soil was
-                // not computed and why (GH-588 state 1). Ten dashes with a
-                // reason, instead of ten dashes with a verdict of ACCEPTABLE.
-                ppm: _gaipSoilSample ? _gaipSoilSample.ppm : {},
-                methodology: e.querySelector(".gaip-soil-methodology")?.value || "mlsn",
-                surfaceType: e.querySelector(".gaip-subcategory-option.selected")?.dataset?.surface ||
-                    window.gaipTurfProfile?.state?.subCategory ||
-                    "sports",
-                // Not measured → null, not 0 - a pH of "0" reads as real (implausibly
-                // acidic) data to disease models that use `??` to detect missing input
-                // (e.g. SpringDeadSpotModel's phFactor gate), not "not tested yet".
-                pH_water: _gaipSoilSample ? _gaipSoilSample.pH_water : null,
-                pH_cacl2: _gaipSoilSample ? _gaipSoilSample.pH_cacl2 : null,
-                Na_ppm: 0,
-                // Not measured → null, not 0 - CEC/EC1_5/ECe of "0" reads as a real (implausible)
-                // lab result to the input-range validator, not "not tested".
-                CEC: _gaipSoilSample ? _gaipSoilSample.CEC : null,
-                EC1_5: _gaipSoilSample ? _gaipSoilSample.EC : null,
-                // The site's soil texture is a SITE property, not a sample one
-                // (GH-270/272: the field is rendered from the site's own
-                // `soil_texture_override` on every load), so it stays where it
-                // is. Only the measured EC moved.
-                soilTexture: e.querySelector(".gaip-soil-texture")?.value || "loam",
-                ECe: (function() {
-                    const ec1_5 = _gaipSoilSample ? _gaipSoilSample.EC : null;
-                    if (ec1_5 === null || ec1_5 === undefined) return null;
-                    return ec1_5 *
-                        ({
-                            sand: 5,
-                            loamy_sand: 5.5,
-                            sandy_loam: 6,
-                            loam: 7,
-                            clay_loam: 8,
-                            clay: 10,
-                        } [e.querySelector(".gaip-soil-texture")?.value || "loam"] || 7);
-                })(),
-                samplingDepth: e.querySelector(".gaip-sampling-depth")?.value || "",
-                LOI: safeNum(e.querySelector(".gaip-loi")?.value, 0),
-                OM_pct: safeNum(e.querySelector(".gaip-loi")?.value, 0),
-                LOI_0_2: safeNum(e.querySelector(".gaip-loi-0-2")?.value, 0),
-                LOI_2_4: safeNum(e.querySelector(".gaip-loi-2-4")?.value, 0),
-                LOI_4_6: safeNum(e.querySelector(".gaip-loi-4-6")?.value, 0),
-            },
+            soil: gaip_soilStateFrom(_gaipSoilSample, gaip_readSoilForm(e)),
             water: (function() {
                 if (
                     window.GAIP_WaterBlenderUI &&
@@ -1711,7 +1851,6 @@ function gaip_build_state(e) {
             console.log(
                 "ℹ️ Overseed Significant (" + Math.round(100 * d) + "% C3) but not dominant - using base species",
             )),
-        o.soil.ppm && o.soil.ppm.Na && (o.soil.Na_ppm = safeNum(o.soil.ppm.Na, 0)),
         enforceHemisphereTurfRules(o)
     );
 }
@@ -7049,16 +7188,14 @@ function initTurfTypeMode() {
                                     // owner, and a second author is what this question has spent
                                     // its time removing. Until that source exists the fact travels
                                     // in the run's account and no screen states it.
-                                    if (i > _pgrWindowDays) {
-                                        try {
-                                            if (window.GaipOrchestrator && typeof window.GaipOrchestrator.note === "function") {
-                                                window.GaipOrchestrator.note("pgr",
-                                                    "plant-growth-regulator applied " + i + " days ago, beyond the "
-                                                    + _pgrWindowDays + "-day history window: no effect left to compute",
-                                                    { daysSinceApplication: i, windowDays: _pgrWindowDays });
-                                            }
-                                        } catch (e) { /* bookkeeping must not stop a run */ }
-                                    }
+                                    // GH-649 (analyst 4.12a): THE NOTE IS NO LONGER WRITTEN
+                                    // HERE. It was written before the computation pass, and the
+                                    // pass clears its journal unconditionally — the reviewer
+                                    // measured one entry before it and none after. It is
+                                    // restated inside the pass now
+                                    // (`hub-orchestrator.js`, `_notePgrWindowExhausted`), from
+                                    // the pass's own inputs, so the pass that clears the journal
+                                    // is also the one that fills it.
                                 }
                             }
                             var a = await gaip_fetch_weather(t);

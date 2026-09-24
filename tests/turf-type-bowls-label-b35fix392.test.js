@@ -81,6 +81,12 @@ describe('b35fix392 — bowls/cotula labels in word-export typeMap', () => {
         // Match `var typeMap = { ... };` starting from the comment anchor.
         const anchorIdx = wordExportSrc.indexOf("Format turf type nicely - combine type with subCategory for golf");
         const slice = wordExportSrc.slice(anchorIdx, anchorIdx + 3000);
+        // GH-624: the window is asserted to be real before anything is said about
+        // it. A block that shrinks past its subject would otherwise let every
+        // claim below pass over nothing, and from outside that is indistinguishable
+        // from a case that works.
+        expect(anchorIdx).toBeGreaterThan(-1);
+        expect(slice.length).toBeGreaterThan(500);
         const match = slice.match(/var\s+typeMap\s*=\s*(\{[\s\S]*?\n\s*\};)/);
         if (!match) throw new Error('typeMap object literal not found');
         // Strip trailing `;` for eval, eval inside a function scope

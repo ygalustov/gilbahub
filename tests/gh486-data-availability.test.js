@@ -30,7 +30,7 @@
  *             from "said the right thing".
  * carrier     The text of `word/document.xml`. Not the data: a field on `data`
  *             is what GH-484 had, and it is what nobody read.
- * ПОТРЕБИТЕЛЬ  `word-export.js:11601` (the registry printed after Site
+ * CONSUMER     `word-export.js:11601` (the registry printed after Site
  *             Information) and `word-export.js:12574, 12649, 13264, 13340`
  *             (the "Not included:" lines in the Tissue Analysis and Water
  *             Quality sections). Observable effect: those paragraphs in the

@@ -580,7 +580,20 @@
                 }
                 
                 if (input) {
-                    input.value = parseFloat(row[col]) || row[col];
+                    // GH-621 — A MEASURED ZERO IS NOT A FAILURE TO PARSE.
+                    //
+                    // This was `parseFloat(row[col]) || row[col]`, and zero is
+                    // falsy: a laboratory that reported `0` had its number
+                    // thrown away and the raw cell put in its place. The same
+                    // collapse as GH-608, GH-611 and GH-620, on the way IN.
+                    //
+                    // The raw cell is still shown when the value does not parse
+                    // at all — deliberately: the importer already files it as
+                    // "Not a valid number", and a person looking at the form
+                    // should see what the file actually said rather than an
+                    // empty box. Only the zero stops being mistaken for a miss.
+                    var _n = parseFloat(row[col]);
+                    input.value = isNaN(_n) ? row[col] : _n;
                     input.dispatchEvent(new Event('input', { bubbles: true }));
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                     populated.push(col);
@@ -608,7 +621,20 @@
                 }
                 
                 if (input) {
-                    input.value = parseFloat(row[col]) || row[col];
+                    // GH-621 — A MEASURED ZERO IS NOT A FAILURE TO PARSE.
+                    //
+                    // This was `parseFloat(row[col]) || row[col]`, and zero is
+                    // falsy: a laboratory that reported `0` had its number
+                    // thrown away and the raw cell put in its place. The same
+                    // collapse as GH-608, GH-611 and GH-620, on the way IN.
+                    //
+                    // The raw cell is still shown when the value does not parse
+                    // at all — deliberately: the importer already files it as
+                    // "Not a valid number", and a person looking at the form
+                    // should see what the file actually said rather than an
+                    // empty box. Only the zero stops being mistaken for a miss.
+                    var _n = parseFloat(row[col]);
+                    input.value = isNaN(_n) ? row[col] : _n;
                     input.dispatchEvent(new Event('input', { bubbles: true }));
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                     populated.push(col);

@@ -128,7 +128,11 @@ if (!ENABLED) {
             await page.waitForTimeout(5000);
         });
 
-        afterAll(async () => { if (browser) await browser.close(); });
+        afterAll(async () => {
+            if (browser) await browser.close();
+            // GH-614: the path, last, so a filtered terminal still has it.
+            transcript.close();
+        });
 
         test('the carbonate the lab measured as zero has a row, and it carries no badge', async () => {
             const table = await page.evaluate(() => {

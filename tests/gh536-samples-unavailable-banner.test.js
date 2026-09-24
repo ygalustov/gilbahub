@@ -3,7 +3,7 @@
  * could not be read.
  *
  * WHY IT IS TESTED SEPARATELY FROM THE STORE. The lock and the banner are the
- * two halves of one indivisibility (Н2 in the stage-3 worksheet): a store that
+ * two halves of one indivisibility (H2 in the stage-3 worksheet): a store that
  * closes with no visible reason is a page that silently does nothing, and a
  * banner over an open store is a warning the user can ignore into a data loss.
  * The store half is measured in gh536-browser-copy-removed.test.js; this is the

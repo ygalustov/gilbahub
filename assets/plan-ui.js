@@ -128,6 +128,82 @@
         'nutrition':    '<svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>',
     };
 
+    /**
+     * GH-640 (link 11) — WHAT THE SERVER SAYS ABOUT AN EMPTY SECTION, AND WHETHER
+     * IT SAYS THE SECTION IS EMPTY AT ALL.
+     *
+     * Two things come from one place now, and neither is decided here:
+     *  - IS it empty. This page used to decide — `!pgr || !pgr.gdd` — and the
+     *    server's own predicate disagreed: a `computed.pgr` without `gdd` is a
+     *    produced result to it. Two readers of one question, and the page's
+     *    answer was the one a client read.
+     *  - WHY it is empty. The page had a literal, and on `Burns` that literal was
+     *    false twice over: it said no PGR application was recorded when one was
+     *    (TE250, applied 16.06.2026, 99 days against a 90-day window), and it
+     *    invited a re-run that gives the same answer every time.
+     *
+     * `null` means the server did not say the section is empty — then the page
+     * draws numbers, as before.
+     */
+    /**
+     * GH-643 — A CLIENT NEVER READS A TECHNICAL IDENTIFIER, UNDER ANY CONDITION.
+     *
+     * GH-640 printed the cause CLASS when the server had no sentence —
+     * `not-recorded`, `run-incomplete: engine-produced-nothing` — and a case of
+     * mine asserted that as correct. Both were wrong, and the second was worse:
+     * a test defending the first from repair. The owner's rule is one line,
+     * "understandable for the client", and this is exactly the variant the open
+     * item about unworded causes already rejected: the person reading a raw code
+     * through a frame.
+     *
+     * UNTIL THE WORDS ARE DECIDED, THE OLD SENTENCE STANDS. Nothing new is
+     * composed here and nothing is invented: `WAS_PRINTED_BEFORE` holds what this
+     * page printed before link 11 touched it, word for word, so a person sees
+     * today what they saw yesterday. When the server has a sentence — which it
+     * does whenever the cause is recorded — that sentence wins and the old text
+     * is not reached.
+     *
+     * THE BOUNDARY THIS LEAVES, said rather than hidden: where the cause is not
+     * recorded, the old sentence can still be wrong in the way it was wrong
+     * before (on `Burns` it says no PGR application is recorded when one is).
+     * Making it right needs the run to record the cause, which is a separate
+     * item, and needs words, which are the owner's.
+     */
+    var WAS_PRINTED_BEFORE = {
+        pgr: {
+            title: 'No PGR application recorded',
+            body: 'Log a PGR application in <a href="/data/spray-log" style="color:var(--gaip-accent)">Data → Spray Log</a> — select <strong>PGR</strong> as the category, then re-run the analysis. The GDD schedule will appear here.',
+            badge: 'Not set'
+        }
+    };
+
+    function sectionTitle(key, answer) {
+        if (answer && answer.text && answer.module) return answer.module;
+
+        return (WAS_PRINTED_BEFORE[key] || {}).title || '';
+    }
+
+    function sectionBody(key, answer) {
+        if (answer && answer.text) return esc(answer.text);
+
+        return (WAS_PRINTED_BEFORE[key] || {}).body || '';
+    }
+
+    /** The badge's word: the module's own name, or the word this card used before. */
+    function cardWord(key, answer) {
+        if (answer && answer.text && answer.module) return answer.module;
+
+        return (WAS_PRINTED_BEFORE[key] || {}).badge || '';
+    }
+
+    function serverSection(key) {
+        var texts = global.GAIP_ANALYSIS_TEXTS;
+        var sections = texts && texts.sections;
+        var answer = sections ? sections[key] : undefined;
+
+        return answer || null;
+    }
+
     function emptyState(iconKey, title, body, steps) {
         var stepsHtml = '';
         if (steps && steps.length) {
@@ -253,13 +329,18 @@
 
         var pgr = computed && computed.pgr;
 
+        // GH-640: the server decides whether this section is empty, and says why.
+        var pgrEmpty = serverSection('pgr');
+        if (pgrEmpty) {
+            body.innerHTML = emptyState('pgr', sectionTitle('pgr', pgrEmpty), sectionBody('pgr', pgrEmpty), []);
+            return;
+        }
         if (!pgr || !pgr.gdd) {
-            body.innerHTML = emptyState(
-                'pgr',
-                'No PGR application recorded',
-                'Log a PGR application in <a href="/data/spray-log" style="color:var(--gaip-accent)">Data → Spray Log</a> — select <strong>PGR</strong> as the category, then re-run the analysis. The GDD schedule will appear here.',
-                []
-            );
+            // The server says this section produced something and the page has
+            // nothing to draw from it. Nothing is invented here: the shape is
+            // reported so the mismatch is visible rather than papered over with
+            // a sentence of this page's own.
+            body.innerHTML = emptyState('pgr', sectionTitle('pgr', null), sectionBody('pgr', null), []);
             return;
         }
 
@@ -823,7 +904,11 @@
             cards.push(kpi('PGR Progress', pgrPct + '%', pgrAccum + ' / ' + pgrThresh + ' GDD', badge(pgrLabel, pgrCls),
                 pgrCls === 'red' ? '#dc2626' : pgrCls === 'amber' ? '#d97706' : '#15803d'));
         } else {
-            cards.push(kpi('PGR', 'No data', '', badge('Not set', 'grey'), '#6b7280'));
+            // GH-640: the card says what the server says. `Not set` was this
+            // page's own word for every empty PGR, including the one whose
+            // application IS recorded and whose window has simply run out.
+            var pgrCardEmpty = serverSection('pgr');
+            cards.push(kpi('PGR', 'No data', '', badge(cardWord('pgr', pgrCardEmpty), 'grey'), '#6b7280'));
         }
 
         // Card 3: Recovery / wear — sports fields only (traffic/wear model doesn't apply to golf/lawns)

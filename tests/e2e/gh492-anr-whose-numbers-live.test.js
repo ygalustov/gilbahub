@@ -194,6 +194,13 @@ if (!ENABLED) {
                 }
                 if (at < 0) return null;
                 const slice = text.slice(at, at + 4000);
+                // GH-624: `at` is already known to be >= 0 by the guard above,
+                // and the window is asserted to be real here because everything
+                // below is an `exec` that returns null on a short string — a
+                // shrunken window would quietly report "no rows found" instead
+                // of failing, which reads as a document that says nothing.
+                if (slice.length < 200) throw new Error(
+                    'the requirements window collapsed to ' + slice.length + ' characters');
                 const rows = {};
                 [['Phosphorus (P)', 'P'], ['Potassium (K)', 'K'], ['Sulphur (S)', 'S']].forEach(([label, key]) => {
                     const m = new RegExp(label.replace(/[()]/g, '\\$&') + '\\s*\\n?\\t?([\\d.]+) kg/ha/yr').exec(slice);

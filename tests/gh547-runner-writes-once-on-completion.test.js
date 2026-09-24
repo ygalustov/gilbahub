@@ -88,9 +88,21 @@ function load(o) {
     // (CONFIG.keys), so it has to be a real global, not only a window property.
     global.GAIP_HUB_CONFIG = win.GAIP_HUB_CONFIG = {
         restUrl: '/api/', csrfToken: 'tok',
-        // Deliberately NOT the site in the parameters: the result must be filed
-        // under the site the opener named, not under wherever the pointer is.
-        activeSiteId: OTHER_SITE,
+        // GH-663 — THE DEFAULT IS A DOCUMENT THAT AGREES, AND THAT IS THE CHANGE
+        // OF MEANING THIS FILE OWES.
+        //
+        // It used to be `OTHER_SITE` for every case, on the grounds that the
+        // address must not come from the pointer. Half of that is still true and
+        // still asserted below. The other half — that a frame may COMPUTE another
+        // site and file the numbers anyway — was measured on the stand and is the
+        // defect GH-663 removes: a held write carried one site's `site_id` with
+        // another site's samples, soil temperature and disease (GH-661). The frame
+        // is rendered for `?site=` now, so a document agreeing with the run is the
+        // ordinary state, and the disagreement is set deliberately in the one case
+        // that is about it.
+        activeSiteId: opts.documentSite !== undefined
+            ? opts.documentSite
+            : (new URLSearchParams(opts.search || '')).get('site'),
         userId: 1,
     };
 
@@ -202,13 +214,35 @@ describe('GH-547 — when it writes, and what', () => {
         expect(posts[0].url).toContain('/api/analysis-cache');
     });
 
-    test('and it files the result under the site the OPENER named', async () => {
-        // GAIP_HUB_CONFIG.activeSiteId is a different site on purpose: the
-        // pointer belongs to whatever the user is looking at now.
+    test('and it files the result under the site the OPENER named, not under the pointer', async () => {
+        // THE HALF THAT SURVIVES GH-663: the address is the parameter's. The
+        // pointer does not appear here at all any more, and that IS the repair —
+        // the frame is rendered for `?site=` on the server, so the browser is
+        // never handed the pointer to prefer. Nothing in this harness can stand
+        // for it, and inventing a field that nothing reads would describe a page
+        // that does not exist.
         const h = load({ search: '?rerun=' + RUN + '&site=' + SITE, framed: true });
         await h.complete();
         expect(h.cachePosts()[0].body.site_id).toBe(SITE);
         expect(h.cachePosts()[0].body.site_id).not.toBe(OTHER_SITE);
+        // and it declares what it computed, so the server can compare (29.3 layer 3)
+        expect(h.cachePosts()[0].body.inputs.site).toBe(SITE);
+    });
+
+    test('GH-663 — and a document built for ANOTHER site files nothing, with a reason', async () => {
+        // The case the repair adds, and the one the old default made impossible to
+        // state: the numbers on this page belong to `OTHER_SITE` while the opener
+        // asked for `SITE`. Filing them would be GH-459 with a second address.
+        const h = load({ search: '?rerun=' + RUN + '&site=' + SITE, framed: true,
+            documentSite: OTHER_SITE });
+        await h.complete();
+        expect(h.cachePosts()).toEqual([]);
+        // and the opener is told why, rather than being left with a silent nothing
+        const failures = h.state.posts.filter((p) => /analysis-cache\/runs/.test(p.url));
+        expect(failures.length).toBe(1);
+        expect(failures[0].body.reason).toBe('site-mismatch');
+        expect(failures[0].body.detail.rendered).toBe(OTHER_SITE);
+        expect(failures[0].body.detail.requested).toBe(SITE);
     });
 
     test('completion is the three events, not a clock', async () => {

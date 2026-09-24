@@ -100,6 +100,34 @@
       "'an object'. Named here so the next stage has a list to work from rather than a",
       "grep."
     ],
+    "$comment2": [
+      "GH-641 (link 11, analyst section 4.13\u0432) \u2014 WHICH STEPS A CONSUMER KEY IS",
+      "ASSEMBLED FROM, for the keys the row's PRODUCER builds rather than a pass",
+      "step writing them.",
+      "",
+      "The composer of an empty section's sentence has to find the cause recorded",
+      "against the step behind a key. For a key an engine writes, the dependency",
+      "graph already says which engine that is. These do not appear there, because",
+      "the pass does not write them: the producer assembles them afterwards out of",
+      "other steps' results. Declaring them as a graph node's output would be a lie",
+      "about the pass, and the guard for 'declared but not produced' would say so.",
+      "",
+      "So they are declared HERE, beside the key, in the same file the server",
+      "already reads. An empty list is a statement too: no step stands behind the",
+      "key, so 'the cause was not recorded' is the truth about it rather than a gap",
+      "in this declaration.",
+      "",
+      "MEASURED, not assumed: `applicationWindow` appears in none of the 66 stored",
+      "rows, neither at the top level nor inside `disease` \u2014 nothing produces it,",
+      "and the disease page reads it as a fallback. `soilTempPhysics` is computed",
+      "while the panel is drawn, which is its own open item."
+    ],
+    "assembledFrom": {
+      "soilNutrition": ["mlsn"],
+      "waterBalance": ["water", "irrigation", "salinity"],
+      "soilTempPhysics": [],
+      "applicationWindow": []
+    },
     "readByConsumers": [
       "applicationWindow",
       "climate",

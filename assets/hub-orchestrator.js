@@ -1410,6 +1410,48 @@
     }
   }
 
+  /**
+   * GH-649 — the PGR window, restated for this pass.
+   *
+   * Read from the pass's OWN inputs and today's date, so it is about the site
+   * this pass is computing and not about whatever the page held a moment ago
+   * (the rule GH-459 settled). `data.reason` is the stable key a sentence can
+   * later be built from; the numbers travel with it.
+   *
+   * The message is the one the handler already used, word for word: this is a
+   * journal entry, and what a PERSON reads about it is composed in one place on
+   * the server, which has no words for this cause yet.
+   */
+  function _notePgrWindowExhausted() {
+    try {
+      const pgr = (_hubState.inputs && _hubState.inputs.pgr) || {};
+      const applied = pgr.applicationDate;
+      if (!applied) return;
+
+      const appliedAt = new Date(applied);
+      if (isNaN(appliedAt.getTime())) return;
+
+      // COUNTED IN CALENDAR DAYS, BOTH SIDES IN UTC, and this cost a day in the
+      // first version: `'2026-06-16'` parses as UTC midnight, and calling
+      // `setHours(0,0,0,0)` on it moves it back into the local zone, so a
+      // ninety-nine-day-old application came out as a hundred. The note carries
+      // the number a person reads, so being a day out is being wrong.
+      const midnightUtc = (d) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+      const now = new Date();
+      const days = Math.round((midnightUtc(now) - midnightUtc(appliedAt)) / 864e5);
+      if (days <= 0) return;
+      const windowDays = global.GAIP_PGR_HISTORY_WINDOW_DAYS || 90;
+      if (days <= windowDays) return;
+
+      note("pgr",
+        "plant-growth-regulator applied " + days + " days ago, beyond the "
+        + windowDays + "-day history window: no effect left to compute",
+        { reason: "pgr-window-exhausted", daysSinceApplication: days, windowDays: windowDays });
+    } catch (e) {
+      /* bookkeeping must not stop a run */
+    }
+  }
+
   function warn(module, message, data) {
     record(WARN_LEVEL, module, message, data);
 
@@ -4323,6 +4365,19 @@
     // the refresh above and before any engine runs, so a later arrival can be
     // told from the same objects being announced twice.
     _hubState.computed.passInputs = _passInputFingerprint();
+
+    // GH-649 (analyst 4.12a) — THE NOTE IS BORN INSIDE THE PASS, AFTER THE
+    // JOURNAL IS CLEARED, and that is the whole repair.
+    //
+    // It used to be written by the button handler, BEFORE the pass — and the
+    // pass clears its journal unconditionally a few lines above, because the
+    // account belongs to one pass and not to the page. Measured by the reviewer:
+    // one entry before the pass, none after. The alternative, an entry that
+    // survives the clearing, was put to the analyst and rejected: something that
+    // survives one clearing survives the next, and then a second journal with a
+    // lifetime of its own is needed. So the fact is not carried across the
+    // clearing — it is RESTATED after it, by the pass that will carry it.
+    _notePgrWindowExhausted();
 
     // ─────────────────────────────────────────────────────────────────────
     // 2. POPULATE CANONICAL STATE (single source of truth)

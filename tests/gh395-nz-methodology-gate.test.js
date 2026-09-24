@@ -54,6 +54,12 @@ const blockStart = src.indexOf('$methOptions = [');
 const blockEnd = src.indexOf('</select>', blockStart);
 const block = src.slice(blockStart, blockEnd);
 const after = src.slice(blockEnd, blockEnd + 2400);
+// GH-624: the window is asserted to be real before anything is said about
+// it. A block that shrinks past its subject would otherwise let every
+// claim below pass over nothing, and from outside that is indistinguishable
+// from a case that works.
+expect(blockEnd).toBeGreaterThan(-1);
+expect(after.length).toBeGreaterThan(500);
 
 describe('GH-395/521 — the NZ methodology gate narrows the choices, not the value', () => {
     test('the option list still offers all three methodologies by default', () => {

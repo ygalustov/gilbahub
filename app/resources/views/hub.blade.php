@@ -41,7 +41,9 @@
 
 @section('body')
     @php
-        $activeSite = auth()->user()?->activeSite;
+        // GH-663 (item 3ak): the same one place as the layout, so the page
+        // cannot be rendered half for one site and half for another.
+        $activeSite = \App\Support\PageSite::forRequest(request());
         $savedLocation = [
             'name' => $activeSite?->location_name ?? '',
             'lat' => $activeSite?->latitude ?? '',

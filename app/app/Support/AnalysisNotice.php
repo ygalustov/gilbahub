@@ -37,45 +37,76 @@ final class AnalysisNotice
      * screen — see `reasonText()` — because a reason we forgot to phrase is
      * still more use to the reader than a blank.
      */
+    /**
+     * GH-638 (link 11) — EACH CODE ALSO CARRIES ITS CLASS, and the class is what
+     * decides whether pressing again can help.
+     *
+     * The classes are the plan's (`PLAN-calculation-inputs-RU.md`, 4.13 point 3):
+     *
+     *   `input-absent`    something the site does not have. Re-run cannot help.
+     *   `setting-missing` something nobody entered. Re-run cannot help.
+     *   `run-incomplete`  this attempt did not manage it. Re-run may.
+     *   `answer`          the run computed an answer and the answer is "none".
+     *   `not-recorded`    no cause was recorded at all (no code, so no entry).
+     *
+     * `NOTHING_A_RETRY_CAN_FIX` used to be a second list beside this one, with
+     * `no-soil-sample` written into it by hand. It is derived from the class now,
+     * so the panel's offer and a section's sentence cannot disagree about
+     * whether to press again — they read the same field.
+     *
+     * The texts are unchanged and the codes are unchanged; `clientTexts()` still
+     * hands the browser a flat code-to-sentence map, built from here, so the
+     * browser has one source and no second copy.
+     */
     private const REASONS = [
-        'site-settings-unavailable' => 'the site settings did not load, so the run was cancelled instead of computing on the form defaults',
-        'weather-unavailable'       => 'no weather data was available — the live service did not answer, and there was no cached or manually entered weather to use',
-        'calculation-error'         => 'the calculation stopped with an error',
-        'normals-timeout'           => 'the climate normals did not arrive in time',
-        'incomplete-result'         => 'the server refused the result as incomplete',
-        'rejected'                  => 'the server refused the result',
-        'site-mismatch'             => 'the result did not belong to the site the run was started for',
-        'run-not-completed'         => 'the run did not finish inside its time budget',
-        'no-report'                 => 'the run never reported back',
+        'site-settings-unavailable' => ['class' => 'run-incomplete', 'text' => 'the site settings did not load, so the run was cancelled instead of computing on the form defaults'],
+        'weather-unavailable' => ['class' => 'run-incomplete', 'text' => 'no weather data was available — the live service did not answer, and there was no cached or manually entered weather to use'],
+        'calculation-error' => ['class' => 'run-incomplete', 'text' => 'the calculation stopped with an error'],
+        'normals-timeout' => ['class' => 'run-incomplete', 'text' => 'the climate normals did not arrive in time'],
+        'incomplete-result' => ['class' => 'run-incomplete', 'text' => 'the server refused the result as incomplete'],
+        'rejected' => ['class' => 'run-incomplete', 'text' => 'the server refused the result'],
+        'site-mismatch' => ['class' => 'run-incomplete', 'text' => 'the result did not belong to the site the run was started for'],
+        'run-not-completed' => ['class' => 'run-incomplete', 'text' => 'the run did not finish inside its time budget'],
+        'no-report' => ['class' => 'run-incomplete', 'text' => 'the run never reported back'],
         // GH-557 (section 15): the shape that produced Federal Golf's row.
-        'climate-late'              => 'the climate data arrived after the steps that needed it had already run',
-        'disease-not-computed'      => 'the disease analysis it depends on was not computed',
-        'engine-error'              => 'the engine stopped with an error',
-        'pass-start-unknown'        => 'the run could not tell whether it finished before or after the weather arrived',
-        'values-not-computed'       => 'some values were not computed',
-        'schema-unavailable'        => 'the page was not given the declared form of a result',
+        'climate-late' => ['class' => 'run-incomplete', 'text' => 'the climate data arrived after the steps that needed it had already run'],
+        'disease-not-computed' => ['class' => 'run-incomplete', 'text' => 'the disease analysis it depends on was not computed'],
+        'engine-error' => ['class' => 'run-incomplete', 'text' => 'the engine stopped with an error'],
+        'pass-start-unknown' => ['class' => 'run-incomplete', 'text' => 'the run could not tell whether it finished before or after the weather arrived'],
+        'values-not-computed' => ['class' => 'run-incomplete', 'text' => 'some values were not computed'],
+        'schema-unavailable' => ['class' => 'run-incomplete', 'text' => 'the page was not given the declared form of a result'],
         // GH-588 (link 4) — THE TWO SOIL STATES, AND THEY MUST NOT READ
         // ALIKE. The first is a fact about the site and has one action: add a
         // sample. The third is a fact about this attempt and has a different
         // one: press again. A reader who cannot tell them apart will do the
         // wrong one, or neither.
-        'no-soil-sample'            => 'there is no soil sample for this site, so the soil and nutrition analysis was not computed. Add a soil test on the Data page',
-        'soil-sample-not-delivered' => 'the soil sample data did not arrive in time',
+        // GH-649 (analyst 4.12a / 4.12): the exhausted PGR window is an ANSWER —
+        // the run computed one and the answer is "the window has run out". A
+        // second press cannot change it, which is what the class says.
+        //
+        // `text` IS NULL ON PURPOSE, and this is the one entry where that is a
+        // decision rather than an omission: the words are the owner's open item,
+        // and until she answers, a section carrying this cause gives the page no
+        // sentence and the page keeps the one it has. Writing a phrase here
+        // myself is the thing the boundary forbids.
+        'pgr-window-exhausted' => ['class' => 'answer', 'text' => null],
+        'no-soil-sample' => ['class' => 'input-absent', 'text' => 'there is no soil sample for this site, so the soil and nutrition analysis was not computed. Add a soil test on the Data page'],
+        'soil-sample-not-delivered' => ['class' => 'run-incomplete', 'text' => 'the soil sample data did not arrive in time'],
         // GH-586 (D6): the run was asked for a particular water sample and
         // could not use it. Two reasons, kept apart because they are different
         // facts: the sample is not on this site, or its list had not arrived.
-        'water-sample-not-found'    => 'the water sample this run was asked for is not on this site',
-        'water-samples-not-loaded'  => 'the site\'s water samples had not loaded when the run needed them',
+        'water-sample-not-found' => ['class' => 'run-incomplete', 'text' => 'the water sample this run was asked for is not on this site'],
+        'water-samples-not-loaded' => ['class' => 'run-incomplete', 'text' => 'the site\'s water samples had not loaded when the run needed them'],
         // GH-578: the pass waited the run's budget for the site's soil sample and
         // started without it. Not a refusal — the rest of the run is real.
-        'soil-sample-not-loaded'    => 'the soil sample did not load in time, so the soil and nutrition analysis was not computed for this run',
+        'soil-sample-not-loaded' => ['class' => 'run-incomplete', 'text' => 'the soil sample did not load in time, so the soil and nutrition analysis was not computed for this run'],
         // GH-573: written by the end-of-pass sweep in `hub-orchestrator.js` and
         // by the cascade adapter's own sweep — the run took this module on and
         // its result is not there.
-        'engine-produced-nothing'   => 'that part of the analysis produced no result',
+        'engine-produced-nothing' => ['class' => 'run-incomplete', 'text' => 'that part of the analysis produced no result'],
         // GH-572: the code the withdrawn journal rule wrote. Kept because rows
         // recorded under it are still in the table; nothing writes it now.
-        'engine-did-not-produce'    => 'the run reported a problem in that part of the analysis',
+        'engine-did-not-produce' => ['class' => 'run-incomplete', 'text' => 'the run reported a problem in that part of the analysis'],
     ];
 
     /**
@@ -170,7 +201,23 @@ final class AnalysisNotice
      * sending someone round that loop is worse than saying nothing. What that
      * site needs is a soil test, and the reason says so.
      */
-    private const NOTHING_A_RETRY_CAN_FIX = ['no-soil-sample'];
+    private const CLASSES_A_RETRY_CANNOT_FIX = ['input-absent', 'setting-missing', 'answer'];
+
+    /** The class of a code, or `not-recorded` when there is no code at all. */
+    public static function classOf(?string $code): string
+    {
+        if ($code === null || $code === '') {
+            return 'not-recorded';
+        }
+
+        return self::REASONS[$code]['class'] ?? 'run-incomplete';
+    }
+
+    /** Whether pressing again can change this outcome — derived, never listed. */
+    public static function retryCanHelp(?string $code): bool
+    {
+        return ! in_array(self::classOf($code), self::CLASSES_A_RETRY_CANNOT_FIX, true);
+    }
 
     /** How old a result may be before the panel mentions its age. */
     private const STALE_AFTER_DAYS = 2;
@@ -185,6 +232,305 @@ final class AnalysisNotice
     private const UNKNOWN_REASON = 'the run reported "{code}"';
 
     /**
+     * GH-639 (link 11, plan 4.13 point 3 and 4.13b) — ONE SENTENCE ABOUT ONE
+     * EMPTY SECTION, OR NOTHING IF THE SECTION IS NOT EMPTY.
+     *
+     * Three things decide it, and none of them is a page:
+     *  - whether the section is empty: `AnalysisResults::producedSomething`, the
+     *    server's own predicate, the same one it already uses. Four pages have
+     *    four conditions today and they disagree — `computed.pgr` without `gdd`
+     *    is produced here and empty on `/plan`; the page stops deciding.
+     *  - which run to ask: `numbersRun`, the account of the row whose numbers
+     *    are on screen (GH-638), never `lastRun`. A sentence built from the last
+     *    ATTEMPT describes one run while standing under another's figures.
+     *  - what happened: the cause recorded against the step that writes this
+     *    key — not applicable, skipped, or a journal note carrying a code.
+     *
+     * WHAT IT DOES NOT DO: invent words. `text` is the sentence the one reasons
+     * table already holds; where a code has no sentence yet, `UNWORDED` decides
+     * what stands in, and where NO cause was recorded at all the answer is
+     * `class: 'not-recorded'` with `text: null` — the words for that case are the
+     * owner's, and this returns the fact rather than a phrase of mine.
+     *
+     * @return array{cause:?string,class:string,step:?string,module:?string,retry:bool,text:?string}|null
+     */
+    public static function section(string $key, ?array $projection): ?array
+    {
+        $computed = $projection['computed'] ?? null;
+        $value = is_array($computed) ? ($computed[$key] ?? null) : null;
+        if (AnalysisResults::producedSomething($value)) {
+            return null;
+        }
+
+        $step = self::stepWriting($key);
+        $code = self::causeRecordedFor($step, $projection['numbersRun'] ?? null);
+
+        return [
+            'cause'  => $code,
+            'class'  => self::classOf($code),
+            'step'   => $step,
+            'module' => $step === null ? null : (self::STEP_NAMES[$step] ?? $step),
+            'retry'  => $code === null ? false : self::retryCanHelp($code),
+            'text'   => self::sectionText($code),
+        ];
+    }
+
+    /**
+     * GH-639 — WHICH STEP WRITES A SECTION, TAKEN FROM THE GRAPH.
+     *
+     * `assets/dependency-graph.js` already declares, for every engine, the
+     * `computed.*` key it writes. That declaration is the source; nothing here
+     * re-states it, because a hand-written copy goes stale on the day the graph
+     * changes and says nothing about it. `gh639-the-step-comes-from-the-graph`
+     * parses the same file in JavaScript and compares the two enumerations, so a
+     * drift between this reading and the graph is red rather than silent.
+     *
+     * MEASURED BEFORE AND AFTER, and the gap this closes was found by asking:
+     * reading the step from the KEY resolved 10 of the 17 declared consumer keys.
+     * Reading it from the ENGINE the graph names, and from the declared
+     * `assembledFrom` for the keys the producer builds, resolves 16. The one that
+     * remains is `tissue`, whose engine is `tissue-engine` while the run warns
+     * under `tissue-corrective` — a spelling neither declared source derives from
+     * the other, named in the equality test rather than papered over.
+     */
+    private static function stepWriting(string $key): ?string
+    {
+        static $graphKeys = null;
+        if ($graphKeys === null) {
+            $graphKeys = self::stepsFromGraph();
+        }
+
+        // MEASURED, AND IT IS WHY THIS IS NOT A LOOKUP TABLE. The graph names
+        // ENGINES (`pgr-module`), the run warns under STEP NAMES (`pgr`), and
+        // `STEP_NAMES` is the vocabulary of the second.
+        //
+        // GH-641 (analyst 4.13v) — TWO WAYS, IN THIS ORDER, and neither is a list
+        // kept here:
+        //  1. the graph names an engine that writes `computed.<key>` — the step
+        //     comes from THE ENGINE, by dropping its suffix, not from the
+        //     spelling of the key. That is what closed `confidence` and
+        //     `forecast`, whose keys the graph does not carry but whose steps the
+        //     run warns under.
+        //  2. the key is assembled by the row's producer, and the declared form
+        //     of a result says out of which steps (`assembledFrom` in
+        //     `analysis-result.schema.json`). Declaring those as a graph node's
+        //     output would be a lie about the pass — the pass does not write
+        //     them.
+        //
+        // A key neither path resolves gets NO step, and the equality test names
+        // it. Nothing is restated in this file.
+        $engine = $graphKeys[$key] ?? null;
+        if ($engine !== null) {
+            foreach (self::stepCandidates($key, $engine) as $candidate) {
+                if (isset(self::STEP_NAMES[$candidate])) {
+                    return $candidate;
+                }
+            }
+        }
+
+        $assembled = AnalysisResultSchema::stepsAssembling($key);
+        if (is_array($assembled)) {
+            // The first assembling step that `STEP_NAMES` knows. Several steps
+            // with causes of their own show one — which one is a question of
+            // words, and the analyst sends it to the owner at the first case.
+            foreach ($assembled as $step) {
+                if (isset(self::STEP_NAMES[$step])) {
+                    return (string) $step;
+                }
+            }
+
+            return null; // declared as assembled from nothing: honestly no step
+        }
+
+        foreach ([$key, self::kebab($key)] as $candidate) {
+            if (isset(self::STEP_NAMES[$candidate])) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The spellings a step may be known by, given the key and the engine the
+     * graph names for it. Derived, in order of how directly it is declared.
+     *
+     * @return array<int,string>
+     */
+    private static function stepCandidates(string $key, string $engine): array
+    {
+        $parts = explode('-', $engine);
+        $out = [$engine];
+        if (count($parts) > 1) {
+            $out[] = implode('-', array_slice($parts, 0, -1)); // `stress-trajectory-engine` -> `stress-trajectory`
+            $out[] = $parts[0];                                 // `pgr-module` -> `pgr`
+        }
+        $out[] = $key;
+        $out[] = self::kebab($key);
+
+        return array_values(array_unique($out));
+    }
+
+    /** `stressTrajectory` -> `stress-trajectory`, the tree's other spelling. */
+    private static function kebab(string $key): string
+    {
+        return strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', $key));
+    }
+
+    /**
+     * The graph's own declaration, read once per process.
+     *
+     * @return array<string,string> `computed` key => the engine that writes it
+     */
+    private static function stepsFromGraph(?string $file = null): array
+    {
+        // The path is a parameter so the reading can be exercised against a
+        // BROKEN graph: the reviewer's check for whether this is a reading or a
+        // copy is to break the source and see whether the answer follows. A map
+        // that survives its source being broken is a copy, whatever it is called.
+        $file ??= base_path('../assets/dependency-graph.js');
+        if (! is_file($file)) {
+            // Said out loud rather than answered with an empty map: an empty map
+            // would make every section `not-recorded` for a reason that has
+            // nothing to do with the run.
+            throw new \RuntimeException('the dependency graph is not where the composer expects it: '.$file);
+        }
+
+        $src = (string) file_get_contents($file);
+        $out = [];
+        // Each engine declares `id: '…'` and `outputs: [ … ]`. The step name is
+        // the engine's key in the graph with the `-engine`/`-calculator` style
+        // suffix dropped, which is what the orchestrator warns under.
+        preg_match_all("/'([a-z0-9\-]+)':\s*\{[^}]*?outputs:\s*\[([^\]]*)\]/s", $src, $matches, PREG_SET_ORDER);
+        foreach ($matches as $m) {
+            $engine = $m[1];
+            preg_match_all("/'computed\.([A-Za-z]+)'/", $m[2], $keys);
+            foreach ($keys[1] as $key) {
+                if (! isset($out[$key])) {
+                    $out[$key] = $engine;
+                }
+            }
+        }
+
+        if (count($out) < 15) {
+            throw new \RuntimeException('the composer read only '.count($out).' outputs from the dependency graph');
+        }
+
+        return $out;
+    }
+
+    /**
+     * GH-639 — the cause recorded against a step, in the row whose numbers are
+     * shown. Three places, in the order the plan gives them.
+     */
+    private static function causeRecordedFor(?string $step, ?array $numbersRun): ?string
+    {
+        if ($step === null || ! is_array($numbersRun)) {
+            return null;
+        }
+
+        foreach (['notApplicable', 'skipped'] as $where) {
+            foreach (($numbersRun[$where] ?? []) as $entry) {
+                if (is_array($entry) && self::entryStep($entry) === $step && ($entry['reason'] ?? null)) {
+                    return (string) $entry['reason'];
+                }
+            }
+        }
+
+        // A journal note the panel does not print (GH-573's `continue` stays):
+        // this is the door those entries reach a sentence by.
+        foreach (($numbersRun['notes'] ?? []) as $note) {
+            if (! is_array($note) || self::entryStep($note) !== $step) {
+                continue;
+            }
+            // GH-649: `data` may be an object or the JSON string the runner's
+            // summariser produced. Measured on the bench, where the real pass
+            // records the second shape.
+            $code = self::reasonOfEntry($note);
+            if ($code !== null) {
+                return $code;
+            }
+        }
+
+        return null;
+    }
+
+    /** The reason code of a journal entry, whichever shape its `data` has. */
+    private static function reasonOfEntry(array $entry): ?string
+    {
+        $data = $entry['data'] ?? null;
+        if (is_string($data) && $data !== '') {
+            $decoded = json_decode($data, true);
+            $data = is_array($decoded) ? $decoded : null;
+        }
+        $code = is_array($data) ? ($data['reason'] ?? null) : null;
+
+        return is_string($code) && $code !== '' ? $code : null;
+    }
+
+    /** The step an account entry is about, however that entry spells it. */
+    private static function entryStep(array $entry): ?string
+    {
+        $step = $entry['step'] ?? $entry['module'] ?? null;
+
+        return $step === null ? null : (string) $step;
+    }
+
+    /**
+     * GH-639 (plan 4.13b point 3) — WHAT IS PRINTED WHILE THE WORDS ARE NOT
+     * WRITTEN, decided by ONE constant rather than by each page.
+     *
+     * `UNWORDED` has three possible values, the three the open item names:
+     * `code` — say the code out loud, which is what `UNKNOWN_REASON` already
+     * does; `interim` — a temporary sentence held in the reasons table and
+     * marked as temporary; `legacy` — the page's old sentence, moved into the
+     * table. The owner's answer changes this constant, not the pages. The tree
+     * is effectively `code` today, so that is what stands here.
+     *
+     * A cause that was never recorded has no code to say, so this returns null
+     * and the section carries its class. What a person reads in that case is a
+     * sentence nobody has written yet, and writing one is not mine to do.
+     */
+    /**
+     * GH-649 (analyst 4.12a, and it comes FIRST in her order for a reason) — a
+     * code with no words yet gives the page NOTHING, and the page keeps printing
+     * what it printed.
+     *
+     * `code` was the third value here, and it meant "say the code out loud". The
+     * moment a recorded cause reaches a section — which is what the PGR note is
+     * about to do — that value puts `the run reported "pgr-window-exhausted"` in
+     * front of a client. The coordinator's rule has no edge: no technical
+     * identifier anywhere. So `code` is REMOVED from the allowed values, not
+     * merely unselected, and `null` is what a wordless cause answers with. The
+     * page then falls back to the sentence it already had (`plan-ui.js`,
+     * `WAS_PRINTED_BEFORE`), so nothing a person reads changes.
+     *
+     * The two values that remain are the two that involve words somebody wrote:
+     * `interim`, a temporary sentence held in the table and marked as temporary,
+     * and `legacy`, the page's old sentence moved into the table. Choosing between
+     * them is the owner's; until then, `none`.
+     */
+    private const UNWORDED = 'none';
+
+    private const UNWORDED_ALLOWED = ['none', 'interim', 'legacy'];
+
+    private static function sectionText(?string $code): ?string
+    {
+        if ($code === null) {
+            return null;
+        }
+
+        $text = self::REASONS[$code]['text'] ?? null;
+        if ($text !== null) {
+            return $text;
+        }
+
+        // No words yet: the section carries its class and the page keeps its own
+        // sentence. Saying the code here is what the rule forbids.
+        return null;
+    }
+
+    /**
      * The same map and the same sentence, handed to the browser.
      *
      * The opener needs to name a failure THE MOMENT it happens — the page does
@@ -196,13 +542,57 @@ final class AnalysisNotice
      *
      * @return array<string,mixed>
      */
-    public static function clientTexts(): array
+    public static function clientTexts(?array $projection = null): array
     {
+        // GH-638: the browser gets the sentences, flat, exactly as it always
+        // did — the classes are the server's business and travelling would make
+        // them a second reader of the same decision.
         return [
-            'reasons' => self::REASONS,
+            // GH-649: only codes that HAVE words travel. A code whose sentence is
+            // still the owner's would arrive as `null`, the opener would find
+            // nothing for it and fall back to its frame around the raw code — an
+            // identifier on screen by the back door. Such a code cannot be a run's
+            // failure reason anyway: its class is `answer`, so the run completed
+            // and the cause lives in the journal rather than in `reason`.
+            'reasons' => array_map(
+                fn (array $reason) => $reason['text'],
+                array_filter(self::REASONS, fn (array $reason) => $reason['text'] !== null)
+            ),
             'frame'   => self::FAILURE_FRAME,
             'unknown' => self::UNKNOWN_REASON,
+            // GH-640 (link 11, plan 4.13 point 4) — THE SENTENCES FOR EMPTY
+            // SECTIONS, COMPOSED ON THE SERVER AND SENT WITH THE NUMBERS.
+            //
+            // One door, and it is this one: the texts ride in the same HTML
+            // response as the figures, so "the numbers arrived and the words did
+            // not" cannot happen. A page that draws a section without this
+            // partial is a defect, and a test says which templates must include
+            // it.
+            //
+            // The universe is the schema's declared consumer keys — not a list
+            // of "sections that can be empty" written here — so a section the
+            // composer cannot place still gets an answer rather than silence.
+            'sections' => self::sections($projection),
         ];
+    }
+
+    /**
+     * GH-640 — every declared consumer key, answered.
+     *
+     * `null` for a section that has numbers; an answer for one that does not.
+     * The page prints what it is given and no longer decides emptiness itself
+     * (plan 4.13b point 2).
+     *
+     * @return array<string,?array<string,mixed>>
+     */
+    public static function sections(?array $projection): array
+    {
+        $out = [];
+        foreach (AnalysisResultSchema::consumerKeys() as $key) {
+            $out[$key] = self::section($key, $projection);
+        }
+
+        return $out;
     }
 
     /**
@@ -373,7 +763,7 @@ final class AnalysisNotice
         $code = $code ?: 'run-not-completed';
         // An unknown code is printed as it is. A sentence we have not written
         // yet is a gap in this file, not a reason to show nothing.
-        $text = self::REASONS[$code] ?? str_replace('{code}', $code, self::UNKNOWN_REASON);
+        $text = self::REASONS[$code]['text'] ?? str_replace('{code}', $code, self::UNKNOWN_REASON);
 
         $extra = self::detailText($code, $detail);
 
@@ -462,7 +852,7 @@ final class AnalysisNotice
         // is, and the sentence ends accordingly — that difference is the point
         // of this ticket, and if the two ever read alike again the work is
         // undone.
-        $retryChanges = ! in_array($run['reason'] ?? null, self::NOTHING_A_RETRY_CAN_FIX, true);
+        $retryChanges = self::retryCanHelp($run['reason'] ?? null);
         $isPartial = ($projection['numbersFrom'] ?? null) === 'partial';
 
         // The numbers on screen are this very run's — nothing older exists.

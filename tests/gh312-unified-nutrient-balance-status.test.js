@@ -5,8 +5,9 @@
  * scientific source found anywhere for those cut-offs), and a separate
  * Balance=Current+Delivered ceiling-only check for required=0 rows (GH-311).
  *
- * User's concern (paraphrased): "если это required, то это required, если
- * current, то current, чтобы у всех было одинаково" -- Balance meant
+ * User's concern, in her own words: if a figure is the required amount then it
+ * is the required amount, and if it is the current amount then it is that --
+ * the same way everywhere, for every nutrient. Balance meant
  * different things on different rows, which is confusing on its own table.
  *
  * Root finding: Required already double-counts soil state for below-floor

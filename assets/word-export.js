@@ -8697,7 +8697,8 @@
             // numbers — the page's — including for four sites with no soil
             // sample on file at all.
             //
-            // The owner's decision, in her words: "чужое не надо показывать".
+            // The owner's decision, in her own words: what belongs to someone
+            // else is not to be shown.
             // Where three readings were measured, three are printed; where
             // none were, the block is not printed and the registry says so.
             // Nothing is filled in from anywhere else.
@@ -8766,7 +8767,8 @@
 
             // Truthiness, not presence — kept as it was on purpose. A reading of
             // zero is a measurement, and a gate like this one drops it; that is
-            // the class the plan names "печать по истинности вместо наличия"
+            // the class the plan names as printing on truthiness rather than
+            // on presence
             // (thirty-second refinement, point 2), and it is not this ticket's.
             // Changing it here would move numbers nobody has asked to move.
             if (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg) {

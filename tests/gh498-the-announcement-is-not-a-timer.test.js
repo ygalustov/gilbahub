@@ -33,14 +33,14 @@
  * carrier     The syntax tree. The claim is about where in the program the
  *             dispatch can be reached from, which is a property of the tree and
  *             not of any value at run time.
- * ПОТРЕБИТЕЛЬ  `word-export-combined.js` `waitForSiteConfig()` — the combined
+ * CONSUMER     `word-export-combined.js` `waitForSiteConfig()` — the combined
  *             export waits for this event before it runs the analysis for a
  *             sample. Observable effect: the growth potential printed in the
  *             first report of a multi-sample document (measured live: 0% before,
  *             13% after, against a Monthly Schedule of 13% in the same report).
  * input       The file itself.
  * positive-control  The fixture in `THE_REMOVED_DISPATCH` below.
- * ЧТО ОЗНАЧАЕТ ЕГО КРАСНЫЙ ЗДЕСЬ И СЕЙЧАС — measured, not predicted. Run on the
+ * WHAT ITS RED MEANS HERE AND NOW — measured, not predicted. Run on the
  *             tree as it stands, 2026-09-18, before the rule was inverted:
  *             GREEN, 10 of 10, on every one of the six forms the reviewer
  *             named — requestIdleCallback, window.requestIdleCallback,

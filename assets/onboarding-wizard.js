@@ -596,24 +596,46 @@
                     }));
                 }
 
+                // GH-630 — THE WIZARD DOES NOT SEND A KEY IT NEVER ASKED FOR.
+                //
+                // MEASURED, both halves (GH-629). The sub-category is asked of
+                // golf only — step 2 requires it for golf and the type step
+                // nulls it for anything else — and this object then sent
+                // `subCategory: ''` regardless. Laravel's
+                // `ConvertEmptyStringsToNull` turns that into `null` before the
+                // controller sees it, and the config PATCH refuses a null
+                // inside a section: `sports` with the key answered
+                // 422 `{"invalid_keys":["turf.subCategory"]}`, the same body
+                // WITHOUT the key answered 200, and `golf`/`greens` answered
+                // 200. So no sports or lawns site created by the wizard could
+                // be saved at all, and the person read "check your connection"
+                // about it.
+                //
+                // The rule this restores is the project's own: send the change,
+                // not the state. A field nobody was asked for is not a change.
+                var turfSection = {
+                    turfType:    self.d.turfType    || '',
+                    species:     self.d.species     || '',
+                    // GH-583 (stage 3): the wizard no longer writes a
+                    // cultivar it did not ask for. `generic` was written on
+                    // every site it created and read as a choice; it is the
+                    // absence of one, and the server refuses it now. The
+                    // field is left out, so Settings shows it empty and
+                    // required until someone chooses — which is the truth
+                    // about the site rather than a stand-in for it.
+                    // The wizard does not yet ASK for the cultivar; that is
+                    // the other half of this stage and is not built.
+                    methodology: self.d.methodology || 'slan',
+                };
+                // Golf is the only type the wizard asks this of, so it is the
+                // only type that states it.
+                if (self.d.turfType === 'golf' && self.d.subCategory) {
+                    turfSection.subCategory = self.d.subCategory;
+                }
+
                 var gaipCfg = {
                     location: self.d.location ? { name: self.d.location.name, lat: self.d.location.lat, lon: self.d.location.lon } : {},
-                    turf: {
-                        turfType:    self.d.turfType    || '',
-                        subCategory: self.d.subCategory || '',
-                        species:     self.d.species     || '',
-                        // GH-583 (stage 3): the wizard no longer writes a
-                        // cultivar it did not ask for. `generic` was written on
-                        // every site it created and read as a choice; it is the
-                        // absence of one, and the server refuses it now. The
-                        // field is left out, so Settings shows it empty and
-                        // required until someone chooses — which is the truth
-                        // about the site rather than a stand-in for it.
-                        // The wizard does not yet ASK for the cultivar; that is
-                        // the other half of this stage and is not built.
-
-                        methodology: self.d.methodology || 'slan',
-                    },
+                    turf: turfSection,
                     wizard: { complete: true, completedAt: new Date().toISOString(), version: '1.0' },
                 };
 

@@ -43,7 +43,7 @@
  *             what a null leaf beside a number means.
  * rc          Deleting a subscription, a timer or a read from the walk, or
  *             narrowing the universe, all shrink the printed list.
- * ЧТО ОЗНАЧАЕТ ЕГО КРАСНЫЙ ЗДЕСЬ И СЕЙЧАС — measured, not predicted. Run on the
+ * WHAT ITS RED MEANS HERE AND NOW — measured, not predicted. Run on the
  *             tree as it stands, 2026-09-18: GREEN, 3 of 3. The list it printed:
  *             78 rows in all three versions, the SAME rows; covered 62 (v1),
  *             58 (v2), 41 (v3). Both controls pass — the known member appears at

@@ -96,10 +96,58 @@ function buildState({ sample, formValues }) {
     vm.runInContext(slice('safeNum'), ctx, { filename: 'safeNum' });
     vm.runInContext(slice('collectGridValues'), ctx, { filename: 'collectGridValues' });
     vm.runInContext(slice('gaip_soilFromActiveSample'), ctx, { filename: 'gaip_soilFromActiveSample' });
+    // GH-628: the assembly, so a claim about the soil state can be executed
+    // rather than read off the source.
+    vm.runInContext(slice('gaip_soilStateFrom'), ctx, { filename: 'gaip_soilStateFrom' });
     expect(typeof ctx.collectGridValues).toBe('function');
     expect(typeof ctx.gaip_soilFromActiveSample).toBe('function');
 
     return { ctx, container };
+}
+
+/**
+ * GH-622 — THE BLOCK IS BOUNDED BY ITS OWN SHAPE, NOT BY A CHARACTER COUNT.
+ *
+ * This file was red today for no product reason. It took `SRC.slice(at - 400,
+ * at + 1400)` around an anchor and asserted four lines inside it; a docblock
+ * written between two of those lines pushed `CEC` to offset 2112 and `EC1_5` to
+ * 2179, both outside the window. The product was untouched — `CEC:
+ * _gaipSoilSample ? _gaipSoilSample.CEC : null` is exactly where it was.
+ *
+ * A case tied to a character count goes red when somebody writes a comment,
+ * and — worse — goes GREEN when the window shrinks past what it was checking,
+ * because the assertions then pass over nothing. Both failures are removed the
+ * same way: the block is cut at the end of the object it belongs to, by brace
+ * matching, and then ASSERTED TO BE REAL before anything is said about it.
+ */
+function soilStateBlock(SRC) {
+    // GH-628: the assembly is a function of its own, `gaip_soilStateFrom`, and
+    // its local is `sample`. Same object, same boundary, one link earlier in the
+    // file.
+    const at = SRC.indexOf('ppm: sample ?');
+    expect(at).toBeGreaterThan(-1);
+    // Back to the start of the object this line sits in, then forward to its
+    // closing brace — the boundary the code itself declares.
+    const open = SRC.lastIndexOf('var soil = {', at);
+    expect(open).toBeGreaterThan(-1);
+    let depth = 0;
+    for (let j = SRC.indexOf('{', open); j < SRC.length; j++) {
+        if (SRC[j] === '{') depth++;
+        else if (SRC[j] === '}') {
+            depth--;
+            if (!depth) {
+                const block = SRC.slice(open, j + 1);
+                // The positive control, and the reason this helper exists: a
+                // block that collapses fails HERE instead of passing silently
+                // over an empty string. The floor is well under the real size
+                // (about 4,000 characters when written), not a pin on it.
+                expect(block.length).toBeGreaterThan(1200);
+                expect(block).toContain('ppm: sample ?');
+                return block;
+            }
+        }
+    }
+    throw new Error('the soil state object never closes');
 }
 
 describe('GH-577 — where the soil block gets its numbers', () => {
@@ -169,13 +217,11 @@ describe('GH-577 — where the soil block gets its numbers', () => {
         // Anchored on the line itself, not on "the soil block": this file has
         // two `soil: {` literals and the other one belongs to the cascade
         // transform.
-        const at = SRC.indexOf('ppm: _gaipSoilSample ?');
-        expect(at).toBeGreaterThan(-1);
-        const block = SRC.slice(at - 400, at + 1400);
-        expect(block).toMatch(/ppm: _gaipSoilSample \? _gaipSoilSample\.ppm :/);
-        expect(block).toMatch(/pH_water: _gaipSoilSample \? _gaipSoilSample\.pH_water :/);
-        expect(block).toMatch(/CEC: _gaipSoilSample \? _gaipSoilSample\.CEC :/);
-        expect(block).toMatch(/EC1_5: _gaipSoilSample \? _gaipSoilSample\.EC :/);
+        const block = soilStateBlock(SRC);
+        expect(block).toMatch(/ppm: sample \? sample\.ppm :/);
+        expect(block).toMatch(/pH_water: sample \? sample\.pH_water :/);
+        expect(block).toMatch(/CEC: sample \? sample\.CEC :/);
+        expect(block).toMatch(/EC1_5: sample \? sample\.EC :/);
     });
 
     test('GH-591: a sample that carries `normalized` still gives up its pH', () => {
@@ -225,8 +271,13 @@ describe('GH-577 — where the soil block gets its numbers', () => {
         const soil = ctx.gaip_soilFromActiveSample();
         expect(soil.methodology).toBeUndefined();
 
-        const at = SRC.indexOf('ppm: _gaipSoilSample ?');
-        const block = SRC.slice(at - 400, at + 1400);
-        expect(block).toMatch(/methodology: e\.querySelector\("\.gaip-soil-methodology"\)/);
+        // GH-628 made this executable instead of textual: the assembly is a
+        // function now, so the claim can be RUN. A sample stamped `slan` is
+        // handed to it beside a form saying `mlsn`, and the state says `mlsn`.
+        const soilState = ctx.gaip_soilStateFrom(
+            Object.assign({ methodology: 'slan' }, soil),
+            { methodology: 'mlsn', soilTexture: 'loam' },
+        );
+        expect(soilState.methodology).toBe('mlsn');
     });
 });

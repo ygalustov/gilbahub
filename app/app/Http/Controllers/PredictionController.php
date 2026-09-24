@@ -17,6 +17,17 @@ class PredictionController extends Controller
 
         $written = 0;
         $timestamp = now();
+        // GH-663 (item 3ak, analyst 29.8) — A RECORD WITHOUT A SITE IS NAMED, NOT
+        // SWALLOWED.
+        //
+        // `continue` below dropped such a record silently, and from outside that is
+        // indistinguishable from no write at all. The distinction cost a false
+        // conclusion once already: reading these bodies for the wrong key returned
+        // nothing, and "the field is empty" read as "the server decides the site"
+        // (GH-662). There is no such outcome here — only the frame chooses a site —
+        // so an empty one is a frame that lost it, and the answer says so. The rest
+        // of the batch is still written: a record that names its site is lawful.
+        $skipped = [];
 
         foreach ($data['predictions'] as $prediction) {
             if (! is_array($prediction)) {
@@ -27,6 +38,12 @@ class PredictionController extends Controller
             $module = trim((string) ($prediction['module'] ?? ''));
 
             if ($siteIdentifier === '' || $module === '') {
+                $skipped[] = [
+                    'reason' => $siteIdentifier === '' ? 'site-missing' : 'module-missing',
+                    'module' => $module !== '' ? substr($module, 0, 32) : null,
+                    'sub_key' => $this->nullableString($prediction['sub_key'] ?? null, 120),
+                ];
+
                 continue;
             }
 
@@ -64,6 +81,10 @@ class PredictionController extends Controller
         return response()->json([
             'success' => true,
             'written' => $written,
+            // GH-663: how many were not written and why, so a caller that lost the
+            // site hears about it instead of reading a `201` as a save.
+            'skipped' => count($skipped),
+            'skipped_detail' => $skipped,
         ], 201);
     }
 

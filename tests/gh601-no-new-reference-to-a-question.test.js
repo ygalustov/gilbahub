@@ -154,7 +154,6 @@ const REMAINDER = {
     'assets/word-export.js|question 2': 1,
     'tests/e2e/gh537-westview-export-offers-its-sample-live.test.js|q33': 11,
     'tests/e2e/gh537-westview-export-offers-its-sample-live.test.js|question 33': 1,
-    'tests/e2e/gh538-stand-restore-round-trip-live.test.js|question 39': 1,
     'tests/e2e/gh539-empty-analysis-cache-write-live.test.js|q31': 18,
     'tests/e2e/gh540-reports-pages-analysis-cache-write-live.test.js|question 31.': 1,
     'tests/gh552-where-the-chain-is-broken.test.js|q31': 5,
@@ -172,6 +171,46 @@ const REMAINDER = {
     'tests/gh584-the-universe-covers-the-whole-graph.test.js|q64': 3,
 };
 
+/**
+ * GH-635 — A REFERENCE BROKEN ACROSS TWO LINES IS STILL A REFERENCE.
+ *
+ * This census read one line at a time, and a reference wrapped by a comment
+ * reflow fell through it. Found in the tree, in a comment I had written myself
+ * an hour earlier: `(Question` at the end of one line and `83). The measurement`
+ * at the start of the next. Every claim this file makes was true of the lines it
+ * looked at and false of the file.
+ *
+ * So each line is probed together with what follows it, with the next line's
+ * comment marker and indentation stripped — the reflow, undone. A match is
+ * counted only when it STARTS inside the line itself, so a reference that fits
+ * on one line is still counted once, on its own line, and a wrapped one is
+ * counted once, on the line it begins.
+ */
+function referencesIn(lines) {
+    const hits = [];
+    lines.forEach((line, i) => {
+        const continuation = (lines[i + 1] || '').replace(/^\s*(\/\/+|\*|#)?\s*/, '');
+        const probe = line + ' ' + continuation;
+        REFERENCE.lastIndex = 0;
+        let m;
+        while ((m = REFERENCE.exec(probe)) !== null) {
+            if (m.index >= line.length) break; // it belongs to the next line
+            // The silencing rules read the text AROUND a match, so they get the
+            // line they always got when the match fits on it. Handing them the
+            // probe instead widened their context and silenced two real
+            // references in `word-export.js` — a repair that quietly removed
+            // findings, which is worse than the hole it was closing.
+            const scope = (m.index + m[0].length <= line.length) ? line : probe;
+            hits.push({
+                line: i + 1,
+                token: m[0].toLowerCase(),
+                why: notAReference(scope, m.index, m[0].length),
+            });
+        }
+    });
+    return hits;
+}
+
 /** Walk the tree. The universe is what is on disk, not a list written here. */
 function scan() {
     const files = [];
@@ -188,16 +227,10 @@ function scan() {
             const rel = path.join(dir, entry.name);
             files.push(rel);
             const lines = fs.readFileSync(path.join(ROOT, rel), 'utf8').split('\n');
-            lines.forEach((line, i) => {
-                REFERENCE.lastIndex = 0;
-                let m;
-                while ((m = REFERENCE.exec(line)) !== null) {
-                    const token = m[0].toLowerCase();
-                    const why = notAReference(line, m.index, m[0].length);
-                    if (why) { silenced.push({ file: rel, line: i + 1, token, why }); continue; }
-                    const key = rel + '|' + token;
-                    found[key] = (found[key] || 0) + 1;
-                }
+            referencesIn(lines).forEach((hit) => {
+                if (hit.why) { silenced.push({ file: rel, line: hit.line, token: hit.token, why: hit.why }); return; }
+                const key = rel + '|' + hit.token;
+                found[key] = (found[key] || 0) + 1;
             });
         }
     };
@@ -227,6 +260,35 @@ describe('GH-601 — a reference to one of our questions cannot be added unnotic
             + ' across ' + Object.keys(found).length + ' (file, token) pairs'
             + '\n[GH-601] not references, by reason: ' + JSON.stringify(byReason, null, 0)
             + '\n');
+    });
+
+    test('GH-635: a reference broken across two lines is seen, and one that fits on a line is still counted once', () => {
+        // THE HOLE THIS CLOSES WAS FOUND IN THE TREE, not imagined: a comment
+        // reflow had put `(Question` at the end of one line and `83).` at the
+        // start of the next, in a comment written an hour earlier, and this
+        // census walked straight past it. Sharpened, it immediately found a
+        // SECOND one in a live probe's docblock — two real references that the
+        // line-at-a-time reading had been hiding.
+        const wrapped = referencesIn([
+            '     * a bulk density nobody measured (Question',
+            '     * 83). The measurement now starts at the lab row',
+        ]);
+        expect(wrapped.map((h) => h.token)).toEqual(['question 83']);
+        expect(wrapped[0].line).toBe(1);
+
+        // and the ordinary case is not counted twice by the probe
+        const single = referencesIn([
+            '// see Question 12 for why',
+            '// the next line says nothing',
+        ]);
+        expect(single.map((h) => h.token)).toEqual(['question 12']);
+
+        // a match that belongs to the following line is that line's, once
+        const next = referencesIn([
+            '// nothing here',
+            '// but Q7 lives here',
+        ]);
+        expect(next.map((h) => h.token)).toEqual(['q7']);
     });
 
     test('NO NEW reference — not a new file, not a new token, not one more in a file that had some', () => {

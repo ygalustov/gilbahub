@@ -131,10 +131,18 @@ class Gh583CultivarAndConstructionAreRequiredTest extends TestCase
         // site it created. The server refuses that value now, so a wizard still
         // sending it would fail to create a site at all — this catches the
         // reintroduction at the source rather than at the door.
+        // GH-630 moved the turf section out of the `gaipCfg` literal and into
+        // `turfSection`, so that a key the wizard never asked for can be left
+        // out rather than sent empty. Same claim, same subject, one anchor
+        // further up the file.
         $wizard = file_get_contents(base_path('../assets/onboarding-wizard.js'));
-        $at = strpos($wizard, 'var gaipCfg = {');
+        $at = strpos($wizard, 'var turfSection = {');
         $this->assertNotFalse($at);
         $block = substr($wizard, $at, 900);
+        // The window is asserted to hold its subject before anything is said
+        // about it: a block that shrank past the section would let both claims
+        // below pass over nothing.
+        $this->assertStringContainsString('methodology: self.d.methodology', $block);
 
         $this->assertStringContainsString("species:     self.d.species", $block);
         $this->assertStringNotContainsString("variety:     'generic'", $block);

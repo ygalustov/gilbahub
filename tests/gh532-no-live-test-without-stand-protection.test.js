@@ -49,6 +49,28 @@ const REMEDIES = ['guardStand', 'captureConfigsOnce', 'restoreConfigs', 'fillOwn
  * backlog, not an argument that they are safe.
  */
 const EXEMPT = {
+    'gh661-the-held-write-names-its-site-live.test.js': {
+        why: 'IT HOLDS EVERY WRITE ITSELF, not only the patterns this guard knows. It presses '
+            + 'Re-run once in a frame whose `?site=` names one site while the user\'s pointer '
+            + 'stands on another, to read the ADDRESS and the CONTENTS out of a request that is '
+            + 'captured and answered locally instead of being sent. `guardStand` does not cover '
+            + '`/api/analysis-cache`, which is the one request this exists to read, so a route of '
+            + 'its own holds every non-GET and the row count is asserted unchanged on both sides '
+            + 'before anything else is claimed. The press was authorised and announced, both '
+            + 'outcomes were named in the file first, and no sample, config or row is edited.',
+        until: '2026-10-15',
+    },
+    'gh655-the-water-sample-list-on-screen-live.test.js': {
+        why: 'ITS PURPOSE IS THE PRESS. It answers the owner\'s question about what a person sees '
+            + 'when another water sample is chosen on the water balance page, and choosing one is '
+            + 'not a display change: the page turns the selection into a Re-run by itself. '
+            + '`guardStand` would hold the very write the measurement is about, and a green run '
+            + 'would mean the selection never reached the calculation. The press was authorised and '
+            + 'announced, both outcomes were named in the file before it ran, and the row count was '
+            + 'snapshotted in the database on both sides. It edits no sample and deletes none; it '
+            + 'touches the active-site pointer through the product\'s own switcher and nothing else.',
+        until: '2026-10-15',
+    },
     'gh591-restore-a-row-live.test.js': {
         why: 'ITS PURPOSE IS THE WRITE. It presses Re-run once, for one named site, to restore a '
             + 'stored row whose numbers were computed before the sample arrived (GH-532, item 2) — so '

@@ -29,18 +29,32 @@ beforeAll(() => {
     src = fs.readFileSync(path.join(__dirname, '../assets/word-export.js'), 'utf8');
 });
 
+/**
+ * GH-624 — the body of `exportToWord()`, asserted to be real before it is read.
+ *
+ * Three cases cut the same window out of the source and two of them said
+ * nothing about it. A window that shrinks past its subject lets a negative or
+ * an index-based claim pass over nothing, and from outside that looks exactly
+ * like a case that works. One helper now answers for all three: the anchor is
+ * found, the block is not a stub, and it contains the function it is named for.
+ */
+function exportToWordBody(src) {
+    const fnStart = src.indexOf('async function exportToWord()');
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = src.slice(fnStart, fnStart + 3000);
+    expect(fnBody.length).toBeGreaterThan(1000);
+    expect(fnBody).toContain('async function exportToWord()');
+    return fnBody;
+}
+
 describe('exportToWord() — awaits climate normals before collecting data', () => {
     test('calls window.GilbaClimateNormalsService.ensureFromPage()', () => {
-        const fnStart = src.indexOf('async function exportToWord()');
-        expect(fnStart).toBeGreaterThan(-1);
-
-        const fnBody = src.slice(fnStart, fnStart + 3000);
+        const fnBody = exportToWordBody(src);
         expect(fnBody).toMatch(/await window\.GilbaClimateNormalsService\.ensureFromPage\(\)/);
     });
 
     test('the await happens before GAIP_WordExport.collectData()', () => {
-        const fnStart = src.indexOf('async function exportToWord()');
-        const fnBody = src.slice(fnStart, fnStart + 3000);
+        const fnBody = exportToWordBody(src);
 
         const ensureIdx = fnBody.indexOf('ensureFromPage()');
         const collectIdx = fnBody.indexOf('GAIP_WordExport.collectData()');
@@ -51,8 +65,7 @@ describe('exportToWord() — awaits climate normals before collecting data', () 
     });
 
     test('guards against GilbaClimateNormalsService not being loaded on this page', () => {
-        const fnStart = src.indexOf('async function exportToWord()');
-        const fnBody = src.slice(fnStart, fnStart + 3000);
+        const fnBody = exportToWordBody(src);
         const guardIdx = fnBody.indexOf('window.GilbaClimateNormalsService && typeof window.GilbaClimateNormalsService.ensureFromPage');
         expect(guardIdx).toBeGreaterThan(-1);
     });

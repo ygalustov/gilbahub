@@ -49,7 +49,7 @@
  *             be reached from the sandbox, because the producers are page
  *             functions this harness does not load, and a claim that cannot be
  *             exercised is said structurally rather than pretended.
- * ПОТРЕБИТЕЛЬ  `word-export.js:8518-8527` (the climate block) and the row it
+ * CONSUMER     `word-export.js:8518-8527` (the climate block) and the row it
  *             prints. Observable effect: the "Growth Potential (C3)" line in
  *             the produced .docx — measured live at 0% before GH-498/GH-510.
  * input       The climate metrics object the page publishes, in both shapes.

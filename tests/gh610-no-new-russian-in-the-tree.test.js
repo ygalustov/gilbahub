@@ -14,10 +14,12 @@
  * now. Every one of the three was caught by a person, and twice not by the
  * author. A rule whose only instrument is attention is a wish.
  *
- * WHAT IT DOES NOT DO. It does not clean the seventeen. Those are a queue item
- * of their own, standing last by the owner's decision, and tying the two
- * together would delay the cheap work for the expensive. This catches what is
- * ADDED.
+ * WHAT IT USED TO LEAVE ALONE, AND NO LONGER HAS TO. It froze seventeen files
+ * as a named remainder rather than cleaning them, because cleaning was a queue
+ * item of its own and tying the two together would have delayed the cheap work
+ * for the expensive. That item was done on 24.09.2026 (GH-623) and the
+ * remainder is empty: every one of the seventeen was cleared, and this guard
+ * went red at each step asking to be updated, which is exactly its job.
  *
  * FIVE THINGS IT HAS TO GET RIGHT — four proven earlier on the reference guard
  * (`gh601`), and a fifth learned the hard way today:
@@ -86,23 +88,16 @@ const CYRILLIC = new RegExp('[' + String.fromCharCode(0x0400) + '-' + String.fro
  * a file that already has some cannot hide behind it.
  */
 const REMAINDER = {
-    'assets/nutrition-calendar.js': 3,
-    'assets/word-export.js': 9,
-    'tests/e2e/gh505-the-press-answers-live.test.js': 8,
-    'tests/e2e/gh536-samples-read-failure-live.test.js': 1,
-    'tests/gh312-unified-nutrient-balance-status.test.js': 11,
-    'tests/gh425-calc-trace.test.js': 2,
-    'tests/gh486-data-availability.test.js': 1,
-    'tests/gh487-scope-is-derived-from-the-reason.test.js': 2,
-    'tests/gh490-soil-readings-are-the-sample.test.js': 15,
-    'tests/gh498-the-announcement-is-not-a-timer.test.js': 8,
-    'tests/gh510-not-computed-is-not-zero.test.js': 1,
-    'tests/gh511-no-number-no-verdict.test.js': 1,
-    'tests/gh517-waiting-by-the-clock-census.test.js': 7,
-    'tests/gh520-methodology-has-one-owner.test.js': 7,
-    'tests/gh536-browser-copy-removed.test.js': 1,
-    'tests/gh536-hub-active-site-survives-the-key.test.js': 2,
-    'tests/gh536-samples-unavailable-banner.test.js': 1,
+    // GH-623 — EMPTY, AND THAT IS THE POINT. The seventeen files this guard
+    // froze on 23.09.2026 were cleared the next night: two product files whose
+    // Cyrillic was in comments only, and fifteen test files. The guard caught
+    // the tree as it shrank and demanded this update at every step, which is
+    // the behaviour it was built for — a remainder that absorbs its own
+    // cleaning is a permission, not a guard.
+    //
+    // THE RULE IS NOW ABSOLUTE: any Cyrillic character anywhere under `assets`,
+    // `app`, `tests` or the tools in `files/` is new, and this goes red naming
+    // the file. Nothing is allowed through, so nothing has to be judged.
 };
 
 /** Walk the tree. The universe is what is on disk. */
@@ -185,17 +180,24 @@ describe('GH-610 — Russian cannot be added to the code unnoticed', () => {
         // Demonstrated against the real comparison rather than described: the
         // set with one file swapped for another is the same length and must be
         // reported, in BOTH directions — one added and one gone.
-        const names = Object.keys(REMAINDER);
-        const swapped = Object.assign({}, found);
-        delete swapped[names[0]];
-        swapped['assets/a-file-that-was-never-in-the-remainder.js'] = REMAINDER[names[0]];
+        // GH-623: stated against a pair of names of its own rather than against
+        // the remainder, which is empty now. The comparison under test is the
+        // one the two cases above perform, and it must behave the same whether
+        // the remainder holds seventeen files or none.
+        const remainder = { 'assets/one.js': 3 };
+        const seen = { 'assets/another.js': 3 };
 
-        expect(Object.keys(swapped)).toHaveLength(Object.keys(found).length);
+        // Same size, different membership — a count cannot tell these apart.
+        expect(Object.keys(seen)).toHaveLength(Object.keys(remainder).length);
 
-        const added = Object.keys(swapped).filter((f) => REMAINDER[f] === undefined);
-        const gone = Object.keys(REMAINDER).filter((f) => swapped[f] === undefined);
+        const added = Object.keys(seen).filter((f) => remainder[f] === undefined);
+        const gone = Object.keys(remainder).filter((f) => seen[f] === undefined);
 
-        expect(added).toEqual(['assets/a-file-that-was-never-in-the-remainder.js']);
-        expect(gone).toEqual([names[0]]);
+        expect(added).toEqual(['assets/another.js']);
+        expect(gone).toEqual(['assets/one.js']);
+
+        // And the real remainder is empty, which is what the work of GH-623
+        // left behind — asserted so that a refilled one is noticed here too.
+        expect(Object.keys(REMAINDER)).toEqual([]);
     });
 });

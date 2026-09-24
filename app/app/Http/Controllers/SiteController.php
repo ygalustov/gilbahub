@@ -212,6 +212,12 @@ class SiteController extends Controller
             'parent_site_id' => ['nullable', 'string', Rule::exists('sites', 'id')->whereNot('id', $site->id)],
         ]);
 
+        // GH-634 (queue item 17, plan section 2a): the same condition on this
+        // route, for the columns that OWN a config field. `FieldOwners::OWNERS`
+        // says which those are; a second list is not kept.
+        $expected = $request->validate(['expected' => ['sometimes', 'array']])['expected'] ?? [];
+        $expected = is_array($expected) ? $expected : [];
+
         if (isset($data['name'])) {
             $data['slug'] = $this->uniqueSlug($site->account_id, $data['name'], $site->id);
         }
@@ -240,16 +246,47 @@ class SiteController extends Controller
         $data = $this->resolveTimezoneOnUpdate($request, $site, $data, $coordinatesChanged);
 
         $data['modified_by_user_id'] = $request->user()->id;
-        $site->update($data);
-        // GH-474: one place, after the columns are written, whichever route
-        // wrote them. Only the columns this write actually set. The three regional integrations read the copy to choose
-        // a country's product catalogue, and this route wrote the columns
-        // without touching it — so a site that moved between countries kept
-        // its old catalogue until somebody happened to write a config.
-        $this->deriveOwnedCopies($site, array_values(array_intersect(
-            array_keys($data),
-            array_filter(array_values(FieldOwners::OWNERS))
-        )));
+
+        // GH-634 (plan section 2a) — ONE DOOR FOR THE ROW AND ITS COPIES.
+        //
+        // The row was written here with no transaction and no lock, and its
+        // derived copies were written afterwards under the config lock, from
+        // values read outside it. Two writers therefore left the column holding
+        // one coordinate and the config copy another, measured in
+        // `Gh633ConfigPatchRaceMeasureTest`. Now: one transaction, the site row
+        // locked FIRST — the single lock order shared with `patchConfig` — and
+        // the copies derived inside it.
+        $conflicts = [];
+        DB::transaction(function () use ($site, $data, $expected, &$conflicts) {
+            Site::query()->whereKey($site->id)->lockForUpdate()->first();
+            $site->refresh();
+
+            $conflicts = $this->conflictingColumnExpectations($site, $expected);
+            if ($conflicts !== []) {
+                return; // nothing written
+            }
+
+            $site->update($data);
+
+            // GH-474: one place, after the columns are written, whichever route
+            // wrote them. Only the columns this write actually set. The three
+            // regional integrations read the copy to choose a country's product
+            // catalogue, and this route wrote the columns without touching it —
+            // so a site that moved between countries kept its old catalogue
+            // until somebody happened to write a config.
+            $this->deriveOwnedCopies($site, array_values(array_intersect(
+                array_keys($data),
+                array_filter(array_values(FieldOwners::OWNERS))
+            )));
+        });
+
+        if ($conflicts !== []) {
+            return response()->json([
+                'message' => 'These fields changed after the page was opened: '
+                    .implode(', ', array_keys($conflicts)).'.',
+                'conflicts' => $conflicts,
+            ], 409);
+        }
 
         // GH-371 (D01): a real coordinate change invalidates any cached
         // nutrition programme for this site. The client already guards
@@ -508,10 +545,16 @@ class SiteController extends Controller
             'patch' => ['required_without:clear', 'array'],
             'clear' => ['sometimes', 'array'],
             'clear.*' => ['string'],
+            // GH-634 (queue item 17, stage 2): the condition on each field the
+            // writer is changing — the value the person SAW, keyed by dotted
+            // path. It is compared and thrown away; it is never stored, so the
+            // browser still sends a change and not a state.
+            'expected' => ['sometimes', 'array'],
         ]);
 
         $patch = is_array($data['patch'] ?? null) ? $data['patch'] : [];
         $clear = array_values(array_filter($data['clear'] ?? [], 'is_string'));
+        $expected = is_array($data['expected'] ?? null) ? $data['expected'] : [];
 
         // GH-442 (review): read, merge and write under a row lock.
         //
@@ -533,20 +576,176 @@ class SiteController extends Controller
         // thing in the product that writes this column.
         $outcome = ['status' => 500, 'body' => ['message' => 'Config write did not run.']];
 
-        SiteConfigWriter::mutate($site->id, 'gaip', function (array $existing) use ($site, $request, $patch, $clear, &$outcome) {
-            $rejection = $this->rejectInvalidGaipPatch($patch, $clear, $existing);
-            if ($rejection !== null) {
-                $outcome = ['status' => 422, 'body' => $rejection];
+        $write = function () use ($site, $request, $patch, $clear, $expected, &$outcome) {
+            SiteConfigWriter::mutate($site->id, 'gaip', function (array $existing) use ($site, $request, $patch, $clear, $expected, &$outcome) {
+                $rejection = $this->rejectInvalidGaipPatch($patch, $clear, $existing);
+                if ($rejection !== null) {
+                    $outcome = ['status' => 422, 'body' => $rejection];
 
-                return null; // nothing written
-            }
+                    return null; // nothing written
+                }
 
-            [$merged, $outcome] = $this->buildGaipPatchResult($site, $request, $patch, $clear, $existing);
+                // GH-634: the comparison happens HERE, inside the closure, under
+                // the same row lock that will do the writing. Moved out from
+                // under it, it would be a check with a gap between itself and
+                // the write — which is the race it exists to close.
+                $conflicts = $this->conflictingExpectations($site, $expected, $existing);
+                if ($conflicts !== []) {
+                    $outcome = ['status' => 409, 'body' => [
+                        'message' => 'These fields changed after the page was opened: '
+                            .implode(', ', array_keys($conflicts)).'.',
+                        'conflicts' => $conflicts,
+                    ]];
 
-            return $merged;
-        });
+                    return null; // nothing written
+                }
+
+                [$merged, $outcome] = $this->buildGaipPatchResult($site, $request, $patch, $clear, $existing);
+
+                return $merged;
+            });
+        };
+
+        // GH-634 (plan section 2a): ONE LOCK ORDER ON EVERY PATH — the site row
+        // first, the config row second. This route takes the config row and
+        // writes owned columns from inside it; `update()` writes the row and
+        // then takes the config. If both took real locks in those two orders,
+        // that is a deadlock. So when this patch touches a field whose owner is
+        // a column, the site row is locked here, before the config.
+        if ($this->touchesOwnedColumn($patch, $clear)) {
+            DB::transaction(function () use ($site, $write) {
+                Site::query()->whereKey($site->id)->lockForUpdate()->first();
+                $write();
+            });
+        } else {
+            $write();
+        }
 
         return response()->json($outcome['body'], $outcome['status']);
+    }
+
+    /**
+     * GH-634 (queue item 17, stage 2) — the condition on each changed field:
+     * what the person saw, against what is stored NOW.
+     *
+     * A writer says `expected: {"turf.construction": "sand_profile"}` — the
+     * value its form was showing when it loaded. If the stored value is no
+     * longer that, somebody else changed it after the page opened, and the
+     * write is refused instead of quietly undoing their change. That undoing is
+     * the defect this closes, measured in `Gh633ConfigPatchRaceMeasureTest`:
+     * tab A saved its Turf section and tab B's `construction` went back to its
+     * old value, both requests answering 200.
+     *
+     * A FIELD WHOSE OWNER IS A COLUMN IS COMPARED AGAINST THE COLUMN, not
+     * against the config's copy of it. The copy is derived; comparing it would
+     * be asking the copy whether the owner has moved.
+     *
+     * `expected` is compared and dropped. Nothing stores it, so what the browser
+     * sends is still a change rather than a state — the value on the page
+     * travels as a CONDITION, and the server is the only thing that decides.
+     *
+     * @param  array<string, mixed>  $expected  dotted path => value seen
+     * @return array<string, array{expected: mixed, current: mixed}>
+     */
+    private function conflictingExpectations(Site $site, array $expected, array $existing): array
+    {
+        $conflicts = [];
+        foreach ($expected as $path => $seen) {
+            $path = (string) $path;
+            $column = FieldOwners::columnFor($path);
+            if ($column !== null) {
+                $site->refresh();
+                $current = $site->{$column};
+            } else {
+                $current = data_get($existing, $path);
+            }
+
+            if (! $this->sameConfigValue($seen, $current)) {
+                $conflicts[$path] = ['expected' => $seen, 'current' => $current];
+            }
+        }
+
+        return $conflicts;
+    }
+
+    /**
+     * Equality for a condition, and it is deliberately lenient about SHAPE
+     * rather than about value: a number that travelled through JSON comes back
+     * as `25` or `"25"` or `25.0` depending on who sent it and which column it
+     * came out of, and a condition that failed on that would refuse every save
+     * on a site nobody had touched. Null and absent are the same thing here —
+     * "the field had no value" — because that is what the config route already
+     * means by them everywhere else.
+     */
+    private function sameConfigValue(mixed $a, mixed $b): bool
+    {
+        if ($a === null || $a === '') {
+            return $b === null || $b === '';
+        }
+        if (is_bool($a) || is_bool($b)) {
+            return (bool) $a === (bool) $b;
+        }
+        if (is_numeric($a) && is_numeric($b)) {
+            return abs(((float) $a) - ((float) $b)) < 1e-9;
+        }
+        if (is_array($a) || is_array($b)) {
+            return json_encode($a) === json_encode($b);
+        }
+
+        return (string) $a === (string) $b;
+    }
+
+    /**
+     * GH-634 (plan section 2a) — the same condition, for the columns.
+     *
+     * The paths are the config's (`location.lat`), because that is the language
+     * both the browser and `FieldOwners` speak; the value compared is the
+     * COLUMN's, because the column is the owner. A path with no column is
+     * ignored here — it belongs to the config route's own comparison — so a
+     * client may send one `expected` map and each half takes what is its own.
+     *
+     * @param  array<string, mixed>  $expected
+     * @return array<string, array{expected: mixed, current: mixed}>
+     */
+    private function conflictingColumnExpectations(Site $site, array $expected): array
+    {
+        $conflicts = [];
+        foreach ($expected as $path => $seen) {
+            $column = FieldOwners::columnFor((string) $path);
+            if ($column === null) {
+                continue;
+            }
+            $current = $site->{$column};
+            if (! $this->sameConfigValue($seen, $current)) {
+                $conflicts[(string) $path] = ['expected' => $seen, 'current' => $current];
+            }
+        }
+
+        return $conflicts;
+    }
+
+    /**
+     * GH-634: does this patch touch a field the `sites` row owns?
+     *
+     * Asked of `FieldOwners::OWNERS`, the one table both sides read — a second
+     * list of "which fields are columns" is the thing that table exists to
+     * prevent.
+     */
+    private function touchesOwnedColumn(array $patch, array $clear): bool
+    {
+        foreach (array_keys(FieldOwners::OWNERS) as $path) {
+            if (FieldOwners::columnFor($path) === null) {
+                continue;
+            }
+            if (data_get($patch, $path) !== null) {
+                return true;
+            }
+            if (in_array($path, $clear, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -667,8 +866,19 @@ class SiteController extends Controller
      */
     private function deriveOwnedCopies(Site $site, ?array $changedColumns = null): void
     {
-        $values = $this->ownedColumnValues($site);
-        if ($changedColumns !== null) {
+        SiteConfigWriter::mutate($site->id, 'gaip', function (array $stored) use ($site, $changedColumns) {
+            // GH-634 (plan section 2a) — THE VALUES ARE READ INSIDE THE LOCK
+            // THAT WRITES THE COPY.
+            //
+            // They used to be read before `mutate` was called, by
+            // `$site->refresh()` outside any lock, and the gap between that read
+            // and this write is a race with a measured outcome: with a second
+            // writer landing in between, `sites.latitude` held -36.85 while
+            // `config.location.lat` held -41.29 (`Gh633ConfigPatchRaceMeasureTest`).
+            // Whoever reads the config then sees a coordinate its owner does not
+            // hold. Read here, the copy can only be derived from the row as it
+            // stands under the lock.
+            $values = $this->ownedColumnValues($site);
             // GH-474: a copy follows its owner when the OWNER CHANGES. A write
             // that did not touch a column does not rewrite that column's copy,
             // and the difference matters: a row where the column is empty and
@@ -677,9 +887,10 @@ class SiteController extends Controller
             // would destroy the only copy of that name. Such rows are the
             // repair command's, which fixes them from the owner deliberately
             // and prints what it changed.
-            $values = array_intersect_key($values, array_flip($changedColumns));
-        }
-        SiteConfigWriter::mutate($site->id, 'gaip', function (array $stored) use ($values) {
+            if ($changedColumns !== null) {
+                $values = array_intersect_key($values, array_flip($changedColumns));
+            }
+
             $next = FieldOwners::deriveCopies($stored, $values);
 
             return $next === $stored ? null : $next;

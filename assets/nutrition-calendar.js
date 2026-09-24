@@ -1008,7 +1008,7 @@
         // ammonium_acetate. This delivery first narrowed it to fire on 'mlsn'
         // alone, which was still a surface deciding what a setting means. The
         // owner settled it on 18.09.2026: the methodology is whatever is set in
-        // Settings, "никаких других зависимостей" — no other dependencies. A
+        // Settings, with no other dependencies whatever, in her own words. A
         // bowls surface is a surface; it is not an answer to this question.
         //
         // What stays, three lines above, is the mapping of the VALUE

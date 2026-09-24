@@ -481,7 +481,9 @@
                 if (state.soil) {
                     context.soil = {
                         pH: state.soil.pH_water || state.soil.pH_cacl2,
-                        Na_ppm: state.soil.ppm?.Na || 0,
+                        // GH-620: the same absence, carried rather than
+                        // flattened — the twin of the state's own line.
+                        Na_ppm: state.soil.ppm?.Na ?? null,
                         ppm: state.soil.ppm || {}
                     };
                 }

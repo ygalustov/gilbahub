@@ -381,7 +381,7 @@ if (!ENABLED) {
  *   `samples` was that same copy. Deleting the key without lifting the block
  *   out would have stopped /hub setting its active site AT ALL -- and /hub is
  *   the hidden calculation runner, so nobody would have seen it happen. That
- *   is Н3 in the stage-3 worksheet, and this is the run that checks the lift.
+ *   is H3 in the stage-3 worksheet, and this is the run that checks the lift.
  *
  * WHAT WAS EXPECTED, WRITTEN DOWN BEFORE THE RUN
  *

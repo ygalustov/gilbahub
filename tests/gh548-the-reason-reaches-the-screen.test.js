@@ -81,7 +81,10 @@ describe('GH-548 — the words live in one place', () => {
     test('the browser looks the code up rather than phrasing it', () => {
         expect(DASH_UI).toMatch(/GAIP_ANALYSIS_TEXTS/);
         // and the page is given the map by the server, once, with the pill
-        expect(view('partials/analysis-pill.blade.php')).toMatch(/AnalysisNotice::clientTexts\(\)/);
+        // GH-640: the call takes the projection now, so the server can compose a
+        // sentence for every empty section and send it with the numbers. Same
+        // claim — the words come from the one place — one argument wider.
+        expect(view('partials/analysis-pill.blade.php')).toMatch(/AnalysisNotice::clientTexts\(/);
     });
 
     test('the old panel texts are gone from both files that carried them', () => {

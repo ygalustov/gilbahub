@@ -20,8 +20,21 @@
  *
  * So the writing happens INSIDE the run. It does not depend on how the command
  * is typed, on a `package.json` target, on a reporter, or on anyone remembering
- * anything. The path is printed at the start and again at the end, so it is in
- * the terminal even when the terminal output is filtered away.
+ * anything.
+ *
+ * THE PATH IS PRINTED TWICE, at the start and by `close()` at the end, and the
+ * second one is the half that matters. The opening line scrolls away under
+ * everything the run prints after it, and the press that should never have
+ * happened happened because the output was read through a filter that did not
+ * match it. A line at the end survives that: it is the last thing on the
+ * screen, and it is there whether the run passed or failed.
+ *
+ * GH-614: this was CLAIMED here before it was done. The docblock said the path
+ * was printed at the end while nothing printed it and no caller ever read
+ * `file`, which is worse than not having the second line at all — a reader
+ * trusts the sentence and stops looking. It is done now, and the offline cases
+ * in `tests/gh614-…` hold both halves against the library rather than against
+ * the stand.
  *
  * WHERE IT WRITES, and why not into the repository: a transcript is evidence of
  * one run, not source. It goes to the system temp directory, under a name that
@@ -65,7 +78,20 @@ function openTranscript(name) {
         try { fs.appendFileSync(file, line + '\n'); } catch (e) { usable = false; }
     };
 
-    return { say, file };
+    /**
+     * Say where the transcript is, once more, after everything else.
+     *
+     * Called from the probe's `afterAll` so it runs whether the run passed or
+     * failed — a failed run is exactly the one somebody will want to re-read,
+     * and re-reading it by running it again is a press on the stand.
+     */
+    const close = () => {
+        if (usable) process.stdout.write('[' + name + '] transcript written: ' + file + '\n');
+        else process.stdout.write('[' + name + '] no transcript was written for this run\n');
+        return file;
+    };
+
+    return { say, close, file };
 }
 
 module.exports = { openTranscript, TRANSCRIPT_DIR: DIR };

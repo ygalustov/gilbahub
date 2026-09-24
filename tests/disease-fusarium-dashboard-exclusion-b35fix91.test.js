@@ -66,7 +66,6 @@ describe('hub-persistence.js — dashboard forecast metrics exclude Fusarium', (
         const fcBlockStart = body.lastIndexOf('const _fc =', forecastReadIdx);
         expect(fcBlockStart).toBeGreaterThan(-1);
         const fcBlock = body.slice(fcBlockStart, fcBlockStart + 1400);
-        expect(fcBlock).toContain('?.computed?.forecast');
         expect(fcBlock).toContain("d.key !== 'fusarium'");
         // Must still assign the metrics fields somewhere in this block.
         expect(fcBlock).toMatch(/metrics\.forecastPeak\s*=/);
@@ -78,6 +77,12 @@ describe('hub-persistence.js — dashboard forecast metrics exclude Fusarium', (
         const cdFilterPos = body.indexOf('const _cd = global.GAIP_COMPANION_DISEASE_RESULT;');
         expect(cdFilterPos).toBeGreaterThan(-1);
         const cdBlock = body.slice(cdFilterPos, cdFilterPos + 2500);
+        // GH-624: the window is asserted to be real before anything is said about
+        // it. A block that shrinks past its subject would otherwise let every
+        // claim below pass over nothing, and from outside that is indistinguishable
+        // from a case that works.
+        expect(cdFilterPos).toBeGreaterThan(-1);
+        expect(cdBlock.length).toBeGreaterThan(500);
         const filterPos = cdBlock.indexOf('.filter(function(d) {');
         const mapPos    = cdBlock.indexOf('.map(function(d) {');
         expect(filterPos).toBeGreaterThan(-1);

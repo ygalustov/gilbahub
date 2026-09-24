@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Sample;
 use App\Models\Site;
+use App\Support\AnalysisNotice;
 use App\Support\AnalysisResults;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -71,6 +73,24 @@ class AnalysisCacheController extends Controller
         $site = Site::query()->find($validated['site_id']);
         abort_unless($site, 404, 'site-not-found');
 
+        // GH-663 (item 3ak, analyst 29.3 layer 3) — THE ROW IS REFUSED IF ITS
+        // NUMBERS WERE COMPUTED FOR ANOTHER SITE.
+        //
+        // Layers 1 and 2 live in the browser: the frame is rendered for `?site=`
+        // and the runner refuses to file when the document disagrees. This is the
+        // same class caught where the truth is kept, so it holds even if some
+        // third road to the site appears later. Measured before the repair
+        // (GH-661): a held body carried `site_id` of one site with the samples,
+        // soil temperature and disease of another.
+        $mismatch = $this->siteMismatch($site, $validated['inputs'] ?? null);
+        if ($mismatch !== null) {
+            return response()->json([
+                'error' => 'site-mismatch',
+                'message' => AnalysisNotice::reasonText('site-mismatch'),
+                'detail' => $mismatch,
+            ], 422);
+        }
+
         $row = AnalysisResults::record($request->user(), $site, [
             'metrics'    => $validated['metrics'],
             'computed'   => $validated['computed'] ?? null,
@@ -101,6 +121,90 @@ class AnalysisCacheController extends Controller
      * `AnalysisResults::recordFailure()`. The route exists so the SCREEN can be
      * told; it is not a way to edit a result.
      */
+    /**
+     * GH-663 — what disagrees about the site, or null when nothing does.
+     *
+     * TWO THINGS ARE COMPARED, because they fail differently:
+     *   - `inputs.site`, the site the DOCUMENT was built for, declared by the
+     *     runner. A declaration naming another site is the defect itself;
+     *   - every sample id in `inputs.samples`, which must belong to this site. A
+     *     sample is a fact in the database, so this catches the case even if the
+     *     declaration is missing or has been made to agree.
+     *
+     * AN ABSENT DECLARATION IS NOT A DISAGREEMENT. A body from a bundle that
+     * predates this field says nothing about its site, and refusing it would turn
+     * a deployment into a data outage. Silence and a foreign name are different
+     * answers — the distinction the predictions measurement turned on (GH-662),
+     * where an empty key was silently dropped and looked exactly like no write.
+     */
+    private function siteMismatch(Site $site, ?array $inputs): ?array
+    {
+        if (! is_array($inputs)) {
+            return null;
+        }
+
+        $declared = $inputs['site'] ?? null;
+        if (is_string($declared) && $declared !== '' && $declared !== $site->id) {
+            return ['computedFor' => $declared, 'filedUnder' => $site->id, 'by' => 'declaration'];
+        }
+
+        $samples = is_array($inputs['samples'] ?? null) ? $inputs['samples'] : [];
+        $ids = [];
+        foreach ($samples as $type => $id) {
+            if (is_string($id) && $id !== '') {
+                $ids[$id] = $type;
+            }
+        }
+        if (! $ids) {
+            return null;
+        }
+
+        // The sample travels as its own id or as the key the browser built for it
+        // (`client_uid`), and the key is not unique between sites — measured in
+        // 23.1, where one key belonged to two sites. So a key that resolves to
+        // several rows is only a disagreement when NONE of them is this site's.
+        $foreign = [];
+        foreach ($ids as $id => $type) {
+            $bare = preg_replace('/^sample_/', '', (string) $id);
+            // GH-663 — THE NUMERIC COLUMN IS ONLY ASKED A NUMERIC QUESTION, AND
+            // THIS GUARD HAS NO CASE. Both halves are said on purpose.
+            //
+            // The hazard, measured in both engines rather than reasoned about:
+            // `SELECT … WHERE id = '26_zz9y'` matches one row in MySQL and none in
+            // SQLite, because MySQL coerces the string to 26. The sample keys this
+            // product builds today begin with a letter — `Soil_26_zo0t` coerces to
+            // 0 and matches nothing — so nothing is wrong today; a key beginning
+            // with digits would let another site's row answer for this one, and
+            // clear a foreign sample rather than refuse it.
+            //
+            // THE BOUNDARY: the test bench is SQLite, which does not coerce, so no
+            // case here can show this red. The guard is hygiene with its reason
+            // written down, not a repair with a witness — and saying so is the
+            // difference between a boundary and a silence. Three attempts at a case
+            // went green with the guard removed before the engines were measured.
+            $owners = Sample::withTrashed()
+                ->where(function ($q) use ($id, $bare) {
+                    if (ctype_digit($bare)) {
+                        $q->orWhere('id', (int) $bare);
+                    }
+                    $q->orWhere('client_uid', (string) $id);
+                    if ($bare !== (string) $id) {
+                        $q->orWhere('client_uid', $bare);
+                    }
+                })
+                ->pluck('site_id')
+                ->all();
+            if ($owners === []) {
+                continue;   // nothing to compare against; not a disagreement
+            }
+            if (! in_array($site->id, $owners, true)) {
+                $foreign[] = ['type' => $type, 'sample' => (string) $id, 'belongsTo' => array_values(array_unique($owners))];
+            }
+        }
+
+        return $foreign === [] ? null : ['filedUnder' => $site->id, 'foreignSamples' => $foreign, 'by' => 'samples'];
+    }
+
     public function storeRun(Request $request): JsonResponse
     {
         $validated = $request->validate([

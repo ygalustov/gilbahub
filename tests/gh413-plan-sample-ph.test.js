@@ -150,6 +150,12 @@ describe('GH-413 — the export\'s per-sample programme uses the per-sample rang
         const idx = CAL_SRC.indexOf('pH: prog.pH');
         expect(idx).toBeGreaterThan(-1);
         const block = COMBINED_SRC.slice(idx, idx + 2000);
+        // GH-624: the window is asserted to be real before anything is said about
+        // it. A block that shrinks past its subject would otherwise let every
+        // claim below pass over nothing, and from outside that is indistinguishable
+        // from a case that works.
+        expect(idx).toBeGreaterThan(-1);
+        expect(block.length).toBeGreaterThan(500);
         expect(CAL_SRC).toMatch(/ranges: prog\.ranges/);
         expect(CAL_SRC).toMatch(/rangeSources: prog\.rangeSources/);
     });

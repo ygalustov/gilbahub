@@ -29,7 +29,7 @@
  *             runs that genuinely differ, not over one run repeated.
  * carrier     The text of `word/document.xml` — the table's rows and the
  *             version note — and the throw when a reason has no scope.
- * ПОТРЕБИТЕЛЬ  `word-export.js:11640` (the table takes only `scope === 'site'`)
+ * CONSUMER     `word-export.js:11640` (the table takes only `scope === 'site'`)
  *             and `:11690` (the "About this report version" note), plus
  *             `:12594, 12669, 13284, 13360` (the per-section lines, likewise
  *             site-scope only). Observable effect: which rows and which
@@ -112,6 +112,22 @@ async function scopeOf(sandbox, entry) {
     const registryEnd = [runAt, noteAt].filter((i) => i > registryAt).concat([text.length]).sort((a, b) => a - b)[0];
     const registry = registryAt >= 0 ? text.slice(registryAt, registryEnd) : '';
     const runParagraph = runAt >= 0 ? text.slice(runAt, runAt + 600) : '';
+    // GH-624: the window is conditional on purpose — this classifier answers
+    // `nowhere` for a document that has no such paragraph, and that is a real
+    // outcome rather than a failure. So the claim is made INSIDE the branch
+    // where the anchor was found: if the paragraph exists, the window must
+    // actually hold it. Without this, a window that shrank to nothing would
+    // make every `indexOf` below return -1 and the classifier would answer
+    // `nowhere` for a document that does say something — a wrong answer that
+    // looks like a legitimate one.
+    if (runAt >= 0) {
+        expect(runParagraph.length).toBeGreaterThan(0);
+        expect(runParagraph).toContain('About this report run');
+    }
+    if (registryAt >= 0) {
+        expect(registry.length).toBeGreaterThan(0);
+        expect(registry).toContain('Data availability');
+    }
 
     if (registry.indexOf(PROBE_FIELD) >= 0) return 'site';
     if (runParagraph.indexOf(PROBE_FIELD) >= 0) return 'run';
@@ -331,7 +347,7 @@ describe('GH-487 — scope follows the reason, and the criterion is checked by c
  *             prints — so "takes a copy" is distinguishable from "uses the
  *             object it was handed".
  * carrier     The throw, and the caller's own object afterwards.
- * ПОТРЕБИТЕЛЬ  `word-export.js:11252` (`var data = _frozenCopy(model)` — every
+ * CONSUMER     `word-export.js:11252` (`var data = _frozenCopy(model)` — every
  *             section below reads that copy). Observable effect: a write during
  *             printing throws instead of reaching the document.
  * input       The model collectData returns.

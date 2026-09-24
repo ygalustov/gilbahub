@@ -219,24 +219,96 @@
     // are left out of the request entirely and keep their stored value.
     var GAIP_IDENTITY_FIELDS = ['turf.species', 'turf.methodology', 'turf.turfType', 'location.lat', 'location.lon'];
 
+    /**
+     * GH-637 (queue item 17, stage 3a of `PLAN-config-patch-race-RU.md`) — A
+     * FIELD THE PERSON DID NOT TOUCH DOES NOT TRAVEL AT ALL.
+     *
+     * WHAT WAS WRONG. This form sent its SECTION as the form was showing it, so
+     * a field somebody else had changed after the page loaded went back up at
+     * its old value and the later save was undone. Measured, both tabs
+     * answering 200: `Gh633ConfigPatchRaceMeasureTest` — tab A saved its Turf
+     * tab and tab B's `construction` returned to `sand_profile`. And without
+     * any race at all, an empty control the person never touched travelled as a
+     * `clear` and erased a stored value.
+     *
+     * WHAT IT SENDS NOW. Only the fields that differ from WHAT THE SERVER GAVE
+     * THIS PAGE. `D.gaipConfig` is that: rendered into the page by the server
+     * (`STG_DATA` in `settings.blade.php`) and replaced from the server's own
+     * answer after every save. Not the form's own state after autofill — the
+     * plan names that trap, because a form default would then read as a value
+     * the person had chosen.
+     *
+     * THIS IS NOT A BROWSER COPY BEING WRITTEN BACK. Nothing of the baseline is
+     * sent: it decides what NOT to send. What travels is still the change.
+     *
+     * THREE THINGS FOLLOW, and they are the point:
+     *  - a field nobody touched is absent from both `patch` and `clear`, so it
+     *    cannot undo anyone's edit;
+     *  - an empty control whose stored value was ALSO empty is not a clear —
+     *    there is nothing to empty, and asking to empty it is the form asking
+     *    for something nobody asked for;
+     *  - a field the person really did empty still travels as `clear`, because
+     *    that is a change.
+     *
+     * WHAT IS NOT DONE HERE, deliberately: no condition and no 409. That is
+     * stage 3b, it needs a new thing said to the person, and it waits for the
+     * owner. Nothing on screen changes with this.
+     *
+     * THE SAFE FALLBACK, named: if the page has no server config at all, every
+     * field reads as changed and the behaviour is today's.
+     */
     function patchGaipConfig(sections) {
         var patch = {};
         var clear = [];
+        var saved = (D.gaipConfig && typeof D.gaipConfig === 'object') ? D.gaipConfig : {};
 
         function isEmpty(value) {
             return value === null || value === undefined
                 || (typeof value === 'string' && value.trim() === '');
         }
 
+        // Equality between a form control and a stored value, and it is lenient
+        // about SHAPE only: a number stored as 25 comes back out of a text input
+        // as "25", and treating that as a change would send every field on every
+        // save, which is the behaviour being removed.
+        function unchanged(now, was) {
+            if (isEmpty(now) && isEmpty(was)) return true;
+            if (isEmpty(now) || isEmpty(was)) return false;
+            if (typeof now === 'object' || typeof was === 'object') {
+                return JSON.stringify(now) === JSON.stringify(was);
+            }
+            if (typeof now === 'boolean' || typeof was === 'boolean') return !!now === !!was;
+            var a = String(now).trim();
+            var b = String(was).trim();
+            if (a === b) return true;
+            if (a !== '' && b !== '' && !isNaN(Number(a)) && !isNaN(Number(b))) {
+                return Number(a) === Number(b);
+            }
+            return false;
+        }
+
         Object.keys(sections).forEach(function (key) {
             var value = sections[key];
-            if (isEmpty(value)) { clear.push(key); return; }
+            if (isEmpty(value)) {
+                if (!isEmpty(saved[key])) clear.push(key);
+                return;
+            }
             if (value && typeof value === 'object' && !Array.isArray(value)) {
                 var section = {};
+                var storedSection = (saved[key] && typeof saved[key] === 'object') ? saved[key] : {};
                 Object.keys(value).forEach(function (field) {
                     var path = key + '.' + field;
-                    if (!isEmpty(value[field])) { section[field] = value[field]; return; }
+                    var was = storedSection[field];
+                    if (!isEmpty(value[field])) {
+                        if (unchanged(value[field], was)) return;
+                        section[field] = value[field];
+                        return;
+                    }
                     if (GAIP_IDENTITY_FIELDS.indexOf(path) !== -1) return;
+                    // Nothing stored, nothing to empty: the control was empty
+                    // when the page arrived and is empty now, and the person
+                    // never touched it.
+                    if (isEmpty(was)) return;
                     // An unset number or a cleared text box: said as a clear,
                     // because the route refuses null and never sees the empty
                     // string (Laravel converts it on the way in).
@@ -245,12 +317,20 @@
                 if (Object.keys(section).length) patch[key] = section;
                 return;
             }
+            if (unchanged(value, saved[key])) return;
             patch[key] = value;
         });
 
         var body = {};
         if (Object.keys(patch).length) body.patch = patch;
         if (clear.length) body.clear = clear;
+
+        // Nothing changed: nothing is sent. The route refuses a body with
+        // neither half, and a request that says "I changed nothing" is not a
+        // change to begin with.
+        if (!body.patch && !body.clear) {
+            return Promise.resolve(null);
+        }
 
         return apiFetch('PATCH', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', body)
             .then(function (response) {

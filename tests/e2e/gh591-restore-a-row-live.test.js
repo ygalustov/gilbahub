@@ -34,6 +34,12 @@ const path = require('path');
 
 const { realReadingsOf } = require('../lib/sample-readings');
 const { judge: judgeRowAgainstSample } = require('../lib/row-vs-sample');
+// GH-628: the producer's own names for the readings, measured rather than
+// written down — see `producer-name-map.js`. Without it this probe calls `Na`
+// a reading the row has lost, on a row that carries it as `soilNa`. Built once
+// per process, over the declared universe, from the sample's lab row — this
+// probe supplies no state of its own to it any more.
+const { producerNameMap } = require('../lib/producer-name-map');
 const { openTranscript } = require('./lib/transcript');
 
 const ENABLED = process.env.GILBA_E2E === '1';
@@ -90,6 +96,8 @@ if (!ENABLED) {
 
         afterAll(async () => {
             if (browser) await browser.close();
+            // GH-614: the path, last, so a filtered terminal still has it.
+            transcript.close();
         });
 
         test('the button is pressed once, for the named site, and the run reports its outcome', async () => {
@@ -196,6 +204,46 @@ if (!ENABLED) {
             });
             say('the analysis page now serves: ' + JSON.stringify(cards));
 
+            // ── T1 (analyst, section 17) — WHAT THIS PRESS RECORDED ABOUT A
+            //    SECTION IT COULD NOT COMPUTE, PRINTED WHOLE.
+            //
+            // Three outcomes are named in her section 17 BEFORE the press, and
+            // this block only prints what is needed to tell them apart:
+            //   A. `skipped` empty and the run complete — the cause was erased by
+            //      the pass's own clearing, and the open item about moving the
+            //      soil page onto the composer has to be rewritten: on a site
+            //      with no sample it would change nothing today.
+            //   B. `skipped` carries `no-soil-sample` and the run is partial —
+            //      the cause survives but makes a NORMAL state look incomplete.
+            //      That is a defect of its own, and the question cannot be shown
+            //      until it is repaired.
+            //   C. `notApplicable` carries it and the run stays complete — the
+            //      shape the work aims at, not expected today.
+            //
+            // Nothing here asserts: all three are legitimate answers, and which
+            // one we got is a reading for whoever acts on it.
+            const t1 = await page.evaluate(() => {
+                // `GAIP_DASHBOARD_DATA` IS the projection the server rendered
+                // (`layouts/db-shell.blade.php`), so the row's own account is read
+                // from there rather than from a second request.
+                const texts = window.GAIP_ANALYSIS_TEXTS || {};
+                return {
+                    lastRun: (window.GAIP_DASHBOARD_DATA || {}).lastRun || null,
+                    status: (window.GAIP_DASHBOARD_DATA || {}).status || null,
+                    numbersRun: (window.GAIP_DASHBOARD_DATA || {}).numbersRun || null,
+                    sectionForSoil: (texts.sections || {}).soilNutrition || null,
+                    panelText: (document.getElementById('db-analysis-notice-text') || {}).textContent || null,
+                    panelDetail: Array.from(document.querySelectorAll('.db-analysis-notice li'))
+                        .map((li) => li.textContent.trim()),
+                };
+            });
+            say('[t1] the run row, as the page has it: ' + JSON.stringify({
+                status: t1.status, lastRun: t1.lastRun, numbersRun: t1.numbersRun,
+            }));
+            say('[t1] the composer on the soil section: ' + JSON.stringify(t1.sectionForSoil));
+            say('[t1] the panel, whole: ' + JSON.stringify(t1.panelText)
+                + ' | detail: ' + JSON.stringify(t1.panelDetail));
+
             // ─────────────────────────────────────────────────────────────────
             // GH-593 — AND THE ROW IS JUDGED AGAINST THE SAMPLE, THROUGH THE
             // PRODUCT'S OWN NORMALISER.
@@ -263,7 +311,123 @@ if (!ENABLED) {
                 // Re-run was the one that was wrong, so it no longer lives in
                 // a file nobody can run without a press.
                 const rowSurface = Object.assign({}, cards.scalars || {}, cards.fromTheRow);
-                const { shared, disagreed, dropped } = judgeRowAgainstSample(rowSurface, readings);
+
+                // GH-627 — THE JUDGE IS TOLD WHAT THE PRODUCER CALLS EACH
+                // READING, AND IS NOT LEFT TO GUESS FROM SPELLING.
+                //
+                // Measured offline, from the producer's behaviour: change one
+                // reading IN THE SAMPLE'S LAB ROW, run the chain, see which
+                // field of the row moved and by how much. `Na` comes back as
+                // `soilNa` and the same reading; a derived field comes back as
+                // derived and is asked only for presence. Handed in rather than
+                // stored, so a rename is found without anyone remembering.
+                //
+                // GH-628: THIS PROBE NO LONGER WRITES A SOIL STATE FOR THE
+                // MEASUREMENT. It used to hand one over — `{methodology,
+                // ppm, CEC, pH_water, bulkDensity: 1.4, Na_ppm, EC1_5}` — and
+                // that hand-written state was the second table of names one
+                // link earlier, plus a bulk density nobody measured, which is
+                // its own open item. The measurement now starts at the lab row and runs the
+                // product's own reader and assembly, so the `1.4` is gone from
+                // here: whatever the product does with an unmeasured bulk
+                // density, it does there, in one place, where it is visible.
+                //
+                // COST, MEASURED AND PRINTED, not feared: 16 offline chain runs
+                // under a second, ONCE PER PROCESS rather than per press.
+                const { map: nameMap, keys: nameMapKeys, runs, ms } =
+                    producerNameMap({ say });
+                say('the producer names these (' + nameMapKeys.length + ' declared readings, '
+                    + runs + ' offline chain runs, ' + ms + ' ms): ' + JSON.stringify(nameMap));
+
+                const { shared, disagreed, dropped, derived, derivedMissing } =
+                    judgeRowAgainstSample(rowSurface, readings, nameMap);
+
+                // ── GH-636 — THE THREE THINGS THE OFFLINE WORK COULD NOT
+                //    ANSWER, ANSWERED BY THIS ONE PRESS, WITH BOTH OUTCOMES
+                //    NAMED BEFORE IT RUNS.
+                //
+                // They were left open by GH-628/632 and they all need the
+                // screen, which no offline set can reach. Answering them one
+                // press at a time would cost three announced presses; this
+                // block costs none of its own. Each prints its subject, and
+                // NOTHING here fails the run: both outcomes of each question
+                // are legitimate, and which one we got is a reading for the
+                // morning, not a verdict for the test. The only assertions are
+                // the positive controls above — if the row surface or the map
+                // were empty, the lines below would be answers about nothing.
+                //
+                // FIRST — DOES THE SCREEN CARRY `ECe`?
+                //   A: `ECe` is among the row-surface keys. Then `EC` is a
+                //      derived reading the row does carry, `derivedMissing` is
+                //      empty, and the judge is right to ask only for presence.
+                //   B: it is not. Then `derivedMissing` names `EC` on every
+                //      site whose sample carries one — 41 of the 48 live soil
+                //      samples — and the question becomes whether the screen
+                //      OUGHT to state it. That is the owner's, not ours.
+                //
+                // SECOND — DO THE NAMES AGREE BY THEMSELVES? (the live
+                // outcome of the reviewer's mutation M-1)
+                //   A: the verdict WITH the map differs from the verdict
+                //      without it. Then the map changes the answer on real
+                //      data and the work earns its place.
+                //   B: the two verdicts are identical. Then on today's data the
+                //      map changes nothing, and that is a FINDING to say out
+                //      loud, not a success: the names happen to agree on this
+                //      site, and the next site may differ.
+                //
+                // THIRD — IS THERE ANOTHER RENAMED READING BESIDES
+                // `Na` AND `EC`?
+                //   A: the renamed set is exactly {Na, EC}. Then the offline
+                //      universe of fifteen was complete for this site.
+                //   B: it is larger. Then every extra name is a reading the
+                //      judge would have compared by spelling, and each one is a
+                //      finding with its own line below.
+                const surfaceKeys = Object.keys(rowSurface).sort();
+                say('[screen] the row surface carries ' + surfaceKeys.length + ' keys: '
+                    + JSON.stringify(surfaceKeys));
+                say('[screen] `ECe` present on the screen: ' + ('ECe' in rowSurface)
+                    + ' | value: ' + JSON.stringify(rowSurface.ECe)
+                    + ' | derivedMissing says: ' + JSON.stringify(derivedMissing));
+
+                const blind = judgeRowAgainstSample(rowSurface, readings);
+                const sameVerdict = JSON.stringify({
+                    d: blind.disagreed.slice().sort(), p: blind.dropped.slice().sort(),
+                }) === JSON.stringify({
+                    d: disagreed.slice().sort(), p: dropped.slice().sort(),
+                });
+                say('[names] without the map: dropped=' + JSON.stringify(blind.dropped.slice().sort())
+                    + ' disagreed=' + JSON.stringify(blind.disagreed.slice().sort()));
+                say('[names] with the map:    dropped=' + JSON.stringify(dropped.slice().sort())
+                    + ' disagreed=' + JSON.stringify(disagreed.slice().sort()));
+                say('[names] the map changes the verdict on this site: ' + (! sameVerdict)
+                    + (sameVerdict
+                        ? ' — OUTCOME B: on today\'s data the map changes nothing. A finding, not a success.'
+                        : ' — OUTCOME A: the map changes the answer on real data.'));
+
+                const renamed = Object.keys(readings)
+                    .filter((k) => nameMap[k] && nameMap[k].field && nameMap[k].field !== k)
+                    .map((k) => k + '->' + nameMap[k].field + '/' + nameMap[k].kind);
+                const onScreenUnderItsOwnName = Object.keys(readings)
+                    .filter((k) => k in rowSurface);
+                const onScreenUnderTheProducersName = Object.keys(readings)
+                    .filter((k) => nameMap[k] && nameMap[k].field && nameMap[k].field in rowSurface);
+                say('[renamed] readings the producer renames: ' + JSON.stringify(renamed));
+                say('[renamed] readings the screen states under their OWN name: '
+                    + JSON.stringify(onScreenUnderItsOwnName));
+                say('[renamed] readings the screen states under the PRODUCER\'s name: '
+                    + JSON.stringify(onScreenUnderTheProducersName));
+                say('[renamed] readings the screen states under NEITHER: ' + JSON.stringify(
+                    Object.keys(readings).filter((k) => onScreenUnderItsOwnName.indexOf(k) === -1
+                        && onScreenUnderTheProducersName.indexOf(k) === -1)));
+
+
+                // GH-650: THE PRINTING ABOVE COMES FIRST, and it cost a press to
+                // learn why. On the second announced run the judge's assertion
+                // about `dropped` failed on a real finding (`OM`), the test
+                // stopped there, and the three answers this press existed for
+                // were never printed — they had to be recomputed afterwards from
+                // the transcript. A measurement placed after an assertion is a
+                // measurement that the assertion can cancel.
                 expect(shared.length).toBeGreaterThan(0);
 
                 expect({ nutrientsWhereTheRowDisagreesWithTheSample: disagreed })
@@ -274,6 +438,17 @@ if (!ENABLED) {
                 // check could not see.
                 expect({ measuredBySampleButNotInTheRow: dropped })
                     .toEqual({ measuredBySampleButNotInTheRow: [] });
+
+                // GH-627: the derived half, asserted beside the other two
+                // instead of being computed and discarded. A derived field is
+                // asked only for presence — the row's `ECe` is EC times a
+                // texture factor, and equality would be a false disagreement —
+                // but a derived field the row does not state at all is missing
+                // just the same, and says so here.
+                say('derived readings: ' + JSON.stringify(derived)
+                    + ' | missing from the row: ' + JSON.stringify(derivedMissing));
+                expect({ derivedFromAReadingButAbsentFromTheRow: derivedMissing })
+                    .toEqual({ derivedFromAReadingButAbsentFromTheRow: [] });
 
                 say('judged ' + shared.length + ' readings against sample ' + apiSample.id
                     + ': ' + shared.map((k) => k + '=' + readings[k]).join(' '));

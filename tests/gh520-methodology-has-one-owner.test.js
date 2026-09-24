@@ -40,7 +40,7 @@
  * rc          Put back `isNewZealand -> ammonium_acetate`; put back `?: 'mlsn'`;
  *             point the stamp at the column or the account again; re-add the
  *             column to the payload or the validation.
- * ЧТО ОЗНАЧАЕТ ЕГО КРАСНЫЙ ЗДЕСЬ И СЕЙЧАС — measured, not predicted, on the
+ * WHAT ITS RED MEANS HERE AND NOW — measured, not predicted, on the
  *             tree as it stands after this delivery: GREEN, 9 of 9. Before the
  *             delivery it was RED on every one of the nine. A red here now is
  *             one of the four substitutions coming back.

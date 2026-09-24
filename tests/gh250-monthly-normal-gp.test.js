@@ -120,6 +120,12 @@ describe('GH-250 — growth-light-analysis.js renders the monthlyNormal row', ()
         const idx = src.indexOf('mixedBannerHtml,');
         expect(idx).toBeGreaterThan(-1);
         const block = src.slice(idx, idx + 300);
+        // GH-624: the window is asserted to be real before anything is said about
+        // it. A block that shrinks past its subject would otherwise let every
+        // claim below pass over nothing, and from outside that is indistinguishable
+        // from a case that works.
+        expect(idx).toBeGreaterThan(-1);
+        expect(block.length).toBeGreaterThan(100);
         const avgIdx = block.indexOf('avgSectionHtml,');
         const normalIdx = block.indexOf('normalSectionHtml,');
         expect(avgIdx).toBeGreaterThan(-1);

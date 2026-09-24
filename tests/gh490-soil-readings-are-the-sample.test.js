@@ -5,8 +5,8 @@
  * The measurement that ended the old arrangement (the four-point trace of
  * 17.09): twelve reports built on one page carried ONE set of thirteen soil
  * numbers — the page's — including for four sites with no soil sample on file
- * at all. The owner's decision, in her words: "да так и должно быть, чужое не
- * надо показывать".
+ * at all. The owner's decision, in her own words: that is exactly how it should
+ * be, and what belongs to someone else is not to be shown.
  *
  * Four page-level sources fed it: `GAIP_STATE.soil.ppm`, the active sample the
  * PAGE had loaded (CEC / EC / OM), the fifteen form fields of
@@ -45,7 +45,7 @@
  *             that a number taken from a form field is a sentinel.
  * carrier     The text of `word/document.xml`, plus `data.soil.*` where the
  *             claim is about a value that must be absent.
- * ПОТРЕБИТЕЛЬ  `word-export.js` — the Soil Nutrition section (the readings
+ * CONSUMER     `word-export.js` — the Soil Nutrition section (the readings
  *             table), the "Data availability" row printed after Site
  *             Information, and the "Not included:" paragraph printed where the
  *             section would have been. Observable effect: those paragraphs in
@@ -76,7 +76,7 @@
  *
  * NOT in scope, and named: `data.soil.hasData` is still a truthiness gate
  * (`P || K || Ca || Mg`), so a reading of zero does not open the section. That
- * is the class the plan calls "печать по истинности вместо наличия" — the
+ * is the class the plan calls printing on truthiness rather than presence — the
  * thirty-second refinement's point 2 — and it is not this ticket's.
  */
 

@@ -51,6 +51,56 @@ class AnalysisResultSchema
         return self::$cache;
     }
 
+    /**
+     * GH-640 (link 11, plan 4.13a point 1) — the consumer keys the schema
+     * declares, which is the universe the composer must answer for.
+     *
+     * Declared in one place and read from it; a second list of "sections a page
+     * can be empty in" is the drift this whole question is removing. The
+     * schema's own comment calls it "declared as observed", and that boundary
+     * stands: a key nobody declared consumed is invisible to the composer too.
+     *
+     * @return array<int,string>
+     */
+    public static function consumerKeys(): array
+    {
+        $keys = self::all()['computed']['readByConsumers'] ?? null;
+        if (! is_array($keys) || $keys === []) {
+            throw new \RuntimeException('analysis-result.schema.json declares no consumer keys');
+        }
+
+        return array_values($keys);
+    }
+
+    /**
+     * GH-641 (link 11, analyst section 4.13v) — the steps a consumer key is
+     * assembled from, for the keys the row's producer builds.
+     *
+     * `null` means the key is not declared as assembled — either an engine writes
+     * it, and the graph says which, or nothing declares it at all and that shows
+     * up in the equality test. An empty ARRAY is a declaration: no step stands
+     * behind this key, so "the cause was not recorded" is the truth about it.
+     *
+     * @return array<int,string>|null
+     */
+    public static function stepsAssembling(string $key): ?array
+    {
+        $map = self::all()['computed']['assembledFrom'] ?? null;
+        if (! is_array($map) || ! array_key_exists($key, $map)) {
+            return null;
+        }
+
+        return is_array($map[$key]) ? array_values($map[$key]) : [];
+    }
+
+    /** @return array<string,array<int,string>> every assembled key, as declared */
+    public static function assembledKeys(): array
+    {
+        $map = self::all()['computed']['assembledFrom'] ?? [];
+
+        return is_array($map) ? $map : [];
+    }
+
     /** @return array<int,string> the keys a completed run must carry */
     public static function requiredMetrics(): array
     {

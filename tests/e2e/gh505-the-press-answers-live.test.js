@@ -30,7 +30,7 @@
  * carrier     The page's own rendered text (`document.body.innerText`), which
  *             is what a client reads. Not a DOM attribute and not a console
  *             line: neither is visible to him.
- * ПОТРЕБИТЕЛЬ  The client standing in front of the Plan page. Observable
+ * CONSUMER     The client standing in front of the Plan page. Observable
  *             effect: the line that appears under the nutrition card when the
  *             press refuses (`assets/nutrition-calendar.js` `_answer()`).
  * input       The client's own path: /plan → Nutrition tab → pick a sample →
@@ -43,7 +43,7 @@
  *             page that shows it always.
  * exemptions  None.
  * ratchet     None.
- * ЧТО ОЗНАЧАЕТ ЕГО КРАСНЫЙ ЗДЕСЬ И СЕЙЧАС — measured, not predicted, 2026-09-18.
+ * WHAT ITS RED MEANS HERE AND NOW — measured, not predicted, 2026-09-18.
  *             On the tree as it stands: GREEN, 6 of 6, with the annual N field
  *             arriving as "150" and cleared by the test, 6 config PATCHes
  *             intercepted and 8 API requests still reaching the server.

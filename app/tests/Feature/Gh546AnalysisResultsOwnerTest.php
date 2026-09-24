@@ -208,14 +208,25 @@ class Gh546AnalysisResultsOwnerTest extends TestCase
         // GH-557 added `numbersFrom`: which run the numbers on screen came from.
         // Without it a reader cannot tell the ordinary case from the one where a
         // site's only run was partial and its figures are being shown anyway.
+        // GH-638 added `numbersRun`: what the row whose numbers are on screen
+        // says about itself, on every outcome. `lastRun` is the last ATTEMPT,
+        // and a sentence about why a section is empty has to come from the row
+        // the section's numbers came from.
         $this->assertSame(
-            ['metrics', 'computed', 'analyzedAt', 'lastRun', 'status', 'numbersFrom'],
+            ['metrics', 'computed', 'analyzedAt', 'lastRun', 'status', 'numbersFrom', 'numbersRun'],
             array_keys($p)
         );
         $this->assertSame(0.8, $p['metrics']['growthPotential']);
         $this->assertNotNull($p['analyzedAt']);
         $this->assertSame('complete', $p['status']);
         $this->assertSame('complete', $p['lastRun']['outcome']);
+        // and the account is there on a COMPLETE row, which is the change: it
+        // used to exist only for a partial attempt.
+        $this->assertSame(
+            ['outcome', 'skipped', 'notApplicable', 'notes', 'assumptions'],
+            array_keys($p['numbersRun'])
+        );
+        $this->assertSame('complete', $p['numbersRun']['outcome']);
     }
 
     public function test_a_site_that_was_never_analysed_projects_to_null_not_to_empty_numbers(): void

@@ -66,6 +66,37 @@ describe('GH-609 — the judge reads the row at the precision the row prints', (
         expect(judge(offByOneTenth, MEASURED).disagreed).toEqual(['Mg']);
     });
 
+    test('GH-617: a reading the row has NO CELL for is named, not silently lost', () => {
+        // The hole the precision repair left standing. `dropped` was a subset
+        // of `shared`, and `shared` is the ROW's vocabulary — so a reading the
+        // page has no cell for at all fell out of both answers and was named
+        // nowhere. Measured before the repair:
+        //     judge({K:'18.8'}, {K:18.84, Zn:5})
+        //       -> {shared:['K'], disagreed:[], dropped:[]}
+        // The zinc the lab measured simply vanished, and the judge reported
+        // nothing missing about a row that was missing a reading.
+        const { shared, disagreed, dropped } = judge({ K: '18.8' }, { K: 18.84, Zn: 5 });
+
+        expect(shared).toEqual(['K']);
+        expect(disagreed).toEqual([]);
+        expect(dropped).toEqual(['Zn']);
+    });
+
+    test('GH-617: and the name of the answer is true of the value it carries', () => {
+        // The caller states this as `measuredBySampleButNotInTheRow`. Before
+        // the repair that name promised a completeness the value did not have,
+        // because the value was computed by walking what IS in the row. Both
+        // ways of being missing are counted now — no cell at all, and a cell
+        // that is empty — and nothing the row states with a real number is.
+        const { dropped } = judge(
+            { K: '18.8', B: '-', Ca: '240.8' },
+            { K: 18.84, B: 0.4, Ca: 240.77, Zn: 5, OM: 2.9 },
+        );
+
+        // No cell: `Zn`, `OM`. Empty cell: `B`. Stated with a number: neither.
+        expect(dropped.sort()).toEqual(['B', 'OM', 'Zn']);
+    });
+
     test('a value the row never states is dropped, not disagreed', () => {
         // The two answers are different questions and had been one. `B` is
         // stated as `-` and the sample does not carry it, so it is neither.

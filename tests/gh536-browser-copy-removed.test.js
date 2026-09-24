@@ -392,7 +392,7 @@ describe('GH-536 — source-pin on the key', () => {
     });
 
     test('the /hub active-site block survived the key it used to sit under', () => {
-        // Н3 in the worksheet: `gilba_import_active_site` and the setActiveSite
+        // H3 in the worksheet: `gilba_import_active_site` and the setActiveSite
         // call lived inside `if (samples)`. Deleting the key without lifting
         // them out would have stopped /hub setting its active site at all.
         const c = code(read('hub-persistence.js'));

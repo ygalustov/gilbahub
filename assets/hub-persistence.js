@@ -88,6 +88,67 @@
     })();
 
     /**
+     * GH-663 (item 3ak, analyst 29.3 layer 2) — DID THIS DOCUMENT CHANGE SITE
+     * AFTER THE RUN STARTED?
+     *
+     * The frame is now rendered for `?site=` (GH-663 layer 1), so the document and
+     * the address agree when it opens. This is the safety net for afterwards: a
+     * document that switches site mid-run has computed part of one site and part
+     * of another, and nothing else in the frame would notice.
+     */
+    var _siteChangedAfterStart = false;
+    try {
+        window.addEventListener('gaip:site-changed', function () { _siteChangedAfterStart = true; });
+    } catch (e) { /* no window to listen on; the comparison below still runs */ }
+
+    /**
+     * The site THIS DOCUMENT was built for, as the document itself reports it.
+     *
+     * Two reporters rather than one, because they are filled by different paths:
+     * `GAIP_HUB_CONFIG.activeSiteId` is written by the server render, and
+     * `GAIP_SiteContext.getSiteId()` by the sample layer once it has restored.
+     * Either one disagreeing with the run's intent is a disagreement.
+     */
+    function _documentSites() {
+        var out = {};
+        try {
+            out.rendered = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId) || null;
+        } catch (e) { out.rendered = null; }
+        try {
+            out.context = (window.GAIP_SiteContext && typeof window.GAIP_SiteContext.getSiteId === 'function')
+                ? window.GAIP_SiteContext.getSiteId() : null;
+        } catch (e) { out.context = null; }
+        return out;
+    }
+
+    /**
+     * GH-663 — whether this document may file a result for the site the opener
+     * named. Returns null when it may, or the detail of the disagreement.
+     *
+     * THE ABSENT CASE IS NOT A DISAGREEMENT, and the distinction is the one the
+     * predictions measurement turned on (GH-662): a reporter that is empty has
+     * not spoken, and treating silence as a mismatch would refuse every run whose
+     * sample layer had not finished restoring. A reporter that names ANOTHER site
+     * has spoken, and that is refused.
+     */
+    function _siteDisagreement() {
+        if (!_runIntent) return null;
+        var d = _documentSites();
+        var wanted = String(_runIntent.siteId);
+        var named = [];
+        if (d.rendered && String(d.rendered) !== wanted) named.push('rendered=' + d.rendered);
+        if (d.context && String(d.context) !== wanted) named.push('context=' + d.context);
+        if (!named.length && !_siteChangedAfterStart) return null;
+        return {
+            requested: wanted,
+            rendered: d.rendered,
+            context: d.context,
+            siteChangedDuringRun: _siteChangedAfterStart,
+            disagreeing: named
+        };
+    }
+
+    /**
      * How long the whole run may take before the runner gives up on it.
      *
      * The same fifteen seconds the weather fetch is allowed (GH-545), and for
@@ -423,6 +484,18 @@
             // button was pressed for.
             var siteId = _runIntent.siteId;
 
+            // GH-663 (item 3ak, analyst 29.3 layer 2) — AND THE DOCUMENT MUST BE
+            // THAT SITE'S. Measured before the repair (GH-661): with the pointer
+            // on one site and the frame opened for another, this write carried
+            // `site_id` of the site pressed and the samples, soil temperature and
+            // disease of the site rendered. Layer 1 stops that at the render;
+            // this refuses to file if the two ever disagree again, by any road.
+            var _disagreement = _siteDisagreement();
+            if (_disagreement) {
+                _fail('site-mismatch', _disagreement);
+                return;
+            }
+
             var api = _api();
 
             // GH-557 (section 15): the account of the pass travels with its
@@ -465,6 +538,15 @@
                         },
                         samples: {},
                         sensors: { vwc: null, soilTemp: null },
+                        // GH-663 (item 3ak, analyst 29.3 layer 3): the site this
+                        // DOCUMENT was built for, declared so the server can
+                        // refuse a body whose numbers came from somewhere else.
+                        // It sits beside `samples` because it is the same kind of
+                        // thing — a statement about what the run read, which the
+                        // server checks rather than stores as the truth about the
+                        // site. `null` means the document did not say, which is
+                        // not the same as naming another site (GH-662).
+                        site: (_documentSites().rendered || null),
                     };
                     ['soil', 'water', 'tissue'].forEach(function (type) {
                         try {
@@ -2460,7 +2542,23 @@
                     for (var _ii = 0; _ii < _ionEls.length; _ii++) {
                         var _ik = _ionEls[_ii].getAttribute('data-ion');
                         var _iv = parseFloat(_ionEls[_ii].value);
-                        if (_ik && !isNaN(_iv) && _iv > 0) _ionsDom[_ik] = _iv;
+                        // GH-620 — THE SAME CLASS WITH THE SIGN REVERSED: THIS
+                        // ONE THREW AWAY A ZERO THE LAB HAD MEASURED.
+                        //
+                        // Everything else tonight removed zeros nobody measured;
+                        // `_iv > 0` discarded the ones somebody did. A water
+                        // tested for carbonate and found to have none arrived
+                        // here as a reading and left as an absence — the exact
+                        // collapse GH-608 and GH-611 closed on the other two
+                        // paths, still standing on this one.
+                        //
+                        // `!isNaN` already separates "no number" from "a
+                        // number"; the comparison added nothing but the loss.
+                        // Not reachable today, measured: of 64 stored rows the
+                        // water source is `null` on 49 and the sample store on
+                        // 15, and this DOM fallback has not run once — which is
+                        // why it is repaired now rather than after it does.
+                        if (_ik && !isNaN(_iv)) _ionsDom[_ik] = _iv;
                     }
                     var _phDomEl = document.querySelector('.gaip-water-ph');
                     _waterIn = {
@@ -2666,7 +2764,44 @@
                     leachingFraction: _LF,
                     LSI:          _LSI,
                     // Ions (meq/L)
-                    ions: { Ca: _Ca, Mg: _Mg, Na: _Na, K: _K, HCO3: _HCO3, CO3: _CO3, Cl: _Cl, SO4: _SO4 },
+                    // GH-616 — A ZERO WE PRODUCED IS NOT A READING, SO IT IS NOT
+                    // WRITTEN DOWN AT ALL.
+                    //
+                    // `_meq` answers `(parseFloat(x) || 0) / factor`, so an ion
+                    // the lab never measured came out 0 and the key was in the
+                    // object regardless. Counted on the stand: of 80 ion values
+                    // across the ten rows that have any, 62 are zero — TWO of
+                    // them measured (`CO3` on Burns and on New test - location)
+                    // and SIXTY produced here on the way, 56 of those on seven
+                    // sites that have no water sample at all. The record said
+                    // "zero" where the truth was "nobody measured it", and from
+                    // the row the two could not be told apart.
+                    //
+                    // The owner settled it: write nothing. The key is absent
+                    // now unless the sample carried the reading — and which
+                    // readings those are is not decided here, it is
+                    // `_measuredIons`, derived a few lines above from the same
+                    // `_mgToMeq` table that decides what this object can hold.
+                    //
+                    // THE ARITHMETIC IS UNTOUCHED, and that was the reviewer's
+                    // condition: SAR, RSC, LSI and the sodium percentage need a
+                    // number for every term, and they read `_Ca`, `_Mg`, `_Na`
+                    // and the rest — plain variables, still numbers, still zero
+                    // for an absent reading. Only the stored object changes.
+                    // Every reader of that object was checked rather than
+                    // assumed: `water-balance-analysis.js` takes each ion as
+                    // `ions.X || 0`, or asks `parseFloat(ions.X) > 0`, which is
+                    // false for `undefined` exactly as it was for 0; and the
+                    // row's own table now asks `measuredIons` (GH-611). Nothing
+                    // on screen moves.
+                    ions: (function () {
+                        var meq = { Ca: _Ca, Mg: _Mg, Na: _Na, K: _K, HCO3: _HCO3, CO3: _CO3, Cl: _Cl, SO4: _SO4 };
+                        var out = {};
+                        Object.keys(meq).forEach(function (ion) {
+                            if (_measuredIons[ion] !== undefined) out[ion] = meq[ion];
+                        });
+                        return out;
+                    })(),
                     measuredIons: _measuredIons,
                     // Toxicity raw (mg/L)
                     B:            _B,

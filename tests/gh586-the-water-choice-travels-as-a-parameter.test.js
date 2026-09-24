@@ -191,7 +191,15 @@ describe('GH-586 — the run parameter names the sample, and the sample supplies
             path.join(__dirname, '..', 'app', 'app', 'Support', 'AnalysisNotice.php'), 'utf8');
         const reasons = {};
         const block = notice.slice(notice.indexOf('private const REASONS'), notice.indexOf('];', notice.indexOf('private const REASONS')));
-        for (const m of block.matchAll(/'([a-z-]+)'\s*=>\s*'((?:[^'\\]|\\.)*)'/g)) reasons[m[1]] = m[2];
+        // GH-638: each entry carries its class beside its text —
+        // `'code' => ['class' => '…', 'text' => '…']` — so the sentence is taken
+        // from the `text` key rather than from the position after the arrow.
+        for (const m of block.matchAll(/'([a-z0-9-]+)'\s*=>\s*\['class'\s*=>\s*'[a-z-]+',\s*'text'\s*=>\s*'((?:[^'\\]|\\.)*)'\]/g)) {
+            reasons[m[1]] = m[2];
+        }
+        // The window held its subject: a parser that matched nothing would make
+        // every claim below a claim about `undefined`.
+        expect(Object.keys(reasons).length).toBeGreaterThan(15);
 
         ['water-sample-not-found', 'water-samples-not-loaded'].forEach((code) => {
             expect([code, typeof reasons[code]]).toEqual([code, 'string']);
@@ -374,11 +382,24 @@ describe('GH-602 — the naming of a sample’s columns, and a measured zero', (
         expect(co3Zero.water.measuredIons.CO3)
             .not.toBe(co3Absent.water.measuredIons.CO3);
 
-        // The derived view is UNCHANGED and still says 0 for both — asserted so
-        // that a later reader does not "fix" it into agreement and break the
-        // arithmetic that needs a number for every term.
+        // GH-616 — AND THE DERIVED VIEW NO LONGER CARRIES WHAT NOBODY MEASURED.
+        //
+        // This used to assert that `ions` said 0 for BOTH, because it did and
+        // because the arithmetic needs a number for every term. The owner
+        // settled the other half since: a zero the code produced on the way is
+        // not a reading and is not written down, so the key is simply absent.
+        // The case changed because the MEANING changed, which is the one reason
+        // a case may be rewritten.
+        //
+        // Measured zero: the key is there, and it is zero.
         expect(co3Zero.water.ions.CO3).toBe(0);
-        expect(co3Absent.water.ions.CO3).toBe(0);
+        // Never measured: no key at all — a different answer from zero, which
+        // is the whole point and was impossible to state before.
+        expect(co3Absent.water.ions).not.toHaveProperty('CO3');
+        // And the arithmetic that reads the plain variables still ran on a
+        // number for every term: SAR is computed for both, not skipped.
+        expect(co3Zero.water.SAR).not.toBeNull();
+        expect(co3Absent.water.SAR).not.toBeNull();
     });
 
 });

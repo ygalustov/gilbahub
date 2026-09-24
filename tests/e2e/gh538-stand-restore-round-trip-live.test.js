@@ -40,8 +40,8 @@
  *
  * WHAT WAS EXPECTED, WRITTEN DOWN BEFORE THE RUN, BOTH OUTCOMES NAMED.
  *   A: both rows come back with the md5, the length and the timestamp they had,
- *      and `restoreConfigs()` reports two rows restored and no failure. Question
- *      39 is then closed by measurement.
+ *      and `restoreConfigs()` reports two rows restored and no failure. The
+ *      open item about the stand's restore is then closed by measurement.
  *   B: the over-limit row does not come back. Then the change did not reach the
  *      case it was made for, the file restores from its own copy, and the
  *      question stays open with the error text quoted.
@@ -152,7 +152,7 @@ if (!ENABLED) {
 
             // ---- 3. damage both rows ----
             [OVER, UNDER].forEach((row) => {
-                sql("UPDATE site_configs SET config='{\"gh538\":\"damaged for the question 39 round trip\"}' "
+                sql("UPDATE site_configs SET config='{\"gh538\":\"damaged for the round trip\"}' "
                     + "WHERE site_id='" + row.site + "' AND namespace='analysis_cache';");
                 const now = shapeOf(row.site);
                 process.stdout.write('[gh538] damaged ' + row.label + ': md5 ' + now.md5

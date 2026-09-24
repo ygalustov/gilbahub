@@ -574,7 +574,9 @@ describe('GH-425 — it says it is temporary, and it is removable in two steps',
     test('no Russian anywhere in the module or its tests', () => {
         // Cyrillic, and emoji, in the module and in the live harness. (This
         // file itself necessarily contains the character class below.)
-        const CYRILLIC = /[Ѐ-ӿ]/;
+        // GH-623: the range is built from code points, so this file carries no
+        // Cyrillic itself and the rule it helps enforce can come back empty.
+        const CYRILLIC = new RegExp('[' + String.fromCharCode(0x0400) + '-' + String.fromCharCode(0x04FF) + ']');
         const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
         [src, fs.readFileSync(path.join(__dirname, 'e2e/gh425-calc-trace-live.test.js'), 'utf8')]
             .forEach((s) => {

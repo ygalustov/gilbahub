@@ -141,6 +141,13 @@ describe('hub-orchestrator.js — Step 9 computes the canonical 7-day forecast o
         const secondCallIdx = orchestratorSrc.indexOf('buildDiseaseInputs()', orchestratorSrc.indexOf('"disease-engine"'));
         expect(secondCallIdx).toBeGreaterThan(-1);
         const nearby = orchestratorSrc.slice(secondCallIdx, secondCallIdx + 1500);
+        // GH-622: the only claim below is a NEGATIVE one, and a negative claim
+        // is true of an empty string. If this window ever shrinks — the anchor
+        // moving near the end of the file, or a rename — the case would keep
+        // passing while checking nothing. So the window is asserted to be real
+        // and to be about what it is named for, before it is judged.
+        expect(nearby.length).toBeGreaterThan(1000);
+        expect(nearby).toContain('buildDiseaseInputs()');
         expect(nearby).not.toMatch(/Step 9: Disease forecast/);
     });
 
@@ -206,6 +213,10 @@ describe('disease-analysis.js — initForecastChart() reads the persisted foreca
         const catchIdx = body.lastIndexOf('.catch(function ()');
         expect(catchIdx).toBeGreaterThan(-1);
         const catchBody = body.slice(catchIdx, catchIdx + 400);
+        // GH-622: same shape, same reason — one negative claim, which an empty
+        // window would satisfy.
+        expect(catchBody.length).toBeGreaterThan(100);
+        expect(catchBody).toContain('.catch(function ()');
         expect(catchBody).not.toMatch(/dr-forecast-wrap/);
     });
 

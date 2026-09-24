@@ -1,5 +1,5 @@
 /**
- * GH-536 (PLAN-samples-sync-FINAL, stage 3) — Н3: the /hub active-site block
+ * GH-536 (PLAN-samples-sync-FINAL, stage 3) — H3: the /hub active-site block
  * still RUNS, not merely still exists.
  *
  * WHY THIS FILE EXISTS, and it exists because a mutation did not go red.
@@ -99,7 +99,7 @@ afterEach(() => {
     delete global.fetch;
 });
 
-describe('GH-536 — Н3: the active-site block runs after the samples key is gone', () => {
+describe('GH-536 — H3: the active-site block runs after the samples key is gone', () => {
 
     test('restore() sets the active site from the server config', () => {
         const h = load({ readyBefore: true });

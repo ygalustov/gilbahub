@@ -96,6 +96,10 @@ describe('b35fix391 — hub-tissue analysis-end writeback merges fresh inputs.tu
         expect(idx).toBeGreaterThan(-1);
         // Window the next 800 chars — wide enough to cover the whole writeback object.
         const window800 = hubTissueSrc.slice(idx, idx + 800);
+        // GH-622: the claims below are negative, and a negative claim holds
+        // over an empty window. Asserted to be real before being judged.
+        expect(window800.length).toBeGreaterThan(400);
+        expect(window800).toContain('GAIP: Preparing state dispatch');
         // The pre-fix raw assignment must not appear inside the writeback object.
         // (It can still appear elsewhere in the file — the merge sets up `_b35fix391_mergedTurf`
         //  outside this window.)

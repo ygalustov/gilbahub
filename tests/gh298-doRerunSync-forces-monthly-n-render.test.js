@@ -44,6 +44,12 @@ describe('GH-298 — _doRerunSync forces a direct renderNutritionSummary() call 
         const idx = src.indexOf('async function _writeResult()');
         expect(idx).toBeGreaterThan(-1);
         const body = src.slice(idx, idx + 2500);
+        // GH-624: the window is asserted to be real before anything is said about
+        // it. A block that shrinks past its subject would otherwise let every
+        // claim below pass over nothing, and from outside that is indistinguishable
+        // from a case that works.
+        expect(idx).toBeGreaterThan(-1);
+        expect(body.length).toBeGreaterThan(500);
 
         const awaitIdx = body.indexOf('await _ensureMonthlyNormalsBounded()');
         const renderIdx = body.indexOf('window.GilbaNutritionSummary.renderNutritionSummary()');
@@ -65,6 +71,12 @@ describe('GH-298 — _doRerunSync forces a direct renderNutritionSummary() call 
         expect(idx).toBeGreaterThan(-1);
         const before = src.slice(Math.max(0, idx - 250), idx);
         const after = src.slice(idx, idx + 200);
+        // GH-624: the window is asserted to be real before anything is said about
+        // it. A block that shrinks past its subject would otherwise let every
+        // claim below pass over nothing, and from outside that is indistinguishable
+        // from a case that works.
+        expect(idx).toBeGreaterThan(-1);
+        expect(after.length).toBeGreaterThan(100);
 
         expect(before).toMatch(/if\s*\(window\.GilbaNutritionSummary\s*&&\s*typeof window\.GilbaNutritionSummary\.renderNutritionSummary === 'function'\)/);
         expect(before + after).toMatch(/try\s*{/);

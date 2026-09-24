@@ -6,7 +6,13 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? config('app.name') }}</title>
     @php
-        $activeSite = auth()->user()?->activeSite;
+        // GH-663 (item 3ak, analyst 29.3 layer 1): ONE place decides which site
+        // a page is rendered for. This read and the one in `hub.blade.php` were
+        // separate, so a run frame took its config from here and its soil texture
+        // from there; repairing one alone would render half of one site and half
+        // of another (her 29.6). A frame opened as `/hub?rerun=&site=` is rendered
+        // for the site named; everything else for the pointer, as before.
+        $activeSite = \App\Support\PageSite::forRequest(request());
         $savedLocation = [
             'name' => $activeSite?->location_name ?? '',
             'lat' => $activeSite?->latitude ?? '',
