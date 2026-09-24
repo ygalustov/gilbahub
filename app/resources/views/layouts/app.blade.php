@@ -13,6 +13,14 @@
         // of another (her 29.6). A frame opened as `/hub?rerun=&site=` is rendered
         // for the site named; everything else for the pointer, as before.
         $activeSite = \App\Support\PageSite::forRequest(request());
+        // GH-675 (item 4, slice 1, analyst 22.7): the first thing the server does for
+        // a run is render its frame, so this is the moment that decides what existed
+        // when the run began. Recorded here, under the run's own id, and never handed
+        // to the page — a set sent to the browser and posted back would be browser
+        // state writing to the server. It is a separate call rather than something
+        // hidden inside the site resolver: a helper named `forRequest` that also
+        // writes would name one thing and do another.
+        \App\Support\RunStart::recordOnce(request(), $activeSite);
         $savedLocation = [
             'name' => $activeSite?->location_name ?? '',
             'lat' => $activeSite?->latitude ?? '',
@@ -23,6 +31,11 @@
             $activeGaipRecord = $activeSite->configs()->where('namespace', 'gaip')->first();
             $activeGaipConfig = is_array($activeGaipRecord?->config) ? $activeGaipRecord->config : [];
         }
+        // GH-664 (item 3ch, analyst 26.1 point 1): what this site's construction
+        // means to each consumer, resolved once from the one declared dictionary
+        // and travelling with the config it belongs to. No global of its own: the
+        // page that receives it is the page built for this site.
+        $activeConstruction = \App\Support\CalculationInputs::resolveConstruction($activeGaipConfig);
         $wizardState = is_array($activeGaipConfig['wizard'] ?? null) ? $activeGaipConfig['wizard'] : [];
         $turfConfig = is_array($activeGaipConfig['turf'] ?? null) ? $activeGaipConfig['turf'] : null;
         $locationConfig = is_array($activeGaipConfig['location'] ?? null) ? $activeGaipConfig['location'] : null;
@@ -41,7 +54,8 @@
             hubMode: "agronomic",
             savedLocation: @json($savedLocation),
             siteConfig: @json($siteConfig),
-            gaipConfig: @json($activeGaipConfig ?: null)
+            gaipConfig: @json($activeGaipConfig ?: null),
+            construction: @json($activeConstruction)
         });
         {{-- GH-553: the declared form of an analysis result, from the one file
              that states it. The runner builds its body from this list rather
@@ -49,6 +63,11 @@
              produce travels as `null` instead of vanishing. The server refuses a
              body that is missing one, reading the same file. --}}
         window.GAIP_ANALYSIS_SCHEMA = @json(\App\Support\AnalysisResultSchema::forClient());
+        {{-- GH-676 (item 6, remainder of stage 0b): the dependency graph as DATA,
+             from the one file that declares it. The browser copy keeps its functions
+             and stops carrying its own copy of the nodes, so a module's inputs are
+             declared in one place instead of two that drift. --}}
+        window.GAIP_DEPENDENCY_GRAPH = @json(\App\Support\DependencyGraph::forClient());
         window.GAIP_FIELD_LOG_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG, window.GAIP_FIELD_LOG_CONFIG || {});
         window.GAIP_WIZARD_CONFIG = Object.assign({}, window.GAIP_WIZARD_CONFIG || {}, {
             nonce: "{{ csrf_token() }}",

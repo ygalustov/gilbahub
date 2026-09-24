@@ -28,27 +28,93 @@
     "14a) from a reading of the tree and the database, 22-24.09.2026."
   ],
   "version": 1,
-  "turfTypes": ["golf", "sports", "lawns"],
+  "turfTypes": [
+    "golf",
+    "sports",
+    "lawns"
+  ],
   "inputs": {
-    "location.lat": { "required": true, "filledIn": ["wizard.step1", "settings.site"] },
-    "location.lon": { "required": true, "filledIn": ["wizard.step1", "settings.site"] },
-    "turf.turfType": { "required": true, "filledIn": ["wizard.step2", "settings.turf"] },
+    "location.lat": {
+      "required": true,
+      "filledIn": [
+        "wizard.step1",
+        "settings.site"
+      ],
+      "readAs": [
+        "climate.lat",
+        "climate.latitude",
+        "turf.lat"
+      ]
+    },
+    "location.lon": {
+      "required": true,
+      "filledIn": [
+        "wizard.step1",
+        "settings.site"
+      ]
+    },
+    "turf.turfType": {
+      "required": true,
+      "filledIn": [
+        "wizard.step2",
+        "settings.turf"
+      ]
+    },
     "turf.subCategory": {
       "required": false,
       "byTurfType": {
-        "golf": { "required": true, "wizard": { "step": 2 } },
-        "sports": { "required": null, "decision": "owner: is a sports surface required" },
-        "lawns": { "required": false }
+        "golf": {
+          "required": true,
+          "wizard": {
+            "step": 2
+          }
+        },
+        "sports": {
+          "required": null,
+          "decision": "owner: is a sports surface required"
+        },
+        "lawns": {
+          "required": false
+        }
       },
-      "filledIn": ["settings.turf"],
-      "readAs": ["turf.surfaceType", "soil.surfaceType"]
+      "filledIn": [
+        "settings.turf"
+      ],
+      "readAs": [
+        "turf.surfaceType",
+        "soil.surfaceType"
+      ]
     },
-    "turf.species": { "required": true, "filledIn": ["wizard.step3", "settings.turf"], "readAs": ["turf.grassSpecies"] },
-    "turf.variety": { "required": true, "filledIn": ["settings.turf"], "readAs": ["turf.cultivar"] },
+    "turf.species": {
+      "required": true,
+      "filledIn": [
+        "wizard.step3",
+        "settings.turf"
+      ],
+      "readAs": [
+        "turf.grassSpecies"
+      ]
+    },
+    "turf.variety": {
+      "required": true,
+      "filledIn": [
+        "wizard.step3",
+        "settings.turf"
+      ],
+      "readAs": [
+        "turf.cultivar"
+      ]
+    },
     "turf.construction": {
       "required": true,
-      "filledIn": ["settings.turf"],
-      "readAs": ["site.construction", "soil.rootzoneType"],
+      "filledIn": [
+        "wizard.step3",
+        "settings.turf"
+      ],
+      "readAs": [
+        "site.construction",
+        "soil.rootzoneType"
+      ],
       "$comment": [
         "GH-656 (queue item 6, stage 0b, slice 1) - THE VALUE DICTIONARY LIVES IN THE",
         "ENTRY, because a value dictionary is part of declaring the input. The physical",
@@ -75,151 +141,429 @@
         "sand_carpet": {
           "label": "Sand carpet",
           "resolves": {
-            "surfaceKey": "sandCap", "thermalProfile": "sand-carpet",
-            "irrigationSoilType": "sand", "structurePathway": "sand",
-            "wearSandBased": true, "preEmergentTexture": "sand"
+            "surfaceKey": "sandCap",
+            "thermalProfile": "sand-carpet",
+            "irrigationSoilType": "sand",
+            "structurePathway": "sand",
+            "wearSandBased": true,
+            "preEmergentTexture": "sand"
           }
         },
         "sand_profile": {
           "label": "Sand profile (USGA-style)",
           "resolves": {
-            "surfaceKey": "sandProfile", "thermalProfile": "sand-profile",
-            "irrigationSoilType": "sandProfile", "structurePathway": "sand",
-            "wearSandBased": false, "preEmergentTexture": "loam"
+            "surfaceKey": "sandProfile",
+            "thermalProfile": "sand-profile",
+            "irrigationSoilType": "sandProfile",
+            "structurePathway": "sand",
+            "wearSandBased": false,
+            "preEmergentTexture": "loam"
           }
         },
         "pipe_drained": {
           "label": "Pipe drained + slit drained",
           "resolves": {
-            "surfaceKey": "nativeSoil", "thermalProfile": "pipe-drained",
-            "irrigationSoilType": null, "structurePathway": "clay",
-            "wearSandBased": false, "preEmergentTexture": "loam"
+            "surfaceKey": "nativeSoil",
+            "thermalProfile": "pipe-drained",
+            "irrigationSoilType": null,
+            "structurePathway": "clay",
+            "wearSandBased": false,
+            "preEmergentTexture": "loam"
           }
         },
         "soil": {
           "label": "Soil field",
           "resolves": {
-            "surfaceKey": null, "thermalProfile": "soil-field",
-            "irrigationSoilType": null, "structurePathway": "clay",
-            "wearSandBased": false, "preEmergentTexture": "loam"
+            "surfaceKey": null,
+            "thermalProfile": "soil-field",
+            "irrigationSoilType": null,
+            "structurePathway": "clay",
+            "wearSandBased": false,
+            "preEmergentTexture": "loam"
           }
         },
         "hybrid": {
           "label": "Hybrid reinforced",
           "resolves": {
-            "surfaceKey": "hybrid", "thermalProfile": "hybrid",
-            "irrigationSoilType": null, "structurePathway": "sand",
-            "wearSandBased": false, "preEmergentTexture": "loam"
+            "surfaceKey": "hybrid",
+            "thermalProfile": "hybrid",
+            "irrigationSoilType": null,
+            "structurePathway": "sand",
+            "wearSandBased": false,
+            "preEmergentTexture": "loam"
           }
         },
         "california": {
           "label": "California profile",
           "resolves": {
-            "surfaceKey": "californiaProfile", "thermalProfile": "usga",
-            "irrigationSoilType": "sandProfile", "structurePathway": "sand",
-            "wearSandBased": false, "preEmergentTexture": "loam"
+            "surfaceKey": "californiaProfile",
+            "thermalProfile": "usga",
+            "irrigationSoilType": "sandProfile",
+            "structurePathway": "sand",
+            "wearSandBased": false,
+            "preEmergentTexture": "loam"
           }
         },
         "push_up": {
           "label": "Push-up native",
           "resolves": {
-            "surfaceKey": "pushUp", "thermalProfile": "push-up",
-            "irrigationSoilType": "loam", "structurePathway": "clay",
-            "wearSandBased": false, "preEmergentTexture": "loam"
+            "surfaceKey": "pushUp",
+            "thermalProfile": "push-up",
+            "irrigationSoilType": "loam",
+            "structurePathway": "clay",
+            "wearSandBased": false,
+            "preEmergentTexture": "loam"
           }
         },
         "native": {
           "label": "Native soil",
           "resolves": {
-            "surfaceKey": "nativeSoil", "thermalProfile": "native",
-            "irrigationSoilType": "sandyLoam", "structurePathway": "clay",
-            "wearSandBased": false, "preEmergentTexture": "loam"
+            "surfaceKey": "nativeSoil",
+            "thermalProfile": "native",
+            "irrigationSoilType": "sandyLoam",
+            "structurePathway": "clay",
+            "wearSandBased": false,
+            "preEmergentTexture": "loam"
           }
         },
         "sand_capped": {
           "label": "Sand capped",
           "resolves": {
-            "surfaceKey": null, "thermalProfile": "sand-carpet",
-            "irrigationSoilType": null, "structurePathway": "clay",
-            "wearSandBased": false, "preEmergentTexture": "loam"
+            "surfaceKey": null,
+            "thermalProfile": "sand-carpet",
+            "irrigationSoilType": null,
+            "structurePathway": "clay",
+            "wearSandBased": false,
+            "preEmergentTexture": "loam"
           }
         },
         "imported": {
           "label": "Imported topsoil",
           "resolves": {
-            "surfaceKey": null, "thermalProfile": "native",
-            "irrigationSoilType": null, "structurePathway": "clay",
-            "wearSandBased": false, "preEmergentTexture": "loam"
+            "surfaceKey": null,
+            "thermalProfile": "native",
+            "irrigationSoilType": null,
+            "structurePathway": "clay",
+            "wearSandBased": false,
+            "preEmergentTexture": "loam"
           }
         },
         "sandy_loam": {
           "label": "Sandy loam blend",
           "resolves": {
-            "surfaceKey": null, "thermalProfile": "native",
-            "irrigationSoilType": null, "structurePathway": "clay",
-            "wearSandBased": false, "preEmergentTexture": "loam"
+            "surfaceKey": null,
+            "thermalProfile": "native",
+            "irrigationSoilType": null,
+            "structurePathway": "clay",
+            "wearSandBased": false,
+            "preEmergentTexture": "loam"
           }
         }
       }
     },
-    "turf.rootDepth": { "required": true, "filledIn": ["settings.trafficAndWear", "settings.turf"] },
-    "turf.methodology": { "required": true, "filledIn": ["wizard.step3", "settings.turf"], "readAs": ["soil.methodology"] },
+    "turf.rootDepth": {
+      "required": false,
+      "decision": "GH-684, owner 24.09.2026 17:13 — the wizard does not ask for root depth and the field stays as it is. WHAT THIS FLAG ALSO SILENCES, said rather than left to be discovered: the same row is read by the calculation and by the panel that names an incomplete run, so nothing now tells a person the depth is missing. Her words were about the wizard; whether the calculation needs it is the open question carried in the plan under this ticket.",
+      "filledIn": [
+        "settings.trafficAndWear",
+        "settings.turf"
+      ],
+      "readAs": [
+        "schedule.rootDepth"
+      ]
+    },
+    "turf.methodology": {
+      "required": true,
+      "filledIn": [
+        "wizard.step3",
+        "settings.turf"
+      ],
+      "readAs": [
+        "soil.methodology"
+      ]
+    },
     "turf.nProgram": {
       "required": null,
       "decision": "owner: is the nitrogen programme a required input",
-      "filledIn": ["settings.turf"],
-      "readAs": ["turf.plannedNRate"]
+      "filledIn": [
+        "settings.turf"
+      ],
+      "readAs": [
+        "turf.plannedNRate",
+        "turf.nProgramKgHaYr",
+        "turf.nRate"
+      ]
     },
-    "turf.hoc": { "required": false, "filledIn": ["settings.turf"], "readAs": ["turf.heightOfCut"] },
-    "turf.overseedStatus": { "required": false, "filledIn": ["settings.turf"] },
-    "turf.overseedSpecies": { "required": false, "filledIn": ["settings.turf"] },
-    "turf.overseedVariety": { "required": false, "filledIn": ["settings.turf"] },
-    "turf.summerIntent": { "required": false, "filledIn": ["settings.turf"] },
-    "turf.coolOverseed": { "required": false, "filledIn": ["settings.turf"] },
-    "turf.companionSpecies": { "required": false, "filledIn": ["settings.turf"] },
-    "turf.poaPercent": { "required": false, "filledIn": ["settings.turf"] },
-    "turf.percentC3Cover": { "required": false, "filledIn": ["settings.turf"] },
-    "turf.warmBase": { "required": false, "filledIn": ["settings.turf"] },
-    "sites.soil_texture_override": { "required": false, "filledIn": ["settings.turf"], "readAs": ["soil.soilTexture"] },
+    "turf.hoc": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ],
+      "readAs": [
+        "turf.heightOfCut",
+        "pgr.mowingHeightMM"
+      ]
+    },
+    "turf.overseedStatus": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ]
+    },
+    "turf.overseedSpecies": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ]
+    },
+    "turf.overseedVariety": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ]
+    },
+    "turf.summerIntent": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ],
+      "readAs": [
+        "turf.overseedSummerIntent"
+      ]
+    },
+    "turf.coolOverseed": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ]
+    },
+    "turf.companionSpecies": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ]
+    },
+    "turf.poaPercent": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ]
+    },
+    "turf.percentC3Cover": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ]
+    },
+    "turf.warmBase": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ]
+    },
+    "sites.soil_texture_override": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ],
+      "readAs": [
+        "soil.soilTexture",
+        "soil.type",
+        "site.soilType"
+      ]
+    },
     "traffic.schedule": {
       "required": false,
-      "requiredFor": ["sports"],
-      "filledIn": ["settings.trafficAndWear"],
-      "readAs": ["traffic.level", "turf.trafficLevel"]
+      "requiredFor": [
+        "sports"
+      ],
+      "filledIn": [
+        "settings.trafficAndWear"
+      ],
+      "readAs": [
+        "traffic.level",
+        "turf.trafficLevel",
+        "schedule.matchesPerWeek",
+        "schedule.sessionsPerWeek",
+        "schedule.restDays",
+        "schedule.matchCode",
+        "schedule.trainingCode",
+        "schedule.traffic",
+        "schedule.nextMatch"
+      ]
     },
-    "pgr.productType": { "required": false, "filledIn": ["settings.turf", "data.sprayLog"] },
-    "pgr.applicationDate": { "required": false, "filledIn": ["settings.turf", "data.sprayLog"] },
-    "schedule.efficiency": { "required": false, "filledIn": ["settings.turf"] },
-    "schedule.uniformity": { "required": false, "filledIn": ["settings.turf"] },
-    "schedule.precipRate": { "required": false, "filledIn": ["settings.turf"] },
-    "weatherOverride": { "required": false, "filledIn": ["settings.site"], "readAs": ["climate.manual"] },
+    "pgr.productType": {
+      "required": false,
+      "filledIn": [
+        "settings.turf",
+        "data.sprayLog"
+      ]
+    },
+    "pgr.applicationDate": {
+      "required": false,
+      "filledIn": [
+        "settings.turf",
+        "data.sprayLog"
+      ]
+    },
+    "schedule.efficiency": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ]
+    },
+    "schedule.uniformity": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ]
+    },
+    "schedule.precipRate": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ],
+      "readAs": [
+        "schedule.sprinklerPrecipRate"
+      ]
+    },
+    "weatherOverride": {
+      "required": false,
+      "filledIn": [
+        "settings.site"
+      ],
+      "readAs": [
+        "climate.manual"
+      ]
+    },
     "samples.soil": {
       "required": false,
-      "filledIn": ["data.soil"],
+      "filledIn": [
+        "data.soil"
+      ],
       "readings": "readingKeysFor:soil",
       "$comment": [
         "`readAs` here is the soil state the run assembles FROM this sample -",
         "measured in `gaip_soilStateFrom` (GH-628), not guessed. The readings",
         "themselves stay declared once, by the lab-name map above."
       ],
-      "readAs": ["soil.ppm", "soil.pH_water", "soil.pH_cacl2", "soil.CEC", "soil.EC1_5",
-        "soil.ECe", "soil.LOI", "soil.OM_pct", "soil.Na_ppm"]
+      "readAs": [
+        "soil.ppm",
+        "soil.pH_water",
+        "soil.pH_cacl2",
+        "soil.CEC",
+        "soil.EC1_5",
+        "soil.ECe",
+        "soil.LOI",
+        "soil.OM_pct",
+        "soil.Na_ppm",
+        "soil.ece",
+        "soil.ec1_5",
+        "soil.Mn_ppm",
+        "soil.Mn",
+        "soil.pH",
+        "soil.pH_Water",
+        "soil.soil_ph"
+      ]
     },
-    "samples.water": { "required": false, "filledIn": ["data.water"], "readings": "readingKeysFor:water" },
-    "samples.tissue": { "required": false, "filledIn": ["data.tissue"], "readings": "readingKeysFor:tissue" },
+    "samples.water": {
+      "required": false,
+      "filledIn": [
+        "data.water"
+      ],
+      "readings": "readingKeysFor:water",
+      "readAs": [
+        "water.ecw",
+        "water.EC",
+        "water.ec",
+        "water.ECw",
+        "water.pH",
+        "water.ions",
+        "water.Na",
+        "water.Cl",
+        "water.B",
+        "water.HCO3",
+        "water.recycledWater"
+      ]
+    },
+    "samples.tissue": {
+      "required": false,
+      "filledIn": [
+        "data.tissue"
+      ],
+      "readings": "readingKeysFor:tissue",
+      "readAs": [
+        "tissue.N"
+      ]
+    },
     "soil.bulkDensity": {
       "required": null,
       "decision": "owner: is bulk density a property of the sample or of the site",
       "filledIn": [],
-      "readAs": ["soil.bd"]
+      "readAs": [
+        "soil.bd"
+      ]
     },
     "soil.samplingDepth": {
       "required": null,
       "decision": "owner: is sampling depth a property of the sample or of the site",
       "filledIn": [],
-      "readAs": ["soil.depthCm"]
+      "readAs": [
+        "soil.depthCm"
+      ]
     },
-    "soil.clay": { "required": false, "filledIn": ["data.soil"], "readings": "readingKeysFor:soil" }
+    "soil.clay": {
+      "required": false,
+      "filledIn": [
+        "data.soil"
+      ],
+      "readings": "readingKeysFor:soil"
+    },
+    "irrigation.method": {
+      "filledIn": [
+        "settings.irrigation"
+      ],
+      "required": false
+    },
+    "turf.drainage": {
+      "$comment": "read by the firmness engine through the cascade delegate `gaip_firmness_engine(e, t)` — the read GH-644 could not see (analyst 59.1)",
+      "filledIn": [
+        "settings.turf"
+      ],
+      "required": false
+    },
+    "turf.cleggHammer": {
+      "$comment": "the three Clegg readings the firmness engine takes: mean Gmax, hardest zone, softest zone",
+      "readAs": [
+        "turf.cleggMax",
+        "turf.cleggMin"
+      ],
+      "filledIn": [
+        "settings.trafficAndWear"
+      ],
+      "required": false
+    },
+    "turf.ledPPFD": {
+      "filledIn": [
+        "settings.turf"
+      ],
+      "required": false
+    },
+    "turf.ledHours": {
+      "filledIn": [
+        "settings.turf"
+      ],
+      "required": false
+    },
+    "soil.moisture": {
+      "readAs": [
+        "site.soilMoisture"
+      ],
+      "filledIn": [
+        "settings.trafficAndWear"
+      ],
+      "required": false
+    }
   },
   "notInputs": {
     "$comment": [
@@ -238,7 +582,11 @@
     "site.hemisphere": "derived from the latitude",
     "site.region": "derived from the coordinates",
     "location.region": "derived from the coordinates",
-    "site.ledAvailable": "a result: the lighting step writes it"
+    "site.ledAvailable": "a result: the lighting step writes it",
+    "site.country": "derived from the coordinates, like `site.region` beside it",
+    "pgr.gddThreshold": "derived from the PGR product type -- a property of the product, not asked of anyone",
+    "climate.historical": "a result: the historical weather window the run fetches from the PGR application date and carries into the next pass (GH-589). Nobody enters it.",
+    "turf.ambientDLISource": "derived: which road the ambient DLI came by, written by the run beside `turf.ambientDLI`, which is itself a result"
   },
   "derived": {
     "$comment": [
@@ -253,6 +601,12 @@
     "effectiveVariety": "from the variety and the overseed",
     "effectiveIsC4": "from the species",
     "c3Fraction": "from the species",
-    "c4Fraction": "from the species"
+    "c4Fraction": "from the species",
+    "turf.isC4": "from the species",
+    "turf.speciesFractions": "from the species and the overseed",
+    "turf.grassType": "from the species, normalised to an engine key",
+    "turf.speciesKey": "from the species, normalised to an engine key",
+    "turf.effectiveSpeciesKey": "from the effective species, normalised to an engine key",
+    "turf.baseSpecies": "from the species, before the overseed is applied"
   }
 }

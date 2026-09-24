@@ -94,6 +94,23 @@ class AnalysisResultSchema
     }
 
     /** @return array<string,array<int,string>> every assembled key, as declared */
+    /**
+     * GH-667 (queue item 3ag) — the marker that says a section is empty although
+     * its object is not, as the result form declares it, or null for a key that
+     * declares none.
+     *
+     * Declared per key and read here, so no consumer carries a rule of its own
+     * about a particular section — the mistake the whole of link 11 is about.
+     *
+     * @return array<string,mixed>|null
+     */
+    public static function emptyWhen(string $key): ?array
+    {
+        $declared = self::all()['computed']['emptyWhen'][$key] ?? null;
+
+        return is_array($declared) && $declared !== [] ? $declared : null;
+    }
+
     public static function assembledKeys(): array
     {
         $map = self::all()['computed']['assembledFrom'] ?? [];

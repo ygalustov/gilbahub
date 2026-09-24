@@ -39,10 +39,24 @@ const SECTIONS = ['turf', 'soil', 'water', 'climate', 'site', 'schedule', 'pgr',
 
 /** `{engineId: source}` — the body of every engine the cascade declares. */
 function engineBodies() {
-    const at = CASCADE.indexOf('engineMap: {');
-    expect(at).toBeGreaterThan(-1);
-    const block = CASCADE.slice(at, CASCADE.indexOf('}', at));
-    const ids = [...block.matchAll(/'([a-z0-9-]+)':/g)].map((m) => m[1]);
+    /**
+     * GH-681: THE UNIVERSE MOVED TO THE GRAPH, because the literal it read is gone.
+     *
+     * This took the engine ids out of `engineMap: {` in the adapter's TEXT. That map was one
+     * of three hand-written declarations of the same facts and it is derived from
+     * `assets/dependency-graph.json` now, so the text has nothing to parse — and a universe
+     * that finds nothing makes this whole file fail to run, which is a red with no subject.
+     *
+     * The engines of the cascade are the nodes whose handle is declared in the adapter's file,
+     * which the data states. Same set, one owner.
+     */
+    const graph = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'dependency-graph.json'), 'utf8'));
+    const ids = Object.entries(graph.nodes).filter(([, n]) => {
+        const handles = Array.isArray(n.handle) ? n.handle : (n.handle ? [n.handle] : []);
+
+        return handles.some((h) => typeof h === 'string'
+            && h.indexOf('assets/cascade-orchestrator.js:') === 0);
+    }).map(([id]) => id);
     // No assertion here on purpose: a claim made while the suite is being built
     // fails the WHOLE FILE, and "the suite did not run" is a red without a
     // subject — indistinguishable from a broken import. The size of the universe
@@ -65,10 +79,41 @@ function engineBodies() {
     const bodies = {};
     const missing = [];
     ids.forEach((id) => {
+        /**
+         * GH-681: THE ENGINE'S FILE IS FOUND THROUGH THE ADAPTER'S DELEGATE, not by spelling
+         * the id. Two nodes were renamed to what the graph calls them — `mlsn-calculator`,
+         * `water-blender` — and a lookup built out of the id's own letters stopped finding
+         * `mlsn-engine.js` and the water engine. A rule about spelling is not a fact about
+         * where the code is: the adapter's executor calls `global.<name>(...)`, and the file
+         * that declares that name is the engine's file.
+         */
+        const handles = Array.isArray(graph.nodes[id].handle)
+            ? graph.nodes[id].handle : [graph.nodes[id].handle];
+        const executor = (handles.find((h) => typeof h === 'string'
+            && h.indexOf('assets/cascade-orchestrator.js:') === 0) || '').split(':')[1] || '';
+        const body = executor ? balanced(CASCADE, CASCADE.indexOf('function ' + executor + '(')) : '';
+        const delegate = (/(?:global|window)\.(\w+)\s*\(/.exec(body) || [])[1] || null;
+        const byDelegate = delegate
+            ? files.find((f) => new RegExp('function\\s+' + delegate + '\\s*\\(')
+                .test(fs.readFileSync(path.join(ROOT, 'assets', f), 'utf8')))
+            : null;
         const base = id.replace(/-engine$/, '');
-        const file = [id + '.js', id + '-pure.js', base + '-engine.js', base + '-engine-pure.js',
-            base + '.js', base + '-model.js'].find((c) => files.includes(c));
-        if (file) { bodies[id] = asset(file); return; }
+        /**
+         * BOTH ROADS ARE SCANNED, not the better one chosen — and the union is a repair of my
+         * own change: locating the file through the adapter's delegate is more correct about
+         * WHICH file, but it lands on the wrapper where the name convention landed on the
+         * body, and bodies with reads fell from six to three. A lookup that is righter about
+         * the address and poorer about the subject is not an improvement; scanning both loses
+         * nothing and the duplicate reads collapse into a set anyway.
+         */
+        const byName = [id + '.js', id + '-pure.js', base + '-engine.js',
+            base + '-engine-pure.js', base + '.js', base + '-model.js'].find((c) => files.includes(c));
+        const both = [byDelegate, byName].filter(Boolean);
+        if (both.length) {
+            bodies[id] = both.map((f) => asset(f)).join('\n');
+
+            return;
+        }
 
         // `mlsn-engine` is spelled `executeMLSNEngine`, not `executeMlsnEngine`:
         // the wrapper's name is written the way a person writes an acronym. Both
@@ -133,10 +178,20 @@ describe('GH-644 — the universe is the engines, not the list', () => {
             + ' | distinct input reads: ' + reads.size + '\n'
             + '[gh644] reads per engine: ' + JSON.stringify(perEngine) + '\n');
 
-        // THE UNIVERSE ITSELF, asserted where it can be seen: the cascade declares
-        // sixteen engines, and a universe that shrank to a handful is the failure
-        // this whole file exists against — it would compare the list with itself.
-        expect({ enginesDeclaredByTheCascade: ids.length }).toEqual({ enginesDeclaredByTheCascade: 16 });
+        /**
+         * THE UNIVERSE ITSELF, asserted as a LIST where it can be seen — and the list replaced
+         * a count of sixteen, which is the number the old hand-written map carried. Three of
+         * those sixteen had stopped being true (`climate-engine`, `dew-prediction-engine`,
+         * `disease-engine`: this adapter has no branch for any of them), so the pin was holding
+         * the drift in place. Thirteen is the measured set; a count would have said only that
+         * the number changed, not which engines.
+         */
+        expect(ids.slice().sort()).toEqual([
+            'firmness-engine', 'mlsn-calculator', 'nopt-engine', 'phytotoxicity-engine',
+            'salinity-penalty-engine', 'shade-engine', 'soil-structure-engine',
+            'stress-trajectory-engine', 'tissue-engine', 'traffic-engine',
+            'turf-manager-engine', 'water-blender', 'wear-recovery-engine',
+        ]);
         expect({ enginesWithNoBodyFound: missing }).toEqual({ enginesWithNoBodyFound: [] });
         expect(reads.size).toBeGreaterThan(20);
 
@@ -146,15 +201,35 @@ describe('GH-644 — the universe is the engines, not the list', () => {
         // witnesses are named, one per way a body is located: a file of its own, a
         // function inside the cascade, and a function the cascade reaches through a
         // global. Losing any of the three roads is red now.
+        /**
+         * GH-681: THE WITNESS NO LONGER DEPENDS ON WHO WON THE MAP. `reads` holds one engine
+         * per input, so naming the engine for `soil.CEC` was really asserting which body the
+         * scan reached FIRST — and once the engine bodies were located through the adapter's
+         * delegate instead of by spelling the id, the shade engine's real body turned up and
+         * reads `soil.CEC` too. The claim that matters is that the body reached through a
+         * GLOBAL was scanned at all, and that is asserted directly.
+         */
         expect(reads.get('soil.clay')).toBe('soil-structure-engine');   // a file of its own
-        expect(reads.get('soil.CEC')).toBe('mlsn-engine');              // a global, outside the cascade
+        expect(perEngine['shade-engine']).toBeGreaterThan(0);           // reached through a global
+        expect(perEngine['wear-recovery-engine']).toBeGreaterThan(0);   // reached through the adapter
+        expect(reads.has('soil.CEC')).toBe(true);
         expect(reads.has('turf.hoc')).toBe(true);
-        // Measured, not chosen: six of the sixteen bodies read an input under a
-        // `state.<section>.<field>` name — the others take their inputs as
-        // arguments or read results. The floor is the measurement, so a body
-        // dropping out of the universe shows up here.
-        const bodiesWithReads = Object.keys(perEngine).length;
-        expect(bodiesWithReads).toBe(6);
+        /**
+         * GH-681: THE FLOOR IS THE NUMBER OF READS, NOT THE NUMBER OF BODIES THAT HELD THEM.
+         *
+         * Six was measured when each engine's body was a single file found by spelling its
+         * id. Locating bodies through the adapter's delegate as well means one engine's source
+         * can carry another's code, and `reads` hands an input to the FIRST engine that read
+         * it — so the count of engines-with-reads became a fact about traversal order rather
+         * than about the tree. It fell from six to three while the DISTINCT READS ROSE from 41
+         * to 42: the universe grew and only the attribution concentrated.
+         *
+         * So the floor moved onto the thing that does not depend on who won: how much the
+         * scan sees at all. The per-engine split is printed above and asserted only where it
+         * names a ROAD — a file of its own, a global, the adapter — which is what it was for.
+         */
+        expect(reads.size).toBeGreaterThanOrEqual(41);
+        expect(Object.keys(perEngine).length).toBeGreaterThan(0);
     });
 
     test('DIRECTION ONE — an input the calculation reads and the list does not carry is named', () => {
@@ -213,9 +288,30 @@ describe('GH-644 — the universe is the engines, not the list', () => {
             if (key === '$comment') return;
             expect([key, typeof why]).toEqual([key, 'string']);
             expect([key, /result|derived/.test(why)]).toEqual([key, true]);
-            // and it must actually be read — an excuse for something nobody reads
-            // is a list growing on its own
-            expect([key, reads.has(key)]).toEqual([key, true]);
+        });
+        /**
+         * "AND IT MUST ACTUALLY BE READ" HAS MOVED, and the move is the analyst's plan
+         * rather than a concession (59.5 item 7: the graph test rewrites this one).
+         *
+         * This file's universe is the CASCADE's engines. The orchestrator's
+         * `build…Inputs` builders are in no universe here, so names they read —
+         * `site.country` and `pgr.gddThreshold`, both read by `buildPreEmergentInputs`
+         * — looked to this check like excuses for reads nobody makes. The check was
+         * right to exist and wrong about the facts, because it was asking a question
+         * its universe cannot answer.
+         *
+         * `tests/gh676-…` asks it over the wider universe — every script in `assets`,
+         * both passes, delegates and builders — and reddens there. Names this universe
+         * DOES see are still printed here, so the move is visible rather than silent.
+         */
+        const seenHere = Object.keys(notInputs).filter((k) => k !== '$comment' && reads.has(k));
+        const notSeenHere = Object.keys(notInputs).filter((k) => k !== '$comment' && !reads.has(k));
+        process.stdout.write('[gh644] `notInputs` names this universe reads: ' + JSON.stringify(seenHere) + '\n'
+            + '[gh644] and names only the wider universe reads, checked in gh676: '
+            + JSON.stringify(notSeenHere) + '\n');
+        expect(seenHere.length).toBeGreaterThan(0);
+        Object.keys(notInputs).forEach((key) => {
+            if (key === '$comment') return;
         });
     });
 });

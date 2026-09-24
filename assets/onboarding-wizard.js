@@ -22,23 +22,96 @@
         overlay: null,
         modal:   null,
         d: {
-            location:    null,   // { lat, lon, name }
-            turfType:    null,   // 'sports' | 'golf' | 'lawns'
-            subCategory: null,   // 'greens' | 'fairways' | 'tees' | 'surrounds'
-            species:     null,
-            methodology: null,
+            location:     null,  // { lat, lon, name }
+            turfType:     null,  // 'sports' | 'golf' | 'lawns'
+            subCategory:  null,  // 'greens' | 'fairways' | 'tees' | 'surrounds'
+            species:      null,
+            variety:      null,
+            construction: null,
+            methodology:  null,
         },
 
-        // ── Init ─────────────────────────────────────────────────────────────
-        init: function () {
-            var loc = cfg.savedLocation || {};
-            var isSetUp = !!(cfg.turfSpecies && cfg.turfMethodology && loc.lat && loc.lon);
-            if (isSetUp) return;
+        /**
+         * GH-684 — WHICH INPUT EACH DRAFT FIELD ANSWERS.
+         *
+         * The inputs list names what a site must have; this wizard has always held its draft under
+         * names of its own. Something has to say which is which, and this is that something --
+         * BOUND, not copied: no obligation, no step and no order lives here, only the two names for
+         * one thing. A test compares it with the steps the server sends in BOTH directions, so an
+         * input added to the list with a wizard step reddens instead of quietly passing the gate.
+         */
+        _answers: {
+            'location.lat':      { get: function (d) { return d.location && d.location.lat; } },
+            'location.lon':      { get: function (d) { return d.location && d.location.lon; } },
+            'turf.turfType':     { get: function (d) { return d.turfType; },     set: function (d, v) { d.turfType = v; } },
+            'turf.species':      { get: function (d) { return d.species; },      set: function (d, v) { d.species = v; } },
+            'turf.variety':      { get: function (d) { return d.variety; },      set: function (d, v) { d.variety = v; } },
+            'turf.construction': { get: function (d) { return d.construction; }, set: function (d, v) { d.construction = v; } },
+            'turf.methodology':  { get: function (d) { return d.methodology; },  set: function (d, v) { d.methodology = v; } },
+        },
 
-            if (new URLSearchParams(window.location.search).get('setup') === '1') {
-                history.replaceState(null, '', window.location.pathname + window.location.hash);
-                this.show();
+        /**
+         * GH-684 — THE SERVER SAYS WHETHER THIS OPENS, AND WHERE.
+         *
+         * It used to decide for itself, from four fields named here in JavaScript
+         * (`turfSpecies && turfMethodology && lat && lon`), and a site with no cultivar or no
+         * construction walked straight past it. Now the page is TOLD what is missing, by the
+         * inputs list's own names, by the same function the lock holds on -- so the wizard and the
+         * lock can never disagree about whether a site is set up.
+         *
+         * `?setup=1` no longer means anything: the state decides. The parameter is still cleaned
+         * out of the address so a reload does not carry it around.
+         *
+         * WITHOUT `setup` FROM THE SERVER this does nothing at all and says so. An old page, or a
+         * page that did not receive it, cannot tell a complete site from an empty one, and opening
+         * a wizard whose gates it cannot compute would trap whoever is looking at it.
+         */
+        init: function () {
+            var setup = cfg.setup;
+            if (!setup || !setup.missing) {
+                if (window.console) { console.warn('[Wizard] no setup state from the server; not opening'); }
+
+                return;
             }
+            this._fillFromAnswers(setup.answers || {});
+            if (!setup.missing.length) return;
+
+            this.step = this._firstStepShortOf(setup.missing);
+            if (new URLSearchParams(window.location.search).get('setup') !== null) {
+                history.replaceState(null, '', window.location.pathname + window.location.hash);
+            }
+            this.show();
+        },
+
+        /** What the site already answers, put into the draft under this wizard's own names. */
+        _fillFromAnswers: function (answers) {
+            var self = this;
+            var lat = answers['location.lat'];
+            var lon = answers['location.lon'];
+            if (lat !== undefined && lon !== undefined) {
+                this.d.location = {
+                    lat: Number(lat), lon: Number(lon),
+                    name: (cfg.savedLocation || {}).name || '',
+                };
+            }
+            Object.keys(answers).forEach(function (key) {
+                var field = self._answers[key];
+                if (field && field.set) { field.set(self.d, answers[key]); }
+            });
+        },
+
+        /** The first step that collects something the site has not answered. */
+        _firstStepShortOf: function (missing) {
+            var byStep = (cfg.setup && cfg.setup.byStep) || {};
+            var steps = Object.keys(byStep).map(Number).sort(function (a, b) { return a - b; });
+            for (var i = 0; i < steps.length; i++) {
+                var needs = byStep[steps[i]] || byStep[String(steps[i])] || [];
+                for (var j = 0; j < needs.length; j++) {
+                    if (missing.indexOf(needs[j]) !== -1) return steps[i];
+                }
+            }
+
+            return 0;
         },
 
         show: function () {
@@ -108,14 +181,34 @@
             var nav = document.createElement('div');
             nav.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:16px 28px 20px;border-top:1px solid var(--gaip-border,#d1dbd6);margin-top:16px';
 
-            var back = document.createElement('button');
-            back.type = 'button';
-            back.textContent = this.step === 0 ? 'Skip Setup' : '← Back';
-            back.style.cssText = 'background:none;border:none;color:var(--gaip-text-muted,#6b8878);cursor:pointer;font-size:14px;padding:8px 0;font-family:inherit';
-            back.addEventListener('click', function () {
-                if (self.step === 0) { self._skip(); }
-                else { self.step--; self._render(); }
-            });
+            /**
+             * GH-684 — THERE IS NO WAY OUT OF THE WIZARD BUT THROUGH IT.
+             *
+             * The first step used to offer `Skip Setup`, which closed the wizard and left the site
+             * with none of the fields the calculation needs. The owner's decision is that the
+             * wizard cannot be left until what is required has been entered, and that reopening
+             * the page brings it back while it has not been.
+             *
+             * MEASURED, not assumed: `_close()` is now reached from exactly one place, the
+             * successful save. There is no cross, no Escape handler and no click on the backdrop
+             * in this file, so removing this control leaves finishing the wizard as the only exit.
+             *
+             * An empty element keeps the row's `space-between` layout, so `Next` does not slide
+             * across the moment the first step is drawn.
+             */
+            var back;
+            if (this.step === 0) {
+                back = document.createElement('span');
+            } else {
+                back = document.createElement('button');
+                back.type = 'button';
+                back.textContent = '← Back';
+                back.style.cssText = 'background:none;border:none;color:var(--gaip-text-muted,#6b8878);cursor:pointer;font-size:14px;padding:8px 0;font-family:inherit';
+                back.addEventListener('click', function () {
+                    self.step--;
+                    self._render();
+                });
+            }
 
             var indicator = document.createElement('span');
             indicator.style.cssText = 'font-size:12px;color:var(--gaip-text-muted,#6b8878)';
@@ -146,15 +239,36 @@
             return nav;
         },
 
+        /**
+         * GH-684 — A STEP LETS YOU PASS WHEN THE INPUTS IT COLLECTS ARE ANSWERED, AND THE LIST
+         * SAYS WHICH THOSE ARE.
+         *
+         * This was a `switch` naming fields by hand, and it is exactly how the wizard came to let a
+         * site through with no cultivar and no construction: the list called them required, the
+         * `case` did not mention them, and nothing connected the two. The steps now come from the
+         * server, derived from each input's own `filledIn`.
+         *
+         * AN INPUT THE DRAFT DOES NOT BIND REFUSES THE STEP rather than passing it. The list is
+         * what declares an obligation; a wizard that cannot find the field for one has a hole in
+         * it, and a hole must not read as an answer.
+         *
+         * THE ONE CONDITION NOT DERIVED, and it is named rather than folded in: golf needs its
+         * sub-category. `turf.subCategory` is not a required input of the list -- whether the
+         * wizard must ask a sports site for its purpose is an open question to the owner -- so the
+         * list cannot express it, and dropping it would let a golf site through with no surface.
+         */
         _canProceed: function () {
-            switch (this.step) {
-                case 0: return true;
-                case 1: return !!this.d.location;
-                case 2: return !!this.d.turfType && (this.d.turfType !== 'golf' || !!this.d.subCategory);
-                case 3: return !!this.d.species && !!this.d.methodology;
-                case 4: return true;
-                default: return false;
+            var byStep = (cfg.setup && cfg.setup.byStep) || {};
+            var needs = byStep[this.step] || byStep[String(this.step)] || [];
+            for (var i = 0; i < needs.length; i++) {
+                var field = this._answers[needs[i]];
+                if (!field) return false;
+                var value = field.get(this.d);
+                if (value === null || value === undefined || String(value).trim() === '') return false;
             }
+            if (this.step === 2 && this.d.turfType === 'golf' && !this.d.subCategory) return false;
+
+            return true;
         },
 
         // ── Step 0: Welcome ───────────────────────────────────────────────────
@@ -350,12 +464,23 @@
             var isNZ    = this._isNZ();
             var options = this._speciesOptions();
 
-            // Auto-suggest methodology first time
-            if (!this.d.methodology) {
-                this.d.methodology = isNZ ? 'ammonium_acetate'
-                    : (this.d.turfType === 'golf' && this.d.subCategory === 'greens') ? 'mlsn'
-                    : 'slan';
-            }
+            /**
+             * GH-684 — NOTHING IS CHOSEN HERE ON THE PERSON'S BEHALF.
+             *
+             * Two substitutions used to stand in this step. One suggested a methodology the first
+             * time it was drawn -- ammonium acetate in New Zealand, MLSN for golf greens, SLAN
+             * otherwise -- and the other, below, filled New Zealand's single option straight back
+             * in after clearing it. Either one satisfied the step's gate without a click, so a
+             * person could finish the wizard having never chosen a methodology, and the site
+             * carried a value nobody picked.
+             *
+             * The project rule is that methodology comes from what is entered in the settings and
+             * from nothing else, and that coordinates decide exactly one thing: WHICH OPTIONS THE
+             * LIST OFFERS. Both of those are kept below -- New Zealand is still offered ammonium
+             * acetate alone, and a choice the place does not allow is still cleared. What is gone
+             * is the wizard answering for the person. New Zealand has one option and it now costs
+             * one click, which the coordinator accepted when she decided this.
+             */
 
             var methods = [
                 { id: 'mlsn',             label: 'MLSN',              desc: 'Threshold-based. Validated for sand-based putting greens.' },
@@ -399,13 +524,9 @@
                     this._methodClearedForNZ = this.d.methodology;
                     this.d.methodology = null;
                 }
-                // The list now has one entry, and the step pre-selects it. That
-                // is the wizard suggesting a value the user then saves — which
-                // is what a wizard step is — and not a value written over a
-                // choice that was already made.
-                if (!this.d.methodology) {
-                    this.d.methodology = 'ammonium_acetate';
-                }
+                // GH-684: and it is NOT put back for them. The list has one entry, the person
+                // clicks it. Pre-selecting it passed the gate with nothing chosen, which is the
+                // same substitution as the one removed above wearing a narrower coat.
             } else {
                 this._methodClearedForNZ = null;
             }
@@ -422,6 +543,33 @@
                     '</div>';
             }).join('');
 
+            /**
+             * GH-684 — THE CULTIVAR AND THE CONSTRUCTION, ASKED HERE FOR THE FIRST TIME.
+             *
+             * Both are required inputs and the wizard never asked for them, so every site it made
+             * arrived at the dashboard short of two answers. BOTH OPEN EMPTY: the owner's decision
+             * is that a person names the cultivar knowingly or chooses Generic themselves, and the
+             * same reasoning covers the construction.
+             *
+             * The cultivars come from `GAIP_CultivarOptions` in `dashboard-ui.js`, the ONE producer
+             * this screen and Settings share -- it decides both halves that matter, that Generic is
+             * offered and that Generic is not what you get by not choosing. The constructions come
+             * from the inputs list's own value dictionary, delivered by the server with the rest of
+             * the setup state. Neither list is built in this file.
+             */
+            var cultivars = typeof window.GAIP_CultivarOptions === 'function'
+                ? window.GAIP_CultivarOptions(this.d.species, this.d.variety)
+                : [];
+            var varietyOpt = cultivars.map(function (v) {
+                return '<option value="' + self._esc(v.value) + '"' + (v.selected ? ' selected' : '') + '>'
+                    + self._esc(v.label) + '</option>';
+            }).join('');
+            var constructionOpt = '<option value="">— Select construction —</option>'
+                + (((cfg.setup || {}).constructionValues) || []).map(function (v) {
+                    return '<option value="' + self._esc(v.id) + '"' + (self.d.construction === v.id ? ' selected' : '') + '>'
+                        + self._esc(v.label) + '</option>';
+                }).join('');
+
             var speciesTopt = '<option value="">— Select species —</option>' +
                 options.map(function (s) {
                     return '<option value="' + self._esc(s.value) + '"' + (self.d.species === s.value ? ' selected' : '') + '>' +
@@ -435,16 +583,39 @@
                 '<select id="wiz-species" style="width:100%;padding:9px 12px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)">' +
                 speciesTopt + '</select>' +
                 '</div>' +
+                '<div style="margin-bottom:16px">' +
+                '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Cultivar / variety</label>' +
+                '<select id="wiz-variety" style="width:100%;padding:9px 12px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)">' +
+                varietyOpt + '</select>' +
+                '</div>' +
+                '<div style="margin-bottom:16px">' +
+                '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Construction type</label>' +
+                '<select id="wiz-construction" style="width:100%;padding:9px 12px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)">' +
+                constructionOpt + '</select>' +
+                '</div>' +
                 '<div>' +
                 '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Soil interpretation method</label>' +
                 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + methodHtml + '</div>' +
                 '</div>' +
                 this._methodNote();
 
+            ['wiz-variety', 'wiz-construction'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener('change', function () {
+                    if (id === 'wiz-variety') { self.d.variety = this.value || null; }
+                    else { self.d.construction = this.value || null; }
+                    self._render();
+                });
+            });
+
             var speciesEl = document.getElementById('wiz-species');
             if (speciesEl) {
                 speciesEl.addEventListener('change', function () {
                     self.d.species = this.value || null;
+                    // GH-684: the cultivars on offer are those of the species. Keeping a cultivar
+                    // chosen for another species would store a pairing that does not exist.
+                    self.d.variety = null;
                     var note = c.querySelector('.wiz-method-note');
                     if (note) note.outerHTML = self._methodNote();
                 });
@@ -508,7 +679,12 @@
         // ── Step 4: What Now ──────────────────────────────────────────────────
         _step4_WhatNow: function (c) {
             var locName = this.d.location ? this.d.location.name : 'Your site';
-            var method  = (this.d.methodology || 'slan').toUpperCase().replace('_', ' ');
+            // GH-684: no stand-in. Reaching this step without a methodology is not possible now
+            // that the gate is derived from the list, and if it ever were, the screen says what
+            // is true rather than naming a method nobody chose.
+            var method  = this.d.methodology
+                ? this.d.methodology.toUpperCase().replace('_', ' ')
+                : 'not set';
 
             var steps = [
                 {
@@ -572,7 +748,9 @@
                     // species the database holds. gilba_getting_started is a
                     // different key, read by the getting-started checklist, and
                     // stays.
-                    localStorage.setItem('gilba_getting_started', '1');
+                    // GH-684: `gilba_getting_started` is no longer written. Nothing in `assets` or
+                    // in any view reads it -- the state lives on the site and the server answers
+                    // from it -- so this was a copy in the browser with no reader.
                     self._close();
                     window.location.href = '/dashboard';
                 })
@@ -625,8 +803,22 @@
                     // about the site rather than a stand-in for it.
                     // The wizard does not yet ASK for the cultivar; that is
                     // the other half of this stage and is not built.
-                    methodology: self.d.methodology || 'slan',
+                    // GH-684: what was chosen, never a default. The server refuses a config whose
+                    // result has no methodology, which is the right answer to a draft that somehow
+                    // has none -- far better than storing `slan` on a site nobody asked.
+                    methodology: self.d.methodology || '',
                 };
+                /**
+                 * GH-684 — AND NOW IT SENDS WHAT IT ASKED FOR.
+                 *
+                 * The note above says the wizard does not send a cultivar it never asked for. It
+                 * asks now, so it sends -- and only when there is an answer, which keeps the rule
+                 * the note is about: a field nobody filled is not a change. The step's gate will
+                 * not let anyone reach here without both, so the absence below is for a draft that
+                 * arrives by some other road.
+                 */
+                if (self.d.variety) { turfSection.variety = self.d.variety; }
+                if (self.d.construction) { turfSection.construction = self.d.construction; }
                 // Golf is the only type the wizard asks this of, so it is the
                 // only type that states it.
                 if (self.d.turfType === 'golf' && self.d.subCategory) {
@@ -692,14 +884,6 @@
         },
 
         // ── Skip ──────────────────────────────────────────────────────────────
-        _skip: function () {
-            // GH-451 (GH-439 stage 4b): skipping is not recorded in this
-            // browser. Nothing reads that key now; a skip that should outlive
-            // the tab belongs on the site, where the injected flag reads it
-            // (GH-450).
-            this._close();
-        },
-
         // ── Close ─────────────────────────────────────────────────────────────
         _close: function () {
             var scrollY = window.pageYOffset;

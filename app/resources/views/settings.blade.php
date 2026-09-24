@@ -320,18 +320,26 @@
                                     </select>
                                 </div>
                                 <div class="stg-field">
-                                    {{-- GH-583 (stage 3): required, and "Generic / Unknown" is gone.
-                                         It was the absence of a choice wearing a value's clothes: every
-                                         multiplier keyed on cultivar quietly used 1.00 for it, so a site
-                                         with a real cultivar and a site with none produced the same
-                                         numbers and looked equally settled. Owner, 22.09.2026: the
-                                         cultivar comes from the site's profile. A site still carrying
-                                         `generic` keeps showing the empty prompt until someone chooses,
-                                         rather than being silently reassigned. --}}
+                                    {{-- GH-684: required, and "Generic / Unknown" IS offered. The owner
+                                         reversed GH-583's refusal on 24.09.2026: `generic` counts as
+                                         filled where a site already had it and a calculation was built
+                                         on it, and a person may choose it deliberately. Her words are
+                                         quoted verbatim in PLAN-remaining-defects-RU.md under GH-684.
+
+                                         WHERE THE LIST COMES FROM, because it is not this file and the
+                                         comment that used to stand here implied it was: `repopulateVariety()`
+                                         in `settings-init.js` empties this element and rebuilds it from the
+                                         cultivars of the chosen species, with Generic / Unknown as its
+                                         first entry. An option written here is replaced before anyone
+                                         sees it, so the exclusion of `generic` that used to sit below was
+                                         not what kept it off the screen — and removing it is about this
+                                         file telling the truth, not about the list changing.
+
+                                         The placeholder stays: it is what a site with no cultivar shows. --}}
                                     <label for="stg-turf-variety">Cultivar / variety <span aria-hidden="true">*</span></label>
                                     <select id="stg-turf-variety" name="variety" required>
                                         <option value="">— select —</option>
-                                        @if($turfVal('variety') && $turfVal('variety') !== 'generic')
+                                        @if($turfVal('variety'))
                                         <option value="{{ $turfVal('variety') }}" selected>{{ $turfVal('variety') }}</option>
                                         @endif
                                     </select>

@@ -108,26 +108,206 @@ class Gh634ConditionOnEachFieldTest extends TestCase
         $this->assertSame('native_soil', $this->config($site)['turf']['construction'], "B's change was undone anyway");
     }
 
-    public function test_a_condition_on_a_field_a_column_owns_is_compared_against_the_column(): void
+    /**
+     * GH-686 — REBUILT AFTER THE REVIEWER'S M4 LEFT IT GREEN.
+     *
+     * The claim is that a condition on a field a column owns is answered by THE COLUMN, not by the
+     * derived copy in the config. The case asserted it with a fixture in which the column and the
+     * copy both held -43.5 -- so reading the wrong source gave the right answer, and the reviewer
+     * replaced the column read with a copy read and the case stayed green. It measured nothing.
+     *
+     * WHAT MAKES IT MEASURE: the two sources DISAGREE in the fixture, and the disagreement is built
+     * DIRECTLY -- the copy through the config row, the column through a query against the row --
+     * never through `PATCH /sites/{id}`, which exists to keep the two in step. It is not an
+     * invented state either: `deriveOwnedCopies` names pre-existing divergences in the tree
+     * (`GH-474`), left for the repair team.
+     *
+     * AND IT ASKS IN BOTH DIRECTIONS, because one direction cannot tell the sources apart:
+     *   - the STALE condition carries the COPY's value and must be refused;
+     *   - the RIGHT condition carries the COLUMN's value and must go through.
+     * Swap the source and each direction reddens its own assertion. Both are compared against the
+     * fixture rather than against each other.
+     *
+     * THE TWO DIRECTIONS ARE TWO CASES, and that is not tidiness. PHPUnit abandons a method at its
+     * first failed assertion, so as one method the second direction would never run under the very
+     * mutation it exists to catch, and a reviewer would see one red where two were required.
+     */
+    public function test_a_condition_carrying_the_copys_value_is_refused_because_the_column_is_asked(): void
     {
-        // The copy in the config is derived; asking it whether the owner moved
-        // would be asking the copy about the owner.
-        [$user, $site] = $this->siteWith(['location' => ['lat' => -43.5, 'lon' => 172.6]]);
-        $this->patchSite($user, $site, ['latitude' => -43.5, 'longitude' => 172.6])->assertOk();
+        // The copy says one thing...
+        [$user, $site] = $this->siteWith(['location' => ['lat' => -41.29, 'lon' => 172.6]]);
+        // ...and the column another. Written straight at the row: the route would reconcile them.
+        Site::query()->whereKey($site->id)->update(['latitude' => -43.5, 'longitude' => 172.6]);
+
+        $this->assertDivergence($site, -43.5, -41.29, 'before the request');
+
+        $stale = $this->patchConfig($user, $site, [
+            'patch' => ['location' => ['elevation' => 12]],
+            'expected' => ['location.lat' => -41.29],
+        ]);
+        fwrite(STDOUT, '[gh634] condition = the COPY: '.$stale->getContent().PHP_EOL);
+        $stale->assertStatus(409);
+        $this->assertSame(-43.5, (float) $stale->json('conflicts')['location.lat']['current'],
+            'the conflict reports a value that is not the column\'s');
+
+        // The refusal wrote nothing, and the divergence is still there. Asserted rather than
+        // assumed, because "nothing was written" is half of what a 409 promises.
+        $this->assertDivergence($site, -43.5, -41.29, 'after the refusal');
+    }
+
+    public function test_a_condition_carrying_the_columns_own_value_goes_through(): void
+    {
+        // The other direction of the same claim, on the same divergent fixture. Alone it would be
+        // satisfied by a route that refuses nothing; alone the case above would be satisfied by a
+        // route that refuses everything.
+        [$user, $site] = $this->siteWith(['location' => ['lat' => -41.29, 'lon' => 172.6]]);
+        Site::query()->whereKey($site->id)->update(['latitude' => -43.5, 'longitude' => 172.6]);
+
+        $this->assertDivergence($site, -43.5, -41.29, 'before the request');
 
         $ok = $this->patchConfig($user, $site, [
+            'patch' => ['location' => ['elevation' => 15]],
+            'expected' => ['location.lat' => -43.5],
+        ]);
+        fwrite(STDOUT, '[gh634] condition = the COLUMN: '.$ok->status().' '.$ok->getContent().PHP_EOL);
+        $ok->assertOk();
+        $this->assertSame(15, $this->config($site)['location']['elevation'], 'the accepted write did not land');
+    }
+
+    /**
+     * GH-686 — THE GAP THE RE-READ CLOSES, ON THE CONFIG ROUTE (the reviewer's M3).
+     *
+     * `$site->refresh()` inside `conflictingExpectations` looks like belt and braces next to the
+     * refresh under the lock, and it is not: the model being compared was loaded at the START of
+     * request A, by `resolveAccessibleSite`, outside any transaction. Between that load and the
+     * comparison, another writer can commit. A has not taken the lock yet, so nothing makes B wait.
+     *
+     * HOW THE GAP IS PRODUCED: a hook on the FIRST retrieval of this site in request A -- which is
+     * that load -- writes the column from underneath, by a query against the row. That is B,
+     * committed before A compares anything.
+     *
+     * THE CONTROL IS THE POINT, and it is the reviewer's warning: `Site::retrieved` fires on every
+     * retrieval, including the refresh inside the lock and the slug lookups. A hook without the
+     * "once, and this site" guard fires again INSIDE the lock, and then the case measures the
+     * subject of the case above instead of this one. So the transaction level at the moment it
+     * fired is printed and asserted. If it is deeper, the case is INVALID -- not the code innocent.
+     *
+     * AND THE LEVEL IS COMPARED WITH THE BASELINE, NOT WITH ZERO. It was written as `=== 0` first,
+     * from the plan, and both cases went red on their own control: `RefreshDatabase` runs every
+     * test inside a transaction, so nothing in this suite is ever at level 0 and a literal zero can
+     * only ever fail. Measured against the level taken before the request, the claim is the one
+     * meant -- the hook ran outside any transaction THE REQUEST opened.
+     *
+     * THE BOUNDARY: this is not a measurement of two clients. B's write goes down the same
+     * connection, so nothing here says anything about locking or commit visibility. What it does
+     * say -- and all it claims -- is that the comparison reads the row again instead of trusting
+     * the model loaded at the start of the request. One connection is enough to show that, because
+     * the stale model is in memory either way.
+     */
+    public function test_the_config_route_re_reads_the_row_before_comparing_and_not_at_the_start(): void
+    {
+        [$user, $site] = $this->siteWith(['location' => ['lat' => -43.5, 'lon' => 172.6]]);
+        Site::query()->whereKey($site->id)->update(['latitude' => -43.5, 'longitude' => 172.6]);
+
+        // The level before the request opens anything of its own. Not zero: see the note above.
+        $baseline = DB::transactionLevel();
+        $fired = false;
+        $levelWhenFired = null;
+        Site::retrieved(function (Site $model) use (&$fired, &$levelWhenFired, $site) {
+            if ($fired || $model->id !== $site->id) {
+                return;
+            }
+            $fired = true;
+            $levelWhenFired = DB::transactionLevel();
+            // B commits, and it does so through the row so that nothing reconciles the copy.
+            Site::query()->whereKey($site->id)->update(['latitude' => -41.29]);
+        });
+
+        // A states what it saw when its page opened.
+        $response = $this->patchConfig($user, $site, [
             'patch' => ['location' => ['elevation' => 12]],
             'expected' => ['location.lat' => -43.5],
         ]);
-        $ok->assertOk();
+        fwrite(STDOUT, '[gh634] B fired: '.json_encode($fired).' at transaction level '
+            .json_encode($levelWhenFired).' (baseline '.json_encode($baseline).'); A got '
+            .$response->status().': '.$response->getContent().PHP_EOL);
 
-        $stale = $this->patchConfig($user, $site, [
-            'patch' => ['location' => ['elevation' => 15]],
-            'expected' => ['location.lat' => -36.85],
+        // THE CASE IS VALID, asserted before its verdict is read.
+        $this->assertTrue($fired, 'B never ran — there is no gap in this run to close');
+        $this->assertSame($baseline, $levelWhenFired,
+            'B ran inside a transaction the REQUEST opened, so this case measured the lock instead of the gap and is invalid');
+        $this->assertSame(-41.29, (float) Site::query()->find($site->id)->latitude, "B's write did not land");
+
+        // THE CLAIM: A compares against the row as it is NOW, not as it was when A loaded it.
+        $response->assertStatus(409);
+        $this->assertSame(-41.29, (float) $response->json('conflicts')['location.lat']['current'],
+            'the conflict reports the value A loaded with, so the comparison used the stale model');
+    }
+
+    /**
+     * GH-686 — THE SAME GAP ON THE OTHER ROUTE, and it is a second re-read, not the same one.
+     *
+     * `update()` compares inside its own transaction, and what it compares is the model refreshed
+     * on the line after the lock is taken. The gap is identical -- between `resolveAccessibleSite`
+     * and the comparison under the lock -- and it is closed by a different `refresh()`. Only both
+     * cases together say the gap is closed on both roads; the config case above would stay green
+     * with this route wide open.
+     *
+     * The third `refresh()` in this controller, the one in `ownedColumnValues`, belongs to the
+     * read that feeds the derived copies and is the subject of `Gh633ConfigPatchRaceMeasureTest`.
+     */
+    public function test_the_site_route_re_reads_the_row_before_comparing_and_not_at_the_start(): void
+    {
+        [$user, $site] = $this->siteWith(['location' => ['lat' => -43.5, 'lon' => 172.6]]);
+        Site::query()->whereKey($site->id)->update(['latitude' => -43.5, 'longitude' => 172.6]);
+
+        // The level before the request opens anything of its own. Not zero: see the note above.
+        $baseline = DB::transactionLevel();
+        $fired = false;
+        $levelWhenFired = null;
+        Site::retrieved(function (Site $model) use (&$fired, &$levelWhenFired, $site) {
+            if ($fired || $model->id !== $site->id) {
+                return;
+            }
+            $fired = true;
+            $levelWhenFired = DB::transactionLevel();
+            Site::query()->whereKey($site->id)->update(['latitude' => -41.29]);
+        });
+
+        // A sends a coordinate of its own, so the value it writes cannot be mistaken for B's.
+        $response = $this->patchSite($user, $site, [
+            'latitude' => -38.0,
+            'expected' => ['location.lat' => -43.5],
         ]);
-        fwrite(STDOUT, '[gh634] owned-field conflict: '.$stale->getContent().PHP_EOL);
-        $stale->assertStatus(409);
-        $this->assertSame(-43.5, (float) $stale->json('conflicts')['location.lat']['current']);
+        fwrite(STDOUT, '[gh634] B fired: '.json_encode($fired).' at transaction level '
+            .json_encode($levelWhenFired).' (baseline '.json_encode($baseline).'); A got '
+            .$response->status().': '.$response->getContent().PHP_EOL);
+
+        $this->assertTrue($fired, 'B never ran — there is no gap in this run to close');
+        $this->assertSame($baseline, $levelWhenFired,
+            'B ran inside a transaction the REQUEST opened, so this case measured the lock instead of the gap and is invalid');
+
+        $response->assertStatus(409);
+        $this->assertSame(-41.29, (float) $response->json('conflicts')['location.lat']['current'],
+            'the conflict reports the value A loaded with, so the comparison used the stale model');
+        // And nothing of A's landed.
+        $this->assertSame(-41.29, (float) Site::query()->find($site->id)->latitude,
+            'A wrote its coordinate although its condition no longer held');
+    }
+
+    /**
+     * The column and the copy hold different values, printed and asserted. Without this the two
+     * cases above could not tell "the right source was read" from "both sources agreed".
+     */
+    private function assertDivergence(Site $site, float $column, float $copy, string $when): void
+    {
+        $actualColumn = (float) Site::query()->find($site->id)->latitude;
+        $actualCopy = (float) ($this->config($site)['location']['lat'] ?? 0);
+        fwrite(STDOUT, '[gh634] '.$when.': sites.latitude='.json_encode($actualColumn)
+            .'  config.location.lat='.json_encode($actualCopy).PHP_EOL);
+        $this->assertSame($column, $actualColumn, 'the column does not hold what this case needs '.$when);
+        $this->assertSame($copy, $actualCopy, 'the copy does not hold what this case needs '.$when);
+        $this->assertNotSame($actualColumn, $actualCopy, 'the two sources agree, so reading the wrong one is invisible');
     }
 
     public function test_TODAY_a_patch_with_no_condition_is_still_accepted__this_case_marks_the_boundary(): void
@@ -341,6 +521,22 @@ class Gh634ConditionOnEachFieldTest extends TestCase
             'modified_by_user_id' => $user->id,
         ]);
         $site->users()->attach($user->id, ['role' => 'manager']);
+
+        /**
+         * GH-684 — THE STARTING CONFIG CARRIES A METHODOLOGY.
+         *
+         * The server refuses any write whose RESULT leaves a site without one, by the owner's
+         * decision that methodology is required everywhere. These cases are about another subject
+         * entirely and merely happened to start from a site that had none, so they were refused
+         * before reaching it. A case that needs the absence BY SUBSTANCE passes its own `turf` and
+         * expects the refusal; none of the cases in this file does.
+         */
+        if (! array_key_exists('turf', $config) || ! is_array($config['turf'])) {
+            $config['turf'] = [];
+        }
+        if (! array_key_exists('methodology', $config['turf'])) {
+            $config['turf']['methodology'] = 'mlsn';
+        }
 
         SiteConfig::query()->create([
             'site_id' => $site->id,

@@ -35,12 +35,36 @@ const path = require('path');
 const vm = require('vm');
 
 const SRC = fs.readFileSync(path.join(__dirname, '../assets/onboarding-wizard.js'), 'utf8');
+// GH-684: the page loads this first, from the db-shell layout, and it carries the ONE producer of
+// the cultivar list that both Settings and the wizard read. A sandbox without it measures a wizard
+// no browser has.
+const SHARED = fs.readFileSync(path.join(__dirname, '../assets/dashboard-ui.js'), 'utf8');
 
-function stubElement() {
+function stubElement(tag) {
+    // Listeners are RECORDED rather than discarded (GH-684): a control is told apart from a
+    // decoration by what its click does, and a stub that drops the handler cannot tell them apart.
+    /**
+     * GH-684: `textContent` REACHES `innerHTML`, because the wizard escapes every label by writing
+     * it into a throwaway element and reading the element's HTML back. A stub where the two are
+     * unrelated properties returns an empty string for every escaped value, and the cultivar list
+     * came out as `<option value=""></option>` twice -- which looks exactly like a product that
+     * offers nothing.
+     */
+    let text = '';
+    let html = '';
     const el = {
-        style: {}, dataset: {}, textContent: '', innerHTML: '', value: '',
+        tag: tag || null, listeners: [],
+        get textContent() { return text; },
+        set textContent(v) {
+            text = v === null || v === undefined ? '' : String(v);
+            html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        },
+        get innerHTML() { return html; },
+        set innerHTML(v) { html = v === null || v === undefined ? '' : String(v); },
+        style: {}, dataset: {}, value: '',
         classList: { add() {}, remove() {}, contains: () => false, toggle() {} },
-        addEventListener() {}, removeEventListener() {}, appendChild() {}, removeChild() {},
+        addEventListener(type, fn) { el.listeners.push({ type, fn }); },
+        removeEventListener() {}, appendChild() {}, removeChild() {},
         setAttribute() {}, getAttribute: () => null, insertAdjacentHTML() {},
         querySelector: () => stubElement(), querySelectorAll: () => [],
         parentNode: null, disabled: false,
@@ -49,7 +73,7 @@ function stubElement() {
 }
 
 /** The wizard, loaded the way a page loads it, with every request captured. */
-function wizardSandbox() {
+function wizardSandbox(opts) {
     const sent = [];
     const sandbox = {
         console: { log() {}, warn() {}, error() {}, info() {} },
@@ -70,22 +94,61 @@ function wizardSandbox() {
     sandbox.window = sandbox;
     sandbox.global = sandbox;
     sandbox.globalThis = sandbox;
+    const created = [];
+    const documentListeners = [];
     sandbox.document = {
         readyState: 'complete',
-        addEventListener() {}, removeEventListener() {},
+        addEventListener(type) { documentListeners.push(type); },
+        removeEventListener() {},
         querySelector: () => null, querySelectorAll: () => [],
-        createElement: stubElement,
-        body: stubElement(),
+        // GH-684: the steps look their own controls up by id after writing the markup. A document
+        // without this throws inside `_render`, which reads as the wizard being broken rather than
+        // as the stub being short of a method.
+        getElementById: () => null,
+        createElement: (tag) => {
+            const el = stubElement(tag);
+            created.push(el);
+
+            return el;
+        },
+        body: stubElement('body'),
     };
+    sandbox.__created = created;
+    sandbox.__documentListeners = documentListeners;
     sandbox.location = { search: '', pathname: '/dashboard', hash: '', href: '' };
     sandbox.history = { replaceState() {} };
     // An active site, so `_ensureSite()` does not create one — the subject is
     // the config PATCH, and a site creation in between would only add noise.
-    sandbox.GAIP_HUB_CONFIG = { activeSiteId: 'site-1', restUrl: '/api/', csrfToken: 't' };
+    sandbox.GAIP_HUB_CONFIG = Object.assign(
+        { activeSiteId: 'site-1', restUrl: '/api/', csrfToken: 't' },
+        (opts && opts.hubConfig) || {}
+    );
+    // GH-684: the cultivar list comes from the shared species key and the traits table, exactly as
+    // the page provides them. Two entries are enough to tell "offered" from "not offered".
+    sandbox.GAIP_SpeciesTraitsKey = { 'Perennial Ryegrass': 'perennialRyegrass' };
+    // GH-684, the reviewer's third condition: WITHOUT THIS THE STEP DRAWS NO SPECIES AT ALL.
+    // `_speciesOptions()` reads this table, and with it absent every draft came back with an empty
+    // list -- the step was rendered over nothing and the cases counted it as a pass. The same class
+    // as a green that never reached its subject, in a sandbox.
+    sandbox.GAIP_SpeciesData = { speciesByType: {
+        sports: { c3: [{ value: 'Perennial Ryegrass', label: 'Perennial Ryegrass', type: 'C3' }],
+                  c4: [{ value: 'Couch', label: 'Couch', type: 'C4' }] },
+        lawns:  { c3: [{ value: 'Tall Fescue', label: 'Tall Fescue', type: 'C3' }] },
+        golf:   {
+            greens:   { c3: [{ value: 'Creeping Bentgrass', label: 'Creeping Bentgrass', type: 'C3' }] },
+            fairways: { c3: [{ value: 'Perennial Ryegrass', label: 'Perennial Ryegrass', type: 'C3' }] },
+        },
+    } };
+    sandbox.GAIP_VARIETY_TRAITS = {
+        perennialRyegrass: { _meta: {}, colosseum: { displayName: 'Colosseum' }, barextreme: {} },
+    };
 
     const ctx = vm.createContext(sandbox);
+    // The shared file first, exactly as the layout loads it. Its own page wiring finds nothing in
+    // this document and that is fine — what is wanted from it is the producer.
+    vm.runInContext(SHARED, ctx, { filename: 'dashboard-ui.js' });
     vm.runInContext(SRC, ctx, { filename: 'onboarding-wizard.js' });
-    return { ctx, sent };
+    return { ctx, sent, created, documentListeners };
 }
 
 function saveWith(draft) {
@@ -369,5 +432,424 @@ describe('GH-637 — what the Settings Turf tab sends: the change, and nothing e
             expect(patched).toContain('construction');
             expect(patched).toContain('hoc');
         });
+    });
+});
+
+describe('GH-684 — there is no way out of the wizard but through it', () => {
+    /**
+     * The owner's decision, 24.09.2026: the wizard cannot be left until what is required has been
+     * entered, and reopening the page brings it back while it has not been. The first step used to
+     * offer `Skip Setup`, which closed the wizard on a site carrying none of those fields.
+     *
+     * WHAT IS ASSERTED IS THE CONSEQUENCE, not the absence of a word: the nav is BUILT on the first
+     * step and every click handler it installed is FIRED, and the wizard must not close. A test
+     * that only grepped for the string would pass on a button relabelled `Later`.
+     */
+    const navAt = (step) => {
+        // GH-684: the nav's `Next` asks `_canProceed()`, which is now derived from the steps the
+        // server sends. Without them every gate stands open, `Next` advances, and this case would
+        // measure a wizard nobody is using. The payload is the product's own, from the list.
+        const box = wizardSandbox({ hubConfig: { setup: {
+            missing: ['turf.turfType'],
+            byStep: { 1: ['location.lat', 'location.lon'], 2: ['turf.turfType'],
+                3: ['turf.species', 'turf.variety', 'turf.construction', 'turf.methodology'] },
+            answers: {},
+        } } });
+        const W = box.ctx.GilbaWizard;
+        W.step = step;
+        W._render = () => {};
+        let closed = 0;
+        W._close = () => { closed++; };
+        W._finish = () => {};
+        const before = box.created.length;
+        W._buildNav();
+        const madeForTheNav = box.created.slice(before);
+
+        return { W, madeForTheNav, fireAll: () => {
+            madeForTheNav.forEach((el) => el.listeners
+                .filter((l) => l.type === 'click')
+                .forEach((l) => l.fn.call(el)));
+
+            return closed;
+        } };
+    };
+
+    test('on the first step, nothing that can be clicked closes the wizard', () => {
+        const nav = navAt(0);
+        const clickable = nav.madeForTheNav.filter((el) => el.listeners.some((l) => l.type === 'click'));
+        process.stdout.write('[gh684] step 0 nav built ' + nav.madeForTheNav.length
+            + ' elements, of which clickable: '
+            + JSON.stringify(clickable.map((el) => el.tag + ':' + (el.textContent || '<no text>'))) + '\n');
+
+        // POSITIVE CONTROL: the nav was really built, and it does have a control on it. Without
+        // this, "nothing closed the wizard" and "nothing was built" are the same green.
+        expect(nav.madeForTheNav.length).toBeGreaterThan(0);
+        expect(clickable.length).toBeGreaterThan(0);
+
+        expect(nav.fireAll()).toBe(0);
+    });
+
+    test('on a later step the same control goes BACK, so the nav is not simply inert', () => {
+        const nav = navAt(2);
+        const closed = nav.fireAll();
+        process.stdout.write('[gh684] from step 2, firing every click left the step at '
+            + nav.W.step + ' and closed the wizard ' + closed + ' times\n');
+
+        expect(closed).toBe(0);
+        // It moved: the control exists and does its own job.
+        expect(nav.W.step).toBe(1);
+    });
+
+    test('the ways out are ENUMERATED, and there is one: finishing', () => {
+        // The point of naming them: a removed button proves nothing if Escape or a click on the
+        // backdrop still closes it. Each is looked for and the result is printed, so "none found"
+        // cannot be read as "none looked for".
+        //
+        // AND THE LIMIT OF THE LISTENER HALF, found by the mutation that was supposed to prove it:
+        // an Escape handler added in a method that nothing calls yet leaves `documentListeners`
+        // EMPTY, because only what the wizard installs at load time appears there. What caught that
+        // mutation was the count of places calling `_close()`. So the two halves are not
+        // interchangeable: the listener list sees what is installed on load, the count sees every
+        // exit written into the file whether it is wired up yet or not.
+        const box = wizardSandbox();
+        // COMMENTS FIRST, everywhere. The count came out as two on the first run and the second
+        // one was this repair's own comment saying `_close()` is reached from one place -- a
+        // sentence about the code counted as the code. Same treatment as the removed label below.
+        const code = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+        const callsToClose = (code.match(/_close\(\)/g) || []).length;
+        // The anchor is `_save()` itself, not the `gilba_getting_started` flag it used to sit next
+        // to: that flag was a browser copy with no reader and was removed with this same work, and
+        // an anchor on a line that no longer exists answers `false` about a path that is fine.
+        const closeInSave = /_save\(\)[\s\S]{0,900}?_close\(\)/.test(code);
+        process.stdout.write('[gh684] exits searched — calls to _close(): ' + callsToClose
+            + '; one of them in the save path: ' + closeInSave
+            + '; listeners the wizard put on the document: ' + JSON.stringify(box.documentListeners)
+            + '; the string `Skip Setup`: ' + /Skip Setup/.test(code)
+            + '; a `_skip` method: ' + /_skip\s*:/.test(code) + '\n');
+
+        expect(callsToClose).toBe(1);
+        expect(closeInSave).toBe(true);
+        expect(/_skip\s*:/.test(code)).toBe(false);
+        // Comments are stripped first: this file explains what was removed, and the explanation
+        // naming it must not count as the control coming back.
+        expect(/Skip Setup/.test(code)).toBe(false);
+        expect(box.documentListeners).not.toContain('keydown');
+    });
+});
+
+/**
+ * GH-684 (item 3bk, part 1) — WHAT THE WIZARD ASKS, WHAT IT REFUSES TO PASS, AND WHAT IT NO LONGER
+ * DECIDES FOR ANYONE.
+ *
+ * THE EXPECTATIONS COME FROM THE DECLARED SOURCE. The cases below are generated from
+ * `assets/calculation-inputs.schema.json` -- every input that is required and names a `wizard.stepN`
+ * in its own `filledIn` -- rather than from a list written here. An input added to the list with a
+ * wizard step brings its own case with it; a list typed into a test would go stale the day the list
+ * changes, which is the failure this whole item is about.
+ *
+ * THE BOUNDARY, named: this derives the step map the same way the server does, from the same file.
+ * It does not prove the server's own derivation, which is asserted against the file in
+ * `Gh684TheServerDecidesWhenTheWizardOpensTest`. What both are pinned to is the file.
+ */
+describe('GH-684 — the wizard asks for everything the list requires of it', () => {
+    const SCHEMA = JSON.parse(fs.readFileSync(
+        path.join(__dirname, '../assets/calculation-inputs.schema.json'), 'utf8'));
+
+    const byStepFromTheList = () => {
+        const out = {};
+        Object.entries(SCHEMA.inputs).forEach(([key, entry]) => {
+            if (!entry || entry.required !== true) return;
+            (entry.filledIn || []).forEach((place) => {
+                const m = /^wizard\.step(\d+)$/.exec(String(place));
+                if (!m) return;
+                (out[m[1]] = out[m[1]] || []).push(key);
+            });
+        });
+
+        return out;
+    };
+
+    const openWith = (draft, answers) => {
+        const byStep = byStepFromTheList();
+        const missing = [];
+        Object.values(byStep).forEach((keys) => keys.forEach((k) => {
+            if (!answers || !(k in answers)) missing.push(k);
+        }));
+        const box = wizardSandbox({ hubConfig: {
+            setup: {
+                missing, byStep, answers: answers || {},
+                constructionValues: [{ id: 'sand_profile', label: 'Sand profile (USGA-style)' }],
+            },
+            savedLocation: { name: 'Somewhere', lat: -37.8, lon: 144.9 },
+        } });
+        const W = box.ctx.GilbaWizard;
+        W._render = () => {};
+        Object.assign(W.d, draft || {});
+
+        return { W, box, byStep, missing };
+    };
+
+    test('every input the list puts on a wizard step is BOUND to a draft field, both ways', () => {
+        const { W, byStep } = openWith();
+        const fromTheList = [].concat(...Object.values(byStep)).sort();
+        const bound = Object.keys(W._answers).sort();
+        process.stdout.write('[gh684] the list puts these on wizard steps: ' + JSON.stringify(fromTheList)
+            + '\n[gh684] the wizard binds: ' + JSON.stringify(bound) + '\n');
+
+        expect(fromTheList.filter((k) => bound.indexOf(k) === -1)).toEqual([]);
+        expect(bound.filter((k) => fromTheList.indexOf(k) === -1)).toEqual([]);
+    });
+
+    test('a step does not let you pass while ONE of its inputs is unanswered — one case per input', () => {
+        const { byStep } = openWith();
+        const answered = {
+            'location.lat': -37.8, 'location.lon': 144.9, 'turf.turfType': 'sports',
+            'turf.species': 'Perennial Ryegrass', 'turf.variety': 'generic',
+            'turf.construction': 'sand_profile', 'turf.methodology': 'slan',
+        };
+        const report = [];
+        Object.entries(byStep).forEach(([step, keys]) => {
+            keys.forEach((key) => {
+                const short = Object.assign({}, answered);
+                delete short[key];
+                const withoutIt = openWith(null, short);
+                withoutIt.W.step = Number(step);
+                // NAMED FOR WHAT IT HOLDS. The first version of this line called the value
+                // `shutWithout` while storing `_canProceed()`, which is true when the gate is OPEN,
+                // and the assertion below then demanded the opposite of the thing it meant. The
+                // printed report read `shut: false` on a gate that was correctly shut.
+                const canProceedWithout = withoutIt.W._canProceed();
+
+                const whole = openWith(null, answered);
+                whole.W.step = Number(step);
+                const canProceedWithAll = whole.W._canProceed();
+
+                report.push({ step: Number(step), key, canProceedWithout, canProceedWithAll });
+            });
+        });
+        process.stdout.write('[gh684] one case per input, from the list:\n'
+            + report.map((r) => '[gh684]   step ' + r.step + ' without ' + r.key
+                + ' -> may proceed: ' + r.canProceedWithout
+                + ' | with everything -> may proceed: ' + r.canProceedWithAll).join('\n') + '\n');
+
+        // POSITIVE CONTROL first: the cases exist and the gate DOES open when everything is there.
+        // Without it, "shut" would also be the answer of a gate that never opens.
+        expect(report.length).toBeGreaterThan(0);
+        expect(report.filter((r) => !r.canProceedWithAll)).toEqual([]);
+        expect(report.filter((r) => r.canProceedWithout)).toEqual([]);
+    });
+
+    /**
+     * GH-684 — NOTHING FILLS THE METHODOLOGY IN, AND THE REPORT NAMES WHICH PLACE WOULD HAVE.
+     *
+     * THE REVIEWER'S CONDITIONS, all four, and the first two were holes in the earlier version:
+     *
+     * 1. THERE ARE TWO PLACES, not one: the suggestion at the top of the step (New Zealand, golf
+     *    greens, otherwise SLAN) and the pre-selection of New Zealand's single option after the
+     *    narrowing has cleared a value. A row printing only the VALUE cannot tell them apart -- on
+     *    a New Zealand draft both write `ammonium_acetate` -- so each draft below is built so that
+     *    only ONE of them could have written anything, and the row says which.
+     * 2. THE DRAFTS COME FROM THE BRANCHES, not from a guess. The first place branches on New
+     *    Zealand and on golf-greens; the second on New Zealand; the narrowing on New Zealand plus a
+     *    value that is not ammonium acetate. So: New Zealand with nothing, with each of the three
+     *    methodologies pre-set, and not-New-Zealand as golf greens, golf fairways, sports and
+     *    lawns, plus a non-NZ draft whose value was already chosen and must survive.
+     * 3. AN EMPTY SPECIES LIST REDDENS instead of counting. `options` is the step's subject; a draft
+     *    that renders none was never drawn, and "empty, as required" would be the answer of a case
+     *    that did not arrive.
+     * 4. THE GATE IS NOT ASSERTED HERE. `_canProceed()` on step 3 reads the same field these places
+     *    write, so a red about the gate could come from a change in the emptiness. The gate is
+     *    asserted in the case above, where every value is set EXPLICITLY by the draft.
+     */
+    test('the methodology is NOT chosen for the person, and the report names the place that would have', () => {
+        const drafts = [
+            { place: 'either — NZ with nothing set', nz: true, d: { turfType: 'sports' }, expect: null },
+            { place: 'pre-selection of the single NZ option (the suggestion cannot: a value is set)',
+              nz: true, d: { turfType: 'sports', methodology: 'mlsn' }, expect: null },
+            { place: 'pre-selection of the single NZ option (SLAN cleared)',
+              nz: true, d: { turfType: 'sports', methodology: 'slan' }, expect: null },
+            { place: 'neither — NZ with ammonium acetate already chosen, nothing to clear or fill',
+              nz: true, d: { turfType: 'sports', methodology: 'ammonium_acetate' }, expect: 'ammonium_acetate' },
+            { place: 'the suggestion, golf-greens branch', nz: false,
+              d: { turfType: 'golf', subCategory: 'greens' }, expect: null },
+            /**
+             * THE CROSSING, asked for by the reviewer: New Zealand AND golf greens together. Each
+             * substitution had its own branch for this draft and they disagreed -- the suggestion
+             * tests New Zealand FIRST, so it would write ammonium acetate where the golf-greens
+             * branch alone would have written MLSN, and the pre-selection applies too. Neither of
+             * the single-condition drafts covers it: one exercises New Zealand with sports, the
+             * other golf greens outside New Zealand, and a rule that got the ORDER of the two
+             * conditions wrong would pass both of them.
+             *
+             * It does not tell the two PLACES apart (both write the same value here) and it is
+             * labelled so; what it covers is the crossing.
+             */
+            { place: 'either — NZ crossed with golf greens, where the two branches disagree',
+              nz: true, d: { turfType: 'golf', subCategory: 'greens' }, expect: null },
+            { place: 'the suggestion, otherwise branch (golf, not greens)', nz: false,
+              d: { turfType: 'golf', subCategory: 'fairways' }, expect: null },
+            { place: 'the suggestion, otherwise branch (sports)', nz: false,
+              d: { turfType: 'sports' }, expect: null },
+            { place: 'the suggestion, otherwise branch (lawns)', nz: false,
+              d: { turfType: 'lawns' }, expect: null },
+            { place: 'neither — not NZ and already chosen, it must survive untouched', nz: false,
+              d: { turfType: 'sports', methodology: 'mlsn' }, expect: 'mlsn' },
+        ];
+
+        const rows = drafts.map((row) => {
+            const location = row.nz
+                ? { lat: -41.29, lon: 174.78, name: 'Wellington' }
+                : { lat: -37.8, lon: 144.9, name: 'Melbourne' };
+            const { W } = openWith(Object.assign({ location }, row.d));
+            W.step = 3;
+            const c = stubElement('div');
+            const optionsCount = W._speciesOptions().length;
+            // BEFORE, or "the step filled it" and "it was already there" are the same reading.
+            const before = W.d.methodology;
+            W._step3_Species(c);
+
+            return {
+                place: row.place, optionsCount, before,
+                methodologyAfterTheStepWasDrawn: W.d.methodology,
+                expected: row.expect,
+                cleared: W._methodClearedForNZ || null,
+            };
+        });
+        process.stdout.write('[gh684] what could have filled the methodology, and what did:\n'
+            + rows.map((r) => '[gh684]   ' + r.place + '\n[gh684]      species offered: ' + r.optionsCount
+                + ' | before the step: ' + JSON.stringify(r.before)
+                + ' | after the step: ' + JSON.stringify(r.methodologyAfterTheStepWasDrawn)
+                + ' | expected: ' + JSON.stringify(r.expected)
+                + ' | cleared: ' + JSON.stringify(r.cleared)).join('\n') + '\n');
+
+        // THE SUBJECT WAS DRAWN. A draft with no species on offer rendered nothing, and every claim
+        // below about it would be a claim about a step that never happened.
+        expect(rows.filter((r) => r.optionsCount === 0).map((r) => r.place)).toEqual([]);
+
+        rows.forEach((r) => {
+            expect(r.methodologyAfterTheStepWasDrawn).toBe(r.expected);
+        });
+
+        // And the narrowing still does its own job, or "nothing was filled in" could be the answer
+        // of a step that stopped looking at the place altogether.
+        const clearedOnNz = rows.filter((r) => /cleared/.test(r.place));
+        expect(clearedOnNz.length).toBeGreaterThan(0);
+        clearedOnNz.forEach((r) => expect(r.cleared).not.toBeNull());
+    });
+
+    test('the cultivar and the construction open EMPTY, and the cultivar list offers Generic', () => {
+        const { W } = openWith({
+            location: { lat: -37.8, lon: 144.9, name: 'Melbourne' },
+            turfType: 'sports', species: 'Perennial Ryegrass',
+        });
+        W.step = 3;
+        const c = stubElement('div');
+        W._step3_Species(c);
+        process.stdout.write('[gh684] at open: variety=' + JSON.stringify(W.d.variety)
+            + ' construction=' + JSON.stringify(W.d.construction) + '\n');
+
+        expect(W.d.variety).toBeNull();
+        expect(W.d.construction).toBeNull();
+
+        // The markup offers them, or "empty at open" would be satisfied by a step with no fields.
+        expect(c.innerHTML).toContain('id="wiz-variety"');
+        expect(c.innerHTML).toContain('id="wiz-construction"');
+        expect(c.innerHTML).toContain('value="generic"');
+        expect(c.innerHTML).toContain('Colosseum');
+        expect(c.innerHTML).toContain('Sand profile (USGA-style)');
+        // Nothing is pre-selected in either.
+        expect(c.innerHTML).not.toContain('value="generic" selected');
+        expect(c.innerHTML).not.toContain('value="sand_profile" selected');
+    });
+
+    test('with no setup state from the server the wizard does not open at all', () => {
+        const box = wizardSandbox();
+        const W = box.ctx.GilbaWizard;
+        let shown = 0;
+        W.show = () => { shown++; };
+        W.init();
+        process.stdout.write('[gh684] with no setup state, the wizard opened ' + shown + ' times\n');
+
+        expect(shown).toBe(0);
+    });
+
+    test('it opens at the first step short of an answer, and `?setup` has nothing to do with it', () => {
+        const { W } = openWith(null, { 'location.lat': -37.8, 'location.lon': 144.9, 'turf.turfType': 'sports' });
+        let shown = 0;
+        W.show = () => { shown++; };
+        W.init();
+        process.stdout.write('[gh684] place and type answered -> opened ' + shown + ' times at step ' + W.step + '\n');
+
+        expect(shown).toBe(1);
+        // Step 3 is where species, cultivar, construction and methodology are collected.
+        expect(W.step).toBe(3);
+        // And what was already answered is in the draft, not asked again.
+        expect(W.d.turfType).toBe('sports');
+        expect(W.d.location).toEqual({ lat: -37.8, lon: 144.9, name: 'Somewhere' });
+    });
+});
+
+/**
+ * GH-684 — THE ONE PRODUCER OF THE CULTIVAR LIST, ASKED DIRECTLY.
+ *
+ * WHY THIS EXISTS, and it is a hole a mutation found rather than a tidy extra: the claim "a site
+ * with no cultivar is not shown Generic" was asserted by searching `settings-init.js` for the line
+ * that adds the empty prompt. Killing the CONDITION around that line -- `if (!selectedValue)` ->
+ * `if (false)` -- left the line exactly where it was, and the check stayed green over dead code.
+ * The rule now lives in one function that returns data, so the cases below ask it and read the
+ * answer. Text about behaviour is not behaviour.
+ */
+describe('GH-684 — the cultivar list: Generic is offered, and Generic is not the default', () => {
+    const optionsFor = (species, selected) => {
+        const box = wizardSandbox();
+
+        return box.ctx.GAIP_CultivarOptions(species, selected);
+    };
+
+    test('a site with NOTHING chosen gets an empty prompt, selected, and Generic merely offered', () => {
+        const list = optionsFor('Perennial Ryegrass', '');
+        process.stdout.write('[gh684] nothing chosen -> ' + JSON.stringify(list) + '\n');
+
+        // The subject exists: the species' cultivars are on the list at all.
+        expect(list.map((o) => o.value)).toContain('colosseum');
+
+        expect(list[0]).toEqual({ value: '', label: '— select —', selected: true });
+        expect(list.find((o) => o.value === 'generic').selected).toBe(false);
+        // Exactly one thing is selected, or "selected" says nothing about what a browser shows.
+        expect(list.filter((o) => o.selected).map((o) => o.value)).toEqual(['']);
+    });
+
+    test('a site carrying `generic` is shown Generic / Unknown as its choice', () => {
+        const list = optionsFor('Perennial Ryegrass', 'generic');
+        process.stdout.write('[gh684] generic chosen -> ' + JSON.stringify(list) + '\n');
+
+        expect(list.filter((o) => o.selected).map((o) => o.value)).toEqual(['generic']);
+        // And no empty prompt is added, because there is nothing to prompt for.
+        expect(list.some((o) => o.value === '')).toBe(false);
+    });
+
+    test('a real cultivar is shown as the choice, and Generic stays on the list', () => {
+        const list = optionsFor('Perennial Ryegrass', 'colosseum');
+        process.stdout.write('[gh684] a real cultivar -> ' + JSON.stringify(list) + '\n');
+
+        expect(list.filter((o) => o.selected).map((o) => o.value)).toEqual(['colosseum']);
+        expect(list.map((o) => o.value)).toContain('generic');
+    });
+
+    test('a stored cultivar the table does not know still shows, and shows as chosen', () => {
+        // The table is ours, the value is the site's. An unknown name is a gap in our table, not a
+        // reason to make the site look unanswered — which would invite someone to "fix" it by
+        // choosing something else.
+        const list = optionsFor('Perennial Ryegrass', 'Barenbrug Bar Extreme');
+        process.stdout.write('[gh684] an unknown cultivar -> ' + JSON.stringify(list) + '\n');
+
+        expect(list.filter((o) => o.selected).map((o) => o.value)).toEqual(['Barenbrug Bar Extreme']);
+    });
+
+    test('with no species chosen there is still a prompt and Generic, so the field is never empty', () => {
+        const list = optionsFor('', '');
+        process.stdout.write('[gh684] no species -> ' + JSON.stringify(list) + '\n');
+
+        expect(list.map((o) => o.value)).toEqual(['', 'generic']);
     });
 });

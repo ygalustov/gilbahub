@@ -130,6 +130,21 @@ class Gh629WizardSubCategoryPatchTest extends TestCase
         $this->report('clear on an identity field', $identity);
 
         $ordinary->assertOk();
+
+        // GH-672 (queue item 3aa, the reviewer's finding) — THE IDENTITY ANSWER WAS
+        // PRINTED AND NOT ASSERTED, so the server half of this case was guarded by
+        // nothing. Measured by him, not argued: with `$invalidClear[] = $path;` at
+        // `SiteController.php:1017` replaced by `continue;` — an identity field
+        // becoming clearable again — the route answers 200 instead of 422 and
+        // ERASES `species` from the config, and this set stayed green at 5 tests, 5
+        // assertions. Five cases and five assertions, and none of them fell on the
+        // identity one.
+        //
+        // Asserted on the STATUS and on the NAMED KEY, because a 422 for some other
+        // reason would satisfy the status alone — the route answers 422 for an empty
+        // value too, and that is a different refusal.
+        $identity->assertStatus(422);
+        $identity->assertJsonPath('invalid_keys', ['turf.species']);
     }
 
     /** The body `_save()` builds, field for field. */

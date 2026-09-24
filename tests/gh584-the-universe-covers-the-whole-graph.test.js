@@ -52,6 +52,16 @@ const FEDERAL_GOLF = {
  */
 function declaredEngines() {
     const sb = { console: { log() {}, warn() {}, error() {} } };
+    // GH-678 (place 3 -- the gates): the graph's facts live in
+    // `assets/dependency-graph.json` and reach the page as
+    // `window.GAIP_DEPENDENCY_GRAPH`. The module no longer carries them, and given
+    // nothing it installs NOTHING rather than answering "affects nothing" -- so a
+    // sandbox that wants a graph has to hand it the data, exactly as a page does.
+    // This is not the graph comparing with itself: the other side of every claim
+    // below is elsewhere (the notice's step names, the bucket census, the composer).
+    sb.window = sb;
+    sb.GAIP_DEPENDENCY_GRAPH = JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'assets/dependency-graph.json'), 'utf8'));
     sb.window = sb; sb.global = sb; sb.globalThis = sb;
     vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'assets/dependency-graph.js'), 'utf8'), sb,
         { filename: 'dependency-graph.js' });
@@ -87,48 +97,123 @@ function declaredEngines() {
  * output, in the same change that gives it a home. That is the difference
  * between a deliberate act and a silent one, which is the whole subject.
  */
+/**
+ * MIRRORED DELIBERATELY AFTER GH-677, and the mirroring is the point of pinning.
+ *
+ * This list is a SECOND surface on purpose: the graph declares its outputs and this
+ * file declares what we believe it declares, so a change to one has to be made in the
+ * other by a person. Generating it from the graph would make the case below compare the
+ * graph with itself and it would be green for ever.
+ *
+ * What changed, and each of these is a decision of GH-677 rather than a drift: two
+ * engines the passes run and the graph did not have (`soil-structure-engine`,
+ * `soil-temp-physics`); `computed.mlsnRows`, `computed.salinityPenalty`,
+ * `computed.wearRecovery` and `computed.water`, which are second keys real passes write
+ * and no node declared; and `disease-forecast`, whose output was named
+ * `computed.diseaseForecast` -- a key no pass has ever written -- against the
+ * `computed.forecast` it actually writes.
+ */
 const DECLARED_OUTPUTS = {
-    'ambient-dli-engine': ['computed.ambientDLI'],
-    'bipolaris-curvularia-engine': ['computed.disease.leafSpot'],
-    'climate-engine': ['computed.climate', 'derived.growthPotential'],
-    'dew-prediction-engine': ['computed.dew', 'computed.dew.leafWetness'],
-    'disease-engine': ['computed.disease', 'computed.disease.overallRisk'],
-    'disease-forecast': ['computed.diseaseForecast'],
+    'ambient-dli-engine': [
+        'computed.ambientDLI',
+    ],
+    'bipolaris-curvularia-engine': [
+        'computed.disease.leafSpot',
+    ],
+    'climate-engine': [
+        'computed.climate',
+        'derived.growthPotential',
+    ],
+    'dew-prediction-engine': [
+        'computed.dew',
+        'computed.dew.leafWetness',
+    ],
+    'disease-engine': [
+        'computed.disease',
+        'computed.disease.overallRisk',
+    ],
+    'disease-forecast': [
+        'computed.forecast',
+    ],
     'firmness-engine': [
         'computed.firmness.FI',
         'computed.firmness.hardnessClass',
         'computed.firmness.softnessRisk',
         'computed.firmness.surfaceHardness',
     ],
-    'irrigation-forecast': ['computed.irrigationForecast'],
-    'irrigation-scheduler': ['computed.irrigation'],
-    'mlsn-calculator': ['computed.mlsn'],
+    'irrigation-forecast': [
+        'computed.irrigationForecast',
+    ],
+    'irrigation-scheduler': [
+        'computed.irrigation',
+    ],
+    'mlsn-calculator': [
+        'computed.mlsn',
+        'computed.mlsnRows',
+    ],
     'nopt-engine': [
         'computed.nitrogen.applied',
         'computed.nitrogen.growthData',
         'computed.nitrogen.opt',
         'computed.nitrogen.status',
     ],
-    'nutrient-demand-engine': ['computed.nutrientDemand'],
-    'pgr-forecast': ['computed.pgrForecast'],
-    'pgr-module': ['computed.pgr'],
-    'phytotoxicity-engine': ['computed.phytotoxicity'],
+    'nutrient-demand-engine': [
+        'computed.nutrientDemand',
+    ],
+    'nutrition-calendar': [
+        'computed.nutritionCalendar',
+    ],
+    'nutrition-summary': [
+        'computed.nutritionSummary',
+    ],
+    'pgr-forecast': [
+        'computed.pgrForecast',
+    ],
+    'pgr-module': [
+        'computed.pgr',
+    ],
+    'phytotoxicity-engine': [
+        'computed.phytotoxicity',
+    ],
     'pre-emergent-engine': [
         'computed.preEmergent',
         'computed.preEmergent.aggregateStatus',
         'computed.preEmergent.results',
         'window.GAIP_PRE_EMERGENT_RESULT',
     ],
-    'salinity-penalty-engine': ['computed.salinity', 'computed.salinity.growthPenaltyPct'],
-    'shade-engine': ['computed.shade', 'computed.shade.dli', 'computed.shade.stressFactor'],
-    'soil-tissue-integration': ['computed.soilTissueIntegration'],
+    'salinity-penalty-engine': [
+        'computed.salinity',
+        'computed.salinity.growthPenaltyPct',
+        'computed.salinityPenalty',
+    ],
+    'scenario-engine': [
+        'computed.scenario',
+    ],
+    'shade-engine': [
+        'computed.shade',
+        'computed.shade.dli',
+        'computed.shade.stressFactor',
+    ],
+    'soil-structure-engine': [
+        'computed.soilStructure',
+    ],
+    'soil-temp-physics': [
+        'computed.soilTempPhysics',
+    ],
+    'soil-tissue-integration': [
+        'computed.soilTissueIntegration',
+    ],
     'stress-aggregator': [
         'computed.stress',
         'derived.combinedGrowthModifier',
         'derived.environmentalStressIndex',
     ],
-    'stress-trajectory-engine': ['computed.stressTrajectory'],
-    'tissue-engine': ['computed.tissue'],
+    'stress-trajectory-engine': [
+        'computed.stressTrajectory',
+    ],
+    'tissue-engine': [
+        'computed.tissue',
+    ],
     'traffic-engine': [
         'computed.traffic.TrafficRisk',
         'computed.traffic.recoveryProb',
@@ -141,8 +226,15 @@ const DECLARED_OUTPUTS = {
         'computed.turfManager.playerRisk',
         'computed.turfManager.renovationTrigger',
     ],
-    'water-blender': ['computed.waterBlend'],
-    'wear-recovery-engine': ['computed.wear', 'derived.adjustedRecoveryDays'],
+    'water-blender': [
+        'computed.water',
+        'computed.waterBlend',
+    ],
+    'wear-recovery-engine': [
+        'computed.wear',
+        'computed.wearRecovery',
+        'derived.adjustedRecoveryDays',
+    ],
 };
 
 /** The pass declares this engine's work under a different name than the graph does. */
@@ -152,6 +244,9 @@ const NAMED_DIFFERENTLY = { 'disease-forecast': 'forecast' };
 const RUN_BY_THE_CASCADE = [
     'mlsn-calculator', 'water-blender', 'phytotoxicity-engine',
     'firmness-engine', 'nopt-engine', 'traffic-engine', 'turf-manager-engine',
+    // GH-677: the cascade's run loop calls `executeSoilStructureEngine` between the
+    // water and salinity engines and the wear engine. It had no node until 6a.
+    'soil-structure-engine',
 ];
 
 /**
@@ -169,6 +264,18 @@ const PRODUCED_BUT_NEVER_DECLARED = [
 const NOT_RUN_HERE = [
     'ambient-dli-engine', 'irrigation-forecast', 'pgr-forecast',
     'nutrient-demand-engine', 'soil-tissue-integration',
+    // GH-677: the soil temperature model is computed inside the orchestrator's
+    // `populateCanonicalState` and its `computed.soilTempPhysics` is written by the ROW
+    // PRODUCER rather than by the pass, so this bench pass does not produce it. Moving
+    // the call into the pass proper is queue item 3az.
+    'soil-temp-physics',
+    // GH-680 (item 6a): the three nodes that are not pass modules at all. Two compute on a
+    // page and one is called by the ROW PRODUCER just before the single write, so a pass on
+    // the orchestrator bench produces none of them — which is a fact about where they run,
+    // not a gap in the bench.
+    'nutrition-calendar',
+    'nutrition-summary',
+    'scenario-engine',
 ];
 
 jest.setTimeout(60000);
@@ -245,6 +352,16 @@ describe('GH-584 — every engine the graph declares is in exactly one named buc
         // Read the graph again, in FULL PATHS this time: the bucket map above
         // keeps roots, and roots are exactly what hid the new output.
         const sb = { console: { log() {}, warn() {}, error() {} } };
+        // GH-678 (place 3 -- the gates): the graph's facts live in
+        // `assets/dependency-graph.json` and reach the page as
+        // `window.GAIP_DEPENDENCY_GRAPH`. The module no longer carries them, and given
+        // nothing it installs NOTHING rather than answering "affects nothing" -- so a
+        // sandbox that wants a graph has to hand it the data, exactly as a page does.
+        // This is not the graph comparing with itself: the other side of every claim
+        // below is elsewhere (the notice's step names, the bucket census, the composer).
+        sb.window = sb;
+        sb.GAIP_DEPENDENCY_GRAPH = JSON.parse(
+        fs.readFileSync(path.join(ROOT, 'assets/dependency-graph.json'), 'utf8'));
         sb.window = sb; sb.global = sb; sb.globalThis = sb;
         vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'assets/dependency-graph.js'), 'utf8'), sb,
             { filename: 'dependency-graph.js' });
@@ -265,7 +382,7 @@ describe('GH-584 — every engine the graph declares is in exactly one named buc
         const live = Object.values(engines).reduce((n, e) => n + e.roots.length + e.elsewhere.length, 0);
 
         process.stdout.write('[q64] outputs pinned: ' + pinned + '\n');
-        expect(pinned).toBe(50);
+        expect(pinned).toBe(59);
         // `live` counts ROOTS, so nested paths collapse — it is the smaller
         // number and must never exceed the pinned one.
         expect(live).toBeLessThanOrEqual(pinned);

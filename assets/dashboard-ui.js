@@ -5,6 +5,101 @@
 (function (global) {
     'use strict';
 
+    /**
+     * GH-684 — THE SPECIES-TO-CULTIVAR-TABLE KEY, IN ONE PLACE.
+     *
+     * It lived in `settings-init.js` alone, and the wizard needs the same answer to offer the
+     * cultivars of the species a person just chose. Copying it would have made two tables that
+     * disagree the first time a species is added to one of them. Moved here, where the project
+     * keeps shared UI logic: this file is loaded by the db-shell layout itself, so both Settings
+     * and the dashboard have it before their own scripts run.
+     *
+     * It MOVED rather than being duplicated: `settings-init.js` reads this object now.
+     */
+    global.GAIP_SpeciesTraitsKey = {
+        'Creeping Bentgrass (Greens)':              'bentgrass',
+        'Creeping Bentgrass (Fairway)':             'bentgrass',
+        'Creeping Bentgrass':                       'bentgrass',
+        'Colonial Bentgrass':                       'bentgrass',
+        'Browntop Bent':                            'browntopBent',
+        'Browntop Bent (Greens)':                   'browntopBent',
+        'Browntop Bent (Fairways)':                 'browntopBent',
+        'Perennial Ryegrass':                       'perennialRyegrass',
+        'Kentucky Bluegrass':                       'kentuckyBluegrass',
+        'Tall Fescue':                              'tallFescue',
+        'Fine Fescue':                              'fineFescue',
+        'Chewings Fescue':                          'chewingsFescue',
+        'Chewings Fescue (Greens)':                 'chewingsFescue',
+        'Chewings Fescue (Fairways)':               'chewingsFescue',
+        'Slender Creeping Red Fescue':              'slenderCreepingRedFescue',
+        'Slender Creeping Red Fescue (Greens)':     'slenderCreepingRedFescue',
+        'Slender Creeping Red Fescue (Fairways)':   'slenderCreepingRedFescue',
+        'Strong Creeping Red Fescue':               'strongCreepingRedFescue',
+        'Strong Creeping Red Fescue (Fairways)':    'strongCreepingRedFescue',
+        'Poa annua':                                null,
+        'Annual Bluegrass (Greens)':                null,
+        'Annual Bluegrass (Fairway)':               null,
+        'Couch':                                    'couch',
+        'Bermuda':                                  'couch',
+        'Kikuyu':                                   'kikuyu',
+        'Zoysia':                                   'zoysia',
+        'Seashore Paspalum':                        'seashore_paspalum',
+        'Buffalo':                                  'buffalo',
+        'Buffalograss':                             'buffalo',
+        'Cotula':                                   null,
+    };
+
+    /**
+     * GH-684 — ONE PRODUCER OF THE CULTIVAR LIST, for Settings and for the wizard.
+     *
+     * Both screens offer the cultivars of a species plus Generic / Unknown, and both were building
+     * that list themselves: Settings in `repopulateVariety`, the wizard in its species step (added
+     * by part 1 of this item, so the duplication is one this same work created). Two builders drift
+     * the first time the rule changes — and the rule already has two parts that are easy to get
+     * half right, seen here: Generic is OFFERED, and Generic is NOT what you get by not choosing.
+     *
+     * It returns data rather than markup, so a test can call it and read the answer instead of
+     * searching the source for a line. The mutation that made this necessary passed a source check:
+     * killing `if (!selectedValue)` left the line that adds the empty prompt exactly where it was.
+     *
+     * @param  {string} species        the species as the two screens name it
+     * @param  {*}      selectedValue  what the site has stored, empty for a site with none
+     * @returns {Array<{value: string, label: string, selected: boolean}>}
+     */
+    global.GAIP_CultivarOptions = function (species, selectedValue) {
+        var key = (global.GAIP_SpeciesTraitsKey || {})[species];
+        var traits = (global.GAIP_VARIETY_TRAITS || {})[key] || {};
+        var chosen = selectedValue === null || selectedValue === undefined ? '' : String(selectedValue);
+        var out = [];
+
+        // NOTHING CHOSEN MEANS AN EMPTY PROMPT, and it is first. Without it a list rebuilt from
+        // scratch shows its first entry, which is Generic — so a site with no cultivar would arrive
+        // at one nobody picked, which is the thing the owner removed from the wizard.
+        if (chosen === '') {
+            out.push({ value: '', label: '\u2014 select \u2014', selected: true });
+        }
+        out.push({ value: 'generic', label: 'Generic / Unknown', selected: chosen === 'generic' });
+
+        Object.keys(traits).forEach(function (name) {
+            if (name.indexOf('_') === 0) return;
+            var t = traits[name];
+            out.push({
+                value: name,
+                label: (t && t.displayName) || name,
+                selected: chosen === name,
+            });
+        });
+
+        // A stored cultivar that is not in the table still shows, and shows as chosen: the table is
+        // ours and the value is the site's, so an unknown name is a gap in the table, not a reason
+        // to make the site look unanswered.
+        if (chosen !== '' && chosen !== 'generic' && !out.some(function (o) { return o.value === chosen; })) {
+            out.splice(chosen === '' ? 0 : 1, 0, { value: chosen, label: chosen, selected: true });
+        }
+
+        return out;
+    };
+
     // ── Site switcher ─────────────────────────────────────────────────────────
 
     function initSiteSwitcher() {

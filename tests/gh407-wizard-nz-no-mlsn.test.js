@@ -19,9 +19,17 @@
  *   2. A choice the location disallows is CLEARED, not rewritten. The old line
  *      turned a saved 'mlsn' straight into 'ammonium_acetate' — a value the
  *      user never picked, entered on their behalf and then persisted by the
- *      next save. The step now clears it and pre-selects the single remaining
- *      option, which is a wizard suggesting a starting value (what a wizard
- *      step is for) rather than a wizard overwriting a decision.
+ *      next save.
+ *
+ * AND WHAT CHANGED AGAIN (GH-684, the coordinator, 24.09.2026): the clearing
+ * stays, the PRE-SELECTION goes. Filling New Zealand's single option back in
+ * satisfied the step's gate with nothing clicked, so a site could finish the
+ * wizard with a methodology nobody chose — the same substitution the point above
+ * removed, in a narrower coat. Coordinates decide which options are offered and
+ * nothing else; New Zealand's one option now costs one click. This applies to
+ * `onboarding-wizard.js`, the wizard a client meets. Its twin on `/hub` keeps
+ * both the suggestion and the pre-selection, because `/hub` is a calculation
+ * runner and is not changed.
  *
  * And a defect found while making that change, recorded here so the assertion
  * for it is not mistaken for decoration: the note read "MLSN is not offered for
@@ -138,9 +146,29 @@ describe('GH-407/521 — the wizards offer Ammonium Acetate alone for NZ, and cl
             expect(onboarding).toMatch(/\} else \{\s*\n\s*this\._methodClearedForNZ = null;\s*\n\s*\}/);
         });
 
-        test('the single remaining option is pre-selected only into an empty value', () => {
-            const at = onboarding.indexOf('if (!this.d.methodology) {\n                    this.d.methodology = \'ammonium_acetate\';');
-            expect(at).toBeGreaterThan(-1);
+        /**
+         * TURNED AROUND BY THE COORDINATOR, 24.09.2026 (GH-684), and kept rather than deleted so
+         * the reversal is visible. It asserted that New Zealand's single option WAS pre-selected
+         * into an empty value, and the reasoning then was that a wizard suggesting a value the
+         * person goes on to save is what a wizard step is.
+         *
+         * What that reasoning missed, and what the measurement showed: the pre-selection satisfied
+         * the step's gate with nothing clicked, so a New Zealand site could finish the wizard having
+         * never chosen a methodology, and it carried one nobody picked. The project rule is that
+         * methodology comes from what is entered in the settings and that coordinates decide exactly
+         * one thing — WHICH OPTIONS ARE OFFERED. Her decision: the auto-fill goes, the list stays
+         * narrowed, and New Zealand's one option costs one click.
+         *
+         * THE NARROWING ITSELF IS UNTOUCHED and the cases above still hold it: ammonium acetate
+         * alone, and a stored value that does not fit is cleared rather than rewritten.
+         */
+        test('the single remaining option is NOT filled in for the person', () => {
+            expect(onboarding).not.toContain("this.d.methodology = 'ammonium_acetate';");
+            // And it is not done by the other road either — the suggestion at the top of the step.
+            expect(onboarding).not.toMatch(/this\.d\.methodology = isNZ \? 'ammonium_acetate'/);
+            // The clearing of a value the place does not allow stays, or this would be asserting
+            // that the step does nothing at all.
+            expect(onboarding).toContain('this._methodClearedForNZ = this.d.methodology;');
         });
 
         test('the grid is two columns either way, so no gap is left where MLSN was', () => {

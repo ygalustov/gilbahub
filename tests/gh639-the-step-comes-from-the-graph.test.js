@@ -30,6 +30,16 @@ const SCHEMA = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/analysis-resul
 /** What the graph itself says, by running it. */
 function keysByRunningTheGraph() {
     const sb = { console: { log() {}, warn() {}, error() {} } };
+    // GH-678 (place 3 -- the gates): the graph's facts live in
+    // `assets/dependency-graph.json` and reach the page as
+    // `window.GAIP_DEPENDENCY_GRAPH`. The module no longer carries them, and given
+    // nothing it installs NOTHING rather than answering "affects nothing" -- so a
+    // sandbox that wants a graph has to hand it the data, exactly as a page does.
+    // This is not the graph comparing with itself: the other side of every claim
+    // below is elsewhere (the notice's step names, the bucket census, the composer).
+    sb.window = sb;
+    sb.GAIP_DEPENDENCY_GRAPH = JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'assets/dependency-graph.json'), 'utf8'));
     sb.window = sb; sb.global = sb; sb.globalThis = sb;
     vm.runInNewContext(GRAPH_SRC, sb, { filename: 'dependency-graph.js' });
     const graph = sb.GilbaDependencyGraph;
@@ -85,6 +95,11 @@ describe('GH-639 — the composer’s reading of the graph', () => {
         expect(withStep).toContain('pgr');
         expect(withStep).toContain('stressTrajectory');
         expect(withoutStep).toEqual(
-            ['applicationWindow', 'confidence', 'forecast', 'soilNutrition', 'soilTempPhysics', 'tissue', 'waterBalance']);
+            // GH-677: `forecast` HAS LEFT THIS LIST, and it left because the graph
+            // stopped being wrong. The `disease-forecast` node declared
+            // `computed.diseaseForecast`, a key no pass has ever written, so the
+            // composer could find no step for the `computed.forecast` the pass really
+            // writes. The node declares what it writes now, so the key gets a step.
+            ['applicationWindow', 'confidence',  'soilNutrition', 'soilTempPhysics', 'tissue', 'waterBalance']);
     });
 });

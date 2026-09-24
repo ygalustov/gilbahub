@@ -159,7 +159,10 @@ class AnalysisResults
             // account for — which includes a partial run whose producer sent no
             // detail at all: `nulls` is the server's own finding, and without it
             // the row would say "partial" and not say of what.
-            'detail'       => self::accountOf($nulls, $skipped, $detail),
+            'detail'       => self::accountOf($nulls, $skipped, $detail,
+                is_array($result['siteCheck'] ?? null) ? $result['siteCheck'] : null,
+                is_array($result['notApplicable'] ?? null) ? $result['notApplicable'] : null,
+                is_array($result['runStart'] ?? null) ? $result['runStart'] : null),
         ]);
     }
 
@@ -235,7 +238,7 @@ class AnalysisResults
      *
      * @param mixed $value
      */
-    public static function producedSomething($value): bool
+    public static function producedSomething($value, ?string $key = null): bool
     {
         if ($value === null) {
             return false;
@@ -244,6 +247,32 @@ class AnalysisResults
             $status = (string) ($value['status'] ?? '');
             if ($status === 'Error' || $status === 'Not available') {
                 return false;
+            }
+
+            // GH-667 (queue item 3ag) — A SECTION CAN BE EMPTY WHILE ITS OBJECT IS
+            // NOT, AND THE FORM SAYS WHEN.
+            //
+            // `soilNutrition` is never an empty object: the producer fills it with
+            // a shape — verdict, depths, ten nutrient cards — even when nothing was
+            // measured, so `$value !== []` answered "produced" over a screen
+            // showing NO DATA and ten dashes. Measured on row 70 of `Test6 - UK`, a
+            // site with no soil sample: 17 keys, `nutrients` of length ten, every
+            // `actual` a dash, `pH`/`CEC`/`ECe`/`soilNa` null.
+            //
+            // The marker is the producer's own verdict and it is declared in the
+            // result form, once, in the same shape for any section — not a rule
+            // about soil written here, and not a count of readings, which would
+            // distinguish nothing: `nutrients` has ten entries in the empty row and
+            // ten in the filled one. A key that declares no marker is unaffected.
+            if ($key !== null) {
+                $marker = AnalysisResultSchema::emptyWhen($key);
+                if ($marker !== null) {
+                    foreach ($marker as $field => $whenItSays) {
+                        if (($value[$field] ?? null) === $whenItSays) {
+                            return false;
+                        }
+                    }
+                }
             }
 
             return $value !== [];
@@ -260,12 +289,17 @@ class AnalysisResults
      * @param  array<string,mixed>            $detail
      * @return array<string,mixed>|null
      */
-    private static function accountOf(array $nulls, array $skipped, array $detail): ?array
+    private static function accountOf(array $nulls, array $skipped, array $detail,
+        ?array $siteCheck = null, ?array $notApplicable = null, ?array $runStart = null): ?array
     {
         $warnings = array_values(array_filter((array) ($detail['warnings'] ?? []), 'is_array'));
 
         $assumptions = array_values(array_filter((array) ($detail['assumptions'] ?? []), 'is_array'));
-        if (! $nulls && ! $skipped && ! $warnings && ! $assumptions) {
+        // GH-670 (queue item 3ao): the site check's own account is part of the row's
+        // account of itself, and it is enough on its own to make one — a row whose
+        // only remarkable fact is that no site was declared must still say so.
+        if (! $nulls && ! $skipped && ! $warnings && ! $assumptions && $siteCheck === null
+            && ! $notApplicable && $runStart === null) {
             return null;
         }
 
@@ -279,6 +313,19 @@ class AnalysisResults
             'assumptions' => array_values(array_filter(
                 (array) ($detail['assumptions'] ?? []), 'is_array'
             )),
+            // GH-670: WHAT THE SERVER CHECKED ABOUT THE SITE, kept with the row
+            // rather than in the response. The response lives a second; the row is
+            // read in a month. It carries whether a declaration was there at all,
+            // which sample keys were checked, and which resolved to nothing — three
+            // states that used to leave the check as one silence.
+            'siteCheck' => $siteCheck,
+            // GH-675 (item 4, slice 1): the gaps the run named, each with the class
+            // the server gave it, and the set of inputs that existed when the run
+            // STARTED. The set is copied here so the judgement can be read back
+            // later instead of being recomputed against a database that has moved on
+            // — which is the very reading this device removes.
+            'notApplicable' => $notApplicable ?: [],
+            'runStart' => $runStart,
         ];
     }
 

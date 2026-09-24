@@ -7,6 +7,9 @@ use App\Models\Site;
 use App\Models\SiteConfig;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Events\TransactionCommitted;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 /**
@@ -76,58 +79,115 @@ class Gh633ConfigPatchRaceMeasureTest extends TestCase
     }
 
     /**
-     * MEASUREMENT 2 (plan section 2a) — the site row, which has no lock of its
-     * own, and the derived copy that is read OUTSIDE the lock that writes it.
+     * GH-686 — WHAT USED TO BE MEASUREMENT 2 NOW GUARDS THE REPAIR IT WAS WAITING FOR.
      *
-     * HOW THE INTERLEAVING IS PRODUCED, because this one cannot be shown by two
-     * sequential requests: `ownedColumnValues()` calls `$site->refresh()` and
-     * only then takes the config lock. The test listens for that very read —
-     * Eloquent's `retrieved` event — and runs B's whole request inside it, ONCE.
-     * Nothing in the product is stubbed or modified; what is controlled is the
-     * ORDER, which is what a race is.
+     * It used to assert the LOSS: the column holding B's coordinate while the config copy held
+     * A's, produced by running B's whole request inside A's read. The repair landed -- the row and
+     * its copies are one transaction now -- so the case turns around rather than being deleted, and
+     * it says whose change turned it: the analyst's section 2a, accepted by the owner.
+     *
+     * AND B'S NESTED REQUEST IS GONE, which is the reviewer's own finding rather than a tidy-up.
+     * Two requests on one connection do not interleave the way two clients do: the values
+     * `-36.85 / -41.29` that the old case printed as a divergence were an artefact of the nested
+     * request sharing A's connection and A's transaction, not of the product. A measurement whose
+     * subject is manufactured by the measuring proves nothing about the product, so what is left
+     * is the part that IS about the product: the ORDER.
+     *
+     * WHAT IS ASSERTED: the read that feeds the derived copies happens INSIDE a transaction, and it
+     * brings back the latitude A had already written. Recognised by that value, which is what makes
+     * it that read and not the earlier one -- the refresh at the top of the lock still carries the
+     * previous coordinate.
+     *
+     * HOW "ONE TRANSACTION" IS MEASURED, and the transaction LEVEL will not do it. Two adjacent
+     * transactions both sit above the baseline, so a level alone cannot tell "the read is in the
+     * transaction that wrote the row" from "the read is in the next one". What tells them apart is
+     * whether a COMMIT happened in between, so commits are counted and the count is compared at the
+     * two moments. The level is asserted too, against the baseline rather than against zero:
+     * `RefreshDatabase` runs every test inside a transaction, so nothing here is ever at level 0.
+     *
+     * THE BOUNDARY, and it is not a small one: THE LOCK ITSELF IS NOT MEASURED HERE. PHPUnit runs
+     * on SQLite, which does not write `FOR UPDATE` at all, so nothing in this case can tell a
+     * lock that holds from a lock that is not taken. Two connections against MySQL would be
+     * required and there is no permitted database for it; the coordinator carries that remainder
+     * as a question of her own. What is claimed is the order and the one transaction.
      */
-    public function test_the_config_copy_of_a_coordinate_disagrees_with_the_column_that_owns_it(): void
+    public function test_the_read_that_feeds_the_copies_happens_inside_the_transaction_that_wrote_the_row(): void
     {
-        [$user, $site] = $this->siteWithTurf(['species' => 'Perennial Ryegrass']);
+        // The fixture carries a methodology: since GH-684 the server refuses a config write whose
+        // result leaves a site without one, and this case is about another subject entirely.
+        [$user, $site] = $this->siteWithTurf(['species' => 'Perennial Ryegrass', 'methodology' => 'mlsn']);
         $this->patchSite($user, $site, ['latitude' => -43.5, 'longitude' => 172.6])->assertOk();
 
-        // The moment wanted is the refresh INSIDE A's request, after A has
-        // written the row and before the config lock is taken — recognised by
-        // the value the read brings back: A's own latitude. The read at the
-        // start of the request still carries the previous one, so this cannot
-        // fire early, and the flag keeps it from firing inside B.
+        // Commits, counted, because the level cannot tell one transaction from the next one.
+        $commits = 0;
+        Event::listen(TransactionCommitted::class, function () use (&$commits) {
+            $commits++;
+        });
+        $baseline = DB::transactionLevel();
+        $log = [];
+        DB::listen(function ($query) use (&$log, &$commits) {
+            $log[] = ['sql' => $query->sql, 'level' => DB::transactionLevel(), 'commits' => $commits];
+        });
+
         $fired = false;
-        Site::retrieved(function (Site $model) use (&$fired, $user, $site) {
+        $levelAtRead = null;
+        $commitsAtRead = null;
+        $latitudeAtRead = null;
+        Site::retrieved(function (Site $model) use (&$fired, &$levelAtRead, &$commitsAtRead, &$latitudeAtRead, &$commits, $site) {
+            // The read wanted is the one that feeds the copies: it is the first retrieval that
+            // brings back A's OWN latitude, because the refresh at the top of the lock still
+            // carries the previous one. Nothing is written from in here.
             if ($fired || $model->id !== $site->id || (float) $model->latitude !== -41.29) {
                 return;
             }
             $fired = true;
-            // B writes the row and derives its copies while A is between its
-            // own read and its own write of the copies.
-            $this->patchSite($user, $site, ['latitude' => -36.85, 'longitude' => 174.76]);
+            $levelAtRead = DB::transactionLevel();
+            $commitsAtRead = $commits;
+            $latitudeAtRead = (float) $model->latitude;
         });
 
-        // A writes its coordinates; its copy is derived from what it read.
-        $this->patchSite($user, $site, ['latitude' => -41.29, 'longitude' => 174.78]);
+        $this->patchSite($user, $site, ['latitude' => -41.29, 'longitude' => 174.78])->assertOk();
+
+        $rowWrite = null;
+        foreach ($log as $entry) {
+            if (str_starts_with($entry['sql'], 'update "sites"')) {
+                $rowWrite = $entry;
+                break;
+            }
+        }
 
         $row = Site::query()->find($site->id);
         $copy = $this->config($site)['location'] ?? [];
-        fwrite(STDOUT, '[gh633-2] interleaving fired: '.json_encode($fired).PHP_EOL);
+        fwrite(STDOUT, PHP_EOL.'[gh633-2] the read that feeds the copies fired: '.json_encode($fired)
+            .'  at level '.json_encode($levelAtRead).' after '.json_encode($commitsAtRead).' commits'
+            .'  with latitude '.json_encode($latitudeAtRead).PHP_EOL);
+        fwrite(STDOUT, '[gh633-2] the row was written at level '
+            .json_encode($rowWrite['level'] ?? null).' after '
+            .json_encode($rowWrite['commits'] ?? null).' commits; baseline level '.json_encode($baseline).PHP_EOL);
         fwrite(STDOUT, '[gh633-2] sites.latitude='.json_encode((float) $row->latitude)
             .'  config.location.lat='.json_encode($copy['lat'] ?? null).PHP_EOL);
 
-        // The positive control: without the interleaving this measures nothing.
-        $this->assertTrue($fired, 'the refresh never happened — the measurement did not reach its subject');
-
+        // THE SUBJECT EXISTS, asserted before anything is concluded from it. Without the read
+        // there is no order to speak of, and without the copy the read fed nothing.
+        $this->assertTrue($fired, 'the read that feeds the copies never happened — this case did not reach its subject');
+        $this->assertNotNull($rowWrite, 'the row was never written, so there is no transaction to be inside of');
         $this->assertNotNull($copy['lat'] ?? null, 'no copy was derived at all');
 
-        // TODAY: the column holds B's coordinate and the config copy holds A's.
-        // Whoever reads the config sees a latitude that is not the one its
-        // owner holds.
-        // THIS CASE MUST GO RED when plan section 2a lands — one transaction for the
-        // row and its copies, values read INSIDE it.
-        $this->assertSame(-36.85, (float) $row->latitude, 'the row does not hold what B wrote');
-        $this->assertSame(-41.29, (float) $copy['lat'], 'the copy does not hold what A derived');
+        // THE CLAIM: that read is inside the transaction that wrote the row, and it sees the row
+        // as written. Both halves matter — a read inside the transaction that came BEFORE the
+        // write would leave the copy stale just as surely.
+        $this->assertGreaterThan($baseline, $rowWrite['level'], 'the row was written outside a transaction');
+        $this->assertGreaterThan($baseline, $levelAtRead,
+            'the values for the copies were read outside any transaction the request opened');
+        // THE ONE TRANSACTION: nothing was committed between writing the row and reading it back.
+        $this->assertSame($rowWrite['commits'], $commitsAtRead,
+            'a commit happened between the row being written and the read that feeds its copies, so they are two transactions, not one');
+        $this->assertSame(-41.29, $latitudeAtRead,
+            'the read brought back a latitude other than the one just written');
+
+        // And the copy carries it, so the read was indeed the one feeding the copies.
+        $this->assertSame(-41.29, (float) $copy['lat'], 'the copy does not hold what the row holds');
+        $this->assertSame(-41.29, (float) $row->latitude);
     }
 
     private function patchSite(User $user, Site $site, array $body)

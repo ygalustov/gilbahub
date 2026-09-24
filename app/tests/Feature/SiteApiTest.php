@@ -158,7 +158,11 @@ class SiteApiTest extends TestCase
             ->patchJson('/api/sites/'.$site->id.'/config/gaip', [
                 '_token' => 'test-token',
                 'patch' => [
-                    'turf' => ['species' => 'couch'],
+                    // GH-684: the server refuses a write whose RESULT leaves the
+                    // site without a methodology, and this site starts with no config at all.
+                    // The patch carries one because that is what the product does -- the wizard
+                    // sends the place and the turf in ONE write, methodology among them.
+                    'turf' => ['species' => 'couch', 'methodology' => 'mlsn'],
                 ],
             ])
             ->assertOk()
@@ -204,7 +208,11 @@ class SiteApiTest extends TestCase
             ->patchJson('/api/sites/my_site/config/gaip', [
                 '_token' => 'test-token',
                 'patch' => [
-                    'turf' => ['species' => 'couch'],
+                    // GH-684: the server refuses a write whose RESULT leaves the
+                    // site without a methodology, and this site starts with no config at all.
+                    // The patch carries one because that is what the product does -- the wizard
+                    // sends the place and the turf in ONE write, methodology among them.
+                    'turf' => ['species' => 'couch', 'methodology' => 'mlsn'],
                 ],
             ])
             ->assertOk()

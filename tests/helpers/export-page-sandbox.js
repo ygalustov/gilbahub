@@ -789,6 +789,16 @@ function installDataStubs(sandbox) {
 function loadPage(record) {
     const built = buildSandbox(record);
     const sandbox = built.sandbox;
+    // GH-678 (place 3 -- the gates): the page is handed the dependency graph as DATA
+    // (`layouts/app.blade.php` and `layouts/db-shell.blade.php`), and since
+    // `dependency-graph.js` stopped carrying its own copy of the nodes, a harness that
+    // loads it without the data gets no graph at all -- deliberately, because a graph
+    // built from nothing answers "this input affects nothing" and that reads exactly
+    // like a correct answer. This sandbox stands in for the page, so it gives what the
+    // page gives. Found by the gate's first run: three suites here reported a
+    // `console.error` none of them had before.
+    sandbox.GAIP_DEPENDENCY_GRAPH = JSON.parse(
+        fs.readFileSync(path.join(ASSETS, 'dependency-graph.json'), 'utf8'));
     vm.createContext(sandbox);
     const failures = [];
     // docx and jszip capture the timer they find at load time for their own

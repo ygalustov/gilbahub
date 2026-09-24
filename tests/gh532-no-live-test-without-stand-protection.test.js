@@ -49,6 +49,19 @@ const REMEDIES = ['guardStand', 'captureConfigsOnce', 'restoreConfigs', 'fillOwn
  * backlog, not an argument that they are safe.
  */
 const EXEMPT = {
+    'gh671-the-wizard-saves-a-sports-site-live.test.js': {
+        why: 'ITS PURPOSE IS THE WRITE, and the write is a client setting up a site. The item it '
+            + 'closes is about a person walking the onboarding wizard and the site not being '
+            + 'saved, and its own record carries the gap verbatim: what the person sees was '
+            + 'confirmed only by the code of the `alert`, never by observation. `guardStand` '
+            + 'would hold the very save under measurement. It CREATES ONE NEW SITE through the '
+            + 'product\'s own Add site form and runs the wizard on it, so nothing existing is '
+            + 'edited -- the wizard patches the ACTIVE site, and the eight live provisional '
+            + 'sites would have had real configs overwritten. The press was authorised and '
+            + 'announced, both outcomes were named in the file first, and every native dialog is '
+            + 'captured rather than auto-dismissed, because a silent failure is the subject.',
+        until: '2026-10-15',
+    },
     'gh661-the-held-write-names-its-site-live.test.js': {
         why: 'IT HOLDS EVERY WRITE ITSELF, not only the patterns this guard knows. It presses '
             + 'Re-run once in a frame whose `?site=` names one site while the user\'s pointer '

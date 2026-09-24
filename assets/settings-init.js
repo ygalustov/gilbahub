@@ -581,38 +581,9 @@
     var turfVarietyEl = document.getElementById('stg-turf-variety');
     var turfSpeciesEl = document.getElementById('stg-turf-species');
 
-    var _speciesTraitsKey = {
-        'Creeping Bentgrass (Greens)':              'bentgrass',
-        'Creeping Bentgrass (Fairway)':             'bentgrass',
-        'Creeping Bentgrass':                       'bentgrass',
-        'Colonial Bentgrass':                       'bentgrass',
-        'Browntop Bent':                            'browntopBent',
-        'Browntop Bent (Greens)':                   'browntopBent',
-        'Browntop Bent (Fairways)':                 'browntopBent',
-        'Perennial Ryegrass':                       'perennialRyegrass',
-        'Kentucky Bluegrass':                       'kentuckyBluegrass',
-        'Tall Fescue':                              'tallFescue',
-        'Fine Fescue':                              'fineFescue',
-        'Chewings Fescue':                          'chewingsFescue',
-        'Chewings Fescue (Greens)':                 'chewingsFescue',
-        'Chewings Fescue (Fairways)':               'chewingsFescue',
-        'Slender Creeping Red Fescue':              'slenderCreepingRedFescue',
-        'Slender Creeping Red Fescue (Greens)':     'slenderCreepingRedFescue',
-        'Slender Creeping Red Fescue (Fairways)':   'slenderCreepingRedFescue',
-        'Strong Creeping Red Fescue':               'strongCreepingRedFescue',
-        'Strong Creeping Red Fescue (Fairways)':    'strongCreepingRedFescue',
-        'Poa annua':                                null,
-        'Annual Bluegrass (Greens)':                null,
-        'Annual Bluegrass (Fairway)':               null,
-        'Couch':                                    'couch',
-        'Bermuda':                                  'couch',
-        'Kikuyu':                                   'kikuyu',
-        'Zoysia':                                   'zoysia',
-        'Seashore Paspalum':                        'seashore_paspalum',
-        'Buffalo':                                  'buffalo',
-        'Buffalograss':                             'buffalo',
-        'Cotula':                                   null,
-    };
+    // GH-684: the table moved to `dashboard-ui.js`, which the db-shell layout loads before this
+    // file, so Settings and the onboarding wizard offer cultivars from the same one.
+    var _speciesTraitsKey = window.GAIP_SpeciesTraitsKey || {};
 
     function _normalizeRegion(regionId) {
         if (!regionId) return null;
@@ -704,35 +675,30 @@
 
     function repopulateVariety(species, selectedValue) {
         if (!turfVarietyEl) return;
-        var key = _speciesTraitsKey[species];
-        var varieties = [{ value: 'generic', label: 'Generic / Unknown' }];
+        /**
+         * GH-684 — THE LIST COMES FROM THE ONE PRODUCER, in `dashboard-ui.js`, which the db-shell
+         * layout loads before this file. Settings and the onboarding wizard offered the same list
+         * and each built it, which is two rules to keep in step; there is one now, and it decides
+         * both halves that matter — Generic is offered, and Generic is not what you get by not
+         * choosing.
+         *
+         * Without the producer nothing is rebuilt and the element keeps what the template rendered.
+         * Said rather than silently falling back to a list of our own here.
+         */
+        if (typeof window.GAIP_CultivarOptions !== 'function') {
+            if (window.console) { console.warn('[Settings] no cultivar producer; the list is left as rendered'); }
 
-        var vt = window.GAIP_VARIETY_TRAITS;
-        if (vt && key && vt[key]) {
-            Object.keys(vt[key]).forEach(function (name) {
-                if (name.startsWith('_')) return;
-                var v = vt[key][name];
-                varieties.push({ value: name, label: (v && v.displayName) || name });
-            });
+            return;
         }
 
         turfVarietyEl.innerHTML = '';
-        varieties.forEach(function (v) {
+        window.GAIP_CultivarOptions(species, selectedValue).forEach(function (v) {
             var o = document.createElement('option');
             o.value = v.value;
             o.textContent = v.label;
-            if (v.value === selectedValue) o.selected = true;
+            if (v.selected) o.selected = true;
             turfVarietyEl.appendChild(o);
         });
-        // If saved variety not in list, prepend it
-        if (selectedValue && selectedValue !== 'generic' &&
-            !varieties.some(function (v) { return v.value === selectedValue; })) {
-            var o = document.createElement('option');
-            o.value = selectedValue;
-            o.textContent = selectedValue;
-            o.selected = true;
-            turfVarietyEl.insertBefore(o, turfVarietyEl.firstChild);
-        }
     }
 
     var _overseedGroups = {
@@ -770,7 +736,22 @@
     }
 
     var _savedSpecies = turfSpeciesEl ? (turfSpeciesEl.dataset.savedSpecies || '') : '';
-    var _initVariety  = (D.gaipConfig && D.gaipConfig.turf && D.gaipConfig.turf.variety) || 'generic';
+    /**
+     * GH-684 — NO DEFAULT. This used to fall back to `'generic'`, so a site with NO cultivar opened
+     * Settings with "Generic / Unknown" already selected, and pressing Save stored a cultivar
+     * nobody chose. That is the substitution the owner removed from the wizard on 24.09.2026 --
+     * "so that it is not filled in by default, but that they choose it from the list knowingly" --
+     * and the same value arrived by this road.
+     *
+     * The six sites that carry `generic` are unaffected: their value comes from the config, not
+     * from this fallback, and Generic / Unknown is offered and shown selected for them as before.
+     * What changes is a site with nothing: it now shows the empty prompt, which is the truth.
+     *
+     * BEYOND THE THREE ITEMS OF THE PLAN for this part, and said out loud rather than folded in: it
+     * is one line in the area the part is about, and leaving it would have kept the defect the part
+     * exists to remove.
+     */
+    var _initVariety  = (D.gaipConfig && D.gaipConfig.turf && D.gaipConfig.turf.variety) || null;
 
     if (turfSpeciesEl) {
         turfSpeciesEl.addEventListener('change', function () {

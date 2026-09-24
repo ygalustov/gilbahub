@@ -631,21 +631,35 @@ function gaip_extractCascadeResults(cascadeResult, domState, weather) {
  * The engines the hub's cascade pass runs. Named once: a repeat pass that ran a
  * different set would not be a repeat of anything.
  */
-var GAIP_CASCADE_ENGINES = [
-    "mlsn-engine",
-    "water-engine",
-    "climate-engine",
-    "firmness-engine",
-    "nopt-engine",
-    "traffic-engine",
-    "shade-engine",
-    "salinity-penalty-engine",
-    "soil-structure-engine",
-    "phytotoxicity-engine",
-    "wear-recovery-engine",
-    "turf-manager-engine",
-    "tissue-engine",
-];
+/**
+ * GH-681 (queue item 6a, item 2) — THE LIST COMES FROM THE GRAPH, NOT FROM HERE.
+ *
+ * This was the third hand-written declaration of the cascade's engines, beside the adapter's
+ * own map and the export's detector, and it had drifted from the adapter: it named
+ * `mlsn-engine` and `water-engine` while the graph -- and now the adapter -- call those nodes
+ * `mlsn-calculator` and `water-blender`, and it carried `climate-engine`, which this adapter
+ * has no branch for.
+ *
+ * The cascade's engines are the nodes whose handle is declared in the adapter's own file,
+ * which the graph states. Given no graph the list is EMPTY and the adapter refuses the pass
+ * with a reason -- a repeat pass over a different set would not be a repeat of anything, and
+ * an empty pass that reported success is the shape this work removes.
+ */
+function gaip_cascadeEnginesFromTheGraph() {
+    var graph = (typeof window !== "undefined" && window.GAIP_DEPENDENCY_GRAPH) || null;
+    if (!graph || !graph.nodes) return [];
+
+    return Object.keys(graph.nodes).filter(function (id) {
+        var node = graph.nodes[id] || {};
+        var handles = Array.isArray(node.handle) ? node.handle : (node.handle ? [node.handle] : []);
+
+        return handles.some(function (h) {
+            return typeof h === "string" && h.indexOf("assets/cascade-orchestrator.js:") === 0;
+        });
+    }).sort();
+}
+
+var GAIP_CASCADE_ENGINES = gaip_cascadeEnginesFromTheGraph();
 
 /**
  * GH-589 (link 4) — A CASCADE PASS, AND IT COLLECTS ITS OWN STATE.
@@ -1547,6 +1561,18 @@ function gaip_build_state(e) {
     var i,
         a,
         o = {
+            // GH-664 (item 3ch, analyst 26.1 points 1-2): WHAT THE SITE'S
+            // CONSTRUCTION MEANS, resolved by the server from the one declared
+            // dictionary and delivered with this site's own config. It is not read
+            // off the form and not interpreted here: consumers take the property
+            // they need out of `resolves`, and `null` is a site with no
+            // construction, which is an outcome rather than a default.
+            construction: (function () {
+                try {
+                    var c = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.construction;
+                    return c || null;
+                } catch (err) { return null; }
+            })(),
             climate: {
                 location: e.querySelector(".gaip-location")?.value || "",
                 useLiveWeather: t,

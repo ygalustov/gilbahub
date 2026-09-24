@@ -122,6 +122,29 @@
       "and the disease page reads it as a fallback. `soilTempPhysics` is computed",
       "while the panel is drawn, which is its own open item."
     ],
+    "$comment3": [
+      "GH-667 (queue item 3ag) — WHEN A SECTION IS EMPTY THOUGH ITS OBJECT IS NOT.",
+      "",
+      "`soilNutrition` is never an empty object: the producer fills it with a shape",
+      "— verdict, depths, ten nutrient cards — even when nothing was measured. So",
+      "the general predicate, which asks whether the object has anything in it,",
+      "answers 'produced' while the screen shows NO DATA and ten dashes. Measured on",
+      "row 70 of `Test6 - UK`, a site with no soil sample at all: 17 keys,",
+      "`nutrients` of length TEN, every `actual` a dash, `pH`/`CEC`/`ECe`/`soilNa`",
+      "all null, `verdict: \"NO DATA\"`.",
+      "",
+      "THE MARKER IS DECLARED HERE, AND IT IS DECLARED THE SAME WAY FOR ANY SECTION.",
+      "The analyst's decision (her 4.13e/4.13zh): a section is empty when the",
+      "producer's own verdict says so. This is not a rule about soil inside the",
+      "composer, and it is not a count of readings — `nutrients` has ten entries in",
+      "both the empty and the filled row, so counting the cards distinguishes",
+      "nothing. `NO DATA` is written exactly when nothing was measured (GH-576).",
+      "",
+      "A section with no entry here keeps the general predicate unchanged."
+    ],
+    "emptyWhen": {
+      "soilNutrition": { "verdict": "NO DATA" }
+    },
     "assembledFrom": {
       "soilNutrition": ["mlsn"],
       "waterBalance": ["water", "irrigation", "salinity"],

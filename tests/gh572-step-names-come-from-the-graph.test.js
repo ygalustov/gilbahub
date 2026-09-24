@@ -40,6 +40,16 @@ function stepNames() {
 /** Every engine the graph knows, by the `computed.*` key it writes. */
 function labelsByComputedKey() {
     const sb = { console: { log() {}, warn() {}, error() {} } };
+    // GH-678 (place 3 -- the gates): the graph's facts live in
+    // `assets/dependency-graph.json` and reach the page as
+    // `window.GAIP_DEPENDENCY_GRAPH`. The module no longer carries them, and given
+    // nothing it installs NOTHING rather than answering "affects nothing" -- so a
+    // sandbox that wants a graph has to hand it the data, exactly as a page does.
+    // This is not the graph comparing with itself: the other side of every claim
+    // below is elsewhere (the notice's step names, the bucket census, the composer).
+    sb.window = sb;
+    sb.GAIP_DEPENDENCY_GRAPH = JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'assets/dependency-graph.json'), 'utf8'));
     sb.window = sb; sb.global = sb; sb.globalThis = sb;
     vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'assets/dependency-graph.js'), 'utf8'), sb,
         { filename: 'dependency-graph.js' });
@@ -66,7 +76,7 @@ const normalise = (s) => s.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, ' 
  * Listed here rather than inferred, so that a module which SHOULD have had a
  * graph entry cannot slip in by simply not having one.
  */
-const NO_ENGINE_OF_ITS_OWN = ['cascade', 'water', 'canonical', 'confidence', 'dmi', 'engine', 'isolated', 'selective', 'orchestrator'];
+const NO_ENGINE_OF_ITS_OWN = ['cascade', 'canonical', 'confidence', 'dmi', 'engine', 'isolated', 'selective', 'orchestrator'];
 
 /**
  * Four modules whose `warn` name is not the `computed.*` key their engine
@@ -75,12 +85,20 @@ const NO_ENGINE_OF_ITS_OWN = ['cascade', 'water', 'canonical', 'confidence', 'dm
  * sees, and the graph is about what an engine writes.
  */
 const GRAPH_KEY = {
-    // GH-586: the water quality result has no engine of its own in the graph —
-    // the graph declares `water-blender` (`computed.waterBlend`) and nothing for
-    // `computed.water`, which the cascade adapter writes. So the module is named
-    // in the list below rather than checked against a label that does not exist.
+    // GH-677: BOTH ALIASES THAT STOOD HERE HAVE GONE, and each went because the graph
+    // stopped being wrong rather than because this map was loosened.
+    //
+    // `water`: the note here said the graph declares `water-blender`
+    // (`computed.waterBlend`) and nothing for `computed.water`, so the module was
+    // listed as having no engine. `water-blender` IS the water engine
+    // (`executeWaterEngine` -> `global.waterEngine`) and it now declares
+    // `computed.water` beside `computed.waterBlend`. The module has a label, so it
+    // leaves the no-engine list below.
+    //
+    // `forecast`: the alias pointed at `diseaseForecast`, a key NO pass has ever
+    // written. The node's output was misnamed; it declares `computed.forecast`, which
+    // is what `runComputePass` writes, so the module resolves directly.
 
-    'forecast': 'diseaseForecast',
     'pre-emergent': 'preEmergent',
     'stress-trajectory': 'stressTrajectory',
     'tissue-corrective': 'tissue',

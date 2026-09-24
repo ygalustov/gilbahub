@@ -25,6 +25,10 @@
         gettingStartedSteps: @json($gettingStartedSteps),
         activeSiteRole:      @json($activeSiteRole),
         provisionalName:     @json($provisionalName),
+        {{-- GH-684: what is missing, which step collects it, and what is already answered —
+             all by the inputs list's own names, decided by the server. The page does not
+             work it out from fields of its own. --}}
+        setup:               @json($setup),
     });
     window.GAIP_SiteContext = {
         getSiteId: function() {

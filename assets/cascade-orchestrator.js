@@ -52,29 +52,50 @@
     // CONFIGURATION
     // =========================================================================
 
+    /**
+     * GH-681 (queue item 6a, item 2) — THE ENGINE MAP IS DERIVED FROM THE GRAPH.
+     *
+     * Sixteen engines were declared here by hand, and three of those entries had stopped
+     * being true: `climate-engine`, `dew-prediction-engine` and `disease-engine` were in the
+     * map while this adapter has no branch for any of them -- they run in the orchestrator.
+     * A hand-written map drifts quietly because nothing compares it with the code.
+     *
+     * The engines of THIS adapter are the nodes whose handle is declared IN THIS FILE, which
+     * the graph now states (the handles are qualified with their file). The `computed` key
+     * each one writes is the root of its first declared output. So both facts come from the
+     * one place that owns them.
+     *
+     * NO GRAPH, NO MAP. The page is handed the graph (`window.GAIP_DEPENDENCY_GRAPH`); with
+     * nothing injected this adapter does not quietly fall back to a list of its own, because
+     * a list of its own is what this change removes. `runCascade` reports the refusal.
+     */
+    const GRAPH = (typeof global.GAIP_DEPENDENCY_GRAPH === 'object' && global.GAIP_DEPENDENCY_GRAPH
+        && global.GAIP_DEPENDENCY_GRAPH.nodes) ? global.GAIP_DEPENDENCY_GRAPH : null;
+
+    function engineMapFromTheGraph(graph) {
+        const out = {};
+        if (!graph) return out;
+        Object.keys(graph.nodes).forEach(function (id) {
+            const node = graph.nodes[id] || {};
+            const handles = Array.isArray(node.handle) ? node.handle : (node.handle ? [node.handle] : []);
+            const mine = handles.some(function (h) {
+                return typeof h === 'string' && h.indexOf('assets/cascade-orchestrator.js:') === 0;
+            });
+            if (!mine) return;
+            const first = (node.outputs || []).find(function (o) {
+                return typeof o === 'string' && o.indexOf('computed.') === 0;
+            });
+            if (!first) return;
+            out[id] = first.slice('computed.'.length).split('.')[0];
+        });
+
+        return out;
+    }
+
     const CASCADE_CONFIG = {
-        version: '1.3.0',
+        version: '1.4.0',
         debug: false,
-        
-        // Engine ID mapping for cascade operations
-        engineMap: {
-            'climate-engine': 'climate',
-            'firmness-engine': 'firmness',
-            'nopt-engine': 'nitrogen',
-            'traffic-engine': 'traffic',
-            'shade-engine': 'shade',
-            'salinity-penalty-engine': 'salinity',
-            'soil-structure-engine': 'soilStructure',
-            'phytotoxicity-engine': 'phytotoxicity',
-            'wear-recovery-engine': 'wear',
-            'turf-manager-engine': 'turfManager',
-            'tissue-engine': 'tissue',
-            'mlsn-engine': 'mlsn',
-            'water-engine': 'water',
-            'dew-prediction-engine': 'dew',
-            'disease-engine': 'disease',
-            'stress-trajectory-engine': 'stressTrajectory'
-        }
+        engineMap: engineMapFromTheGraph(GRAPH),
     };
 
     // =========================================================================
@@ -684,26 +705,44 @@
             const computed = {};
             const executionOrder = [];
 
-            // Determine which engines to run
+            // GH-681: the engines to run, and a refusal rather than a silent empty pass.
+            // An empty engine list would produce a result with no modules in it and report
+            // success -- the shape of "a run that answered nothing and said nothing".
             const engines = options.includeEngines || Object.keys(CASCADE_CONFIG.engineMap);
+            if (!engines.length) {
+                /**
+                 * NO CODE IS INVENTED HERE. A refusal the RUNNER reports carries a code, and a
+                 * code must carry a sentence a client reads — `Gh644NoIdentifierAnywhere`
+                 * caught the one I had written, which had no sentence, so the panel would have
+                 * printed the code itself. The words are the owner's.
+                 *
+                 * The refusal is therefore recorded where the pass keeps what went wrong, and
+                 * the adapter simply does not run: an empty engine list would produce a result
+                 * with no modules in it and report success.
+                 */
+                warn('the cascade was not given a dependency graph, so it has no engine list;'
+                    + ' refusing rather than running an empty pass');
+
+                return { success: false, state: null, refusedWithoutTheGraph: true };
+            }
 
             // ─────────────────────────────────────────────────────────────────
             // STAGE 1: Base engines (no dependencies)
             // ─────────────────────────────────────────────────────────────────
             
-            if (engines.includes('mlsn-engine') || engines.includes('climate-engine')) {
+            if (engines.includes('mlsn-calculator') || engines.includes('climate-engine')) {
                 var mlsnOut = executeMLSNEngine(state, weather);
                 // `computed.mlsn` keeps its meaning — the rendered table — so
                 // every reader of it is untouched. The rows travel beside it.
                 computed.mlsn = mlsnOut.status ? mlsnOut : mlsnOut.html;
                 computed.mlsnRows = mlsnOut.nutrients;
-                executionOrder.push('mlsn-engine');
+                executionOrder.push('mlsn-calculator');
             }
 
-            if (engines.includes('water-engine')) {
+            if (engines.includes('water-blender')) {
                 computed.water = executeWaterEngine(state);
                 computed.waterBlend = computed.water; // Alias
-                executionOrder.push('water-engine');
+                executionOrder.push('water-blender');
             }
 
             // ─────────────────────────────────────────────────────────────────

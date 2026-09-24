@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\EnsureSiteIsSetUp;
 use App\Support\AnalysisResults;
+use App\Support\CalculationInputs;
 use App\Models\Sample;
 use App\Models\Site;
 use Illuminate\Http\RedirectResponse;
@@ -89,6 +91,40 @@ class DashboardController extends Controller
             'analysis' => !is_null($analysisCache),
         ];
 
+        /**
+         * GH-684 (item 3bk) — WHETHER THE WIZARD OPENS IS THE SERVER'S ANSWER, and it is the same
+         * answer the lock will use.
+         *
+         * The page used to decide for itself, from four fields it named in JavaScript
+         * (`cfg.turfSpecies && cfg.turfMethodology && lat && lon`), and a site missing a cultivar
+         * or a construction walked past it. Now the page is TOLD what is missing, by the list's own
+         * names, by `EnsureSiteIsSetUp::missingInputs` — the one function the lock holds on.
+         *
+         * WITH NO ACTIVE SITE nothing is answered, so everything required is missing and the wizard
+         * opens. That is the honest reading of the same rule rather than a special case: the wizard
+         * creates the site itself.
+         *
+         * `byStep` says which of those inputs each wizard step collects, derived from `filledIn`,
+         * so the wizard can open at the first step that is short of an answer and refuse to pass it.
+         */
+        $setupTurfType = $gaipConfig['turf']['turfType'] ?? '';
+        $setup = [
+            'missing' => $activeSite
+                ? EnsureSiteIsSetUp::missingInputs($activeSite)
+                : CalculationInputs::requiredFor(''),
+            'byStep' => CalculationInputs::wizardStepsFor(is_string($setupTurfType) ? $setupTurfType : '')['byStep'],
+            'answers' => $activeSite
+                ? EnsureSiteIsSetUp::answersFor($activeSite, CalculationInputs::requiredFor(is_string($setupTurfType) ? $setupTurfType : ''))
+                : [],
+            // The constructions a person may choose, from the list's own value dictionary rather
+            // than a second table in the wizard. `offeredFor` is null and the owner has not yet
+            // decided which constructions suit which turf type, so every one of them is offered;
+            // narrowing them here would be answering that question on her behalf.
+            'constructionValues' => collect(CalculationInputs::entry('turf.construction')['values'] ?? [])
+                ->map(fn ($v, $id) => ['id' => $id, 'label' => is_array($v) ? ($v['label'] ?? $id) : $id])
+                ->values()->all(),
+        ];
+
         // Role on active site — used by JS for role-aware UI (e.g. Getting Started panel)
         $activeSiteRole = $activeSite ? $user?->roleOnSite($activeSite) : null;
 
@@ -113,6 +149,7 @@ class DashboardController extends Controller
             'gettingStartedSteps' => $gettingStartedSteps,
             'activeSiteRole'      => $activeSiteRole,
             'provisionalName'     => $provisionalName,
+            'setup'               => $setup,
         ]);
     }
 }

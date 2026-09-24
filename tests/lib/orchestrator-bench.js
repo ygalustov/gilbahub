@@ -109,6 +109,17 @@ function makeSandbox() {
         documentElement: stubElement(),
     };
     s.window = s; s.global = s; s.globalThis = s; s.self = s;
+    /**
+     * GH-681: THE BENCH IS HANDED THE DEPENDENCY GRAPH, because the page is.
+     *
+     * The cascade adapter's engine list used to be written inside the adapter; it comes from
+     * `window.GAIP_DEPENDENCY_GRAPH` now, and given nothing the adapter REFUSES the pass
+     * rather than running an empty one. A bench that stands in for the page has to give what
+     * the page gives — the alternative is a bench measuring the absence of its own setup.
+     * Found by the gate's first full run: six suites went red at once, all of them here.
+     */
+    s.GAIP_DEPENDENCY_GRAPH = JSON.parse(require('fs').readFileSync(
+        require('path').join(__dirname, '..', '..', 'assets', 'dependency-graph.json'), 'utf8'));
     s.location = { href: 'http://localhost/hub', search: '', origin: 'http://localhost', hostname: 'localhost' };
     return s;
 }

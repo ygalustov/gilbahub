@@ -62,14 +62,20 @@ function consumerTables() {
     const irrigation = require(path.join(ROOT, 'assets', 'irrigation-scheduler.js'));
     out.irrigationSoilType = Object.keys((irrigation.config || {}).soilTypes || {});
 
-    // The structure engine exports onto a global rather than module.exports.
+    // GH-664 — THE ENGINE NO LONGER HAS A TABLE, AND THAT IS WHY THIS CHANGED.
+    //
+    // This read `GAIP_SoilStructure.config.sandRootzones` and compared the
+    // dictionary against it. That list was the tenth copy of the dictionary, and
+    // item 3ch removed it: the engine now reads `resolves.structurePathway`. A
+    // comparison against a table that no longer exists went red with an empty
+    // universe — correctly, and this is the repair rather than a silencing: the
+    // dictionary is now compared against what the engine DOES, which is what the
+    // cell claims in the first place.
     global.window = global.window || global;
     require(path.join(ROOT, 'assets', 'soil-structure-engine.js'));
     const structure = global.GAIP_SoilStructure || {};
-    out.structurePathway = ((structure.config || {}).sandRootzones || []).length
-        ? ['sand', 'clay']   // the pathway is one of two; membership of the list decides
-        : [];
-    out.sandRootzones = (structure.config || {}).sandRootzones || [];
+    out.structurePathway = typeof structure.pathwayFrom === 'function' ? ['sand', 'clay'] : [];
+    out.pathwayFrom = structure.pathwayFrom || null;
 
     return out;
 }
@@ -93,14 +99,14 @@ describe('GH-656 — test (a): a construction resolves into a row its consumer a
             + JSON.stringify(TABLES.thermalProfile) + '\n'
             + '[gh656] irrigation soil types (' + TABLES.irrigationSoilType.length + '): '
             + JSON.stringify(TABLES.irrigationSoilType) + '\n'
-            + '[gh656] sand rootzones (' + TABLES.sandRootzones.length + '): '
-            + JSON.stringify(TABLES.sandRootzones) + '\n');
+            + '[gh656] the structure engine answers through: '
+            + (typeof TABLES.pathwayFrom === 'function' ? 'pathwayFrom()' : 'NOTHING FOUND') + '\n');
 
         // A table that came back empty would make every claim below vacuously
         // true — which is how a test ends up green over nothing.
         expect(TABLES.thermalProfile.length).toBeGreaterThan(5);
         expect(TABLES.irrigationSoilType.length).toBeGreaterThan(5);
-        expect(TABLES.sandRootzones.length).toBeGreaterThan(2);
+        expect(typeof TABLES.pathwayFrom).toBe('function');
         // and the values under test are the eleven the wizard offers
         expect(Object.keys(VALUES).length).toBe(11);
     });
@@ -141,16 +147,24 @@ describe('GH-656 — test (a): a construction resolves into a row its consumer a
         expect({ irrigationSoilTypeDisagreements: wrong }).toEqual({ irrigationSoilTypeDisagreements: [] });
     });
 
-    test('every structurePathway agrees with the engine’s own sand list', () => {
-        const wrong = [];
-        Object.entries(VALUES).forEach(([value, v]) => {
-            const named = v.resolves.structurePathway;
-            const isSand = TABLES.sandRootzones.includes(value);
-            const reached = isSand ? 'sand' : 'clay';
-            if (named !== reached) wrong.push(value + ': the list says ' + named + ', the engine takes ' + reached);
-        });
-        process.stdout.write('[gh656] structurePathway disagreements: ' + JSON.stringify(wrong) + '\n');
-        expect({ structurePathwayDisagreements: wrong }).toEqual({ structurePathwayDisagreements: [] });
+    test('structurePathway has no table to compare against any more, and that is stated', () => {
+        // GH-664 CHANGED WHAT THIS ROW CAN SAY, and the reviewer's M2 is the reason
+        // to say it out loud. The engine used to keep `sandRootzones`; comparing the
+        // dictionary with that list was a real comparison and it is gone, because
+        // item 3ch made the engine READ the cell. Comparing the dictionary with a
+        // reader that reads the dictionary is a mirror: it agrees by construction
+        // and can never redden, so keeping it here as a claim would be a green that
+        // means nothing.
+        //
+        // What the engine does with the cell — including that a changed cell
+        // changes the answer, which a copy could not satisfy — is asserted in
+        // `gh664`. Here only the fact that no table survived is asserted, which is
+        // this file's own subject.
+        expect(typeof TABLES.pathwayFrom).toBe('function');
+        const src = fs.readFileSync(path.join(ROOT, 'assets', 'soil-structure-engine.js'), 'utf8');
+        expect(src).not.toMatch(/sandRootzones/);
+        process.stdout.write('[gh656] structurePathway: no consumer table left; the engine reads the cell '
+            + '(asserted in gh664, not here — a mirror cannot redden)\n');
     });
 
     test('wearSandBased is measured by BEHAVIOUR, because the engine has no table to read', () => {

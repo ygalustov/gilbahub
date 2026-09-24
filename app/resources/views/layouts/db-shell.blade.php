@@ -36,6 +36,15 @@
             // we have not taught to answer, not a page that said no.
             canEditActiveSite: @json($activeSite ? (bool) auth()->user()?->canEditSite($activeSite) : false),
         };
+        {{-- GH-678 (queue item 6, place 3 -- the gates): the dependency graph as DATA,
+             here as well as in `layouts.app`, and its absence here is what the gate
+             found on its first run. `reports/export`, `reports/scenarios` and
+             `reports/forensic` all LOAD `dependency-graph.js` and all extend this
+             layout, not `layouts.app` -- so on three pages a client can open, the
+             module ran with no data. It answered anyway, out of the twenty-six engines
+             it used to carry itself, and nothing said the page had not been given
+             anything. One injection point per layout that loads the module. --}}
+        window.GAIP_DEPENDENCY_GRAPH = @json(\App\Support\DependencyGraph::forClient());
         window.GAIP_DASHBOARD_DATA = @json($analysisCache ?? null);
         // GH-441: the setup wizard reads the database's own wizard record
         // rather than deciding from localStorage, which is why a clean browser

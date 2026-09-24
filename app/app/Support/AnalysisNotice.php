@@ -90,6 +90,25 @@ final class AnalysisNotice
         // sentence and the page keeps the one it has. Writing a phrase here
         // myself is the thing the boundary forbids.
         'pgr-window-exhausted' => ['class' => 'answer', 'text' => null],
+        // GH-675 (queue item 4, slice 1) — THE TWO CASES THE OWNER NAMED, AND THE
+        // THIRD THE DEVICE NEEDS.
+        //
+        // Her words: "the data was there but somehow did not get into the
+        // calculation -- that is OUR problem", against "there was no data, so that
+        // part was not calculated". They get different sentences because they are
+        // different facts about the client's own work.
+        //
+        // `input-not-entered` carries NO TEXT yet on purpose: its sentence needs the
+        // human name of the input, and the `label` field of the inputs list is the
+        // owner's draft. A section with this cause keeps the phrase the page already
+        // prints until she gives the words -- the same shape `pgr-window-exhausted`
+        // has (GH-649). `text: null` is a decision here, not an omission, and the
+        // case in `Gh638` asserts that only an `answer` may be wordless, so this one
+        // is named there by its class.
+        'input-did-not-arrive' => ['class' => 'run-incomplete',
+            'text' => 'the data was there but did not reach this analysis. If this continues, contact us'],
+        'run-start-not-recorded' => ['class' => 'run-incomplete',
+            'text' => 'the data was there but did not reach this analysis. If this continues, contact us'],
         'no-soil-sample' => ['class' => 'input-absent', 'text' => 'there is no soil sample for this site, so the soil and nutrition analysis was not computed. Add a soil test on the Data page'],
         'soil-sample-not-delivered' => ['class' => 'run-incomplete', 'text' => 'the soil sample data did not arrive in time'],
         // GH-586 (D6): the run was asked for a particular water sample and
@@ -258,7 +277,10 @@ final class AnalysisNotice
     {
         $computed = $projection['computed'] ?? null;
         $value = is_array($computed) ? ($computed[$key] ?? null) : null;
-        if (AnalysisResults::producedSomething($value)) {
+        // GH-667: the key travels with the value, so the one predicate can read the
+        // marker the result form declares for it. No condition about soil lives
+        // here — the composer asks the same question for every section.
+        if (AnalysisResults::producedSomething($value, $key)) {
             return null;
         }
 
@@ -384,11 +406,24 @@ final class AnalysisNotice
      */
     private static function stepsFromGraph(?string $file = null): array
     {
-        // The path is a parameter so the reading can be exercised against a
-        // BROKEN graph: the reviewer's check for whether this is a reading or a
-        // copy is to break the source and see whether the answer follows. A map
-        // that survives its source being broken is a copy, whatever it is called.
-        $file ??= base_path('../assets/dependency-graph.js');
+        /**
+         * GH-678 (queue item 6, place 3) — READ FROM THE GRAPH'S DATA, NOT PARSED OUT OF
+         * THE SCRIPT'S TEXT.
+         *
+         * This used to `preg_match_all` over `assets/dependency-graph.js`, matching the
+         * engine literals that file carried. The facts moved into
+         * `assets/dependency-graph.json` (GH-676) and the literals went with them
+         * (GH-678) — and this composer went on reading the script, found nothing, threw,
+         * and every page that prints a notice answered 500. It was found by the PHP
+         * suite, forty-six failures deep, rather than by a client, and it is the plainest
+         * case there is for why a fact must have ONE owner: a reader of the old copy
+         * cannot tell "the copy is gone" from "there is nothing to read".
+         *
+         * The reviewer's check survives the move intact, and that mattered in choosing
+         * this shape: the path is still a parameter, so breaking the SOURCE still breaks
+         * the answer. A map that survives its source being broken is a copy.
+         */
+        $file ??= base_path('../assets/dependency-graph.json');
         if (! is_file($file)) {
             // Said out loud rather than answered with an empty map: an empty map
             // would make every section `not-recorded` for a reason that has
@@ -396,18 +431,22 @@ final class AnalysisNotice
             throw new \RuntimeException('the dependency graph is not where the composer expects it: '.$file);
         }
 
-        $src = (string) file_get_contents($file);
+        $graph = json_decode((string) file_get_contents($file), true);
+        $nodes = is_array($graph) && isset($graph['nodes']) && is_array($graph['nodes'])
+            ? $graph['nodes']
+            : [];
         $out = [];
-        // Each engine declares `id: '…'` and `outputs: [ … ]`. The step name is
-        // the engine's key in the graph with the `-engine`/`-calculator` style
-        // suffix dropped, which is what the orchestrator warns under.
-        preg_match_all("/'([a-z0-9\-]+)':\s*\{[^}]*?outputs:\s*\[([^\]]*)\]/s", $src, $matches, PREG_SET_ORDER);
-        foreach ($matches as $m) {
-            $engine = $m[1];
-            preg_match_all("/'computed\.([A-Za-z]+)'/", $m[2], $keys);
-            foreach ($keys[1] as $key) {
-                if (! isset($out[$key])) {
-                    $out[$key] = $engine;
+        foreach ($nodes as $id => $node) {
+            foreach ((array) ($node['outputs'] ?? []) as $output) {
+                if (! is_string($output) || ! str_starts_with($output, 'computed.')) {
+                    continue;
+                }
+                // The ROOT of the output: the graph declares `computed.firmness.FI` and
+                // the orchestrator warns under `firmness`. The first declarer of a root
+                // keeps it, as before.
+                $root = explode('.', substr($output, strlen('computed.')))[0];
+                if ($root !== '' && ! isset($out[$root])) {
+                    $out[$root] = $id;
                 }
             }
         }

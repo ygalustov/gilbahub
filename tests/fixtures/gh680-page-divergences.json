@@ -1,0 +1,310 @@
+{
+  "$comment": [
+    "GH-680 (item 3bi) — page divergences: node x view pairs the fixpoint finds that the graph",
+    "does not declare as intent. The batch closes three ways (analyst 77.23): the intent is",
+    "recognised and the view joins ; the code stops loading the file or loses the entry;",
+    "or, for a listener, what reachable means is narrowed and the pair leaves on its own.",
+    "Nothing is ADDED to the batch: a new divergence reddens by name with its own ticket.",
+    "Both directions: a pair that became declared, or left the found set, reddens as",
+    "\"resolved, remove from the list\"."
+  ],
+  "ticket": "GH-680",
+  "ruleVersion": "p1cghbtu",
+  "reMeasuredBecauseTheRuleChanged": {
+    "what": "members are resolved ON THE VIEW rather than over the catalogue; callers are keyed by the RESOLVED TARGET rather than by the name; on* attributes of the views count as page entry points; and a top level in a file no view loads is not a root",
+    "before": {
+      "pairs": 72,
+      "byEntry": {
+        "top-level": 54,
+        "listener": 18
+      }
+    },
+    "after": {
+      "pairs": 54,
+      "byEntry": {
+        "top-level": 54,
+        "listener": 0
+      }
+    },
+    "note": "this movement is growth BY RULE, not by code, and it is printed apart for that reason"
+  },
+  "entries": {
+    "ambient-dli-engine : account : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : analysis : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : analysis/disease : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : analysis/growth-light : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : dashboard : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : data : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : hub : top-level": {
+      "entry": "top-level",
+      "via": "assets/sensor-integration-manager.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : plan : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : reports : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : reports/accuracy : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : reports/export : top-level": {
+      "entry": "top-level",
+      "via": "assets/sensor-integration-manager.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : reports/forensic : top-level": {
+      "entry": "top-level",
+      "via": "assets/sensor-integration-manager.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : reports/scenarios : top-level": {
+      "entry": "top-level",
+      "via": "assets/sensor-integration-manager.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : settings : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "ambient-dli-engine : stadium : top-level": {
+      "entry": "top-level",
+      "via": "assets/hub-tissue-v3.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : account : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : analysis : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : analysis/disease : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : analysis/growth-light : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : dashboard : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : data : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : hub : top-level": {
+      "entry": "top-level",
+      "via": "assets/hub-tissue-v3.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : plan : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : reports : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : reports/accuracy : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : reports/export : top-level": {
+      "entry": "top-level",
+      "via": "assets/hub-tissue-v3.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : reports/forensic : top-level": {
+      "entry": "top-level",
+      "via": "assets/hub-tissue-v3.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : reports/scenarios : top-level": {
+      "entry": "top-level",
+      "via": "assets/hub-tissue-v3.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : settings : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "disease-forecast : stadium : top-level": {
+      "entry": "top-level",
+      "via": "assets/hub-tissue-v3.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-calendar : hub : top-level": {
+      "entry": "top-level",
+      "via": "assets/nutrition-calendar.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-calendar : reports/export : top-level": {
+      "entry": "top-level",
+      "via": "assets/nutrition-calendar.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-calendar : reports/forensic : top-level": {
+      "entry": "top-level",
+      "via": "assets/nutrition-calendar.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-calendar : reports/scenarios : top-level": {
+      "entry": "top-level",
+      "via": "assets/nutrition-calendar.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : account : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : analysis : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : analysis/disease : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : analysis/growth-light : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : dashboard : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : data : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : hub : top-level": {
+      "entry": "top-level",
+      "via": "assets/sensor-integration-manager.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : plan : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : reports : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : reports/accuracy : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : reports/export : top-level": {
+      "entry": "top-level",
+      "via": "assets/sensor-integration-manager.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : reports/forensic : top-level": {
+      "entry": "top-level",
+      "via": "assets/sensor-integration-manager.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : reports/scenarios : top-level": {
+      "entry": "top-level",
+      "via": "assets/sensor-integration-manager.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : settings : top-level": {
+      "entry": "top-level",
+      "via": "assets/dashboard-ui.js",
+      "ticket": "GH-680"
+    },
+    "nutrition-summary : stadium : top-level": {
+      "entry": "top-level",
+      "via": "assets/tab-navigation.js",
+      "ticket": "GH-680"
+    },
+    "soil-temp-physics : hub : top-level": {
+      "entry": "top-level",
+      "via": "assets/hub-tissue-v3.js",
+      "ticket": "GH-680"
+    },
+    "soil-temp-physics : reports/export : top-level": {
+      "entry": "top-level",
+      "via": "assets/hub-tissue-v3.js",
+      "ticket": "GH-680"
+    },
+    "soil-temp-physics : reports/forensic : top-level": {
+      "entry": "top-level",
+      "via": "assets/hub-tissue-v3.js",
+      "ticket": "GH-680"
+    },
+    "soil-temp-physics : reports/scenarios : top-level": {
+      "entry": "top-level",
+      "via": "assets/hub-tissue-v3.js",
+      "ticket": "GH-680"
+    },
+    "soil-temp-physics : stadium : top-level": {
+      "entry": "top-level",
+      "via": "assets/hub-tissue-v3.js",
+      "ticket": "GH-680"
+    }
+  },
+  "declaredNotConfirmed": {
+    "scenario-engine : reports/scenarios": {
+      "why": "the walk cannot confirm it: `gaip-whatif-ui.js` takes `const scenarioEngine = global.GAIP_ScenarioEngine || …` and calls through that LOCAL ALIAS, so the member is resolved by the object NAME and the name is the alias. One unresolved edge, and it is the residual risk measured in GH-678 rather than a wrong declaration.",
+      "unresolvedEdges": 1,
+      "ticket": "GH-680"
+    }
+  }
+}

@@ -143,22 +143,25 @@ describe('GH-615 — the run takes organic matter from the sample', () => {
         expect(soil.OM).toBeNull();
     });
 
-    test('the run state takes it from the sample and no longer from the form', () => {
-        // Asserted as what is NOT read: the old hub's field. Comments are
-        // stripped first, because the block explains the very selector it
-        // stopped using and a check that reads prose as code goes red on its
-        // own reasoning.
-        const src = stateBuilderSource();
-
-        // GH-628 renamed the assembly's local from `_gaipSoilSample` to
-        // `sample` when it moved into a function of its own. The claim is the
-        // same one: both fields read the sample.
-        expect(src).toMatch(/LOI:\s*sample \? sample\.OM : null/);
-        expect(src).toMatch(/OM_pct:\s*sample \? sample\.OM : null/);
-        // The two that mattered no longer touch `.gaip-loi` itself...
-        expect(src).not.toMatch(/LOI:\s*safeNum\(e\.querySelector\("\.gaip-loi"\)/);
-        expect(src).not.toMatch(/OM_pct:\s*safeNum\(e\.querySelector\("\.gaip-loi"\)/);
-    });
+    /**
+     * GH-665 — THE SOURCE-TEXT CASE THAT STOOD HERE IS REMOVED, by the reviewer's
+     * decision and for his reason: it reddened on the SAME mutation as the
+     * executing case, so it added no distinction, and it added a false red from a
+     * rename. Keeping it would have kept in the file the very thing this item was
+     * opened against. Measured before removing: under
+     * `(sample && sample.OM != null) ? sample.OM : form.LOI` the executing case
+     * reddened on the behaviour (`Expected: true / Received: false`, the form's
+     * 3.7 in the state) and this one on a spelling
+     * (`Expected pattern: /LOI:\s*sample \? sample\.OM : null/`).
+     *
+     * ONE ASSERTION IN IT WAS NOT ABOUT THE SPELLING AND IS NOT LOST. It said the
+     * old hub's `.gaip-loi` read is not reborn anywhere — an assertion about
+     * ABSENCE, which no mutation of this file can test and which lived here for
+     * nothing. It belongs to a census whose universe is the whole of `assets/*.js`,
+     * beside the one for `pH_cacl2`: both are about a quantity substituted for
+     * another coming back in a new place. The coordinator opened item 3at for it
+     * before this case was deleted, so the claim has a home rather than a memory.
+     */
 
     test('the stratified fields are UNTOUCHED, and this pins a decision that is open', () => {
         // Not an oversight. The owner has not decided whether those fields are
@@ -170,5 +173,107 @@ describe('GH-615 — the run takes organic matter from the sample', () => {
         ['0-2', '2-4', '4-6'].forEach((depth) => {
             expect(src).toContain('safeNum(e.querySelector(".gaip-loi-' + depth + '")?.value, 0)');
         });
+    });
+});
+
+/**
+ * GH-665 (queue item 3u, the analyst's form) — THE CENTRAL CLAIM OF THIS FILE,
+ * EXECUTED. It was guarded by four regular expressions over the source text.
+ *
+ * WHY THAT WAS NOT ENOUGH, and the reviewer measured it rather than argued it:
+ * under his mutation only the source-text case reddened, while the three
+ * executing cases stayed green — because they drive `gaip_soilFromActiveSample`,
+ * the READER, and the claim is about the ASSEMBLY. A case tied to the spelling of
+ * a line reddens when somebody renames it and stays green when the behaviour
+ * changes; both failures are removed by running the function.
+ *
+ * `gaip_soilStateFrom(sample, form)` has been a function of its own since GH-628
+ * and is already executed in `gh626`, so there is nothing to build — only to ask.
+ *
+ * THREE CLAIMS, and the third is the one that exists in no form today:
+ *   1. a sample with organic matter → `LOI` is that number;
+ *   2. a sample without it → `null`, not zero;
+ *   3. a sample without it WHILE THE FORM CARRIES A NUMBER → still `null`. The
+ *      form is not a second source for a reading of the sample, and this is the
+ *      claim the source-text cases could not make at all: the line they matched
+ *      reads `sample ? sample.OM : null`, which says nothing about what happens
+ *      when the form has a value and the sample does not.
+ */
+describe('GH-665 — organic matter, asked of the assembly instead of read off it', () => {
+    /** The assembly, lifted out and run — the same slicing `gh577` uses. */
+    function assemble(sample, form) {
+        const sandbox = {
+            console: { log() {}, warn() {}, error() {} },
+            document: { querySelector: () => null, querySelectorAll: () => [] },
+            Date, JSON, Math, Object, Array, String, Number, parseFloat, parseInt, isNaN,
+        };
+        sandbox.window = sandbox;
+        sandbox.global = sandbox;
+        sandbox.globalThis = sandbox;
+        const ctx = vm.createContext(sandbox);
+        const slice = (name) => {
+            const at = SRC.indexOf('function ' + name + '(');
+            expect(at).toBeGreaterThan(-1);
+            let depth = 0;
+            for (let j = SRC.indexOf('{', at); j < SRC.length; j++) {
+                if (SRC[j] === '{') depth++;
+                else if (SRC[j] === '}') { depth--; if (!depth) return SRC.slice(at, j + 1); }
+            }
+            throw new Error('unbalanced ' + name);
+        };
+        vm.runInContext(slice('safeNum'), ctx, { filename: 'safeNum' });
+        vm.runInContext(slice('gaip_soilStateFrom'), ctx, { filename: 'gaip_soilStateFrom' });
+        // POSITIVE CONTROL: a rename would otherwise leave every claim below being
+        // made about an empty sandbox.
+        expect(typeof ctx.gaip_soilStateFrom).toBe('function');
+
+        return ctx.gaip_soilStateFrom(sample, form || {});
+    }
+
+    test('a sample that carries organic matter puts that number in the state', () => {
+        const soil = assemble({ OM: 4.2, pH_water: 6.1 }, {});
+        process.stdout.write('\n[gh665] sample OM 4.2, empty form -> LOI '
+            + JSON.stringify(soil.LOI) + ', OM_pct ' + JSON.stringify(soil.OM_pct) + '\n');
+        expect(soil.LOI).toBe(4.2);
+        expect(soil.OM_pct).toBe(4.2);
+    });
+
+    test('a sample without it leaves the state absent, not zero', () => {
+        const soil = assemble({ pH_water: 6.1 }, {});
+        process.stdout.write('[gh665] sample without OM, empty form -> LOI '
+            + JSON.stringify(soil.LOI) + '\n');
+        // `undefined` and `null` are both absence here; zero is not, and zero is
+        // what a number nobody measured would look like to a calculation.
+        expect(soil.LOI == null).toBe(true);
+        expect(soil.LOI).not.toBe(0);
+    });
+
+    test('THE CLAIM THAT EXISTED IN NO FORM: the form does not stand in for the sample', () => {
+        // A page carrying a number for organic matter while the sample has none.
+        // Before GH-615 this is exactly where the form's value entered the run.
+        const soil = assemble({ pH_water: 6.1 }, { LOI: 3.7, OM_pct: 3.7, LOI_0_2: 5.5 });
+        process.stdout.write('[gh665] sample without OM, FORM says 3.7 -> LOI '
+            + JSON.stringify(soil.LOI) + ', OM_pct ' + JSON.stringify(soil.OM_pct)
+            + ' | the stratified field from the form is kept: LOI_0_2 '
+            + JSON.stringify(soil.LOI_0_2) + '\n');
+
+        expect(soil.LOI == null).toBe(true);
+        expect(soil.OM_pct == null).toBe(true);
+        expect(soil.LOI).not.toBe(3.7);
+        // And the boundary, in the same case so it cannot drift apart from it: the
+        // STRATIFIED fields are the page's own and still come from it (GH-628).
+        // Without this, a repair that ignored the whole form would look correct.
+        expect(soil.LOI_0_2).toBe(5.5);
+    });
+
+    test('and a sample with a measured ZERO keeps the zero, which absence must not imitate', () => {
+        // The other side of claim 2: a laboratory that measured no organic matter
+        // reported a reading, and dropping it would be the collapse GH-620 closed
+        // on sodium. Asked here because claim 2 alone is satisfied by code that
+        // throws away every falsy value.
+        const soil = assemble({ OM: 0, pH_water: 6.1 }, {});
+        process.stdout.write('[gh665] sample OM measured as 0 -> LOI '
+            + JSON.stringify(soil.LOI) + '\n');
+        expect(soil.LOI).toBe(0);
     });
 });

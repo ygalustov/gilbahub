@@ -609,6 +609,26 @@ class GH439SiteConfigPatchTest extends TestCase
 
         $site->users()->attach($user->id, ['role' => 'manager']);
 
+        /**
+         * GH-684 — THE STARTING CONFIG CARRIES A METHODOLOGY.
+         *
+         * The server now refuses ANY write whose RESULT leaves the site without a methodology, by
+         * the owner's decision that it is required everywhere. These cases are about other rules
+         * -- the null rule, identity fields, `clear`, programme stamps -- and each of them
+         * happened to start from a site with no methodology, so all fifteen were refused before
+         * reaching their own subject.
+         *
+         * The analyst decided the shape of this repair explicitly (89.9): the methodology goes
+         * into the STARTING config. A case that needs its absence BY SUBSTANCE does not get one --
+         * it expects the refusal -- and it overrides this by passing its own `turf`.
+         */
+        if (! array_key_exists('turf', $config) || ! is_array($config['turf'])) {
+            $config['turf'] = [];
+        }
+        if (! array_key_exists('methodology', $config['turf'])) {
+            $config['turf']['methodology'] = 'mlsn';
+        }
+
         SiteConfig::query()->create([
             'site_id' => $site->id,
             'namespace' => 'gaip',

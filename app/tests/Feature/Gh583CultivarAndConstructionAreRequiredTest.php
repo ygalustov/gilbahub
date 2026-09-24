@@ -34,9 +34,32 @@ use Tests\TestCase;
  * put to her. `clear` keeps its contract, and a case below holds it that way —
  * so reversing this tomorrow is a deliberate act, not a quiet one.
  *
- * HOW IT BITES: accept `generic` again and the refusal case goes red; drop
- * `required` from the form, or offer "Generic / Unknown" again, and the form
- * case does; make `clear` refuse a cultivar and the case above it does.
+ * ---------------------------------------------------------------------------
+ * GH-684 — PART OF THIS IS REVERSED, BY THE OWNER, AND THE CASES STAY.
+ *
+ * Her decision: the owner reversed it, 24.09.2026 17:32 (GH-684): `generic` comes BACK, and where a site
+ * had it and a calculation was built on it, it COUNTS AS FILLED. The one condition she
+ * attached is the WIZARD: there they must state WHICH CULTIVAR IT WAS, so the choice is made
+ * KNOWINGLY from the list -- or `generic` is left standing. Her words are quoted verbatim in
+ * PLAN-remaining-defects-RU.md under GH-684; a code comment carries the decision, not the quote.
+ *
+ * So `generic` is a CHOICE a person may make, it counts as FILLED, and the
+ * server stores it. Two cases below are turned around rather than deleted: a
+ * test tied to a meaning must change when the meaning changes, and it must say
+ * WHOSE decision changed it — otherwise next month the reversal looks like a
+ * guard that rotted. The refusal case becomes an acceptance case; the form case
+ * now requires that "Generic / Unknown" IS offered, because a choice that is not
+ * in the list cannot be made deliberately.
+ *
+ * AND THE ABSENCE OF A DEFAULT IS NOW THE SUBJECT OF THE DECISION, not a
+ * technical detail. The wizard must not write a cultivar nobody chose: her words
+ * are that the person picks a real one OR picks Generic themselves. The case
+ * that holds the wizard silent is therefore stronger than when it was written.
+ *
+ * HOW IT BITES NOW: refuse `generic` again and the acceptance case goes red;
+ * take "Generic / Unknown" out of the list and the form case does; let the
+ * wizard write a cultivar by default and the wizard case does; make `clear`
+ * refuse a cultivar and the case above it does.
  */
 class Gh583CultivarAndConstructionAreRequiredTest extends TestCase
 {
@@ -71,27 +94,30 @@ class Gh583CultivarAndConstructionAreRequiredTest extends TestCase
         $this->assertSame('perennialRyegrass', $this->config($site)['turf']['species']);
     }
 
-    public function test_generic_is_refused_as_a_cultivar(): void
+    public function test_generic_is_a_choice_and_is_stored(): void
     {
-        // Wherever it arrives from. It is the absence of a choice, and the
-        // whole point of the decision is that it stops being storable.
+        /**
+         * TURNED AROUND BY THE OWNER (GH-684), and kept in place so the reversal is visible.
+         * It used to assert a 422 with "absence of a choice". Her decision makes `generic` a
+         * choice a person may make deliberately and a value that counts as FILLED, so the
+         * server stores it like any other cultivar.
+         */
         [$user, $site] = $this->siteWithConfig(['turf' => [
             'species' => 'perennialRyegrass', 'methodology' => 'mlsn', 'turfType' => 'sports',
             'variety' => 'Barenbrug Bar Extreme',
         ], 'location' => ['lat' => -43.5, 'lon' => 172.5]]);
 
-        $response = $this->actingAs($user)
+        $this->actingAs($user)
             ->patchJson("/api/sites/{$site->id}/config/gaip", [
                 'patch' => ['turf' => ['variety' => 'generic']],
             ])
-            ->assertStatus(422);
+            ->assertOk();
 
-        $this->assertStringContainsString('absence of a choice', $response->json('message'));
-        $this->assertSame(['turf.variety'], $response->json('invalid_keys'));
-        $this->assertSame('Barenbrug Bar Extreme', $this->config($site)['turf']['variety']);
+        $this->assertSame('generic', $this->config($site)['turf']['variety'],
+            'the owner decided `generic` is a choice and is stored; refusing it again is a reversal');
     }
 
-    public function test_the_refusal_is_about_the_value_and_not_the_word(): void
+    public function test_a_cultivar_whose_name_contains_generic_is_a_real_cultivar(): void
     {
         // A cultivar whose real name contains the letters is not the stand-in.
         [$user, $site] = $this->siteWithConfig(['turf' => [
@@ -125,27 +151,41 @@ class Gh583CultivarAndConstructionAreRequiredTest extends TestCase
         $this->assertSame('sand_profile', $config['turf']['construction']);
     }
 
-    public function test_the_wizard_no_longer_writes_a_cultivar_it_did_not_ask_for(): void
+    /**
+     * TURNED AROUND, AND BY TWO DECISIONS RATHER THAN ONE. It asserted that the wizard sends NO
+     * cultivar: true while the wizard did not ask for one, because a value nobody chose is not an
+     * answer. The owner then decided (24.09.2026 17:32) that a person names the cultivar knowingly
+     * or chooses Generic themselves, and the wizard was built to ask for both the cultivar and the
+     * construction. So the claim becomes its mirror: it sends what it asked for, and only that.
+     *
+     * The original subject SURVIVES in the second half: `'generic'` must not appear as a literal.
+     * What was wrong was never the value, it was writing a value on a person's behalf — and that is
+     * the one thing that must not come back.
+     */
+    public function test_the_wizard_sends_the_cultivar_it_asked_for_and_never_one_it_wrote_itself(): void
     {
-        // A guard on the tree: the wizard wrote `variety: 'generic'` on every
-        // site it created. The server refuses that value now, so a wizard still
-        // sending it would fail to create a site at all — this catches the
-        // reintroduction at the source rather than at the door.
-        // GH-630 moved the turf section out of the `gaipCfg` literal and into
-        // `turfSection`, so that a key the wizard never asked for can be left
-        // out rather than sent empty. Same claim, same subject, one anchor
-        // further up the file.
         $wizard = file_get_contents(base_path('../assets/onboarding-wizard.js'));
+        // THE WINDOW IS THE REQUEST, not a count of characters. A fixed 1600 ended inside the
+        // comment explaining the change and stopped short of the lines it was meant to read, which
+        // is a window measuring its own prose. It runs from the section to the end of `_save`.
         $at = strpos($wizard, 'var turfSection = {');
         $this->assertNotFalse($at);
-        $block = substr($wizard, $at, 900);
-        // The window is asserted to hold its subject before anything is said
-        // about it: a block that shrank past the section would let both claims
-        // below pass over nothing.
+        $end = strpos($wizard, '_api: function', $at);
+        $this->assertNotFalse($end, '`_save` no longer ends where this window expects');
+        $block = substr($wizard, $at, $end - $at);
+        // The window holds its subject before anything is said about it.
         $this->assertStringContainsString('methodology: self.d.methodology', $block);
+        $this->assertStringContainsString('species:     self.d.species', $block);
 
-        $this->assertStringContainsString("species:     self.d.species", $block);
+        // It sends the two it now asks for, from the draft — the person's answers.
+        $this->assertStringContainsString('turfSection.variety = self.d.variety', $block);
+        $this->assertStringContainsString('turfSection.construction = self.d.construction', $block);
+        // And only when there is one: a field nobody filled is not a change (GH-630's rule, kept).
+        $this->assertStringContainsString('if (self.d.variety)', $block);
+
+        // The thing that must never return: a cultivar written by the wizard rather than chosen.
         $this->assertStringNotContainsString("variety:     'generic'", $block);
+        $this->assertStringNotContainsString("self.d.variety || 'generic'", $block);
     }
 
     public function test_the_settings_form_asks_for_all_three(): void
@@ -158,9 +198,79 @@ class Gh583CultivarAndConstructionAreRequiredTest extends TestCase
             $this->assertStringContainsString('required', substr($settings, $at, 120), $id.' is not required');
         }
 
-        // and the stand-in is not offered as an option any more
-        $at = strpos($settings, 'id="stg-turf-variety"');
-        $this->assertStringNotContainsString('value="generic"', substr($settings, $at, 400));
+        /**
+         * WHAT THIS CASE IS AND IS NOT ABOUT, after two turns of it.
+         *
+         * It asserted that the template offered `value="generic"`, which the owner's reversal seemed
+         * to require. That was measured and it was the wrong file: the cultivar options are not in
+         * the template at all -- `repopulateVariety()` empties the element and rebuilds it -- so an
+         * option written here is replaced before anyone sees it.
+         *
+         * So this case keeps the claim the template CAN carry: all three fields are there and all
+         * three are required. WHAT THE CULTIVAR LIST CONTAINS is asserted where it is decided:
+         * `test_settings_has_no_cultivar_list_of_its_own` below for Settings having no rule of its
+         * own, and `tests/gh630-…` ("the cultivar list: Generic is offered, and Generic is not the
+         * default") for the answer itself, by asking the producer.
+         *
+         * Not duplicated here on purpose: a claim asserted in two places is a claim that can be
+         * half-repaired.
+         */
+        $this->assertStringContainsString('name="variety"', $settings, 'the cultivar field is gone');
+        $this->assertStringContainsString('name="construction"', $settings, 'the construction field is gone');
+    }
+
+    /**
+     * GH-684 (item 3bk, part 2) — SETTINGS READS THE ONE PRODUCER, AND HAS NO LIST OF ITS OWN.
+     *
+     * WHAT THE PLAN EXPECTED TO FIND HERE AND WHAT IS ACTUALLY THERE. The plan for this part
+     * described the Settings cultivar field as showing "— select —" for the six sites carrying
+     * `generic`, as though the value were being hidden by the template's `!== 'generic'` condition.
+     * Measured in the code it is the other way round: the field's options are not in the template.
+     * `repopulateVariety()` empties the element and rebuilds it, and the saved value was passed in,
+     * so those six always showed Generic selected. The real defect was at the other end —
+     * `_initVariety` fell back to `'generic'`, so a site with NO cultivar arrived with Generic
+     * selected and Save stored a cultivar nobody chose.
+     *
+     * WHAT IS ASSERTED HERE is only that Settings has stopped deciding this for itself. WHAT THE
+     * LIST CONTAINS is asserted where it is decided, by asking the producer and reading its answer:
+     * `tests/gh630-…`, "the cultivar list: Generic is offered, and Generic is not the default". That
+     * split is deliberate — a source check here was green over dead code once already.
+     */
+    public function test_settings_has_no_cultivar_list_of_its_own(): void
+    {
+        $js = file_get_contents(base_path('../assets/settings-init.js'));
+        $body = $this->cultivarListProducer();
+
+        // It asks the shared producer...
+        $this->assertStringContainsString('window.GAIP_CultivarOptions(species, selectedValue)', $body,
+            'Settings builds the cultivar list itself again, so there are two rules to keep in step');
+        // ...and keeps none of the decisions it used to make here.
+        $this->assertStringNotContainsString("label: 'Generic / Unknown'", $body,
+            'the Generic entry is back in this file, which is the duplication this removed');
+        $this->assertStringNotContainsString("turf.variety) || 'generic'", $js,
+            'the cultivar falls back to `generic` again, so a site with none is shown one');
+
+        // And the producer exists in the shared file the layout loads, or nothing rebuilds the list.
+        $shared = file_get_contents(base_path('../assets/dashboard-ui.js'));
+        $this->assertStringContainsString('global.GAIP_CultivarOptions = function', $shared);
+    }
+
+    /**
+     * The body of `repopulateVariety`, BOUNDED BY THE FUNCTION rather than by a count of characters.
+     *
+     * Twice now a fixed window stopped short of what it was reading because a comment explaining the
+     * change grew inside it — a window measuring its own prose. The subject is asserted to be there
+     * before anything is concluded from it.
+     */
+    private function cultivarListProducer(): string
+    {
+        $js = file_get_contents(base_path('../assets/settings-init.js'));
+        $at = strpos($js, 'function repopulateVariety');
+        $this->assertNotFalse($at, 'the producer of the cultivar list is gone from settings-init.js');
+        $end = strpos($js, "\n    }\n", $at);
+        $this->assertNotFalse($end, '`repopulateVariety` no longer ends where this reader expects');
+
+        return substr($js, $at, $end - $at);
     }
 
     /** @return array{0:User,1:Site} */

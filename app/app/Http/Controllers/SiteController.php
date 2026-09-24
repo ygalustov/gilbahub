@@ -75,18 +75,30 @@ class SiteController extends Controller
     ];
 
     /**
-     * GH-583: values that are a stand-in rather than an answer.
+     * GH-583, reversed in part by GH-684: values that are a stand-in rather than an answer.
      *
-     * `generic` was the cultivar the wizard wrote for every site it created, and
-     * it reads as a choice. It is not one: it is the absence of a choice wearing
-     * a value's clothes, and every multiplier keyed on cultivar (wear, disease,
-     * irrigation, nutrient demand) quietly uses 1.00 for it. The owner's
-     * decision is that the cultivar comes from the site's profile; this refuses
-     * the stand-in at the door so it cannot come back through a page.
+     * `generic` USED TO BE REFUSED HERE. The reasoning was that the wizard wrote it on every
+     * site it created, so it read as a choice while being the absence of one, and every
+     * multiplier keyed on cultivar quietly uses 1.00 for it.
+     *
+     * THE OWNER REVERSED IT, 24.09.2026 17:32 (GH-684): `generic` comes BACK, and where a site
+     * had it and a calculation was built on it, it COUNTS AS FILLED. The one condition she
+     * attached is the WIZARD -- there they must state WHICH CULTIVAR IT WAS, so the choice is
+     * made knowingly from the list, or `generic` is left standing. Her words are quoted
+     * verbatim in PLAN-remaining-defects-RU.md under GH-684; a comment carries the decision,
+     * not the quote, because only our plans and documents are written in Russian. So it is a
+     * choice a person may make, it counts as filled, and the server stores it.
+     *
+     * WHAT MOVED INSTEAD OF THIS REFUSAL: the wizard must not write a cultivar NOBODY CHOSE.
+     * The door is no longer where the value is judged; it is where the person is asked.
+     *
+     * THE TABLE IS EMPTY BY DECISION, and the two lines that read it stay. An empty mechanism
+     * is normally a candidate for removal in this repository — it is kept here because its
+     * next case is one decision away and the reversal is the owner's rather than a design
+     * that failed. If it is still empty when the next stand-in question is settled, it should
+     * go rather than wait.
      */
-    private const GAIP_REFUSED_VALUES = [
-        'turf.variety' => ['generic'],
-    ];
+    private const GAIP_REFUSED_VALUES = [];
 
     /** GH-439: sections `clear` may not remove whole. */
     private const GAIP_UNCLEARABLE_SECTIONS = ['turf', 'location', 'wizard'];
@@ -957,7 +969,7 @@ class SiteController extends Controller
             ];
         }
 
-        // GH-583: a stand-in is refused as a value, wherever it arrives from.
+        // GH-583/GH-684: the table of refused values, empty by the owner's decision.
         foreach (self::GAIP_REFUSED_VALUES as $path => $refused) {
             [$section, $field] = explode('.', $path, 2);
             $value = $patch[$section][$field] ?? null;
@@ -987,6 +999,32 @@ class SiteController extends Controller
             return [
                 'message' => 'These fields cannot be emptied: '.implode(', ', $blanked).'.',
                 'invalid_keys' => $blanked,
+            ];
+        }
+
+        /**
+         * GH-684 — A CONFIG WHOSE RESULT HAS NO METHODOLOGY IS
+         * REFUSED. The owner's decision: methodology is required everywhere, for old sites and
+         * new ones alike.
+         *
+         * IT RUNS AFTER THE BLANKED CHECK, and the order is the answer rather than an accident: an
+         * attempt to EMPTY a methodology gets the precise reply -- this field cannot be emptied --
+         * because that says what the person tried. This one catches the other case, a site that
+         * never had one, where "cannot be emptied" would be about an act nobody performed.
+         *
+         * It is the RESULT that is judged, not the patch: blanking an existing one was already
+         * refused as an identity field, and this closes the other half -- a site that never had
+         * one cannot be configured around it. The wizard writes it, so the road that fills a site
+         * legitimately is unaffected.
+         */
+        $resultingMethodology = array_key_exists('turf', $patch) && is_array($patch['turf'])
+            && array_key_exists('methodology', $patch['turf'])
+                ? $patch['turf']['methodology']
+                : ($existing['turf']['methodology'] ?? null);
+        if ($this->isBlankConfigValue($resultingMethodology)) {
+            return [
+                'message' => 'turf.methodology is required: a site is not saved without a methodology.',
+                'invalid_keys' => ['turf.methodology'],
             ];
         }
 

@@ -48,8 +48,6 @@
         debug: false,
 
         // Rootzone classification
-        sandRootzones: ['usga', 'sand_profile', 'sand_carpet', 'california', 'hybrid'],
-        clayRootzones: ['native', 'modified', 'pipe_drained', 'push_up', 'soil_based'],
 
         // ESP thresholds - USDA Handbook 60
         espThresholds: {
@@ -155,14 +153,43 @@
     }
 
     /**
-     * Determine if rootzone is sand-based
+     * GH-664 (item 3ch, analyst 26.1 point 3) — THE PATHWAY COMES FROM THE
+     * DECLARED DICTIONARY, NOT FROM A LIST OF THIS ENGINE'S OWN.
+     *
+     * What was here read `state.rootzoneType || state.soil.rootzoneType ||
+     * 'native'` and matched it, by substring, against two lists kept in this file.
+     * Three things were wrong with that at once and only the last was visible:
+     * nothing in the tree writes `rootzoneType` (the construction lives in
+     * `turf.construction`), so the fallback decided every run; the lists were the
+     * tenth copy of a dictionary the product declares once; and the fallback made
+     * an unconfigured site indistinguishable from a clay one. Measured: all 35
+     * stored rows carried `pathway: clay`, nine of them for sites whose
+     * construction is `sand_profile`.
+     *
+     * The resolved object comes from the server with the site's own config
+     * (`CalculationInputs::resolveConstruction`). `structurePathway` is one of the
+     * six cells that dictionary carries; an absent value, an unknown value and an
+     * empty cell are three different answers and none of them is a default.
      */
-    function isSandRootzone(rootzoneType) {
-        if (!rootzoneType) return false;
-        var rz = rootzoneType.toLowerCase().replace(/[\s-]/g, '_');
-        return CONFIG.sandRootzones.some(function(s) {
-            return rz.indexOf(s) !== -1;
-        });
+    function pathwayFrom(state) {
+        var resolved = (state && state.construction) || null;
+        if (!resolved || !resolved.value) {
+            return { pathway: null, reason: 'setting-missing', field: 'turf.construction',
+                construction: null };
+        }
+        if (!resolved.known) {
+            return { pathway: null, reason: 'setting-missing', field: 'turf.construction',
+                construction: resolved.value, unknownValue: true };
+        }
+        var named = resolved.resolves && resolved.resolves.structurePathway;
+        if (!named) {
+            // The cell is one of the owner's open questions (analyst 26.2): the
+            // value is real and what it means here has not been decided. Saying
+            // "clay" would be inventing the answer.
+            return { pathway: null, reason: 'setting-missing', field: 'turf.construction',
+                construction: resolved.value, cellEmpty: true };
+        }
+        return { pathway: named, reason: null, field: null, construction: resolved.value };
     }
 
     /**
@@ -642,17 +669,31 @@
                      (state.turf && state.turf.effectiveSpecies) ||
                      (state.turf && state.turf.species) || 
                      'unknown';
-        var rootzoneType = state.rootzoneType || 
-                          (state.soil && state.soil.rootzoneType) || 
-                          'native';
         var clayPct = safeNum(state.soil && state.soil.clay, 20);
         var currentESP = safeNum(state.soil && state.soil.ESP, null);
 
-        // Determine pathway
-        var isSand = isSandRootzone(rootzoneType);
+        // GH-664: the pathway, from the declared dictionary. Without one there is
+        // no structure analysis — an outcome that names its missing input rather
+        // than a run on somebody's default.
+        var decided = pathwayFrom(state);
+        if (!decided.pathway) {
+            log('Structure not computed', decided);
+            return {
+                version: CONFIG.version,
+                timestamp: new Date().toISOString(),
+                pathway: null,
+                computed: false,
+                reason: decided.reason,
+                field: decided.field,
+                rootzoneType: decided.construction,
+                species: species
+            };
+        }
+        var isSand = decided.pathway === 'sand';
+        var rootzoneType = decided.construction;
 
         log('Analyzing structure', {
-            pathway: isSand ? 'sand' : 'clay',
+            pathway: decided.pathway,
             species: species,
             rootzoneType: rootzoneType
         });
@@ -893,7 +934,7 @@
         getSalinityTolerance: getSalinityTolerance,
 
         // Utilities
-        isSandRootzone: isSandRootzone,
+        pathwayFrom: pathwayFrom,
 
         // Reference data
         SALINITY_TOLERANCE: SALINITY_TOLERANCE,

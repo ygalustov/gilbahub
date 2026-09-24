@@ -371,8 +371,13 @@ class Gh639SectionSentenceTest extends TestCase
         // equal — a key may be mentioned as an input as well — but every key the
         // composer claims must be in the independent count, and the count of what
         // it finds must not collapse.
-        $graph = (string) file_get_contents(base_path('../assets/dependency-graph.js'));
-        preg_match_all("/'computed\\.([A-Za-z]+)'/", $graph, $all);
+        // GH-678: the graph's facts moved out of the script and into the data file,
+        // and the literals went with them, so the independent count reads the DATA. The
+        // reason for having a second count has not changed at all: the composer reads a
+        // file it does not own, and a reading that quietly finds fewer engines turns
+        // every section it can no longer place into "cause not recorded".
+        $graph = (string) file_get_contents(base_path('../assets/dependency-graph.json'));
+        preg_match_all('/"computed\\.([A-Za-z]+)/', $graph, $all);
         $mentioned = array_values(array_unique($all[1]));
 
         $reading = new \ReflectionMethod(AnalysisNotice::class, 'stepsFromGraph');
@@ -406,7 +411,9 @@ class Gh639SectionSentenceTest extends TestCase
         $reading = new \ReflectionMethod(AnalysisNotice::class, 'stepsFromGraph');
         $reading->setAccessible(true);
 
-        $real = base_path('../assets/dependency-graph.js');
+        // GH-678: the source is the data file now. The check is the same check -- break
+        // the source, and the answer must follow -- expressed in the source that exists.
+        $real = base_path('../assets/dependency-graph.json');
         $src = (string) file_get_contents($real);
 
         // 1. The real thing, for the control.
@@ -415,7 +422,7 @@ class Gh639SectionSentenceTest extends TestCase
         $this->assertArrayHasKey('pgr', $whole);
 
         // 2. One engine's output removed — that key must disappear from the map.
-        $withoutPgr = str_replace("outputs: ['computed.pgr'],", 'outputs: [],', $src);
+        $withoutPgr = str_replace('"computed.pgr"', '"computed.__gone__"', $src);
         $this->assertNotSame($src, $withoutPgr, 'the anchor this mutation needs is gone from the graph');
         $trimmed = $this->intoTempFile($withoutPgr);
         $afterRemoval = $reading->invoke(null, $trimmed);
@@ -427,7 +434,7 @@ class Gh639SectionSentenceTest extends TestCase
         // 3. The graph emptied altogether — the reader must say so, loudly, rather
         // than answer with an empty map that would turn every section into
         // "cause not recorded".
-        $empty = $this->intoTempFile("// nothing here\n");
+        $empty = $this->intoTempFile('{"version": 1, "nodes": {}}');
         try {
             $reading->invoke(null, $empty);
             $this->fail('an empty graph was read as an empty map instead of being reported');
@@ -442,7 +449,7 @@ class Gh639SectionSentenceTest extends TestCase
 
     private function intoTempFile(string $contents): string
     {
-        $path = tempnam(sys_get_temp_dir(), 'graph').'.js';
+        $path = tempnam(sys_get_temp_dir(), 'graph').'.json';
         file_put_contents($path, $contents);
 
         return $path;

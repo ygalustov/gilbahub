@@ -1,0 +1,1028 @@
+{
+  "$comment": [
+    "GH-677 (queue item 6a) - THE GRAPH'S DEVICE FILLED IN FROM THE TEST'S OWN OUTPUT.",
+    "",
+    "`runner` and `handle` are measured from the call sites, never from the plan's",
+    "tables: the cascade's run loop in `cascade-orchestrator.js` and the two pass",
+    "bodies in `hub-orchestrator.js` say which pass runs a module and through which",
+    "function. `requires` and `uses` are a JUDGEMENT about what the module does",
+    "without the input -- not compute at all, or compute differently -- and each is",
+    "filled from the reads the test prints, one line at a time.",
+    "",
+    "`runner` AND `handle` ARE A LIST WHEN TWO PASSES RUN THE SAME MODULE. Four do:",
+    "shade, salinity penalty, wear recovery and stress trajectory each have a cascade",
+    "executor and an orchestrator builder, and both read inputs. A single string",
+    "would have to drop one of them, and the dropped one's reads would go unchecked.",
+    "The two lists are pairwise and the test holds their lengths equal.",
+    "",
+    "A HANDLE MAY BE QUALIFIED `file:function` WHEN THE BARE NAME IS NOT UNIQUE.",
+    "`generateForecast` is declared in THREE files -- `disease-forecast.js`, `pgr-forecast.js` and `shade-forecast.js` --",
+    "and a bare name would silently resolve to whichever file came first -- the class",
+    "of silent first match this repository has spent the day removing. The test",
+    "reddens on an ambiguous bare name instead of choosing.",
+    "",
+    "A NODE NO PASS RUNS KEEPS `runner: null` AND SAYS WHY, in `noRunnerBecause`.",
+    "Five do. Inventing a runner for them would put a module in the run that is not",
+    "in it; leaving the field empty without a reason would be indistinguishable from",
+    "work not yet done.",
+    "",
+    "`_inputsBeforeTheSplit` is the old `inputs` list, carried over as the starting",
+    "point for the hand split and read by nothing.",
+    "GH-681: the cascade's executors are QUALIFIED with their file. Two places used to declare the cascade's engine list by hand -- `CASCADE_CONFIG.engineMap` and `GAIP_CASCADE_ENGINES` -- and deriving them from this data needs the data to say which handles belong to the cascade adapter. The bare name did not say it, and guessing by the `execute` prefix would be a rule about spelling rather than a fact about the file."
+  ],
+  "version": 1,
+  "nodes": {
+    "climate-engine": {
+      "id": "climate-engine",
+      "label": "Climate Engine",
+      "category": "foundation",
+      "outputs": [
+        "computed.climate",
+        "derived.growthPotential"
+      ],
+      "after": [],
+      "runner": [
+        "orchestrator",
+        "cascade"
+      ],
+      "handle": "getAuthoritativeClimate",
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [
+        "climate",
+        "site.latitude",
+        "site.longitude",
+        "turf.species",
+        "turf.grassSpecies",
+        "turf.warmBase",
+        "turf.coolOverseed"
+      ],
+      "runnerWidenedBecause": "the caller fixpoint reaches it from the cascade as well, through the shade engine's handle, which both passes run. Declared narrow before GH-678 because the runner was decided by FILE.",
+      "pairwiseNoteGH678": "RUNNER AND HANDLE ARE NOT PAIRWISE HERE, and the earlier rule that they must be is superseded rather than bent. Two passes run this module through ONE function, so a second handle would have to be invented -- I duplicated it once to satisfy the rule and that is a lie written as data. The rule that holds is: every handle resolves to a function, and the set of declared runners equals the set the caller fixpoint finds. Pairwise was a special case of that, not a law."
+    },
+    "soil-temp-physics": {
+      "id": "soil-temp-physics",
+      "label": "Soil Temperature",
+      "category": "foundation",
+      "outputs": [
+        "computed.soilTempPhysics"
+      ],
+      "after": [
+        "climate-engine"
+      ],
+      "runner": "orchestrator",
+      "handle": "assets/gaip-soil-temp-integration.js:enhancedSoilTemperature",
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [
+        "climate.airTempHistory",
+        "climate.solarRadiation",
+        "soil.CEC",
+        "soil.OM_pct",
+        "turf.construction"
+      ],
+      "sightBoundary": "UNIVERSE (c) IS BLIND TO THIS NODE, and that is said here rather than shown as a clean result. `enhancedSoilTemperature(airTemps, solarRadiation, soilMoisture, soilConfig)` takes SCALARS, not a state object, so the receiver sign -- the first parameter -- has no `<section>.<field>` to find and reports zero reads. Its inputs are assembled by the orchestrator inside `populateCanonicalState`; moving that call into the pass proper is queue item 3az."
+    },
+    "ambient-dli-engine": {
+      "id": "ambient-dli-engine",
+      "label": "Ambient DLI Engine",
+      "category": "foundation",
+      "outputs": [
+        "computed.ambientDLI"
+      ],
+      "after": [
+        "climate-engine"
+      ],
+      "runner": [
+        "orchestrator",
+        "cascade"
+      ],
+      "handle": "calculateAmbientDLI",
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [
+        "site.latitude",
+        "climate.solarRadiation"
+      ],
+      "runnerWidenedBecause": "reached from both passes through the shade builder. Its `page` pairs are divergences under GH-680, not intent.",
+      "pairwiseNoteGH678": "RUNNER AND HANDLE ARE NOT PAIRWISE HERE, and the earlier rule that they must be is superseded rather than bent. Two passes run this module through ONE function, so a second handle would have to be invented -- I duplicated it once to satisfy the rule and that is a lie written as data. The rule that holds is: every handle resolves to a function, and the set of declared runners equals the set the caller fixpoint finds. Pairwise was a special case of that, not a law."
+    },
+    "dew-prediction-engine": {
+      "id": "dew-prediction-engine",
+      "label": "Dew Prediction Engine",
+      "category": "environmental",
+      "outputs": [
+        "computed.dew",
+        "computed.dew.leafWetness"
+      ],
+      "after": [
+        "climate-engine"
+      ],
+      "runner": "orchestrator",
+      "handle": "buildDewInputs",
+      "requires": [],
+      "uses": [
+        "schedule.nextMatch",
+        "turf.subCategory",
+        "turf.turfType"
+      ],
+      "_inputsBeforeTheSplit": [
+        "turf.turfType",
+        "schedule.nextMatch"
+      ]
+    },
+    "shade-engine": {
+      "id": "shade-engine",
+      "label": "Shade Engine",
+      "category": "environmental",
+      "outputs": [
+        "computed.shade",
+        "computed.shade.dli",
+        "computed.shade.stressFactor"
+      ],
+      "after": [
+        "climate-engine",
+        "ambient-dli-engine"
+      ],
+      "runner": [
+        "cascade",
+        "orchestrator"
+      ],
+      "handle": [
+        "assets/cascade-orchestrator.js:executeShadeEngine",
+        "buildShadeInputs"
+      ],
+      "requires": [],
+      "uses": [
+        "climate.lat",
+        "turf.coolOverseed",
+        "turf.cultivar",
+        "turf.grassSpecies",
+        "turf.hoc",
+        "turf.ledHours",
+        "turf.ledPPFD",
+        "turf.nRate",
+        "turf.species",
+        "turf.trafficLevel",
+        "turf.variety",
+        "turf.warmBase"
+      ],
+      "_inputsBeforeTheSplit": [
+        "site.latitude",
+        "site.shadePercent",
+        "turf.species",
+        "turf.grassSpecies",
+        "turf.heightOfCut",
+        "shade.svf",
+        "shade.treeOcclusion",
+        "shade.morningSky",
+        "shade.middaySky",
+        "shade.afternoonSky",
+        "shade.facadeAngle",
+        "turf.dli",
+        "turf.ledPPFD",
+        "turf.ledHours"
+      ],
+      "readsWithNoPlaceInTheList": {
+        "names": [
+          "site.aspect"
+        ],
+        "why": "Read here with a substitution, and NO surface fills them -- not a form, not the wizard, not the API (measured 24.09.2026 over `app/resources/views`, `assets` and `app`). So the substitution is always the value. They are left UNDECLARED on purpose: where an input with no place belongs in the list is the analyst's decision, and until it is made declaring them here would either break the list's own guards or claim a place that does not exist. `fertility.monthlyN` is the measured cost of the question: 37 of 37 stored rows carry the nitrogen engine's skipped stub because nothing fills it."
+      },
+      "readsTheListExcuses": [
+        "turf.ambientDLI",
+        "turf.dli",
+        "turf.pgrActive"
+      ]
+    },
+    "salinity-penalty-engine": {
+      "id": "salinity-penalty-engine",
+      "label": "Salinity Penalty Engine",
+      "category": "environmental",
+      "outputs": [
+        "computed.salinity",
+        "computed.salinity.growthPenaltyPct",
+        "computed.salinityPenalty"
+      ],
+      "after": [],
+      "runner": [
+        "cascade",
+        "orchestrator"
+      ],
+      "handle": [
+        "assets/cascade-orchestrator.js:executeSalinityEngine",
+        "buildSalinityInputs"
+      ],
+      "requires": [
+        "water.ecw"
+      ],
+      "uses": [
+        "soil.EC1_5",
+        "soil.ECe",
+        "soil.ec1_5",
+        "soil.ece",
+        "soil.soilTexture",
+        "soil.type",
+        "turf.grassSpecies",
+        "turf.species",
+        "water.ec"
+      ],
+      "_inputsBeforeTheSplit": [
+        "water.ecw",
+        "water.EC",
+        "water.Na",
+        "water.Cl",
+        "turf.species",
+        "turf.grassSpecies",
+        "soil.gypsum"
+      ],
+      "requiresBecause": {
+        "water.ecw": "a GATE, not a substitution: `if (state.water && state.water.ecw > 0)` and, in the orchestrator, `if (_hubState.inputs.water?.ecw)`. Without it the module does not run at all."
+      },
+      "readsWithNoPlaceInTheList": {
+        "names": [
+          "schedule.dailyIrrigationMM",
+          "schedule.irrigationDepth"
+        ],
+        "why": "Read here with a substitution, and NO surface fills them -- not a form, not the wizard, not the API (measured 24.09.2026 over `app/resources/views`, `assets` and `app`). So the substitution is always the value. They are left UNDECLARED on purpose: where an input with no place belongs in the list is the analyst's decision, and until it is made declaring them here would either break the list's own guards or claim a place that does not exist. `fertility.monthlyN` is the measured cost of the question: 37 of 37 stored rows carry the nitrogen engine's skipped stub because nothing fills it."
+      },
+      "readsTheListExcuses": [
+        "turf.c3Fraction",
+        "turf.c4Fraction",
+        "turf.grassType"
+      ]
+    },
+    "soil-structure-engine": {
+      "id": "soil-structure-engine",
+      "label": "Soil Structure",
+      "category": "environmental",
+      "outputs": [
+        "computed.soilStructure"
+      ],
+      "after": [
+        "water-blender",
+        "salinity-penalty-engine"
+      ],
+      "runner": "cascade",
+      "handle": "assets/cascade-orchestrator.js:executeSoilStructureEngine",
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [
+        "turf.construction",
+        "soil.texture",
+        "soil.LOI",
+        "soil.OM_pct",
+        "water.SAR",
+        "water.ecw"
+      ]
+    },
+    "phytotoxicity-engine": {
+      "id": "phytotoxicity-engine",
+      "label": "Phytotoxicity Engine",
+      "category": "environmental",
+      "outputs": [
+        "computed.phytotoxicity"
+      ],
+      "after": [],
+      "runner": "cascade",
+      "handle": "assets/cascade-orchestrator.js:executePhytotoxicityEngine",
+      "requires": [],
+      "uses": [
+        "irrigation.method",
+        "turf.grassSpecies",
+        "turf.variety",
+        "water.B",
+        "water.Cl",
+        "water.HCO3",
+        "water.Na",
+        "water.ions"
+      ],
+      "_inputsBeforeTheSplit": [
+        "water.Na",
+        "water.Cl",
+        "water.B",
+        "water.HCO3",
+        "turf.species",
+        "turf.grassSpecies"
+      ]
+    },
+    "stress-aggregator": {
+      "id": "stress-aggregator",
+      "label": "Stress Aggregator",
+      "category": "integration",
+      "outputs": [
+        "computed.stress",
+        "derived.combinedGrowthModifier",
+        "derived.environmentalStressIndex"
+      ],
+      "after": [
+        "climate-engine",
+        "shade-engine",
+        "salinity-penalty-engine"
+      ],
+      "runner": "orchestrator",
+      "handle": "calculateStressAggregates",
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [
+        "turf.species",
+        "turf.grassSpecies"
+      ]
+    },
+    "tissue-engine": {
+      "id": "tissue-engine",
+      "label": "Tissue Engine",
+      "category": "nutrition",
+      "outputs": [
+        "computed.tissue"
+      ],
+      "after": [],
+      "runner": "cascade",
+      "handle": "assets/cascade-orchestrator.js:executeTissueEngine",
+      "requires": [],
+      "uses": [
+        "soil.pH_cacl2",
+        "soil.pH_water",
+        "soil.ppm",
+        "water.ecw",
+        "water.ions",
+        "water.pH"
+      ],
+      "_inputsBeforeTheSplit": [
+        "tissue",
+        "turf.species",
+        "turf.grassSpecies"
+      ]
+    },
+    "mlsn-calculator": {
+      "id": "mlsn-calculator",
+      "label": "MLSN Calculator",
+      "category": "nutrition",
+      "outputs": [
+        "computed.mlsn",
+        "computed.mlsnRows"
+      ],
+      "after": [
+        "tissue-engine"
+      ],
+      "runner": "cascade",
+      "handle": "assets/cascade-orchestrator.js:executeMLSNEngine",
+      "requires": [],
+      "uses": [
+        "climate.lat",
+        "climate.latitude",
+        "soil.CEC",
+        "soil.Na_ppm",
+        "soil.bulkDensity",
+        "soil.depthCm",
+        "soil.methodology",
+        "soil.pH_cacl2",
+        "soil.pH_water",
+        "soil.ppm",
+        "soil.soilTexture",
+        "water.ions",
+        "water.pH"
+      ],
+      "_inputsBeforeTheSplit": [
+        "soil",
+        "turf.species",
+        "turf.grassSpecies",
+        "turf.turfType"
+      ],
+      "readsWithNoPlaceInTheList": {
+        "names": [
+          "fertility.monthlyN"
+        ],
+        "why": "Read here with a substitution, and NO surface fills them -- not a form, not the wizard, not the API (measured 24.09.2026 over `app/resources/views`, `assets` and `app`). So the substitution is always the value. They are left UNDECLARED on purpose: where an input with no place belongs in the list is the analyst's decision, and until it is made declaring them here would either break the list's own guards or claim a place that does not exist. `fertility.monthlyN` is the measured cost of the question: 37 of 37 stored rows carry the nitrogen engine's skipped stub because nothing fills it."
+      }
+    },
+    "nutrition-calendar": {
+      "id": "nutrition-calendar",
+      "label": "Nutrition Program",
+      "category": "nutrition",
+      "outputs": [
+        "computed.nutritionCalendar"
+      ],
+      "after": [
+        "mlsn-calculator",
+        "tissue-engine"
+      ],
+      "runner": "page",
+      "handle": "assets/nutrition-calendar.js:tryInit",
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [
+        "turf.species",
+        "turf.nProgram",
+        "soil.CEC",
+        "soil.pH_water",
+        "samples.tissue"
+      ],
+      "page": [
+        "plan"
+      ],
+      "labelFrom": "the label is the subject of \"{Module} was not calculated...\", so it is a word the client already reads. Taken from the page rather than written here: \"Nutrition Program\" appears five times in `plan.blade.php`.",
+      "pageIsIntent": "DECLARED INTENT, not what the guard found. The file is loaded by five views (hub, plan, reports/export, reports/forensic, reports/scenarios) and starts itself on load, so the guard finds five pairs; only `plan` is the intent. The other four are divergences and live in the GH-680 list, because writing what the guard found into the graph would be the graph checking itself.",
+      "measured": "init() has one barrier, `[data-nutrition-calendar-module]`; it is in `plan.blade.php` and in `partials/legacy-hub-markup.blade.php`, and that partial is included by hub, the three report views and stadium. So the barrier does not stop it in a run frame either — measured in GH-679, where it also writes `program` from the saved config with nothing pressed and sends nothing."
+    },
+    "nutrition-summary": {
+      "id": "nutrition-summary",
+      "label": "Monthly N",
+      "category": "nutrition",
+      "outputs": [
+        "computed.nutritionSummary"
+      ],
+      "after": [
+        "nutrition-calendar"
+      ],
+      "runner": "producer",
+      "handle": "renderNutritionSummary",
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [
+        "turf.nProgram",
+        "soil.CEC",
+        "soil.pH_water"
+      ],
+      "labelFrom": "the label is the subject of \"{Module} was not calculated...\", so it is a word the client already reads. Taken from the page rather than written here: \"Monthly N\" stands over its own mount on `plan.blade.php`.",
+      "measured": "called from `hub-persistence.js` immediately before the one write, and three more times inside its own file. The producer call is what makes it a `producer`."
+    },
+    "nutrient-demand-engine": {
+      "id": "nutrient-demand-engine",
+      "label": "Nutrient Demand Engine",
+      "category": "nutrition",
+      "outputs": [
+        "computed.nutrientDemand"
+      ],
+      "after": [
+        "climate-engine",
+        "tissue-engine"
+      ],
+      "runner": null,
+      "handle": null,
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [
+        "turf.species",
+        "turf.grassSpecies",
+        "turf.nProgram",
+        "tissue"
+      ],
+      "noRunnerBecause": "No pass writes `computed.nutrientDemand`. This file is used as a LIBRARY from inside the tissue engine (`window.GilbaNutrientDemandEngine.getSpeciesTissueConcentrations` in `hub-tissue-v3.js`), so its reads belong to the tissue node and it has no run of its own. Whether the node stays at all is queue item 3ayu."
+    },
+    "soil-tissue-integration": {
+      "id": "soil-tissue-integration",
+      "label": "Soil-Tissue Integration",
+      "category": "nutrition",
+      "outputs": [
+        "computed.soilTissueIntegration"
+      ],
+      "after": [
+        "tissue-engine",
+        "mlsn-calculator"
+      ],
+      "runner": null,
+      "handle": null,
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [
+        "soil",
+        "tissue"
+      ],
+      "noRunnerBecause": "No pass writes `computed.soilTissueIntegration`; it computes on a page. A page node needs tier 1 of item 3ashch (the page-calculation sandbox) before a test can check it, so it waits for 3ayu rather than being declared unverifiable here."
+    },
+    "disease-engine": {
+      "id": "disease-engine",
+      "label": "Disease Engine",
+      "category": "analysis",
+      "outputs": [
+        "computed.disease",
+        "computed.disease.overallRisk"
+      ],
+      "after": [
+        "climate-engine",
+        "dew-prediction-engine",
+        "shade-engine",
+        "tissue-engine",
+        "stress-aggregator"
+      ],
+      "runner": "orchestrator",
+      "handle": "buildDiseaseInputs",
+      "requires": [],
+      "uses": [
+        "soil.Mn",
+        "soil.Mn_ppm",
+        "soil.pH",
+        "soil.pH_Water",
+        "soil.pH_water",
+        "soil.soil_ph",
+        "turf.heightOfCut"
+      ],
+      "_inputsBeforeTheSplit": [
+        "turf.species",
+        "turf.grassSpecies",
+        "turf.variety",
+        "turf.heightOfCut",
+        "site.region"
+      ],
+      "readsWithNoPlaceInTheList": {
+        "names": [
+          "turf.mowingFrequency"
+        ],
+        "why": "Read here with a substitution, and NO surface fills them -- not a form, not the wizard, not the API (measured 24.09.2026 over `app/resources/views`, `assets` and `app`). So the substitution is always the value. They are left UNDECLARED on purpose: where an input with no place belongs in the list is the analyst's decision, and until it is made declaring them here would either break the list's own guards or claim a place that does not exist. `fertility.monthlyN` is the measured cost of the question: 37 of 37 stored rows carry the nitrogen engine's skipped stub because nothing fills it."
+      }
+    },
+    "bipolaris-curvularia-engine": {
+      "id": "bipolaris-curvularia-engine",
+      "label": "Bipolaris/Curvularia Models",
+      "category": "analysis",
+      "outputs": [
+        "computed.disease.leafSpot"
+      ],
+      "after": [
+        "climate-engine",
+        "dew-prediction-engine",
+        "tissue-engine"
+      ],
+      "runner": null,
+      "handle": null,
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [
+        "turf.species",
+        "turf.grassSpecies"
+      ],
+      "noRunnerBecause": "No pass writes `computed.disease.leafSpot`. `bipolaris-curvularia-models.js` is read by `bsa-variety-traits.js`, not run as a module of the pass."
+    },
+    "wear-recovery-engine": {
+      "id": "wear-recovery-engine",
+      "label": "Wear & Recovery Engine",
+      "category": "analysis",
+      "outputs": [
+        "computed.wear",
+        "derived.adjustedRecoveryDays",
+        "computed.wearRecovery"
+      ],
+      "after": [
+        "climate-engine",
+        "shade-engine",
+        "salinity-penalty-engine",
+        "stress-aggregator"
+      ],
+      "runner": [
+        "cascade",
+        "orchestrator"
+      ],
+      "handle": [
+        "assets/cascade-orchestrator.js:executeWearEngine",
+        "buildWearRecoveryInputs"
+      ],
+      "requires": [],
+      "uses": [
+        "schedule.traffic",
+        "site.construction",
+        "soil.LOI",
+        "soil.OM_pct",
+        "turf.construction",
+        "turf.heightOfCut",
+        "turf.overseedStatus",
+        "turf.rootDepth",
+        "turf.turfType",
+        "turf.variety"
+      ],
+      "_inputsBeforeTheSplit": [
+        "turf.species",
+        "turf.grassSpecies",
+        "turf.construction",
+        "turf.heightOfCut",
+        "schedule",
+        "soil.LOI"
+      ]
+    },
+    "firmness-engine": {
+      "id": "firmness-engine",
+      "label": "Firmness Engine",
+      "category": "analysis",
+      "outputs": [
+        "computed.firmness.FI",
+        "computed.firmness.softnessRisk",
+        "computed.firmness.surfaceHardness",
+        "computed.firmness.hardnessClass"
+      ],
+      "after": [
+        "climate-engine"
+      ],
+      "runner": "cascade",
+      "handle": "assets/cascade-orchestrator.js:executeFirmnessEngine",
+      "requires": [],
+      "uses": [
+        "climate.manual",
+        "soil.bulkDensity",
+        "soil.surfaceType",
+        "turf.cleggHammer",
+        "turf.cleggMax",
+        "turf.cleggMin",
+        "turf.construction",
+        "turf.coolOverseed",
+        "turf.drainage",
+        "turf.grassSpecies",
+        "turf.nProgramKgHaYr",
+        "turf.warmBase",
+        "water.ecw"
+      ],
+      "_inputsBeforeTheSplit": [
+        "soil.bulkDensity",
+        "soil.surfaceType",
+        "water.ecw",
+        "turf.warmBase",
+        "turf.coolOverseed",
+        "turf.nProgramKgHaYr",
+        "turf.construction",
+        "turf.drainage",
+        "turf.grassSpecies",
+        "turf.cleggHammer",
+        "turf.cleggMax",
+        "turf.cleggMin",
+        "climate.forecast"
+      ]
+    },
+    "nopt-engine": {
+      "id": "nopt-engine",
+      "label": "N-Opt Engine",
+      "category": "analysis",
+      "outputs": [
+        "computed.nitrogen.opt",
+        "computed.nitrogen.applied",
+        "computed.nitrogen.status",
+        "computed.nitrogen.growthData"
+      ],
+      "after": [
+        "climate-engine"
+      ],
+      "runner": "cascade",
+      "handle": "assets/cascade-orchestrator.js:executeNoptEngine",
+      "requires": [],
+      "uses": [
+        "turf.coolOverseed",
+        "turf.hoc",
+        "turf.nProgramKgHaYr",
+        "turf.warmBase"
+      ],
+      "_inputsBeforeTheSplit": [
+        "turf.warmBase",
+        "turf.coolOverseed",
+        "turf.hoc",
+        "turf.percentC3Cover",
+        "turf.nProgramKgHaYr",
+        "climate.forecast"
+      ]
+    },
+    "traffic-engine": {
+      "id": "traffic-engine",
+      "label": "Traffic Engine",
+      "category": "analysis",
+      "outputs": [
+        "computed.traffic.TrafficRisk",
+        "computed.traffic.recoveryProb",
+        "computed.traffic.recoveryWindow",
+        "computed.traffic.trafficLevel"
+      ],
+      "after": [
+        "climate-engine",
+        "firmness-engine"
+      ],
+      "runner": "cascade",
+      "handle": "assets/cascade-orchestrator.js:executeTrafficEngine",
+      "requires": [],
+      "uses": [
+        "schedule.matchesPerWeek",
+        "schedule.restDays",
+        "schedule.sessionsPerWeek"
+      ],
+      "_inputsBeforeTheSplit": [
+        "schedule.matchesPerWeek",
+        "schedule.sessionsPerWeek",
+        "schedule.restDays",
+        "schedule.matchCode",
+        "schedule.trainingCode",
+        "turf.warmBase",
+        "turf.coolOverseed"
+      ]
+    },
+    "turf-manager-engine": {
+      "id": "turf-manager-engine",
+      "label": "Turf Manager Engine",
+      "category": "planning",
+      "outputs": [
+        "computed.turfManager.playability",
+        "computed.turfManager.playerRisk",
+        "computed.turfManager.cutbackPercent",
+        "computed.turfManager.renovationTrigger"
+      ],
+      "after": [
+        "firmness-engine",
+        "traffic-engine"
+      ],
+      "runner": "cascade",
+      "handle": "assets/cascade-orchestrator.js:executeTurfManagerEngine",
+      "requires": [],
+      "uses": [
+        "schedule.matchCode",
+        "schedule.matchesPerWeek",
+        "schedule.restDays",
+        "schedule.sessionsPerWeek",
+        "schedule.trainingCode"
+      ],
+      "_inputsBeforeTheSplit": [
+        "schedule.matchesPerWeek",
+        "schedule.sessionsPerWeek",
+        "schedule.restDays",
+        "schedule.matchCode",
+        "schedule.trainingCode"
+      ]
+    },
+    "irrigation-scheduler": {
+      "id": "irrigation-scheduler",
+      "label": "Irrigation Scheduler",
+      "category": "planning",
+      "outputs": [
+        "computed.irrigation"
+      ],
+      "after": [
+        "climate-engine",
+        "salinity-penalty-engine"
+      ],
+      "runner": "orchestrator",
+      "handle": "buildIrrigationInputs",
+      "requires": [],
+      "uses": [
+        "schedule.efficiency",
+        "schedule.precipRate",
+        "schedule.rootDepth",
+        "schedule.sprinklerPrecipRate",
+        "schedule.uniformity",
+        "site.construction",
+        "site.soilType",
+        "soil.ECe",
+        "soil.LOI",
+        "soil.OM_pct",
+        "soil.ece",
+        "soil.soilTexture",
+        "soil.type",
+        "turf.construction",
+        "turf.coolOverseed",
+        "turf.cultivar",
+        "turf.grassSpecies",
+        "turf.overseedSpecies",
+        "turf.overseedSummerIntent",
+        "turf.overseedVariety",
+        "turf.percentC3Cover",
+        "turf.poaPercent",
+        "turf.rootDepth",
+        "turf.species",
+        "turf.subCategory",
+        "turf.summerIntent",
+        "turf.turfType",
+        "turf.variety",
+        "turf.warmBase",
+        "water.ECw",
+        "water.ecw",
+        "water.ions",
+        "water.recycledWater"
+      ],
+      "_inputsBeforeTheSplit": [
+        "turf.species",
+        "turf.grassSpecies",
+        "soil.texture",
+        "water.EC"
+      ],
+      "readsWithNoPlaceInTheList": {
+        "names": [
+          "schedule.daysSinceIrrigation",
+          "schedule.irrigationStrategy",
+          "schedule.strategy"
+        ],
+        "why": "Read here with a substitution, and NO surface fills them -- not a form, not the wizard, not the API (measured 24.09.2026 over `app/resources/views`, `assets` and `app`). So the substitution is always the value. They are left UNDECLARED on purpose: where an input with no place belongs in the list is the analyst's decision, and until it is made declaring them here would either break the list's own guards or claim a place that does not exist. `fertility.monthlyN` is the measured cost of the question: 37 of 37 stored rows carry the nitrogen engine's skipped stub because nothing fills it."
+      },
+      "readsTheListExcuses": [
+        "turf.c3Fraction",
+        "turf.speciesFractions"
+      ]
+    },
+    "pgr-module": {
+      "id": "pgr-module",
+      "label": "PGR Module",
+      "category": "planning",
+      "outputs": [
+        "computed.pgr"
+      ],
+      "after": [
+        "climate-engine",
+        "stress-aggregator"
+      ],
+      "runner": "orchestrator",
+      "handle": "buildPGRInputs",
+      "requires": [],
+      "uses": [
+        "pgr.applicationDate",
+        "pgr.mowingHeightMM",
+        "pgr.productType",
+        "turf.grassSpecies",
+        "turf.hoc"
+      ],
+      "_inputsBeforeTheSplit": [
+        "turf.species",
+        "turf.grassSpecies",
+        "pgr.product",
+        "pgr.lastApplication",
+        "pgr.rate"
+      ],
+      "readsTheListExcuses": [
+        "pgr.gddThreshold"
+      ]
+    },
+    "water-blender": {
+      "id": "water-blender",
+      "label": "Water Quality",
+      "category": "planning",
+      "outputs": [
+        "computed.water",
+        "computed.waterBlend"
+      ],
+      "after": [],
+      "runner": "cascade",
+      "handle": "assets/cascade-orchestrator.js:executeWaterEngine",
+      "requires": [],
+      "uses": [
+        "water.ecw",
+        "water.ions",
+        "water.pH"
+      ],
+      "_inputsBeforeTheSplit": [
+        "water"
+      ],
+      "labelWasCalled": "Water Blender until GH-677. The label is the word a CLIENT reads -- it is the subject of \"{Module} was not calculated...\" -- and the panel already says \"water quality\" for this module (`AnalysisNotice::STEP_NAMES`). Two words for one module, one of them internal; this takes the one already on the screen rather than inventing a third."
+    },
+    "stress-trajectory-engine": {
+      "id": "stress-trajectory-engine",
+      "label": "Stress Trajectory Engine",
+      "category": "forecast",
+      "outputs": [
+        "computed.stressTrajectory"
+      ],
+      "after": [
+        "climate-engine",
+        "disease-engine",
+        "wear-recovery-engine",
+        "shade-engine",
+        "stress-aggregator"
+      ],
+      "runner": [
+        "cascade",
+        "orchestrator"
+      ],
+      "handle": [
+        "assets/cascade-orchestrator.js:executeStressTrajectoryEngine",
+        "buildStressTrajectoryInputs"
+      ],
+      "requires": [],
+      "uses": [
+        "site.soilMoisture",
+        "tissue.N",
+        "turf.grassSpecies",
+        "turf.species",
+        "turf.turfType",
+        "water.ecw"
+      ],
+      "_inputsBeforeTheSplit": [
+        "schedule"
+      ],
+      "readsTheListExcuses": [
+        "turf.grassType"
+      ]
+    },
+    "scenario-engine": {
+      "id": "scenario-engine",
+      "label": "Scenario Comparison",
+      "category": "forecast",
+      "outputs": [
+        "computed.scenario"
+      ],
+      "after": [],
+      "runner": "page",
+      "handle": "assets/gaip-scenario-engine.js:compareScenarios",
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [
+        "water.ecw",
+        "water.pH",
+        "soil.CEC",
+        "turf.species"
+      ],
+      "page": [
+        "reports/scenarios"
+      ],
+      "labelFrom": "the label is the subject of \"{Module} was not calculated...\", so it is a word the client already reads. Taken from the page rather than written here: \"Scenario Comparison\" is the heading of `reports/scenarios.blade.php`.",
+      "pageIsIntent": "DECLARED INTENT. The engine declares globals and does not start itself; `gaip-whatif-ui.js` calls it on a human action, and that file is loaded by `hub` and `reports/scenarios`. The intent is the scenarios page.",
+      "handleWasWrong": "assets/gaip-scenario-engine.js:buildState until the caller fixpoint said `declared page never calls it`. `buildState` is an internal step; the entry a human reaches is `GAIP_ScenarioEngine.compareScenarios`, which `gaip-whatif-ui.js` names as its primary call (its own comment at line 861), with `runScenario` as the other. The handle has to be the function somebody actually enters the module by."
+    },
+    "disease-forecast": {
+      "id": "disease-forecast",
+      "label": "Disease Forecast",
+      "category": "forecast",
+      "outputs": [
+        "computed.forecast"
+      ],
+      "after": [
+        "climate-engine",
+        "disease-engine"
+      ],
+      "runner": "orchestrator",
+      "handle": "assets/disease-forecast.js:generateForecast",
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [],
+      "outputWasCalled": "computed.diseaseForecast until GH-677. No pass ever wrote that key; the pass writes `computed.forecast` from `DiseaseForecast.generateForecast`. The node was not missing, its output was misnamed -- which is why (a) printed it on both sides at once.",
+      "readsTheListExcuses": [
+        "turf.baseSpecies"
+      ]
+    },
+    "irrigation-forecast": {
+      "id": "irrigation-forecast",
+      "label": "Irrigation Forecast",
+      "category": "forecast",
+      "outputs": [
+        "computed.irrigationForecast"
+      ],
+      "after": [
+        "climate-engine",
+        "irrigation-scheduler"
+      ],
+      "runner": null,
+      "handle": null,
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [],
+      "noRunnerBecause": "No pass writes `computed.irrigationForecast`; the orchestrator says in place of a call \"Irrigation scheduler would be called here\". It renders on a page. Waits for 3ayu."
+    },
+    "pgr-forecast": {
+      "id": "pgr-forecast",
+      "label": "PGR Forecast",
+      "category": "forecast",
+      "outputs": [
+        "computed.pgrForecast"
+      ],
+      "after": [
+        "climate-engine",
+        "pgr-module"
+      ],
+      "runner": null,
+      "handle": null,
+      "requires": [],
+      "uses": [],
+      "_inputsBeforeTheSplit": [],
+      "noRunnerBecause": "No pass writes `computed.pgrForecast`; it renders on a page. Waits for 3ayu. Its own `generateForecast` is the reason a bare handle name is not enough: three files declare a function of that name -- this one, `disease-forecast.js` and `shade-forecast.js`."
+    },
+    "pre-emergent-engine": {
+      "id": "pre-emergent-engine",
+      "label": "Pre-Emergent Timing",
+      "category": "advisory",
+      "outputs": [
+        "computed.preEmergent",
+        "computed.preEmergent.aggregateStatus",
+        "computed.preEmergent.results",
+        "window.GAIP_PRE_EMERGENT_RESULT"
+      ],
+      "after": [
+        "climate-engine"
+      ],
+      "runner": "orchestrator",
+      "handle": "buildPreEmergentInputs",
+      "requires": [],
+      "uses": [
+        "site.construction",
+        "soil.soilTexture",
+        "soil.type",
+        "turf.construction"
+      ],
+      "_inputsBeforeTheSplit": [
+        "climate.soilTemp5cm",
+        "climate.airTempHistory",
+        "schedule.preEmergentSpecies",
+        "site.region",
+        "inputs.moisture"
+      ],
+      "readsWithNoPlaceInTheList": {
+        "names": [
+          "schedule.preEmergentSpecies",
+          "site.preEmergentSpecies"
+        ],
+        "why": "Read here with a substitution, and NO surface fills them -- not a form, not the wizard, not the API (measured 24.09.2026 over `app/resources/views`, `assets` and `app`). So the substitution is always the value. They are left UNDECLARED on purpose: where an input with no place belongs in the list is the analyst's decision, and until it is made declaring them here would either break the list's own guards or claim a place that does not exist. `fertility.monthlyN` is the measured cost of the question: 37 of 37 stored rows carry the nitrogen engine's skipped stub because nothing fills it."
+      },
+      "readsTheListExcuses": [
+        "site.country",
+        "site.region"
+      ]
+    }
+  }
+}

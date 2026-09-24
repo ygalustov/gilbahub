@@ -109,6 +109,43 @@ class CalculationInputs
     }
 
     /**
+     * GH-684 (item 3bk) — WHICH REQUIRED INPUTS EACH WIZARD STEP COLLECTS, DERIVED FROM THE LIST.
+     *
+     * The wizard used to decide what a step needs with a hand-written `switch`, and Settings, the
+     * calculation and the panel each had their own idea of what is required. This returns the one
+     * answer from the one place: for every input required for this turf type, the wizard step named
+     * in its own `filledIn`.
+     *
+     * A step's NUMBER comes from the name, `wizard.step<N>`, because the wizard's steps are
+     * numbered and nothing else connects the two. A name that does not parse is skipped and named
+     * in the return under `unparsed`, rather than silently dropped: a step nobody can reach is the
+     * kind of hole that reads as "no input needs it".
+     *
+     * @return array{byStep: array<int, list<string>>, unparsed: list<string>}
+     */
+    public static function wizardStepsFor(string $turfType): array
+    {
+        $byStep = [];
+        $unparsed = [];
+        foreach (self::requiredFor($turfType) as $key) {
+            $entry = self::entry($key);
+            foreach ((array) ($entry['filledIn'] ?? []) as $place) {
+                if (! is_string($place) || ! str_starts_with($place, 'wizard.')) {
+                    continue;
+                }
+                if (preg_match('/^wizard\\.step(\\d+)$/', $place, $m) !== 1) {
+                    $unparsed[] = $place;
+                    continue;
+                }
+                $byStep[(int) $m[1]][] = $key;
+            }
+        }
+        ksort($byStep);
+
+        return ['byStep' => $byStep, 'unparsed' => array_values(array_unique($unparsed))];
+    }
+
+    /**
      * Inputs whose obligation the owner has not settled, with what waits on her.
      *
      * A warning built from this list says nothing about these until she answers —
@@ -158,6 +195,62 @@ class CalculationInputs
     }
 
     /** Which sample kind's lab-name map an entry points at, if any. */
+    /**
+     * GH-664 (item 3ch, the analyst's 26.1 point 1) — WHAT A SITE'S CONSTRUCTION
+     * MEANS TO EACH CONSUMER, RESOLVED ONCE, ON THE SERVER.
+     *
+     * The dictionary has been declared since GH-656 and had no reader: every
+     * consumer kept its own table, twelve of them across ten readers, and the soil
+     * structure engine read a field (`soil.rootzoneType`) that nothing in the tree
+     * writes — so it fell to its own `'native'` default and called all 35 stored
+     * rows clay, nine of them on sites whose construction is `sand_profile`.
+     *
+     * WHAT COMES BACK, and the shape is the point:
+     *   - `null` — the config has no construction. Not a default: the consumer
+     *     says "not computed" and names `turf.construction` (4.15 point 4);
+     *   - `['value' => …, 'resolves' => [...], 'known' => true]` — the value is in
+     *     the dictionary;
+     *   - `['value' => …, 'resolves' => [], 'known' => false]` — a value the
+     *     dictionary does not carry. Also not a default, and told apart from
+     *     absence on purpose: one is a site nobody has configured, the other is a
+     *     value somebody chose and we cannot interpret.
+     *
+     * AN EMPTY CELL INSIDE `resolves` IS NOT AN ERROR EITHER. Ten of the sixty-six
+     * cells are open questions for the owner (26.2), two of them live. A consumer
+     * whose cell is empty says "not computed"; it does not substitute.
+     */
+    public static function resolveConstruction(?array $config): ?array
+    {
+        $value = $config['turf']['construction'] ?? null;
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+        $value = trim($value);
+
+        $values = self::all()['inputs']['turf.construction']['values'] ?? [];
+        $entry = $values[$value] ?? null;
+        if (! is_array($entry)) {
+            return ['value' => $value, 'label' => null, 'resolves' => [], 'known' => false];
+        }
+
+        // Only the cells that carry an answer. An empty cell is the owner's open
+        // question, and handing it over as `null` inside a resolved object would
+        // invite a reader to treat it as a value.
+        $resolves = [];
+        foreach (($entry['resolves'] ?? []) as $consumer => $answer) {
+            if ($answer !== null) {
+                $resolves[$consumer] = $answer;
+            }
+        }
+
+        return [
+            'value' => $value,
+            'label' => $entry['label'] ?? null,
+            'resolves' => $resolves,
+            'known' => true,
+        ];
+    }
+
     public static function readingsMap(string $key): ?string
     {
         $entry = self::entry($key);

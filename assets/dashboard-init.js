@@ -1727,9 +1727,21 @@
 
     function gsIsDone(key, serverSteps, siteId) {
         if (key === 'setup') {
-            var cfg = global.GAIP_HUB_CONFIG || {};
-            var loc = cfg.savedLocation || {};
-            return !!(cfg.turfSpecies && cfg.turfMethodology && loc.lat && loc.lon);
+            /**
+             * GH-684 — THE SAME ANSWER AS THE WIZARD AND THE LOCK, FROM THE SERVER.
+             *
+             * This was its own copy of the four-field test -- species, methodology, latitude,
+             * longitude -- so the checklist called setup done on a site the wizard would reopen for
+             * a missing cultivar. The server sends what is missing, by the inputs list's own names,
+             * and all three read that one answer.
+             *
+             * With no setup state (an old page) this says nothing rather than guessing: `null` is
+             * "not known", which the caller shows as unfinished, and it is not a fourth opinion.
+             */
+            var setup = (global.GAIP_HUB_CONFIG || {}).setup;
+            if (!setup || !setup.missing) return null;
+
+            return setup.missing.length === 0;
         }
         if (key === 'sensors') {
             // Sensors configured client-side only — check API keys or manual TDR import

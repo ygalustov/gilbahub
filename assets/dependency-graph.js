@@ -26,7 +26,57 @@
 (function(global) {
     'use strict';
 
-    const GRAPH_VERSION = '1.0.0';
+    /**
+     * GH-678 (queue item 6, place 3 -- the gates; analyst 59.5 item 3, 59.6) --
+     * THE DATA COMES FROM THE PAGE, AND ITS ABSENCE IS AN OUTCOME RATHER THAN AN
+     * EMPTY GRAPH.
+     *
+     * This file used to CARRY the graph: twenty-six engines declared here by hand,
+     * beside a second hand-written declaration in `cascade-orchestrator.js`, a third
+     * in `hub-tissue-v3.js` and a fourth in `export-metadata.js`. The data now lives
+     * in `assets/dependency-graph.json`, is read by `App\Support\DependencyGraph` and
+     * is handed to the page as `window.GAIP_DEPENDENCY_GRAPH` (GH-676). The functions
+     * stay here; the facts do not.
+     *
+     * WHY ABSENCE MUST REFUSE, and it is the whole point of this change. A graph built
+     * from nothing answers every question with "nothing": `getAffectedEngines('soil.CEC')`
+     * returns an empty list, and the page's coming warning would read "changing this
+     * affects nothing" -- which is not a caveat, it is a false statement, and it looks
+     * exactly like a correct answer. So when the page was not given the data this
+     * module installs NO `GilbaDependencyGraph` at all. Every caller already tests for
+     * it (`if (!global.GilbaDependencyGraph)`) and falls back to recomputing
+     * EVERYTHING, which computes more rather than guessing less.
+     *
+     * WHAT IS NOT IN THIS SLICE, said rather than left to be noticed: the run does not
+     * yet REFUSE on a missing graph the way it refuses on a missing result schema. That
+     * refusal needs a new reason code, a reason code must carry a sentence a client
+     * reads (`Gh638TheClassDecidesTheOffer` holds that a code without one must be an
+     * `answer`), and the words are the owner's. The silent empty graph -- the defect --
+     * is closed here regardless: it cannot exist any more.
+     */
+    const INJECTED = (typeof global.GAIP_DEPENDENCY_GRAPH === 'object' && global.GAIP_DEPENDENCY_GRAPH)
+        ? global.GAIP_DEPENDENCY_GRAPH
+        : null;
+    const INJECTED_NODES = (INJECTED && INJECTED.nodes && typeof INJECTED.nodes === 'object')
+        ? INJECTED.nodes
+        : null;
+
+    if (!INJECTED_NODES || !Object.keys(INJECTED_NODES).length) {
+        // Not installed, and said out loud. A marker is left so a reader of the page
+        // can tell "the page was never given the graph" from "this file never loaded".
+        global.GAIP_DEPENDENCY_GRAPH_UNAVAILABLE = {
+            reason: INJECTED ? 'the injected graph carried no nodes' : 'the page was not given a dependency graph',
+            at: new Date().toISOString(),
+        };
+        console.error('[DependencyGraph] not installed: '
+            + global.GAIP_DEPENDENCY_GRAPH_UNAVAILABLE.reason
+            + '. Callers fall back to recomputing everything; nothing will answer'
+            + ' "this input affects nothing".');
+
+        return;
+    }
+
+    const GRAPH_VERSION = INJECTED.version ? String(INJECTED.version) : '1.0.0';
 
     // =========================================================================
     // ENGINE DEPENDENCY DECLARATIONS
@@ -40,342 +90,36 @@
      * - outputs: Array of output paths it writes (for documentation)
      * - category: Grouping for UI/visualization
      */
-    const ENGINE_DEFINITIONS = {
+    /**
+     * The injected nodes in this module's own shape. The graph data splits what a
+     * module reads into `requires` and `uses` -- a judgement about what it does
+     * without the input (GH-677) -- and this module asks only "does it read it", so
+     * the two are joined here rather than flattened in the data.
+     *
+     * `after` is the node's upstream nodes; this module has always called that
+     * `engines`. One name per fact, translated at the boundary.
+     */
+    const ENGINE_DEFINITIONS = {};
+    Object.keys(INJECTED_NODES).forEach(function (id) {
+        const node = INJECTED_NODES[id] || {};
+        ENGINE_DEFINITIONS[id] = {
+            id: id,
+            label: node.label || id,
+            inputs: [].concat(node.requires || [], node.uses || []),
+            engines: [].concat(node.after || []),
+            outputs: [].concat(node.outputs || []),
+            category: node.category || 'uncategorised',
+        };
+    });
 
-        // ─────────────────────────────────────────────────────────────────────
-        // TIER 1: FOUNDATIONAL (No engine dependencies, only raw inputs)
-        // ─────────────────────────────────────────────────────────────────────
-
-        'climate-engine': {
-            id: 'climate-engine',
-            label: 'Climate Engine',
-            category: 'foundation',
-            inputs: ['climate', 'site.latitude', 'site.longitude', 'turf.species', 'turf.grassSpecies', 'turf.warmBase', 'turf.coolOverseed'],
-            engines: [],
-            outputs: ['computed.climate', 'derived.growthPotential'],
-            description: 'Processes weather data, calculates growth potential, GDD, ET₀'
-        },
-
-        'ambient-dli-engine': {
-            id: 'ambient-dli-engine',
-            label: 'Ambient DLI Engine',
-            category: 'foundation',
-            inputs: ['site.latitude', 'climate.solarRadiation'],
-            engines: ['climate-engine'],
-            outputs: ['computed.ambientDLI'],
-            description: 'Calculates open-field DLI baseline from solar radiation'
-        },
-
-        // ─────────────────────────────────────────────────────────────────────
-        // TIER 2: ENVIRONMENTAL MODIFIERS
-        // ─────────────────────────────────────────────────────────────────────
-
-        'dew-prediction-engine': {
-            id: 'dew-prediction-engine',
-            label: 'Dew Prediction Engine',
-            category: 'environmental',
-            inputs: ['turf.turfType', 'schedule.nextMatch'],
-            engines: ['climate-engine'],
-            outputs: ['computed.dew', 'computed.dew.leafWetness'],
-            description: 'Predicts leaf wetness duration from temperature and humidity'
-        },
-
-        'shade-engine': {
-            id: 'shade-engine',
-            label: 'Shade Engine',
-            category: 'environmental',
-            inputs: [
-                'site.latitude', 'site.shadePercent', 'turf.species', 'turf.grassSpecies', 'turf.heightOfCut',
-                'shade.svf', 'shade.treeOcclusion', 'shade.morningSky', 'shade.middaySky', 
-                'shade.afternoonSky', 'shade.facadeAngle', 'turf.dli',
-                'turf.ledPPFD', 'turf.ledHours'
-            ],
-            engines: ['climate-engine', 'ambient-dli-engine'],
-            outputs: ['computed.shade', 'computed.shade.dli', 'computed.shade.stressFactor'],
-            description: 'Calculates DLI deficit and shade stress from site characteristics'
-        },
-
-        'salinity-penalty-engine': {
-            id: 'salinity-penalty-engine',
-            label: 'Salinity Penalty Engine',
-            category: 'environmental',
-            inputs: ['water.ecw', 'water.EC', 'water.Na', 'water.Cl', 'turf.species', 'turf.grassSpecies', 'soil.gypsum'],
-            engines: [],
-            outputs: ['computed.salinity', 'computed.salinity.growthPenaltyPct'],
-            description: 'Calculates Maas-Hoffman yield reduction from water salinity'
-        },
-
-        'phytotoxicity-engine': {
-            id: 'phytotoxicity-engine',
-            label: 'Phytotoxicity Engine',
-            category: 'environmental',
-            inputs: ['water.Na', 'water.Cl', 'water.B', 'water.HCO3', 'turf.species', 'turf.grassSpecies'],
-            engines: [],
-            outputs: ['computed.phytotoxicity'],
-            description: 'Assesses direct foliar/root damage from specific ions'
-        },
-
-        // ─────────────────────────────────────────────────────────────────────
-        // TIER 3: STRESS AGGREGATION
-        // ─────────────────────────────────────────────────────────────────────
-
-        'stress-aggregator': {
-            id: 'stress-aggregator',
-            label: 'Stress Aggregator',
-            category: 'integration',
-            inputs: ['turf.species', 'turf.grassSpecies'],
-            engines: ['climate-engine', 'shade-engine', 'salinity-penalty-engine'],
-            outputs: ['computed.stress', 'derived.combinedGrowthModifier', 'derived.environmentalStressIndex'],
-            description: 'Combines temperature, shade, salinity, moisture stress into unified index'
-        },
-
-        // ─────────────────────────────────────────────────────────────────────
-        // TIER 4: ANALYSIS ENGINES
-        // ─────────────────────────────────────────────────────────────────────
-
-        'tissue-engine': {
-            id: 'tissue-engine',
-            label: 'Tissue Engine',
-            category: 'nutrition',
-            inputs: ['tissue', 'turf.species', 'turf.grassSpecies'],
-            engines: [],
-            outputs: ['computed.tissue'],
-            description: 'Interprets tissue test results against species-specific ranges'
-        },
-
-        'mlsn-calculator': {
-            id: 'mlsn-calculator',
-            label: 'MLSN Calculator',
-            category: 'nutrition',
-            inputs: ['soil', 'turf.species', 'turf.grassSpecies', 'turf.turfType'],
-            engines: ['tissue-engine'],
-            outputs: ['computed.mlsn'],
-            description: 'Calculates MLSN-based nutrient recommendations'
-        },
-
-        'nutrient-demand-engine': {
-            id: 'nutrient-demand-engine',
-            label: 'Nutrient Demand Engine',
-            category: 'nutrition',
-            inputs: ['turf.species', 'turf.grassSpecies', 'turf.nProgram', 'tissue'],
-            engines: ['climate-engine', 'tissue-engine'],
-            outputs: ['computed.nutrientDemand'],
-            description: 'Calculates N-linked nutrient demand based on growth potential'
-        },
-
-        'soil-tissue-integration': {
-            id: 'soil-tissue-integration',
-            label: 'Soil-Tissue Integration',
-            category: 'nutrition',
-            inputs: ['soil', 'tissue'],
-            engines: ['tissue-engine', 'mlsn-calculator'],
-            outputs: ['computed.soilTissueIntegration'],
-            description: 'Cross-validates soil and tissue tests, identifies constraints'
-        },
-
-        'disease-engine': {
-            id: 'disease-engine',
-            label: 'Disease Engine',
-            category: 'analysis',
-            inputs: ['turf.species', 'turf.grassSpecies', 'turf.variety', 'turf.heightOfCut', 'site.region'],
-            engines: ['climate-engine', 'dew-prediction-engine', 'shade-engine', 'tissue-engine', 'stress-aggregator'],
-            outputs: ['computed.disease', 'computed.disease.overallRisk'],
-            description: 'Predicts disease risk using Smith-Kerns, Fidanza models with stress modifiers'
-        },
-
-        'bipolaris-curvularia-engine': {
-            id: 'bipolaris-curvularia-engine',
-            label: 'Bipolaris/Curvularia Models',
-            category: 'analysis',
-            inputs: ['turf.species', 'turf.grassSpecies'],
-            engines: ['climate-engine', 'dew-prediction-engine', 'tissue-engine'],
-            outputs: ['computed.disease.leafSpot'],
-            description: 'Specialized warm-season leaf spot disease models'
-        },
-
-        'wear-recovery-engine': {
-            id: 'wear-recovery-engine',
-            label: 'Wear & Recovery Engine',
-            category: 'analysis',
-            inputs: ['turf.species', 'turf.grassSpecies', 'turf.construction', 'turf.heightOfCut', 'schedule', 'soil.LOI'],
-            engines: ['climate-engine', 'shade-engine', 'salinity-penalty-engine', 'stress-aggregator'],
-            outputs: ['computed.wear', 'derived.adjustedRecoveryDays'],
-            description: 'Models traffic impact and recovery with stress penalties'
-        },
-
-        'firmness-engine': {
-            id: 'firmness-engine',
-            label: 'Firmness Engine',
-            category: 'analysis',
-            inputs: [
-                'soil.bulkDensity', 'soil.surfaceType',
-                'water.ecw',
-                'turf.warmBase', 'turf.coolOverseed', 'turf.nProgramKgHaYr',
-                'turf.construction', 'turf.drainage', 'turf.grassSpecies',
-                'turf.cleggHammer', 'turf.cleggMax', 'turf.cleggMin',
-                'climate.forecast'
-            ],
-            engines: ['climate-engine'],
-            outputs: [
-                'computed.firmness.FI', 'computed.firmness.softnessRisk',
-                'computed.firmness.surfaceHardness', 'computed.firmness.hardnessClass'
-            ],
-            description: 'Calculates surface firmness index based on soil, weather, and construction'
-        },
-
-        'nopt-engine': {
-            id: 'nopt-engine',
-            label: 'N-Opt Engine',
-            category: 'analysis',
-            inputs: [
-                'turf.warmBase', 'turf.coolOverseed', 'turf.hoc',
-                'turf.percentC3Cover', 'turf.nProgramKgHaYr',
-                'climate.forecast'
-            ],
-            engines: ['climate-engine'],
-            outputs: [
-                'computed.nitrogen.opt', 'computed.nitrogen.applied',
-                'computed.nitrogen.status', 'computed.nitrogen.growthData'
-            ],
-            description: 'Calculates optimal nitrogen rate based on species and growth potential'
-        },
-
-        'traffic-engine': {
-            id: 'traffic-engine',
-            label: 'Traffic Engine',
-            category: 'analysis',
-            inputs: [
-                'schedule.matchesPerWeek', 'schedule.sessionsPerWeek',
-                'schedule.restDays', 'schedule.matchCode', 'schedule.trainingCode',
-                'turf.warmBase', 'turf.coolOverseed'
-            ],
-            engines: ['climate-engine', 'firmness-engine'],
-            outputs: [
-                'computed.traffic.TrafficRisk', 'computed.traffic.recoveryProb',
-                'computed.traffic.recoveryWindow', 'computed.traffic.trafficLevel'
-            ],
-            description: 'Calculates traffic risk and recovery probability based on usage and firmness'
-        },
-
-        'turf-manager-engine': {
-            id: 'turf-manager-engine',
-            label: 'Turf Manager Engine',
-            category: 'planning',
-            inputs: [
-                'schedule.matchesPerWeek', 'schedule.sessionsPerWeek',
-                'schedule.restDays', 'schedule.matchCode', 'schedule.trainingCode'
-            ],
-            engines: ['firmness-engine', 'traffic-engine'],
-            outputs: [
-                'computed.turfManager.playability', 'computed.turfManager.playerRisk',
-                'computed.turfManager.cutbackPercent', 'computed.turfManager.renovationTrigger'
-            ],
-            description: 'Provides scheduling guidance and playability assessment'
-        },
-
-        'irrigation-scheduler': {
-            id: 'irrigation-scheduler',
-            label: 'Irrigation Scheduler',
-            category: 'planning',
-            inputs: ['turf.species', 'turf.grassSpecies', 'soil.texture', 'water.EC'],
-            engines: ['climate-engine', 'salinity-penalty-engine'],
-            outputs: ['computed.irrigation'],
-            description: 'FAO-56 ET-based irrigation scheduling with leaching fraction'
-        },
-
-        'pgr-module': {
-            id: 'pgr-module',
-            label: 'PGR Module',
-            category: 'planning',
-            inputs: ['turf.species', 'turf.grassSpecies', 'pgr.product', 'pgr.lastApplication', 'pgr.rate'],
-            engines: ['climate-engine', 'stress-aggregator'],
-            outputs: ['computed.pgr'],
-            description: 'GDD-based PGR timing with species-specific base temperatures'
-        },
-
-        'water-blender': {
-            id: 'water-blender',
-            label: 'Water Blender',
-            category: 'planning',
-            inputs: ['water'],
-            engines: [],
-            outputs: ['computed.waterBlend'],
-            description: 'Multi-source water blending with SAR/RSC/LSI calculations'
-        },
-
-        // ─────────────────────────────────────────────────────────────────────
-        // TIER 5: FORECASTING & TRAJECTORY
-        // ─────────────────────────────────────────────────────────────────────
-
-        'stress-trajectory-engine': {
-            id: 'stress-trajectory-engine',
-            label: 'Stress Trajectory Engine',
-            category: 'forecast',
-            inputs: ['schedule'],
-            engines: ['climate-engine', 'disease-engine', 'wear-recovery-engine', 'shade-engine', 'stress-aggregator'],
-            outputs: ['computed.stressTrajectory'],
-            description: '14-day predictive stress modeling with intervention windows'
-        },
-
-        'disease-forecast': {
-            id: 'disease-forecast',
-            label: 'Disease Forecast',
-            category: 'forecast',
-            inputs: [],
-            engines: ['climate-engine', 'disease-engine'],
-            outputs: ['computed.diseaseForecast'],
-            description: 'Daily disease risk timeline'
-        },
-
-        'irrigation-forecast': {
-            id: 'irrigation-forecast',
-            label: 'Irrigation Forecast',
-            category: 'forecast',
-            inputs: [],
-            engines: ['climate-engine', 'irrigation-scheduler'],
-            outputs: ['computed.irrigationForecast'],
-            description: 'Water balance timeline'
-        },
-
-        'pgr-forecast': {
-            id: 'pgr-forecast',
-            label: 'PGR Forecast',
-            category: 'forecast',
-            inputs: [],
-            engines: ['climate-engine', 'pgr-module'],
-            outputs: ['computed.pgrForecast'],
-            description: 'GDD decay timeline for growth regulation'
-        },
-
-        'pre-emergent-engine': {
-            id: 'pre-emergent-engine',
-            label: 'Pre-Emergent Timing',
-            category: 'advisory',
-            // Requires soil temperature — either measured or modelled from climate engine
-            inputs: [
-                'climate.soilTemp5cm',
-                'climate.airTempHistory',
-                'schedule.preEmergentSpecies',
-                'site.region',
-                'inputs.moisture'
-            ],
-            engines: ['climate-engine'],
-            outputs: [
-                'computed.preEmergent',
-                'computed.preEmergent.aggregateStatus',
-                'computed.preEmergent.results',
-                'window.GAIP_PRE_EMERGENT_RESULT'
-            ],
-            description: 'Species-level pre-emergent herbicide application timing based on soil temperature thresholds and trend trajectory. Covers AU/NZ/UK temperate and tropical weed suites. Confidence-rated: H = peer-reviewed, M = extension, L = indicative only.',
-            notes: [
-                'Runs at hub-orchestrator Step 8b, after climate engine guarantees soil temp is available',
-                'Skipped silently when soilTemp5cm is null (no weather data entered)',
-                'Tropical regions (southeast_asia, australia_tropical, australia_subtropical) use programme-interval logic',
-                'L-rated species never trigger RED alerts, informational only',
-                'Efficacy thresholds flagged indicative until field validation data available'
-            ]
-        }
-    };
+    /*
+     * THE TWENTY-SIX HAND-WRITTEN DEFINITIONS THAT STOOD HERE ARE GONE, 335 lines of
+     * them. They were not deleted and retyped somewhere else: `assets/dependency-graph.json`
+     * was TRANSFORMED out of this block (GH-676) and then filled in from the test's own
+     * output (GH-677), which is why removing them now loses nothing. Keeping them as a
+     * dead copy would keep the very thing this work removes -- a second declaration of
+     * the same facts, which drifts quietly because nothing reads it.
+     */
 
     // =========================================================================
     // INPUT-TO-ENGINE MAPPING

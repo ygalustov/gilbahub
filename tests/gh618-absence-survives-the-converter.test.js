@@ -115,22 +115,89 @@ describe('GH-618 — what the engines are handed', () => {
         expect(out.inputs.soil.pH_cacl2).toBeNull();
         expect(out.inputs.soil.CEC).toBeNull();
         expect(out.inputs.water.ecw).toBeNull();
+        // GH-673 (queue item 3ts, the reviewer's finding) — `EC` WAS NAMED IN THE
+        // COMMENT ABOVE AND ASSERTED NOWHERE. Six were listed, five were claimed,
+        // and he measured what that was worth: the mutation at
+        // `hub-tissue-v3.js:519` reddened nothing. A list in prose is wider than a
+        // list in assertions, and the prose is what a reader believes.
+        expect(out.inputs.water.EC).toBeNull();
         expect(out.inputs.water.pH).toBeNull();
     });
 
-    test('and a measured reading on any of them still arrives as itself', () => {
-        // The control for the repair: turning absences into nulls must not
-        // turn readings into nulls too.
-        const out = transform({
-            soil: { pH_water: 6.1, CEC: 5.9, pH_cacl2: 5.4 },
-            water: { ecw: 0.5, pH: 7.1 }, turf: {},
-        });
+    /**
+     * GH-695 (queue item 3x, the reviewer's return) — THE UNIVERSE IS WHAT THE CONVERTER BUILDS, NOT
+     * A LIST WRITTEN HERE.
+     *
+     * The case this replaces sent six readings and asserted five, and the case before it named six in
+     * prose and asserted five of those. Both were repaired one field at a time — `EC` under GH-673,
+     * `pH_cacl2` under GH-693 — and this file had meanwhile written down the very danger it was
+     * living with: "a list in prose is wider than a list in assertions, and the prose is what a
+     * reader believes." It said so while keeping a hand-written list.
+     *
+     * HIS CURE, AND IT IS CHECKABLE: the fixture carries every field of the soil and water halves,
+     * and the universe compared against it is `Object.keys` OF THE CONVERTER'S OWN OUTPUT. A seventh
+     * field added to either half then appears in the output with nothing sent for it and reddens by
+     * itself, naming itself — no one has to remember to come back here.
+     *
+     * BOTH DIRECTIONS, because each catches a different mistake: a field the converter builds and the
+     * fixture does not send is a hole in the fixture; a field the fixture sends and the converter does
+     * not build is a field that was removed, or misspelled, while this file went on claiming it.
+     */
+    const ALL_READINGS = {
+        soil: {
+            bulkDensity: 1.55, surfaceType: 'sand carpet',
+            pH_water: 6.1, pH_cacl2: 5.4, CEC: 5.9, LOI: 4.2,
+            ppm: { K: 41 }, meq: { K: 0.11 },
+        },
+        water: {
+            ecw: 0.5, EC: 1.2, pH: 7.1,
+            ions: { Na: 31 }, SAR: 1.5, adjSAR: 1.8,
+        },
+    };
 
-        expect(out.inputs.soil.pH_water).toBe(6.1);
-        expect(out.inputs.soil.CEC).toBe(5.9);
-        expect(out.inputs.water.ecw).toBe(0.5);
-        expect(out.inputs.water.pH).toBe(7.1);
-        // And a measured ZERO survives, which `|| 0` could never distinguish.
+    test('every field the converter builds is sent, and arrives as itself', () => {
+        const out = transform({ soil: ALL_READINGS.soil, water: ALL_READINGS.water, turf: {} });
+        const rows = [];
+        ['soil', 'water'].forEach((half) => {
+            const built = Object.keys((out.inputs && out.inputs[half]) || {});
+            built.forEach((k) => rows.push({
+                at: half + '.' + k,
+                sent: Object.prototype.hasOwnProperty.call(ALL_READINGS[half], k) ? ALL_READINGS[half][k] : undefined,
+                got: out.inputs[half][k],
+                inTheFixture: Object.prototype.hasOwnProperty.call(ALL_READINGS[half], k),
+            }));
+            Object.keys(ALL_READINGS[half]).forEach((k) => {
+                if (built.includes(k)) return;
+                rows.push({ at: half + '.' + k, sent: ALL_READINGS[half][k], got: '<NOT BUILT>', inTheFixture: true });
+            });
+        });
+        process.stdout.write('[gh695] the converter builds ' + rows.length + ' fields across the two halves:\n'
+            + rows.map((r) => '[gh695]   ' + r.at.padEnd(20)
+                + ' sent ' + JSON.stringify(r.sent)
+                + ' -> got ' + JSON.stringify(r.got)).join('\n') + '\n');
+
+        // The universe is real: an output with no fields would satisfy everything below.
+        expect(rows.length).toBeGreaterThan(12);
+
+        const notSent = rows.filter((r) => !r.inTheFixture).map((r) => r.at);
+        const notBuilt = rows.filter((r) => r.got === '<NOT BUILT>').map((r) => r.at);
+        const changed = rows
+            .filter((r) => r.inTheFixture && r.got !== '<NOT BUILT>')
+            .filter((r) => JSON.stringify(r.got) !== JSON.stringify(r.sent))
+            .map((r) => r.at + ': sent ' + JSON.stringify(r.sent) + ', got ' + JSON.stringify(r.got));
+
+        expect({
+            builtButTheFixtureSendsNothing: notSent,
+            sentButTheConverterBuildsNothing: notBuilt,
+            arrivedAsSomethingElse: changed,
+        }).toEqual({
+            builtButTheFixtureSendsNothing: [],
+            sentButTheConverterBuildsNothing: [],
+            arrivedAsSomethingElse: [],
+        });
+    });
+
+    test('and a measured ZERO survives, which `|| 0` could never distinguish', () => {
         expect(transform({ soil: { CEC: 0 }, water: {}, turf: {} }).inputs.soil.CEC).toBe(0);
     });
 
