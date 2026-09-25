@@ -77,6 +77,10 @@ function consumerTables() {
     out.structurePathway = typeof structure.pathwayFrom === 'function' ? ['sand', 'clay'] : [];
     out.pathwayFrom = structure.pathwayFrom || null;
 
+    // GH-752 — the SLAN ranges' own table: the soil types `assets/slan-ranges.json` carries.
+    const slan = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'slan-ranges.json'), 'utf8'));
+    out.slanSoilType = Object.keys(slan.bySoilType || {});
+
     return out;
 }
 
@@ -107,6 +111,7 @@ describe('GH-656 — test (a): a construction resolves into a row its consumer a
         expect(TABLES.thermalProfile.length).toBeGreaterThan(5);
         expect(TABLES.irrigationSoilType.length).toBeGreaterThan(5);
         expect(typeof TABLES.pathwayFrom).toBe('function');
+        expect(TABLES.slanSoilType.length).toBeGreaterThan(1);
         // and the values under test are the eleven the wizard offers
         expect(Object.keys(VALUES).length).toBe(11);
     });
@@ -290,6 +295,28 @@ describe('GH-656 — test (a): a construction resolves into a row its consumer a
         expect(onNeither.capacityUsed).toBe('soil');
     });
 
+    test('GH-752: every named slanSoilType is a soil type the SLAN ranges file carries', () => {
+        /**
+         * GH-760 (queue item 3vn): the failure named the construction and its type and stopped
+         * there. The project's rule asks for the file AND the line, and a construction is a key in
+         * the list file — so the red says where to open it.
+         */
+        const LISTFILE = 'assets/calculation-inputs.schema.json';
+        const raw = fs.readFileSync(path.join(ROOT, LISTFILE), 'utf8');
+        const lineOfKey = (key) => {
+            const at = raw.indexOf('"' + key + '"');
+
+            return at < 0 ? null : raw.slice(0, at).split('\n').length;
+        };
+        const wrong = Object.entries(VALUES)
+            .filter(([, v]) => !TABLES.slanSoilType.includes(v.resolves.slanSoilType))
+            .map(([value, v]) => LISTFILE + ':' + lineOfKey(value) + ' ' + value + ': '
+                + JSON.stringify(v.resolves.slanSoilType));
+        process.stdout.write('[gh656] SLAN soil types in the file: ' + JSON.stringify(TABLES.slanSoilType)
+            + ' | named but not carried: ' + JSON.stringify(wrong) + '\n');
+        expect({ slanSoilTypeNotInTheFile: wrong }).toEqual({ slanSoilTypeNotInTheFile: [] });
+    });
+
     test('the two consumers this test cannot reach are named, and the entry says so too', () => {
         // The boundary is printed rather than left to be discovered: `surfaceKey`
         // and `preEmergentTexture` are asserted by nothing here, and a reader of a
@@ -300,9 +327,9 @@ describe('GH-656 — test (a): a construction resolves into a row its consumer a
         const comment = (ENTRY.$comment || []).join(' ');
         expect(comment).toMatch(/wearSandBased/);
         expect(comment).toMatch(/preEmergentTexture/);
-        // Every value still declares all six, so a consumer cannot go missing.
+        // Every value still declares all seven, so a consumer cannot go missing.
         const six = ['surfaceKey', 'thermalProfile', 'irrigationSoilType',
-            'structurePathway', 'wearSandBased', 'preEmergentTexture'];
+            'structurePathway', 'wearSandBased', 'preEmergentTexture', 'slanSoilType'];
         Object.entries(VALUES).forEach(([value, v]) => {
             expect([value, Object.keys(v.resolves).sort()]).toEqual([value, [...six].sort()]);
         });

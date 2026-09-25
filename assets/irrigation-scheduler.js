@@ -215,7 +215,8 @@
             isOverseed: false,
             baseSpecies: baseSpecies,
             overseedSpecies: overseedSpecies,
-            summerIntent: turf.overseedSummerIntent || turf.summerIntent || 'transition',
+            // GH-741: an unset summer intent stays unset; 'transition' here was a guess that read as an answer.
+            summerIntent: turf.overseedSummerIntent || turf.summerIntent || null,
             effectiveSpecies: null,
             effectiveVariety: null,
             c3Fraction: 0,   // Default 0 — only set if explicitly provided or calculated
@@ -458,6 +459,11 @@
         // User/schedule overrides only apply if explicitly set (non-zero, non-default).
         const speciesRootDepth = CONFIG.rootDepths[speciesKey] || CONFIG.rootDepths.generic;
         const explicitIrrigRoot = safeNum(state.irrigation?.rootDepth, 0);
+        // GH-757, on the reviewer's return: the `traffic.schedule.rootDepth` read that stood here is
+        // gone. Measured by executing the assembly the live call uses: the state handed to this
+        // scheduler has no `traffic.schedule` at all — it carries `irrigation.rootDepth`, which the
+        // line above already reads. The repair belongs where the value is lost, in the assembly
+        // (`hub-tissue-v3.js`), not here; a read of a path nothing builds would only look like one.
         const explicitTurfRoot = safeNum(turf.rootDepth, 0);
         // Only use explicit if it's a real user-entered value (> 0 and different from defaults)
         let rootDepth = speciesRootDepth;

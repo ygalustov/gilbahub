@@ -875,6 +875,20 @@
             setMsg(turfMsg, '', '');
 
             var soilTexture = document.getElementById('stg-turf-soil-texture').value || null;
+            /**
+             * GH-733 (queue item 3e) — THREE FIELDS NO LONGER CARRY AN ANSWER NOBODY GAVE.
+             *
+             * `overseedVariety`, `overseedStatus` and `summerIntent` were written with a stand-in
+             * whenever the form field was empty, so the database was told something the person had
+             * not said. They are added after this literal, and only when there is a value.
+             *
+             * NOT closed here, and it is the analyst's decision rather than an oversight: a field
+             * the person CLEARS cannot be cleared this way, because a key absent from a patch means
+             * "unchanged". Sending an explicit emptiness is a separate shape.
+             *
+             * The neighbours keep their own stand-ins -- the two percentage fields and the two
+             * species keys -- because they are a different family and are not in this item.
+             */
             var turf = {
                 species:      document.getElementById('stg-turf-species').value,
                 variety:      document.getElementById('stg-turf-variety').value.trim(),
@@ -891,11 +905,23 @@
                 // coolOverseed (engine internal name read by hub-tissue-v3, hub-orchestrator, etc.)
                 overseedSpecies:  document.getElementById('stg-turf-cool-overseed').value || '',
                 coolOverseed:     document.getElementById('stg-turf-cool-overseed').value || '',
-                overseedVariety:  document.getElementById('stg-turf-overseed-variety').value || 'generic',
-                overseedStatus:   document.getElementById('stg-turf-overseed-status').value || 'none',
-                summerIntent:     document.getElementById('stg-turf-summer-intent').value || 'transition',
                 companionSpecies: (document.getElementById('stg-companion-species') || {}).value || '',
             };
+
+            /**
+             * GH-733 — AN EMPTY FIELD GIVES NO KEY, WHICH IS WHAT "NO DEFAULTS" MEANS HERE.
+             *
+             * Taken from the elements rather than written out twice, so a field added to the group
+             * arrives with its own name and cannot be forgotten in one of the two places.
+             */
+            [['overseedVariety', 'stg-turf-overseed-variety'],
+                ['overseedStatus', 'stg-turf-overseed-status'],
+                ['summerIntent', 'stg-turf-summer-intent']].forEach(function (pair) {
+                var el = document.getElementById(pair[1]);
+                var v = el && typeof el.value === 'string' ? el.value.trim() : '';
+                if (v !== '') turf[pair[0]] = v;
+            });
+
 
             var yearsEl     = document.getElementById('stg-turf-years');
             var thatchEl    = document.getElementById('stg-turf-thatch');
@@ -1669,10 +1695,30 @@
             || (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId) || '';
 
         var iframe = document.createElement('iframe');
-        iframe.src = '/hub?rerun=' + encodeURIComponent(runId) + '&site=' + encodeURIComponent(siteForRun);
         iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;border:0';
         iframe.setAttribute('aria-hidden', 'true');
         document.body.appendChild(iframe);
+
+        /**
+         * GH-724 (queue item 19) — THIS OPENER ASKS THE SAME QUESTIONS AS THE OTHER ONE.
+         *
+         * It named neither the soil sample nor the tissue one, so a run started from Settings
+         * computed on whatever the frame happened to hold, while the same press from the dashboard
+         * was told which soil sample to use. Both call the one builder in `dashboard-ui.js`, which
+         * the shell loads on every page, so a sample kind added there arrives here without a
+         * second edit. If the builder is not present the frame still opens — a run without the
+         * parameters is the behaviour this page had all along, and is not made worse by the
+         * builder being absent.
+         */
+        (function () {
+            var RF = window.GilbaRunFrame;
+            if (RF && typeof RF.url === 'function') {
+                RF.url(runId, siteForRun, null).then(function (src) { iframe.src = src; });
+
+                return;
+            }
+            iframe.src = '/hub?rerun=' + encodeURIComponent(runId) + '&site=' + encodeURIComponent(siteForRun);
+        })();
 
         var done = false;
         function cleanUp() {
@@ -1906,46 +1952,54 @@
             if (impCancelBtn) impCancelBtn.disabled = true;
             setMsg(impMsg, 'Importing…', '');
 
-            // GH-536 (PLAN-samples-sync-FINAL, stage 3): this block used to read
-            // the browser copy, cut the target site out of it, write it back and
-            // feed the result to the store. The copy is gone; the in-memory store
-            // is taken from the store itself. What it does is unchanged: the
-            // site being imported into is emptied on screen, because the server
-            // side of the import (clearSiteData) has just emptied it there.
-            //
-            // restoreFromPersistence, not clearSamples: clearSamples dispatches
-            // the mutation events, which per-record writes would turn into a
-            // DELETE per sample against rows the import has already removed.
-            try {
-                var SM = window.GAIP_SampleManager;
-                if (SM && typeof SM.getAllSamples === 'function'
-                       && typeof SM.restoreFromPersistence === 'function') {
-                    var _snap = SM.getAllSamples();
-                    ['allSites', 'allActive', 'allMeta', 'sites'].forEach(function (k) {
-                        if (_snap[k]) delete _snap[k][siteId];
-                    });
-                    SM.restoreFromPersistence(_snap);
-                }
-            } catch (_e) {}
-            try { localStorage.removeItem('gilba_last_pgr_' + siteId); } catch (_e) {}
-            try {
-                var _smaps = {};
-                try { _smaps = JSON.parse(localStorage.getItem('gilba_sensor_mappings') || '{}'); } catch (_e) {}
-                delete _smaps[siteId];
-                localStorage.setItem('gilba_sensor_mappings', JSON.stringify(_smaps));
-            } catch (_e) {}
-
+            // GH-722: the server checks the whole file BEFORE it clears anything, and a file with
+            // nothing recognised in it comes back refused with the site untouched. So nothing on
+            // this page is cleared before the server has answered either; the block below ran
+            // ahead of the request until now.
             apiFetch('POST', '/samples/sync', { allSites: remapped, clearSiteData: true, sourceFile: _impSourceFile || null })
                 .then(function (data) {
-                    var synced = (data && data.data && data.data.synced) || 0;
-                    return applySiteConfig(_bundle).then(function () { return synced; });
+                    // GH-536 (PLAN-samples-sync-FINAL, stage 3): this block used to read
+                    // the browser copy, cut the target site out of it, write it back and
+                    // feed the result to the store. The copy is gone; the in-memory store
+                    // is taken from the store itself. What it does is unchanged: the
+                    // site being imported into is emptied on screen, because the server
+                    // side of the import (clearSiteData) has just emptied it there.
+                    //
+                    // restoreFromPersistence, not clearSamples: clearSamples dispatches
+                    // the mutation events, which per-record writes would turn into a
+                    // DELETE per sample against rows the import has already removed.
+                    try {
+                        var SM = window.GAIP_SampleManager;
+                        if (SM && typeof SM.getAllSamples === 'function'
+                               && typeof SM.restoreFromPersistence === 'function') {
+                            var _snap = SM.getAllSamples();
+                            ['allSites', 'allActive', 'allMeta', 'sites'].forEach(function (k) {
+                                if (_snap[k]) delete _snap[k][siteId];
+                            });
+                            SM.restoreFromPersistence(_snap);
+                        }
+                    } catch (_e) {}
+                    try { localStorage.removeItem('gilba_last_pgr_' + siteId); } catch (_e) {}
+                    try {
+                        var _smaps = {};
+                        try { _smaps = JSON.parse(localStorage.getItem('gilba_sensor_mappings') || '{}'); } catch (_e) {}
+                        delete _smaps[siteId];
+                        localStorage.setItem('gilba_sensor_mappings', JSON.stringify(_smaps));
+                    } catch (_e) {}
+                    var outcome = (data && data.data && data.data.outcome) || null;
+                    return applySiteConfig(_bundle).then(function () { return outcome; });
                 })
-                .then(function (synced) {
+                .then(function (outcome) {
                     impStepPreview.classList.add('stg-hidden');
                     impStepDone.classList.remove('stg-hidden');
+                    // GH-722: the sentence is the server's, and the CLASS decides how it is shown.
+                    // `partial` is never worded or drawn as a success: no check mark, the warning
+                    // style. The numbers are inside the sentence.
+                    var partial = !outcome || outcome.outcome !== 'saved';
+                    if (impSuccessMsg) impSuccessMsg.classList.toggle('partial', partial);
                     var checkmark = '<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
-                    var msg = checkmark + ' ' + synced + ' record' + (synced !== 1 ? 's' : '') + ' imported successfully.';
-                    runAnalysisAndRedirect(msg, siteId);
+                    var outcomeHtml = escHtml((outcome && outcome.message) || 'The server did not say what the import came to.');
+                    runAnalysisAndRedirect(partial ? outcomeHtml : (checkmark + ' ' + outcomeHtml), siteId);
                 })
                 .catch(function (err) {
                     // GH-526 (stage 1, item 7): say what the server said. "Please

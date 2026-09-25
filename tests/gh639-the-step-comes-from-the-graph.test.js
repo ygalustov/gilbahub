@@ -100,6 +100,10 @@ describe('GH-639 — the composer’s reading of the graph', () => {
             // `computed.diseaseForecast`, a key no pass has ever written, so the
             // composer could find no step for the `computed.forecast` the pass really
             // writes. The node declares what it writes now, so the key gets a step.
-            ['applicationWindow', 'confidence',  'soilNutrition', 'soilTempPhysics', 'tissue', 'waterBalance']);
+            // GH-734: `soilTempPhysics` HAS LEFT IT TOO, and for the same kind of reason — the
+            // declarations stopped disagreeing. `STEP_NAMES` had no word for `soil-temp-physics`,
+            // so the composer could name no step for the key that engine writes; the map takes the
+            // graph's own label for it now, and the key resolves by the first declared path.
+            ['applicationWindow', 'confidence',  'soilNutrition', 'tissue', 'waterBalance']);
     });
 });

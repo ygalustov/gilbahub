@@ -270,9 +270,8 @@
             'uv-residual-engine.js',
             'site-settings-panel.js',
             'site-data-transfer.js',
-            'environmental-utilisation-engine.js',
-            'eue-integration-bridge.js',
-            'gssh-operational-summary.js',
+            // GH-748: the EUE engine, its bridge and the operational summary are not loaded here --
+            // measured in a browser, nothing on this page runs them.
             'shade-engine.js',
             'global-solubles.js',
             'gaip-field-log-analysis.js',

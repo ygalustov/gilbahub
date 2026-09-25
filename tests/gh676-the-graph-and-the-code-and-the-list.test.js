@@ -641,6 +641,32 @@ describe('GH-676 — (d) the graph against the inputs list, both directions', ()
             'soil.clay': 'added to the list by the analyst as a sample reading in its own right; '
                 + 'no module reads it yet, and it is the one entry here that is expected to gain a '
                 + 'reader rather than lose its row.',
+            // GH-725 (queue item 3bo, the reviewer's return): read by the CONVERTER
+            // (`hub-tissue-v3.js` / `gaip_transformToCascadeFormat`), which assembles the state the
+            // run hands the modules and is not a node of the graph. The modules read it under its
+            // assembled name, `turf.pgrActive`, which the list declares as derived from this one.
+            'pgr.enabled': 'read by the converter that assembles the run\'s state '
+                + '(`hub-tissue-v3.js` / `gaip_transformToCascadeFormat`) rather than by a node; the '
+                + 'modules see it as `turf.pgrActive`, declared derived from it.',
+            /**
+             * GH-755 (queue item 3bz) — TEN INPUTS WHOSE ONLY READER WAS A REMOVED BUILDER.
+             *
+             * `buildIrrigationInputs` and `buildPGRInputs` were called from `executeEngine`, an export
+             * with no caller, and went with it. Their nodes remain as declarations of an output with
+             * `runner: null`, `handle: null` and the reason at the node, so these inputs are declared
+             * and read by nobody — named here one by one rather than excused by a rule, and each will
+             * lose its row here on the day the owner decides whether either engine runs in the pass.
+             */
+            'turf.overseedSpecies': 'read by `buildPGRInputs`, removed with `executeEngine` under GH-755; the `pgr-module` node stays with no runner.',
+            'turf.overseedVariety': 'read by `buildPGRInputs`, removed with `executeEngine` under GH-755.',
+            'turf.summerIntent': 'read by `buildPGRInputs`, removed with `executeEngine` under GH-755.',
+            'turf.poaPercent': 'read by `buildPGRInputs`, removed with `executeEngine` under GH-755.',
+            'turf.percentC3Cover': 'read by `buildPGRInputs`, removed with `executeEngine` under GH-755.',
+            'pgr.productType': 'read by `buildPGRInputs`, removed with `executeEngine` under GH-755; the PGR settings are still written by a person in Settings.',
+            'pgr.applicationDate': 'read by `buildPGRInputs`, removed with `executeEngine` under GH-755; still written by a person in Settings.',
+            'schedule.efficiency': 'read by `buildIrrigationInputs`, removed with `executeEngine` under GH-755; the `irrigation-scheduler` node stays with no runner.',
+            'schedule.uniformity': 'read by `buildIrrigationInputs`, removed with `executeEngine` under GH-755.',
+            'schedule.precipRate': 'read by `buildIrrigationInputs`, removed with `executeEngine` under GH-755.',
         };
         const unexpectedSpare = unread.filter((k) => !Object.prototype.hasOwnProperty.call(SPARE, k));
         const staleSpare = Object.keys(SPARE).filter((k) => !unread.includes(k));
@@ -909,6 +935,37 @@ describe('GH-676 — (c) what a body reads, with the receiver from its own signa
 
         expect({ readsNoNodeDeclares: undeclared, placelessWithoutAReason: unrecordedPlaceless })
             .toEqual({ readsNoNodeDeclares: [], placelessWithoutAReason: [] });
+    });
+
+    test('and the other side: every input a node with a handle declares is still read by its bodies', () => {
+        // GH-706 — THE CASE ABOVE COMPARES ONE WAY ONLY, AND IT WAS BLIND THE OTHER WAY. It
+        // reddens on a read that nothing declares; it cannot redden on a declaration that the
+        // extractor no longer sees. The declarations were split by reading this very
+        // extractor's output, and the extractor changed three times in one day — once it
+        // took `handle` as a string and saw nothing on four nodes. An extractor that narrows
+        // finds FEWER reads, the list of undeclared reads shrinks, and everything stays green
+        // over declarations made under the wider one. So the relation is asserted both ways:
+        // a declaration the current extractor cannot find in the node's own bodies is named.
+        const aliases = cascadeSectionAliases();
+        const unread = [];
+        let compared = 0;
+        Object.entries(NODES).filter(([, n]) => handlesOf(n).length).forEach(([id, n]) => {
+            const seen = new Set();
+            handlesOf(n).forEach((h) => readsOf(h).found.forEach((raw) => {
+                const [section, field] = raw.split('.');
+                seen.add(raw);
+                seen.add((aliases[section] || section) + '.' + field);
+            }));
+            [...(n.requires || []), ...(n.uses || [])].forEach((d) => {
+                compared += 1;
+                if (!seen.has(d)) unread.push(id + ' declares ' + d);
+            });
+        });
+        process.stdout.write('[gh676] declarations compared against the reads of their own bodies: '
+            + compared + '\n[gh676] declared but not read by the current extractor ('
+            + unread.length + '): ' + JSON.stringify(unread) + '\n');
+
+        expect({ declaredButNotRead: unread }).toEqual({ declaredButNotRead: [] });
     });
 });
 
@@ -1447,11 +1504,18 @@ describe('GH-678 — the node is executed by whoever is declared, and by nobody 
     test('POSITIVE CONTROL: the two kinds that must exist are found, by file and line', () => {
         const cascade = callSitesOf('executeFirmnessEngine')
             .filter((c) => EXECUTOR_OF[c.file] === 'cascade');
-        const orchestrator = callSitesOf('buildIrrigationInputs')
+        /**
+         * GH-755 (queue item 3bz): THE SPECIMEN CHANGED, THE CLAIM DID NOT. This control used
+         * `buildIrrigationInputs`, whose only call site was inside `executeEngine` — an export with
+         * no caller, removed with its body — so the specimen stopped existing and the control would
+         * have reported "no orchestrator call sites found" as if the census had gone blind.
+         * `buildDiseaseInputs` is a live one: four call sites, none of them in the removed body.
+         */
+        const orchestrator = callSitesOf('buildDiseaseInputs')
             .filter((c) => EXECUTOR_OF[c.file] === 'orchestrator');
         process.stdout.write('[gh678] control — `executeFirmnessEngine` cascade call sites: '
             + JSON.stringify(cascade) + '\n'
-            + '[gh678] control — `buildIrrigationInputs` orchestrator call sites: '
+            + '[gh678] control — `buildDiseaseInputs` orchestrator call sites: '
             + JSON.stringify(orchestrator) + '\n');
         expect(cascade.length).toBeGreaterThan(0);
         expect(orchestrator.length).toBeGreaterThan(0);
@@ -1509,10 +1573,11 @@ describe('GH-678 — the node is executed by whoever is declared, and by nobody 
          * depend on the order anything was visited — the earlier form collected roots along
          * paths and gave a different answer for the same node depending on how it was reached.
          *
-         * THE KIND OF A CALL SITE COMES FROM THE FUNCTION IT SITS IN, not from the file. The
-         * call to `buildIrrigationInputs` is inside `executeEngine`, which lives in the
-         * orchestrator's file and is reached only from a dead export; deciding by file said
-         * `orchestrator` — coherent, and false.
+         * THE KIND OF A CALL SITE COMES FROM THE FUNCTION IT SITS IN, not from the file. The example
+         * this was written on: the call to `buildIrrigationInputs` sat inside `executeEngine`, which
+         * lives in the orchestrator's file and was reached only from a dead export, so deciding by
+         * FILE said `orchestrator` — coherent, and false. GH-755 removed both, so the example is
+         * history and the rule is not: a call site's kind is still read from its enclosing function.
          *
          * `page` IS NOT COMPARED AS A KIND. Its address is a VIEW (77.22), so it is compared as
          * node x view PAIRS: what the walk finds must equal what the graph declares as INTENT
@@ -1643,6 +1708,22 @@ describe('GH-678 — the node is executed by whoever is declared, and by nobody 
             + ' | declared but not confirmed: '
             + JSON.stringify(Object.keys(DIVERGENCES.declaredNotConfirmed || {})) + '\n');
 
+        /**
+         * GH-723 (item 3bi) — THE PAIRS THE NARROWED DEFINITION DROPPED, PRINTED RATHER THAN
+         * SWALLOWED, and each pair's own facts printed beside it.
+         *
+         * A pair leaves because the view loads the ROOT's file and not the HANDLE's, which means
+         * the walk reported an edge the page cannot have: a defect of the walk, and it needs a
+         * ticket of its own rather than silence. Printing it is what keeps the narrowing from
+         * being a filter over the symptom.
+         */
+        process.stdout.write('[gh723] pairs dropped by the narrowed reachability ('
+            + (foundPairs.falseEdges || []).length + '):\n'
+            + (foundPairs.falseEdges || []).map((l) => '[gh723]    ' + l).join('\n') + '\n'
+            + '[gh723] pairs that remain, with the facts their reasons rest on:\n'
+            + [...foundPairs.entries()].sort().map(([k, v]) => '[gh723]    ' + k
+                + ' | root ' + v.via + ' | handle file ' + v.handleFile).join('\n') + '\n');
+
         expect({
             executedByAnUndeclaredRunner: undeclaredRunner,
             declaredRunnerNeverCallsIt: neverCallsIt,
@@ -1677,6 +1758,266 @@ describe('GH-678 — the node is executed by whoever is declared, and by nobody 
          * ratcheted entries, and which of the two holds is a decision, not a detail.
          */
         expect(Array.isArray(notConfirmed)).toBe(true);
+    });
+
+    /**
+     * GH-723 (item 3bi) — THE SHAPE OF AN ENTRY IS HELD BY SOMETHING, NOT BY WHOEVER WROTE IT.
+     *
+     * Found by the reviewer of GH-723, and found the way we ask findings to be found: she took the
+     * `why` and the `state` off all twenty-two entries and put the batch ticket back, and the suite
+     * gave 31 green. So the defect the item exists to remove — one reason standing for a whole
+     * batch — could come back without a single red, which is what happened.
+     *
+     * WHAT IS ASSERTED, per entry rather than as a count: `why` exists and is DIFFERENT from every
+     * other entry's, so a reason copied across the batch is red; `state` is one of the declared
+     * ones, so a new word cannot be invented in passing; `ticket` is present. Her exception is
+     * kept in her words: `ticket` need NOT be distinct — several entries may honestly close under
+     * one ticket, and it is the REASON that has to answer for the entry, not the number.
+     */
+    /**
+     * GH-726 (item 3bp) — WHAT MAKES THE DROPPED PAIRS HARMLESS, ASSERTED INSTEAD OF ASSUMED.
+     *
+     * GH-723 narrowed `reachable on a view` to "the view loads the handle's file too", and 32
+     * pairs left. Measured then: the call chains from the root to those handles DO exist, so the
+     * graph was not lying — what was wrong was the pair. The pairs are harmless for one reason and
+     * one only: every caller on the way to such a handle stands behind a check that the global is
+     * there, so on a view without the file the path simply does not run.
+     *
+     * NOTHING HELD THAT REASON. Measured before writing this: removing the check at
+     * `ambient-dli-integration.js:36` left four suites and 42 cases green. Take a check away and
+     * the pair we declared impossible becomes a crash on a live view, and the narrowing turns out
+     * to have been right by coincidence.
+     *
+     * BOUNDARY, and it is the item's: only the `page` kind. Whether other kinds of accounting rest
+     * on the same widened answer is out of scope here and carried by the defects document, which
+     * is where a question's number lives; this file names tickets only.
+     *
+     * SECOND BOUNDARY, OF THE METHOD, and it is stated as the code behaves rather than as an
+     * earlier draft of it did. The guard is looked for in the text of EVERY function enclosing the
+     * call, each from its own start down to the call — a check standing further up the stack IS
+     * seen, which is what `disease-ui.js:33` needs: it calls inside `setTimeout(function () { … })`
+     * while its guard sits in the function around that one. What remains outside the method is
+     * narrower and belongs to the language: a SISTER function declared above the call inside the
+     * same enclosing one falls in that window, so a guard written there would count.
+     */
+    test('GH-726: every call that can reach a dropped handle stands behind a presence check', () => {
+        const walk = require('./helpers/gh678-caller-walk');
+        const files = walk.universe();
+        const byRel = {};
+        files.forEach((f) => { byRel[f.rel] = f; });
+
+        // The handle files come from the walk's own dropped edges, not from a list written here.
+        const graph = GRAPH;
+        const REGISTRIES = {
+            'assets/cascade-orchestrator.js:runCascade': 'cascade',
+            'assets/hub-orchestrator.js:runComputePass': 'orchestrator',
+            'assets/hub-orchestrator.js:computeAll': 'orchestrator',
+            'assets/hub-persistence.js:_writeResult': 'producer',
+            'assets/hub-persistence.js:cacheAnalysisResults': 'producer',
+        };
+        const nodeHandles = {};
+        Object.entries(graph.nodes).forEach(([id, n]) => handlesOf(n).forEach((h) => {
+            nodeHandles[h.indexOf(':') !== -1 ? h.slice(h.indexOf(':') + 1) : h] = id;
+        }));
+        const fp = walk.rootsByFixpoint({ files, registries: REGISTRIES, handles: nodeHandles });
+        fp.files = files;
+        const pairs = walk.pagePairsFound(fp, graph);
+        const handleFiles = Array.from(new Set((pairs.falseEdges || [])
+            .map((l) => (/handle file (\S+) is not/.exec(l) || [])[1]).filter(Boolean)));
+
+        // The name each of those files publishes itself under, read from the file.
+        const globalsOf = (rel) => {
+            const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+            return Array.from(new Set(Array.from(
+                src.matchAll(/(?:global|window|exportTarget)\.([A-Za-z_$][\w$]*)\s*=/g), (m) => m[1])));
+        };
+        const names = {};
+        handleFiles.forEach((rel) => { names[rel] = globalsOf(rel); });
+
+        const unguarded = [];
+        const guarded = [];
+        /**
+         * GH-726, second pass — THE WINDOW IS THE ENCLOSING FUNCTION, because that is what the
+         * sentence above promises and what the language means.
+         *
+         * The first pass took 120 lines above the call. The reviewer of this item showed what that
+         * buys: remove the guard and leave a `typeof AmbientDLIEngine` standing anywhere in those
+         * 120 lines — in a neighbouring function, in a comment — and the call reads as guarded. It
+         * is the same shape as `gh580`'s text window between two anchors, which grew to the end of
+         * the file the day the anchors went. A window with no meaning in the language cannot say
+         * whether a guard protects a call.
+         *
+         * So the functions containing the call are found by parsing, and the guard is looked for
+         * in the text of EACH of them, from its own start down to the call. A call at the top
+         * level has no enclosing function; there the window is the file above it, the same scope
+         * by another name. THE BOUNDARY THAT REMAINS, and it is a boundary of the language rather
+         * than of the window: a sister function declared above the call inside the same enclosing
+         * one is in that window, so a guard written there would count.
+         */
+        const parser = require('@babel/parser');
+        const traverse = require('@babel/traverse').default;
+        const fnCache = new Map();
+        const functionsOf = (src, relPath) => {
+            if (fnCache.has(relPath)) return fnCache.get(relPath);
+            let out = [];
+            try {
+                const ast = parser.parse(src, {
+                    sourceType: 'script', errorRecovery: true,
+                    plugins: ['classProperties', 'optionalChaining', 'nullishCoalescingOperator'],
+                });
+                traverse(ast, {
+                    Function(p) {
+                        if (!p.node.loc) return;
+                        out.push({ from: p.node.loc.start.line, to: p.node.loc.end.line });
+                    },
+                });
+            } catch (e) {
+                out = null;   // named below rather than silently treated as "no functions"
+            }
+            fnCache.set(relPath, out);
+
+            return out;
+        };
+        const unparsed = [];
+        // A view's inline script is a member of the universe under `<view>#scriptN` and has no
+        // file of its own; the view it came from is read once, which covers it.
+        const paths = Array.from(new Set(files.map((f) => f.rel.split('#')[0])));
+        handleFiles.forEach((rel) => {
+            names[rel].forEach((name) => {
+                paths.forEach((relPath) => {
+                    if (relPath === rel) return;
+                    const f = { rel: relPath };
+                    const src = fs.readFileSync(path.join(ROOT, relPath), 'utf8');
+                    const lines = src.split('\n');
+                    lines.forEach((text, i) => {
+                        // A CALL through the global, not a mention of the name — and prose is not
+                        // a call: `@param … From DiseaseForecast.generateForecast()` in a docblock
+                        // read as an unguarded call on the first run. Comment lines are dropped by
+                        // their opening, which leaves a call sharing a line with a trailing comment
+                        // visible and a call written inside prose at some other indent invisible.
+                        if (/^\s*(\*|\/\/|\/\*)/.test(text)) return;
+                        if (!new RegExp('\\b' + name + '\\s*\\.\\s*\\w+\\s*\\(').test(text)) return;
+                        const fns = functionsOf(src, relPath);
+                        if (fns === null) {
+                            unparsed.push(relPath);
+
+                            return;
+                        }
+                        /**
+                         * EVERY ENCLOSING FUNCTION, not only the innermost — measured, not assumed.
+                         * `disease-ui.js:33` calls inside `setTimeout(function () { … })` while the
+                         * `typeof DiseaseForecast` that protects it stands in the function around
+                         * that one. Asking only the innermost called it unguarded, which is a false
+                         * finding: the guard is on the path to the call. So each enclosing function
+                         * is asked in turn, from its own start down to the call.
+                         */
+                        /**
+                         * GH-726, THIRD PASS — THE WINDOW MINUS WHAT IT ONLY CONTAINS.
+                         *
+                         * The second pass said "every enclosing function" and then added the whole
+                         * file above the call as one more window. In a wrapped module — an IIFE
+                         * around the file, which is most of `assets` — the outermost enclosing
+                         * function IS the wrapper, so the window became the file from its first
+                         * line down to the call: WIDER than the 120 lines the narrowing replaced.
+                         * A repair that made its own class worse, and the reviewer's mutation
+                         * showed it by staying green before and after.
+                         *
+                         * So a window is an enclosing function's own text MINUS the text of the
+                         * functions that merely sit inside it and are already finished before the
+                         * call. A guard written in a sister function no longer counts; a guard in
+                         * the body of an enclosing function still does, which is what keeps
+                         * `disease-ui.js:33` — called inside `setTimeout(function () { … })` with
+                         * the check in the function around it — correctly guarded.
+                         *
+                         * The whole file is a window ONLY for a call at the top level, where there
+                         * is no enclosing function and the file IS the scope.
+                         *
+                         * THE BOUNDARY THAT REMAINS, written rather than left to be found: a check
+                         * counts as a check by its TEXT. `if (typeof X === 'undefined')` that logs
+                         * and does not return reads the same here as one that returns. This asks
+                         * whether the call was thought about, not whether the thought stops it.
+                         */
+                        const holders = fns.filter((fn) => fn.from <= i + 1 && fn.to >= i + 1)
+                            .sort((a, b) => (b.from - a.from));
+                        const starts = holders.length ? holders.map((h) => h.from - 1) : [0];
+                        // Lines belonging to a function that opened and closed before the call:
+                        // inside the window by position, out of reach of the call by scope.
+                        const finishedBefore = fns.filter((fn) => fn.to < i + 1
+                            && !holders.some((h) => h.from === fn.from && h.to === fn.to));
+                        const inNested = new Set();
+                        finishedBefore.forEach((fn) => {
+                            for (let ln = fn.from; ln <= fn.to; ln++) inNested.add(ln);
+                        });
+                        const guard = new RegExp('(if\\s*\\([^)]*\\b' + name + '\\b)'
+                            + '|(\\b' + name + '\\s*&&)|(typeof\\s+[\\w.]*\\b' + name + '\\b)'
+                            + '|(!\\s*(?:global|window|self)?\\.?' + name + '\\b)');
+                        /**
+                         * AND PROSE IS NOT A GUARD EITHER. Measured: delete the check and leave the
+                         * words `typeof AmbientDLIEngine` behind in a comment, and the call read as
+                         * guarded — the comment lines were dropped when LOOKING FOR THE CALL but not
+                         * when looking for what protects it. Both sides are code now.
+                         */
+                        const code = (text2) => text2
+                            .replace(/\/\*[\s\S]*?\*\//g, '')
+                            .replace(/^\s*\/\/.*$/gm, '');
+                        const windowText = (from) => lines.slice(from, i + 1)
+                            .map((ln, k) => (inNested.has(from + k + 1) ? '' : ln)).join('\n');
+                        const checked = starts.some((from) => guard.test(code(windowText(from))));
+                        (checked ? guarded : unguarded).push(f.rel + ':' + (i + 1) + ' ' + name);
+                    });
+                });
+            });
+        });
+
+        process.stdout.write('[gh726] handle files the narrowing dropped pairs for: '
+            + JSON.stringify(handleFiles) + '\n'
+            + '[gh726] the names they publish: ' + JSON.stringify(names) + '\n'
+            + '[gh726] calls through those names — guarded ' + guarded.length
+            + ', unguarded ' + unguarded.length
+            + ' | files the parse could not read: ' + JSON.stringify(Array.from(new Set(unparsed))) + '\n'
+            + guarded.map((g) => '[gh726]    guarded   ' + g).join('\n') + '\n');
+
+        // Positive controls: the dropped edges exist at all, and calls were actually found.
+        expect(handleFiles.length).toBeGreaterThan(0);
+        expect(guarded.length + unguarded.length).toBeGreaterThan(0);
+        expect({ callsThatCanReachADroppedHandleWithNoPresenceCheck: unguarded })
+            .toEqual({ callsThatCanReachADroppedHandleWithNoPresenceCheck: [] });
+    });
+
+    test('GH-723: every divergence carries its own reason, a declared state and a ticket', () => {
+        const DIVERGENCES = JSON.parse(fs.readFileSync(
+            path.join(ROOT, 'tests', 'fixtures', 'gh680-page-divergences.json'), 'utf8'));
+        const STATES = ['internal-accounting', 'candidate-not-established'];
+        const entries = Object.entries(DIVERGENCES.entries);
+
+        const noWhy = entries.filter(([, v]) => typeof v.why !== 'string' || !v.why.trim()).map(([k]) => k);
+        const noTicket = entries.filter(([, v]) => typeof v.ticket !== 'string' || !v.ticket.trim()).map(([k]) => k);
+        const badState = entries.filter(([, v]) => !STATES.includes(v.state)).map(([k, v]) => k + ' -> ' + v.state);
+        const seen = new Map();
+        entries.forEach(([k, v]) => {
+            const key = String(v.why);
+            seen.set(key, (seen.get(key) || []).concat(k));
+        });
+        const sharedWhy = [...seen.values()].filter((ks) => ks.length > 1).map((ks) => ks.join(' == '));
+
+        process.stdout.write('[gh723] entries: ' + entries.length
+            + ' | distinct reasons: ' + seen.size
+            + ' | states seen: ' + JSON.stringify([...new Set(entries.map(([, v]) => v.state))])
+            + ' | tickets seen: ' + JSON.stringify([...new Set(entries.map(([, v]) => v.ticket))]) + '\n');
+
+        // A positive control first: an empty list of entries would satisfy every filter below.
+        expect(entries.length).toBeGreaterThan(0);
+        expect({
+            entriesWithNoReasonOfTheirOwn: noWhy,
+            entriesSharingOneReason: sharedWhy,
+            entriesWithAnUndeclaredState: badState,
+            entriesWithNoTicket: noTicket,
+        }).toEqual({
+            entriesWithNoReasonOfTheirOwn: [],
+            entriesSharingOneReason: [],
+            entriesWithAnUndeclaredState: [],
+            entriesWithNoTicket: [],
+        });
     });
 });
 

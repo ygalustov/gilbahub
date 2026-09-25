@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -17,9 +19,23 @@ use Tests\TestCase;
  * MEASURED BY RENDERING THE PARTIAL, not by reading it: the template is compiled
  * with a projection that carries warnings, and the resulting HTML is inspected for
  * where those lines land.
+ *
+ * GH-743: the owner decided the block is for an administrator only, so this measurement is now
+ * taken as one. What a client gets instead is held by `Gh743DetailsAreForAdministratorsTest`.
  */
 class Gh653IsTheDetailBlockVisibleTest extends TestCase
 {
+    use RefreshDatabase;
+
+    private function renderAsAdministrator(): string
+    {
+        $admin = User::factory()->create();
+        $admin->forceFill(['is_admin' => true])->save();
+        $this->actingAs($admin);
+
+        return view('partials.analysis-notice', ['analysisCache' => $this->projectionWithWarnings()])->render();
+    }
+
     private function projectionWithWarnings(): array
     {
         return [
@@ -46,7 +62,7 @@ class Gh653IsTheDetailBlockVisibleTest extends TestCase
 
     public function test_the_partial_renders_and_the_detail_block_is_in_the_html_a_browser_receives(): void
     {
-        $html = view('partials.analysis-notice', ['analysisCache' => $this->projectionWithWarnings()])->render();
+        $html = $this->renderAsAdministrator();
 
         fwrite(STDOUT, PHP_EOL.'[gh653] rendered HTML length: '.strlen($html).PHP_EOL);
         $hasDetails = str_contains($html, '<details');
@@ -61,7 +77,7 @@ class Gh653IsTheDetailBlockVisibleTest extends TestCase
 
     public function test_WHAT_A_CLIENT_WOULD_READ_inside_it(): void
     {
-        $html = view('partials.analysis-notice', ['analysisCache' => $this->projectionWithWarnings()])->render();
+        $html = $this->renderAsAdministrator();
         preg_match('#<details.*?</details>#s', $html, $m);
         $block = $m[0] ?? '';
         fwrite(STDOUT, '[gh653] the detail block, as a browser gets it:'.PHP_EOL.$block.PHP_EOL);

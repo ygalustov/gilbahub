@@ -287,16 +287,15 @@ describe('GH-586 — the join: the chosen sample becomes the parameter the runne
  * then asked it nothing.
  *
  * Both cases below are measured AGAINST THE MAP, not against a literal written
- * here: the alias is taken from `WATER_FIELD_MAP` itself, so a map that stops
- * carrying it makes the case red rather than quietly vacuous.
+ * here: the alias is taken from the map itself, so a map that stops carrying it
+ * makes the case red rather than quietly vacuous. GH-722: the map is
+ * `assets/lab-reading-names.json` now, the one the sample manager is handed.
  */
 describe('GH-602 — the naming of a sample’s columns, and a measured zero', () => {
     /** An alias the sample manager's own map declares for this reading. */
     function aliasFor(reading) {
-        const src = fs.readFileSync(path.join(ASSETS, 'sample-manager.js'), 'utf8');
-        const block = src.slice(src.indexOf('const WATER_FIELD_MAP'), src.indexOf('};', src.indexOf('const WATER_FIELD_MAP')));
-        const re = new RegExp("'([A-Za-z0-9_]+)':\\s*'\\[data-ion=\\x22" + reading + "\\x22\\]'", 'g');
-        const names = [...block.matchAll(re)].map((m) => m[1]).filter((n) => n !== reading);
+        const map = JSON.parse(fs.readFileSync(path.join(ASSETS, 'lab-reading-names.json'), 'utf8'));
+        const names = (map.types.water.readings[reading] || []).filter((n) => n !== reading);
         expect(names.length).toBeGreaterThan(0);
         return names[0];
     }

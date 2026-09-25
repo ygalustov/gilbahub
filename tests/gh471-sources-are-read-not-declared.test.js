@@ -38,7 +38,7 @@ const OWNERS = FIELD_OWNERS.owners;
 const CALLED_ELSEWHERE = ['addSample', 'addSite', 'addSiteWithId', 'canDriveRecommendations',
     'captureFromForm', 'captureRawForm', 'clearSamples', 'compareSamples', 'deleteSample',
     'forEach', 'getActiveSampleId', 'getAreaGuidance', 'getCurrentSiteLabel', 'getSample',
-    'getSampleCount', 'getSiteMappings', 'hasCredentials', 'importFile', 'isRestoring',
+    'getSampleCount', 'getSiteMappings', 'hasCredentials', 'importFile', 'isRestoring', 'labReadingOf',
     'map', 'mergeConfig',
     // GH-533 (stage 2): `normalizeValues` joined the list. The server restore
     // in sample-persistence.js now derives `normalized` from the unwrapped

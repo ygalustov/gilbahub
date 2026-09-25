@@ -85,6 +85,96 @@ describe('GH-477 — the guard finds what it is for', () => {
         expect(found[0].sink).toBe('innerHTML');
     });
 
+    /**
+     * GH-728 (queue item 3bs, the reviewer's return) — THE CENSUS MUST NOT ANSWER BY THE ORDER OF THE
+     * FILE.
+     *
+     * Her planted case, and it is here because it was measured before the repair: the values were
+     * keyed by Babel's bindings while the map of CALLEES was still keyed by name, so two functions of
+     * one name in different scopes shared one entry and the last one parsed won. Measured then — the
+     * silent twin declared BELOW hid a substitution that reaches `innerHTML` (the census answered
+     * `[]`), and the same twin declared ABOVE did not. A ratchet that misses a new substitution
+     * because of where a same-named function happens to sit is not a ratchet.
+     *
+     * Both orders are planted, because each is a different failure: one loses a real substitution,
+     * the other would record one that is not there.
+     */
+    /**
+     * GH-728, THE REVIEWER'S SECOND RETURN — AND IN EVERY FORM A FUNCTION CAN BE DECLARED IN.
+     *
+     * Her mutation on the first repair: key `const fill = function` by name again, and the case
+     * stayed green — it planted only `function fill(…)`, so the other two doors were unwatched. A
+     * declaration form is not a detail here: the map is filled by three different visitors
+     * (`FunctionDeclaration`, `VariableDeclarator`, and a property on an object literal), and each
+     * one can be keyed correctly or by name on its own.
+     *
+     * So the twin is planted in all three forms, in both orders. The sink and the caller stay the
+     * same text in every arrangement, so what differs between the rows is only the form.
+     */
+    const CALLER = 'function paint(site) { var place = site.location_name || "Somewhere Plausible"; fill(place); }';
+    const FORMS = {
+        'function declaration': {
+            sink: 'function fill(value) { document.getElementById("a").innerHTML = value; }',
+            silent: '(function () { function fill(x) { return x; } fill("nothing"); }());',
+        },
+        'const function expression': {
+            sink: 'const fill = function (value) { document.getElementById("a").innerHTML = value; };',
+            silent: '(function () { const fill = function (x) { return x; }; fill("nothing"); }());',
+        },
+        'arrow function': {
+            sink: 'const fill = (value) => { document.getElementById("a").innerHTML = value; };',
+            silent: '(function () { const fill = (x) => x; fill("nothing"); }());',
+        },
+    };
+
+    test('GH-728: a same-named function in another scope hides nothing — every form, both orders', () => {
+        const rows = [];
+        Object.entries(FORMS).forEach(([form, { sink, silent }]) => {
+            rows.push({ form, order: 'twin BELOW',
+                found: inventoryOf('below.js', [sink, CALLER, silent].join('\n'), FIELDS).map((r) => r.text) });
+            rows.push({ form, order: 'twin ABOVE',
+                found: inventoryOf('above.js', [silent, sink, CALLER].join('\n'), FIELDS).map((r) => r.text) });
+            rows.push({ form, order: 'no twin',
+                found: inventoryOf('plain.js', [sink, CALLER].join('\n'), FIELDS).map((r) => r.text) });
+        });
+        process.stdout.write('[gh728] the same planted substitution, every declaration form:\n'
+            + rows.map((r) => '[gh728]    ' + r.form.padEnd(26) + r.order.padEnd(12) + ' -> '
+                + JSON.stringify(r.found)).join('\n') + '\n');
+
+        // Nine arrangements, and not one of them may decide the answer.
+        const blind = rows.filter((r) => JSON.stringify(r.found) !== JSON.stringify(['"Somewhere Plausible"']))
+            .map((r) => r.form + ' / ' + r.order + ' -> ' + JSON.stringify(r.found));
+        expect(blind).toEqual([]);
+    });
+
+    test('GH-728: a method on an object literal is matched by NAME, and the census says so', () => {
+        /**
+         * The boundary, printed rather than remembered: a key on an object literal is a property, not
+         * a name in a scope, so there is no binding to key it by. Such a callee is matched by name and
+         * appears in `callsKeyedByNameOnly`, which is how a reader learns where the scope-aware
+         * matching stops.
+         */
+        const viaMethod = [
+            'var ui = { fill: function (value) { document.getElementById("a").innerHTML = value; } };',
+            'function paint(site) { var place = site.location_name || "Somewhere Plausible"; ui.fill(place); }',
+        ].join('\n');
+        const byMethodName = [
+            'var ui = { fill: function (value) { document.getElementById("a").innerHTML = value; } };',
+            'function paint(site) { var place = site.location_name || "Somewhere Plausible"; fill(place); }',
+        ].join('\n');
+        const a = inventoryOf('method.js', viaMethod, FIELDS);
+        const b = inventoryOf('method-bare.js', byMethodName, FIELDS);
+        process.stdout.write('[gh728] through `ui.fill(...)`  -> ' + JSON.stringify(a.map((r) => r.text))
+            + ' | by name only: ' + JSON.stringify(a.callsKeyedByNameOnly) + '\n'
+            + '[gh728] through a bare `fill(...)` that only an object literal declares -> '
+            + JSON.stringify(b.map((r) => r.text)) + ' | by name only: '
+            + JSON.stringify(b.callsKeyedByNameOnly) + '\n');
+
+        // The boundary is real and named: the property-keyed function is reached by name.
+        expect(b.callsKeyedByNameOnly).toEqual(['fill']);
+        expect(b.map((r) => r.text)).toEqual(['"Somewhere Plausible"']);
+    });
+
     test('negative control: the same substitution that reaches nothing is not found', () => {
         const unprinted = [
             'function render(site) {',

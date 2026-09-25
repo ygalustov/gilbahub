@@ -321,7 +321,18 @@ describe('GH-674 — census 2: a CaCl2 pH does not stand in for a water pH somew
         // number is written by the same hand that narrows. The sign in force must name
         // at least as much as the form it replaced; if it ever names less, that is a
         // narrowing and it reddens here whatever the version says.
-        expect(wide.length).toBeGreaterThan(narrow.length);
+        //
+        // GH-705 — AND "AT LEAST AS MUCH" IS A RELATION BETWEEN TWO LISTS, NOT BETWEEN TWO
+        // COUNTS. A sign that drops two of the places the narrow form named and gains two
+        // elsewhere still names more in total, and a comparison of lengths stays green
+        // over the narrowing it exists to catch. Every place the replaced form names must
+        // still be named by the sign in force, by file and line.
+        const wideKeys = new Set(wide.map(key));
+        const lostByNarrowing = narrow.filter((h) => !wideKeys.has(key(h))).map(key);
+        process.stdout.write('[gh674] v1 places: ' + JSON.stringify(narrow.map(key)) + '\n'
+            + '[gh674] named by v1 and NOT by the sign in force (' + lostByNarrowing.length + '): '
+            + JSON.stringify(lostByNarrowing) + '\n');
+        expect({ narrowedAway: lostByNarrowing }).toEqual({ narrowedAway: [] });
     });
 
     test('no file outside the named list substitutes it', () => {

@@ -123,6 +123,8 @@ class DashboardController extends Controller
             'constructionValues' => collect(CalculationInputs::entry('turf.construction')['values'] ?? [])
                 ->map(fn ($v, $id) => ['id' => $id, 'label' => is_array($v) ? ($v['label'] ?? $id) : $id])
                 ->values()->all(),
+            // GH-744: each methodology's name and explaining sentence, from the same list.
+            'methodologyValues' => CalculationInputs::methodologyValuesForWizard(),
         ];
 
         // Role on active site — used by JS for role-aware UI (e.g. Getting Started panel)

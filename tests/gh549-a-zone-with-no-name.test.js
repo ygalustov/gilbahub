@@ -40,6 +40,7 @@
 const vm = require('vm');
 const fs = require('fs');
 const path = require('path');
+const { realReadingsOf } = require('./lib/sample-readings');
 
 const ASSETS = path.join(__dirname, '..', 'assets');
 const read = (f) => fs.readFileSync(path.join(ASSETS, f), 'utf8');
@@ -137,6 +138,9 @@ function loadProducer(samples, opts) {
     sandbox.GAIP_SampleManager = {
         getSamples: (type) => (type === 'soil' ? samples : []),
         getActiveSiteId: () => 'site-1',
+        // GH-722: the zone block reads a sample's nutrients through the lab reading names map, so
+        // the stub carries the product's own `readingsOf`, not a hand-written one.
+        readingsOf: realReadingsOf(),
     };
     sandbox.GaipOrchestrator = {
         getState: () => ({

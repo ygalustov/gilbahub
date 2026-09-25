@@ -249,6 +249,12 @@ class Gh663TheFrameIsRenderedForTheSiteAskedForTest extends TestCase
         $asked = $make('Asked');
         $pointer = $make('Pointer');
         $user->forceFill(['last_active_site_id' => $pointer->id])->save();
+        // GH-708: the wizard lock redirects a page whose site has not answered what the
+        // calculation needs. This fixture's subject is the page, not the answers.
+        $this->giveTheSiteWhatTheLockNeeds($asked);
+        // GH-708: the wizard lock redirects a page whose site has not answered what the
+        // calculation needs. This fixture's subject is the page, not the answers.
+        $this->giveTheSiteWhatTheLockNeeds($pointer);
 
         return [$user->fresh(), $asked, $pointer];
     }

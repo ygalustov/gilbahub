@@ -839,19 +839,9 @@
             inputs.constructionType = canonical.turf.construction;
         }
 
-        // MLSN / soil test results
-        var mlsn = global.GAIP_MLSN_RESULT;
-        if (mlsn) {
-            // Soil 1:5 EC
-            if (mlsn.raw && mlsn.raw.ec != null) inputs.soil1to5EC = mlsn.raw.ec;
-            // K status for Pathway A
-            if (mlsn.nutrients && mlsn.nutrients.K) {
-                var kDelta = mlsn.nutrients.K.delta;
-                if (kDelta != null) {
-                    inputs.soilKStatus = kDelta < 0 ? 'deficient' : (kDelta < 20 ? 'marginal' : 'sufficient');
-                }
-            }
-        }
+        // GH-739: `soil1to5EC` and `soilKStatus` (Pathway A) were read from `GAIP_MLSN_RESULT`, a
+        // global nothing in the product assigns, and the bridge that calls this was measured not to
+        // run on the page that loads it. The read is gone; both inputs stay null, as they always were.
 
         // Water quality results
         var water = global.GAIP_WATER_RESULT || global.GAIP_SALINITY_RESULT;

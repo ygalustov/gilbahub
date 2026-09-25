@@ -172,8 +172,42 @@ class FieldOwners
                 }
                 $cursor = &$cursor[$part];
             }
-            $cursor[$leaf] = self::castForCopy($column, $columnValues[$column]);
+            /**
+             * GH-710 (item 3ac) — A COPY OF NOTHING IS NOT A COPY, AND IT IS A KEY NOBODY ENTERED.
+             *
+             * This wrote the leaf whatever the column held, so a site created with no coordinates
+             * came out of its own creation carrying `location.{name,lat,lon}` set to `null` —
+             * measured on `GH-671 wizard press 021831`, whose three columns are NULL and whose config
+             * is exactly those three nulls. Three keys the person had not entered, written by the
+             * server before they had entered anything.
+             *
+             * An empty column now REMOVES the copy instead of writing a null, and the section goes
+             * with it when nothing is left in it. Removing rather than leaving it is the other half:
+             * a column cleared by a person must not leave the old copy standing, which would be the
+             * stale-copy class this file exists to close.
+             */
+            $value = self::castForCopy($column, $columnValues[$column]);
+            if ($value === null) {
+                unset($cursor[$leaf]);
+            } else {
+                $cursor[$leaf] = $value;
+            }
             unset($cursor);
+        }
+
+        // GH-710: a section left with nothing in it is a key nobody entered either. `location` is
+        // written only by these copies, so an empty one is ours and goes; a section the person fills
+        // themselves is never empty at this point.
+        foreach (self::COPIED as $field) {
+            $parts = explode('.', $field);
+            array_pop($parts);
+            if ($parts === []) {
+                continue;
+            }
+            $section = $parts[0];
+            if (array_key_exists($section, $config) && $config[$section] === []) {
+                unset($config[$section]);
+            }
         }
 
         return $config;

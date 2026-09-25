@@ -368,8 +368,10 @@
         
         // Check summer intent - if "retain" or "perennial", overseed stays year-round
         // v2.4.14: Also check GAIP_OVERSEED_STATE.summerIntent
-        let summerIntent = state.turf?.overseedSummerIntent || 'transition';
-        if (summerIntent === 'transition' && typeof window !== 'undefined' && window.GAIP_OVERSEED_STATE?.summerIntent) {
+        // GH-741: an unset summer intent stays unset; 'transition' here was a guess that read as an answer.
+        // The window copy is consulted exactly when it was before: no intent, or 'transition'.
+        let summerIntent = state.turf?.overseedSummerIntent || null;
+        if ((!summerIntent || summerIntent === 'transition') && typeof window !== 'undefined' && window.GAIP_OVERSEED_STATE?.summerIntent) {
             summerIntent = window.GAIP_OVERSEED_STATE.summerIntent;
         }
         

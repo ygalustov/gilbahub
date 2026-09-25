@@ -458,17 +458,37 @@
         return '<div class="gl-kpi-grid">' + cards.join('') + '</div>';
     }
 
+    /**
+     * GH-752 (queue item 3bl, part D): the site's methodology, from its config on the page -- the one
+     * owner -- and only when the inputs list declares it; the server sends the list's word for it as
+     * `methodologyShort`, or null. Not the run's stamp `sn.methodology`: that records what a run used
+     * and is not read back to interpret anything. Nothing stands in for an absent one.
+     */
+    var NO_METHODOLOGY = 'No methodology set';
+    function siteMethodology() {
+        var cfg = global.GAIP_HUB_CONFIG || {};
+        if (!cfg.methodologyShort) return null;
+        var m = cfg.gaipConfig && cfg.gaipConfig.turf && cfg.gaipConfig.turf.methodology;
+        return (typeof m === 'string' && m) ? m.toLowerCase() : null;
+    }
+    function methodologyWord() {
+        return (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.methodologyShort) || null;
+    }
+
     function renderPageHeader(sn) {
-        var m = (sn.methodology || 'mlsn').toLowerCase();
+        var m = siteMethodology();
         var methLabel = m === 'slan' ? 'SLAN'
             : m === 'ammonium_acetate' ? 'Ammonium Acetate'
-            : 'MLSN';
+            : m === 'mlsn' ? 'MLSN'
+            : NO_METHODOLOGY;
         var methName = m === 'slan' ? 'Sufficiency Level of Available Nutrients'
             : m === 'ammonium_acetate' ? 'Hill Labs NZ Method'
-            : 'Minimum Levels for Sustainable Nutrition';
+            : m === 'mlsn' ? 'Minimum Levels for Sustainable Nutrition'
+            : '';
         var methDesc = m === 'slan' ? 'Traditional sufficiency-range approach, widely used across all turf types'
             : m === 'ammonium_acetate' ? 'Olsen P + NH₄OAc extraction, calibrated for NZ soils'
-            : 'Threshold-based approach, validated primarily on golf putting greens';
+            : m === 'mlsn' ? 'Threshold-based approach, validated primarily on golf putting greens'
+            : '';
 
         var data = global.GAIP_DASHBOARD_DATA;
         var gpVal = data && data.computed && data.computed.climate &&
@@ -579,7 +599,8 @@
     function renderVerdict(sn) {
         var v    = (sn.verdict||'NO_DATA').replace('-','_');
         var meta = VERDICT_META[v] || VERDICT_META.NO_DATA;
-        var meth = sn.methodology ? ' <span style="font-size:11px;opacity:.7">('+esc(sn.methodology.toUpperCase())+')</span>' : '';
+        var _sm  = siteMethodology();
+        var meth = _sm ? ' <span style="font-size:11px;opacity:.7">('+esc(_sm.toUpperCase())+')</span>' : '';
         var rows = meta.decision ? (
             '<div class="sn-verdict-rows">'+
             '<div class="sn-verdict-row"><strong>Decision</strong>'+esc(meta.decision)+'</div>'+
@@ -718,7 +739,8 @@
         var depth = sn.depthCm || 10;
         var bd    = sn.bulkDensity || 1.4;
         var depthFactor = depth * bd * 0.1; // ppm → kg/ha
-        var isAA = (sn.methodology || '').toLowerCase() === 'ammonium_acetate';
+        var isAA = siteMethodology() === 'ammonium_acetate';
+        var methWord = methodologyWord();
 
         return nutrients.map(function(n, idx){
             var sc    = statusClass(n.statusClass||n.status||'');
@@ -838,9 +860,13 @@
             // against yet, but the Soil page card itself can show its own
             // number in both units regardless).
             var mlsnKgHaText = (mlsnKgHa != null) ? ' ('+mlsnKgHa.toFixed(1)+' kg/ha)' : '';
-            var thresholdHtml = isAA
-                ? '<div class="sn-card-threshold">AA: '+esc(n.mlsn||'—')+' ppm'+esc(rangeKgHaText)+genericBadge+'</div>'
-                : '<div class="sn-card-threshold">MLSN: '+esc(n.mlsn||'—')+' ppm'+esc(mlsnKgHaText)+'</div>';
+            // GH-752: the threshold is labelled by the site's methodology, in the inputs list's word --
+            // not "AA" or else "MLSN", which put MLSN on a SLAN site's ranges.
+            var thresholdHtml = !methWord
+                ? '<div class="sn-card-threshold">'+NO_METHODOLOGY+'</div>'
+                : isAA
+                ? '<div class="sn-card-threshold">'+esc(methWord)+': '+esc(n.mlsn||'—')+' ppm'+esc(rangeKgHaText)+genericBadge+'</div>'
+                : '<div class="sn-card-threshold">'+esc(methWord)+': '+esc(n.mlsn||'—')+' ppm'+esc(mlsnKgHaText)+'</div>';
 
             // GH-320: same "show both units so the two pages can be
             // cross-checked without a mental conversion" reasoning as
@@ -1019,7 +1045,7 @@
                 '</div>';
         }
 
-        var isAA = (sn.methodology || '').toLowerCase() === 'ammonium_acetate';
+        var isAA = siteMethodology() === 'ammonium_acetate';
         var ANNUAL_NUTS = ['P','K','Ca','Mg','S'];
         var cards = ANNUAL_NUTS.map(function(nut){
             var demandVal = demand[nut];
@@ -1085,7 +1111,7 @@
         }).filter(Boolean).join('');
 
         if (!cards) return '';
-        var methTag = (function(m){ return m==='slan'?'SLAN':m==='ammonium_acetate'?'AA':'MLSN'; })((sn.methodology||'mlsn').toLowerCase());
+        var methTag = methodologyWord() || NO_METHODOLOGY;
         return '<div class="sn-section"><div class="sn-section-title">Annual Nutrient Requirements ('+methTag+')</div></div>'+
             '<div class="sn-annual">'+cards+'</div>';
     }
@@ -1110,7 +1136,7 @@
     function renderCorrectionProgram(sn) {
         // AA sufficiency ranges aren't calibrated to a deficit threshold — legacy hub
         // never derived a correction dose under Ammonium Acetate, only classified nutrients.
-        var isAA = (sn.methodology || '').toLowerCase() === 'ammonium_acetate';
+        var isAA = siteMethodology() === 'ammonium_acetate';
         if (isAA) return '';
 
         var nutrients  = sn.nutrients || [];
@@ -1430,8 +1456,8 @@
 
     function renderContext(sn) {
         var rows = '';
-        var meth = (sn.methodology||'mlsn').toLowerCase();
-        rows += '<div class="sn-context-row"><span class="sn-context-label">Methodology</span><span class="sn-context-val">'+(meth==='slan'?'SLAN (Sufficiency Levels)':meth==='ammonium_acetate'?'Ammonium Acetate':'MLSN (Minimum Levels)')+'</span></div>';
+        var meth = siteMethodology();
+        rows += '<div class="sn-context-row"><span class="sn-context-label">Methodology</span><span class="sn-context-val">'+(meth==='slan'?'SLAN (Sufficiency Levels)':meth==='ammonium_acetate'?'Ammonium Acetate':meth==='mlsn'?'MLSN (Minimum Levels)':NO_METHODOLOGY)+'</span></div>';
         if (sn.turfType) rows += '<div class="sn-context-row"><span class="sn-context-label">Turf type</span><span class="sn-context-val">'+esc(sn.turfType)+'</span></div>';
         if (sn.depthCm)  rows += '<div class="sn-context-row"><span class="sn-context-label">Rootzone depth</span><span class="sn-context-val">'+esc(String(sn.depthCm))+' cm</span></div>';
         if (sn.bulkDensity) rows += '<div class="sn-context-row"><span class="sn-context-label">Bulk density</span><span class="sn-context-val">'+esc(String(sn.bulkDensity))+' g/cm³</span></div>';

@@ -54,7 +54,10 @@ class Gh668WhoseConstructionTheFrameResolvesTest extends TestCase
             $site->users()->attach($user->id, ['role' => 'manager']);
             SiteConfig::query()->create([
                 'site_id' => $site->id, 'namespace' => 'gaip',
-                'config' => ['turf' => ['construction' => $construction]],
+                // GH-708: the wizard lock redirects a page whose site has not answered what the
+            // calculation needs. The values this fixture cares about are kept; the rest are
+            // filled from the inputs list so the page can be drawn at all.
+            'config' => $this->configThePageLockAccepts(['turf' => ['construction' => $construction]]),
             ]);
 
             return $site;

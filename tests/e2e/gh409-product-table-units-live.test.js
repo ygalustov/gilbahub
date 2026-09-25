@@ -442,7 +442,7 @@ describe('GH-409 live — ' + site.siteName, () => {
 
         let __restore = null;
 
-        try { __restore = await restoreConfigs(page); }
+        try { __restore = await restoreConfigs({ sites: [SITE_ID] }); }
 
         catch (e) { __restore = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
         if (page && previousActiveSiteId && previousActiveSiteId !== site.siteId) {

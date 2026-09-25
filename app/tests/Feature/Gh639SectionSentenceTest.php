@@ -170,14 +170,22 @@ class Gh639SectionSentenceTest extends TestCase
         // and the gap is what it was measured to be
         // GH-641 closed most of what this used to list. What remains, and why
         // each one is honest rather than unfinished:
-        //  - `applicationWindow` and `soilTempPhysics` are declared
-        //    `assembledFrom: []` — no step stands behind them, measured: the
-        //    first appears in none of the 66 stored rows, the second is computed
-        //    while a panel is drawn. `not-recorded` is the truth about them.
+        //  - `applicationWindow` is declared `assembledFrom: []` — no step stands
+        //    behind it, measured: it appears in none of the 66 stored rows.
+        //    `not-recorded` is the truth about it.
         //  - `tissue`: its engine is `tissue-engine` and the run warns under
         //    `tissue-corrective`, a spelling neither declared source derives from
         //    the other. Named here rather than papered over.
-        $this->assertSame(['applicationWindow', 'soilTempPhysics', 'tissue'], $withoutStep);
+        /**
+         * GH-734: `soilTempPhysics` HAS LEFT THIS LIST, and the reason is a step, not a loosening.
+         * It stood here because nothing recorded a cause for it and `STEP_NAMES` had no word for
+         * it, so the section answered `not-recorded` with no module name at all. Item 3az gave the
+         * run two refusals to record under `soil-temp-physics` and the map the word the graph
+         * already carried for that engine, so the key now resolves by the first declared path —
+         * the engine the graph names for it — like the other fifteen.
+         */
+        $this->assertSame(['applicationWindow', 'tissue'], $withoutStep);
+        $this->assertContains('soilTempPhysics', $withStep);
         // and the key link 11 exists for is resolved now
         $this->assertContains('soilNutrition', $withStep);
     }
@@ -201,7 +209,21 @@ class Gh639SectionSentenceTest extends TestCase
         $this->assertSame('no-soil-sample', $out['cause']);
         $this->assertSame('input-absent', $out['class']);
         $this->assertFalse($out['retry']);
-        $this->assertSame('MLSN', $out['module']);
+        /**
+         * GH-742 (reviewer's return) — THE THIRD ASSERTION OF THE SAME DEFECT, and it stood here
+         * unnamed: this projection carries no methodology, so the word is the one the inputs list
+         * holds for a site no declared methodology names. It said `MLSN`, which is the name of a
+         * methodology, and the rule is that nothing is ever filled with `mlsn`. The case is about
+         * the CAUSE reaching the sentence; the word is asserted beside it and must not be a
+         * methodology the site is not set to.
+         *
+         * THE LETTER HERE IS NOT THE GUARD, and this says where the guard is: the word is a draft
+         * the owner will accept or replace, so an assertion on its spelling has a shelf life. What
+         * survives that answer is the PROPERTY — the word is not the name or the key of any declared
+         * methodology — and it is asserted once, on the same function, in
+         * Gh742TheMethodologyTravelsWithTheProjectionTest::assertNamesNoMethodology.
+         */
+        $this->assertSame('soil nutrition', $out['module']);
         // No new words were needed: the sentence was already in the reasons table.
         $this->assertStringContainsString('no soil sample', $out['text']);
     }

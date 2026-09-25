@@ -511,13 +511,18 @@
 
             if (!soilData || !soilData.available) return '';
             
-            // STORE GLOBALLY for disease/overseed modules to use
-            global.GAIP_SOIL_TEMP = {
-                raw: soilResult,           // Full hourly arrays for each depth
-                summary: soilData,         // Summary with means/current values
-                profileType: profileType,
-                computed: new Date().toISOString()
-            };
+            /**
+             * GH-734 (queue item 3az, delivery 3) — THE PANEL DRAWS, IT DOES NOT PUBLISH.
+             *
+             * This put the panel's own calculation on `global.GAIP_SOIL_TEMP` "for disease/overseed
+             * modules to use", and that is how one model came to be computed twice on different
+             * inputs: the modules took the panel's number and the run computed another. They take the
+             * run's result now (`GaipOrchestrator.getComputed('soilTempPhysics')`, delivery 2), so
+             * there is nothing left to publish and the global is gone.
+             *
+             * Its entry in `site-switch-cleanup.js` went first, which the order guard makes
+             * compulsory: a name cleaned that no code assigns is red.
+             */
 
             // Format profile name
             const profileNames = {

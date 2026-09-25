@@ -805,8 +805,12 @@
         // ── Irrigation ───────────────────────────────────────────
         // Old hub triggers off the current water balance deficit, not the coming
         // week's forecast requirement — a different metric. computed.irrigation is
-        // only ever populated by the selective-recompute path (executeEngine()),
-        // not the main computeAll() pipeline, so it's not reliably present here.
+        // never populated at all, and the last clause of this note used to be wrong too:
+        // the selective-recompute path that once filled it (`executeEngine`) was exported
+        // and never called, and GH-755 removed it with its body -- but `computed.irrigation`
+        // does NOT come from the full pass either. Measured by JSON type over all 80 stored
+        // rows: the key holds JSON null in 77 and is absent in 3, an object in none. So this
+        // fallback is not one answer among several, it is the only one there is.
         // metrics.irrigationDeficit already carries the real deficit (from
         // GAIP_IrrigationResults.summary.netDeficit, hub-persistence.js — the same
         // reliable legacy-global fallback chain metrics.irrigationNeed already uses).

@@ -215,7 +215,7 @@ if (!ENABLED) {
                 }, { id: previousActiveSiteId }).catch(() => {});
             }
             if (browser) await browser.close();
-            const back = restoreConfigs();
+            const back = restoreConfigs({ sites: [SITE.id] });
             process.stdout.write('[gh522] GH-519 restore: ' + JSON.stringify({
                 restored: back.restored, failed: back.failed, unchanged: back.unchanged }) + '\n');
             if (back.failed && back.failed.length) {

@@ -12,6 +12,7 @@
  */
 
 const fs = require('fs');
+const { siteFor } = require('./lib/soil-page-site');
 const path = require('path');
 const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
 
@@ -63,12 +64,27 @@ describe('GH-267 — methodology-aware Growth Potential tooltip', () => {
             return src.slice(start, i + 1);
         }
 
+        // GH-752: the header reads the site's methodology through `siteMethodology()`, so it is taken
+        // out beside the header, and the site is given the way the page is given one.
+        function extractFn(head) {
+            const start = anchorIndex(src, head);
+            let depth = 0;
+            let i = src.indexOf('{', start);
+            for (; i < src.length; i++) {
+                if (src[i] === '{') depth++;
+                else if (src[i] === '}') { depth--; if (depth === 0) break; }
+            }
+            return src.slice(start, i + 1);
+        }
+
         function renderHeaderHtml(methodology, gpWeighted) {
             const vm = require('vm');
-            const fnSrc = extractRenderPageHeader();
+            const fnSrc = "var NO_METHODOLOGY = 'No methodology set';\n"
+                + extractFn('function siteMethodology() {') + '\n' + extractRenderPageHeader();
             const sandbox = {
                 global: {
                     GAIP_DASHBOARD_DATA: { computed: { climate: { growth: { weighted: gpWeighted } } } },
+                    GAIP_HUB_CONFIG: siteFor(methodology),
                 },
                 esc: (s) => String(s),
                 renderKpiCards: () => '',

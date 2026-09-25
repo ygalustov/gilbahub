@@ -364,6 +364,9 @@ class Gh550AnalysisResultsTableTest extends TestCase
             'runId' => 'run-2', 'reason' => 'calculation-error', 'detail' => ['message' => 'cascade exploded'],
         ]);
         $user->forceFill(['last_active_site_id' => $site->id])->save();
+        // GH-708: the wizard lock redirects a page whose site has not answered what the
+        // calculation needs. This fixture's subject is the page, not the answers.
+        $this->giveTheSiteWhatTheLockNeeds($site);
 
         foreach (['/dashboard', '/plan', '/reports/accuracy', '/analysis'] as $url) {
             $html = $this->actingAs($user->fresh())->get($url)->assertOk()->getContent();

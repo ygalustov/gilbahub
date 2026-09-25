@@ -28,6 +28,17 @@
 (function(global) {
     'use strict';
 
+    /**
+     * GH-722 — a water sample's lab EC, through the lab reading names map (the runner's
+     * `readingsOf`), in place of the `EC || ECw || EC_dSm` chain both charts spelled for
+     * themselves. Undefined when there is none, or when the runner is not on the page.
+     */
+    function labEC(row) {
+        var SM = global.GAIP_SampleManager;
+        var r = (SM && typeof SM.readingsOf === 'function') ? SM.readingsOf('water', { values: row }) : null;
+        return (r && r.EC) || undefined;
+    }
+
     // =========================================================================
     // CONFIGURATION
     // =========================================================================
@@ -569,7 +580,8 @@
                 var nd = s.normalized || {};
                 val = parseFloat(nd.ecw) || parseFloat(nd.ECw) || parseFloat(nd.ec) || parseFloat(nd.EC_dSm) || undefined;
                 if (val === undefined && s.rawData) {
-                    val = parseFloat(s.rawData.EC) || parseFloat(s.rawData.ECw) || parseFloat(s.rawData.EC_dSm) || undefined;
+                    // GH-722: the lab column through the lab reading names map.
+                    val = labEC(s.rawData);
                 }
             }
 
@@ -2152,7 +2164,7 @@
                     var nd = s.normalized || {};
                     val = parseFloat(nd.ecw) || parseFloat(nd.ECw) || parseFloat(nd.EC_dSm) || undefined;
                     if (val === undefined && s.rawData) {
-                        val = parseFloat(s.rawData.EC) || parseFloat(s.rawData.ECw) || parseFloat(s.rawData.EC_dSm) || undefined;
+                        val = labEC(s.rawData);
                     }
                 }
                 if (dataType === 'water' && nutrient === 'pH' && (val === undefined || val === null)) {

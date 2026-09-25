@@ -38,8 +38,13 @@ const ASSETS = path.join(__dirname, '..', 'assets');
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * `askServerForSoilSample` is module-private, so it is exposed beside the
- * module's own export line. The assertion on that line is the positive control.
+ * `askServerForSample` is module-private, so it is exposed beside the module's own export line.
+ * The assertion on that line is the positive control.
+ *
+ * GH-724: it used to be `askServerForSoilSample`, a wrapper of one line. When the opener began
+ * asking about tissue as well, the wrapper lost its last caller and stayed only because this file
+ * named it — a function kept alive by its test. It is gone, and this asks the surviving function
+ * for the soil sample by naming the kind.
  */
 function loadOpener(serverAnswer) {
     const src = fs.readFileSync(path.join(ASSETS, 'dashboard-ui.js'), 'utf8');
@@ -52,7 +57,9 @@ function loadOpener(serverAnswer) {
     const anchor = '    function initRerun() {';
     expect(src).toContain(anchor);
     const testSrc = src.replace(anchor,
-        '    globalThis.__test_askServerForSoilSample = askServerForSoilSample;\n\n' + anchor);
+        '    globalThis.__test_askServerForSoilSample = function (siteId) {\n'
+        + '        return askServerForSample(\'soil\', siteId);\n'
+        + '    };\n\n' + anchor);
 
     const requested = [];
     const sandbox = {
@@ -415,7 +422,25 @@ describe('GH-588 — the join: the server’s answer becomes the parameter the r
         });
         // Positive control: no address, and everything below is vacuous.
         expect(typeof pressed.url).toBe('string');
-        expect(pressed.requested).toHaveLength(1);
+
+        /**
+         * GH-724 — THE ASSERTION IS ABOUT THE QUESTION THIS CASE GUARDS, NOT ABOUT HOW MANY
+         * QUESTIONS THERE ARE.
+         *
+         * It read `toHaveLength(1)` and went red the day the opener began asking about tissue as
+         * well (queue item 19): two requests where the case expected one. A count is a fact about
+         * the batch, and this case is about the SOIL question -- that it was asked, of this site,
+         * and that the answer became the parameter the runner waits on. Pinning the count would
+         * break again on the third kind of sample and would say nothing more each time.
+         *
+         * So what is asserted is that the soil question is AMONG the requests and is named, and
+         * the requests are printed, because "the soil question is there" and "the opener asked
+         * nothing at all" would otherwise read the same.
+         */
+        process.stdout.write('[GH-588 join] the opener asked: ' + JSON.stringify(pressed.requested) + '\n');
+        expect(pressed.requested.length).toBeGreaterThan(0);
+        const soilQuestions = pressed.requested.filter((u) => u.indexOf('sample_type=soil') > -1);
+        expect(soilQuestions).toEqual(['/api/samples?sample_type=soil&site_id=site-1&limit=1']);
 
         // The runner is given the address the OPENER built, and the sample never
         // arrives, so it must say which one it was waiting for.

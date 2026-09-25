@@ -332,7 +332,8 @@
             isOverseed: false,
             baseSpecies: null,
             overseedSpecies: null,
-            summerIntent: 'transition',
+            // GH-741: an unset summer intent stays unset; 'transition' here was a guess that read as an answer.
+            summerIntent: null,
             baseIsC4: false,
             intentProfile: null
         };
@@ -347,7 +348,7 @@
                 // v1.1.4: Only assign overseedSpecies if explicitly non-empty
                 const _orchOverseed = turf.overseedSpecies || turf.winterOverseed || turf.coolOverseed;
                 if (_orchOverseed) result.overseedSpecies = _orchOverseed;
-                result.summerIntent = turf.summerIntent || turf.overseedSummerIntent || 'transition';
+                result.summerIntent = turf.summerIntent || turf.overseedSummerIntent || null;
             }
             
             if (state?.turf) {
@@ -617,7 +618,7 @@
         }
         
         const fractions = {};
-        const intent = overseedConfig.summerIntent || 'transition';
+        const intent = overseedConfig.summerIntent || null;
         const profile = NUTRITION_CONFIG.summerIntentProfiles[intent] || 
                        NUTRITION_CONFIG.summerIntentProfiles.transition;
         

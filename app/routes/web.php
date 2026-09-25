@@ -55,7 +55,27 @@ Route::middleware('auth')->group(function () {
 });
 
 // All other authenticated routes require active status
-Route::middleware(['auth', 'active'])->group(function () {
+/**
+ * GH-708 (item 3bk, part 3) — THE LOCK IS WIRED HERE, and it is the owner's decision of 24.09.2026
+ * that puts it on this group: a site may not be looked at or calculated until the person has
+ * answered what the calculation needs, and refreshing the page brings the wizard back.
+ *
+ * WHAT IS NOT LOCKED, and each has its reason in the middleware: the dashboard (the wizard opens
+ * there, and locking it would redirect to itself), logging out, the no-access and pending doors, and
+ * the account page where a person switches site — locking that would trap them on one incomplete
+ * site. Everything asking for JSON or living under `api/*` passes too: the wizard saves through the
+ * API, and a lock in front of it would leave a person in a wizard that cannot save.
+ *
+ * `/hub` IS UNDER THE LOCK (GH-708), by the owner's decision of 24.09.2026 at 19:50: what she had
+ * excluded from this work was the old hub's INTERFACE, not its route. So the run frame of an
+ * incomplete site is redirected like any other page, and her rule that there is no calculation until
+ * the wizard has been completed holds for the frame as well. Her words are quoted verbatim in
+ * PLAN-remaining-defects-RU.md; a comment carries the decision, not the quote, because only our
+ * plans are written in Russian.
+ *
+ * `?setup=0` DOES NOT BYPASS IT: the middleware reads no parameter at all, only the state.
+ */
+Route::middleware(['auth', 'active', \App\Http\Middleware\EnsureSiteIsSetUp::class])->group(function () {
     Route::get('/legacy-assets/{path}', function (string $path) {
         $base = realpath(base_path('../assets'));
         $file = $base ? realpath($base.DIRECTORY_SEPARATOR.$path) : false;

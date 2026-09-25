@@ -132,13 +132,8 @@ const BY_ID_CALLS = ['getSiteConfig', 'getConfig', 'resolveExportInputs', 'resol
  * below: a stale exemption reads as "still to do" long after it is done.
  */
 const EXEMPT = [
-    {
-        file: 'word-export.js', fn: 'collectData',
-        lhs: 'construction',
-        rhs: '(window.GAIP_STATE && window.GAIP_STATE.turf && window.GAIP_STATE.turf.construction) || null',
-        roots: ['window.GAIP_STATE'],
-        why: 'the Cross-Module block builds its own soil object from GAIP_STATE.turf, outside the resolver entirely; during a leak it carries the previous site\'s construction. Section 10.5 moves it to data.turf.construction'
-    },
+    // GH-752: the Cross-Module block's construction now comes from the export's own inputs, so the
+    // exemption that named its leak from GAIP_STATE.turf is gone with the leak.
     {
         file: 'word-export.js', fn: 'collectData',
         lhs: 'construction',
@@ -902,7 +897,6 @@ function filesThatWriteIdentity() {
 const RATCHET = {
     // (a) One line per exemption, by its own four coordinates.
     exemptions: [
-        "word-export.js | collectData | construction = (window.GAIP_STATE && window.GAIP_STATE.turf && window.GAIP_STATE.turf.construction) || null | roots window.GAIP_STATE",
         "word-export.js | collectData | construction = wm.compactionRisk.construction | roots window.GAIP_STATE",
         "word-export.js | collectData | speciesKey = cr._companionSpecies || '' | roots window.GAIP_COMPANION_DISEASE_RESULT",
         "word-export.js | collectData | species = phyto.species | roots window.GAIP_PHYTOTOXICITY_RESULT",

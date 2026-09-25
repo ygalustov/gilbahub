@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LabReadingNames;
 use App\Support\AnalysisResults;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -90,10 +91,13 @@ class PageController extends Controller
                     // fabricated 0 as a ratio.
                     return is_numeric($value) ? (float) $value : null;
                 };
+                // GH-722: through the lab reading names map, so a tissue sample spelled
+                // `N_Percent` reads here as it reads in the calculation.
+                $readings = LabReadingNames::readingsOf('tissue', $payload) ?? [];
                 $tissuePercent = [
-                    'N' => $numeric($payload['N'] ?? null),
-                    'P' => $numeric($payload['P'] ?? null),
-                    'K' => $numeric($payload['K'] ?? null),
+                    'N' => $numeric($readings['N'] ?? null),
+                    'P' => $numeric($readings['P'] ?? null),
+                    'K' => $numeric($readings['K'] ?? null),
                     'sampleId' => $latestTissue->id,
                     'sampleDate' => ($latestTissue->lab_date ?? $latestTissue->sample_date)?->toDateString(),
                 ];

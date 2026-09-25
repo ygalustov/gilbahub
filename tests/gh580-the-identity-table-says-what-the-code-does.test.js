@@ -45,18 +45,45 @@ describe('GH-580 — a block that is announced is a block that is enforced, or i
     });
 
     test('the table no longer declares a block the code does not enforce', () => {
-        const table = read('identity-enforcement.js');
-        const at = table.indexOf("'wear-recovery': {");
-        expect(at).toBeGreaterThan(-1);
-        const entry = table.slice(at, table.indexOf('canEmitRecommendations', at));
-        // The DECLARATION, with the prose taken out: a comment explaining the
-        // history mentions the old word, and a check that tripped on the
-        // explanation would be measuring the explanation.
-        const declared = entry.replace(/\/\/[^\n]*/g, '');
+        // GH-714 — READ FROM THE LOADED TABLE, NOT FROM A WINDOW OF ITS TEXT. The window ran
+        // from the wear entry to the next `canEmitRecommendations`; with those blocks gone it
+        // ran to the end of the file, and its positive half matched other entries' lines. The
+        // table is exported, so the entry is read as data.
+        const { ctx } = load();
+        const req = ctx.GilbaIdentityEnforcement.ENGINE_REQUIREMENTS['wear-recovery'];
+        process.stdout.write('[gh580] wear entry: ' + JSON.stringify(req) + '\n');
 
-        expect(declared).toMatch(/turfIntentKey: true/);
-        expect(declared).not.toMatch(/turfIntentKey: false/);
-        expect(declared).not.toMatch(/BLOCKED/);
+        expect(req.canRunUnknown.turfIntentKey).toBe(true);
+        expect(JSON.stringify(req.unknownBehaviour || {})).not.toMatch(/BLOCKED/);
+    });
+
+    test('GH-714: no entry declares a recommendation ban — nothing outside the module ever asked', () => {
+        const { ctx } = load();
+        const table = ctx.GilbaIdentityEnforcement.ENGINE_REQUIREMENTS;
+        const declaring = Object.keys(table).filter((id) => table[id].canEmitRecommendations !== undefined);
+        process.stdout.write('[gh580] entries inspected: ' + JSON.stringify(Object.keys(table))
+            + '; declaring a recommendation ban: ' + JSON.stringify(declaring) + '\n');
+
+        expect(Object.keys(table).length).toBeGreaterThan(0);
+        expect(declaring).toEqual([]);
+    });
+
+    test('every field an entry declares is a field the module reads — the lists, not their lengths', () => {
+        // The one reader of the table is this module; its reads are the names after `req.` and
+        // `req?.`. A declared field nobody reads is a promise the code does not keep.
+        const { ctx } = load();
+        const table = ctx.GilbaIdentityEnforcement.ENGINE_REQUIREMENTS;
+        const src = read('identity-enforcement.js');
+        const readFields = Array.from(new Set(Array.from(src.matchAll(/\breq\??\.(\w+)/g), (m) => m[1]))).sort();
+        const unread = [];
+        Object.keys(table).forEach((id) => Object.keys(table[id]).forEach((f) => {
+            if (!readFields.includes(f)) unread.push(id + '.' + f);
+        }));
+        process.stdout.write('[gh580] fields the module reads: ' + JSON.stringify(readFields) + '\n'
+            + '[gh580] declared and unread: ' + JSON.stringify(unread) + '\n');
+
+        expect(readFields.length).toBeGreaterThan(0);
+        expect(unread).toEqual([]);
     });
 
     test('and the sentence about it is information, not a problem', () => {

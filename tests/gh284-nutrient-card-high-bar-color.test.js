@@ -15,6 +15,7 @@
  */
 
 const vm = require('vm');
+const { asTheSite, siteFor } = require('./lib/soil-page-site');
 const fs = require('fs');
 const path = require('path');
 
@@ -38,7 +39,8 @@ function loadModule() {
     sandbox.globalThis = sandbox;
     const ctx = vm.createContext(sandbox);
     vm.runInContext(testSrc, ctx, { filename: 'soil-nutrition-analysis.js' });
-    return ctx.window.GAIP_SoilNutritionAnalysis.__test_renderNutrientCards;
+    // GH-752: the page renders for a site whose methodology is the one each case names.
+    return asTheSite(ctx.window, ctx.window.GAIP_SoilNutritionAnalysis.__test_renderNutrientCards);
 }
 
 describe('GH-284 — Nutrient Status card bar colour matches HIGH status', () => {

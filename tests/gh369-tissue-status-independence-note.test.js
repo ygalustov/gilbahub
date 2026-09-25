@@ -166,6 +166,10 @@ describe('GH-369 follow-up (bug 2) — resolveTissueGate() matches nutrition-cal
             const mixedUnitTissue = { N: 4.57, P: 6200, K: 1.05 }; // P in mg/kg
             const program = NC.computeProgram({
                 hemisphere: 'south', species: 'perennialRyegrass', isC4: false,
+                // GH-749: the site's methodology, which this fixture omitted. A programme is not
+                // computed without one any more — nothing is filled with `mlsn` for a site that has
+                // none — and the sample this case is about belongs to a site that has one.
+                methodology: 'mlsn',
                 soilPpm: { P: 40, K: 199, Ca: 803, Mg: 129, S: 75 },
                 bulkDensity: 1.4, soilDepth: 10,
                 monthlyTemps: Array(12).fill(15),

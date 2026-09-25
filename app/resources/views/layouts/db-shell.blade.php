@@ -22,6 +22,12 @@
             // nothing and read a copy out of localStorage instead.
             savedLocation: @json($injectedSavedLocation ?? null),
             gaipConfig:   @json(($injectedGaipConfig ?? []) ?: null),
+            // GH-752: the site's construction, resolved by the one dictionary as the app layout
+            // resolves it (GH-664). The report pages run the engines in a hidden frame of this layout.
+            construction: @json(\App\Support\CalculationInputs::resolveConstruction(($injectedGaipConfig ?? []) ?: [])),
+            // GH-752: the inputs list's word for the site's methodology, or null when it has none or
+            // one the list does not declare. The soil page labels its thresholds with it.
+            methodologyShort: @json(\App\Support\CalculationInputs::methodologyShort(strtolower((string) (($injectedGaipConfig ?? [])['turf']['methodology'] ?? '')))),
             // GH-533 (PLAN-samples-sync-FINAL, stage 2, item 6): may the
             // person looking at this page change what is on it?
             //
@@ -45,6 +51,14 @@
              it used to carry itself, and nothing said the page had not been given
              anything. One injection point per layout that loads the module. --}}
         window.GAIP_DEPENDENCY_GRAPH = @json(\App\Support\DependencyGraph::forClient());
+        {{-- GH-752: the SLAN ranges, from their one file (assets/slan-ranges.json, read by
+             App\Support\SlanRanges). The report pages on this layout run the engine that judges
+             SLAN samples, and data goes where the code that reads it goes. --}}
+        window.GAIP_SLAN_RANGES = @json(\App\Support\SlanRanges::forClient());
+        {{-- GH-722: how a lab writes the column for each reading of a sample, from the
+             one file that declares it. The sample manager builds its tables from this
+             and keeps only which form field a reading fills. --}}
+        window.GAIP_LAB_READING_NAMES = @json(\App\Support\LabReadingNames::forClient());
         window.GAIP_DASHBOARD_DATA = @json($analysisCache ?? null);
         // GH-441: the setup wizard reads the database's own wizard record
         // rather than deciding from localStorage, which is why a clean browser

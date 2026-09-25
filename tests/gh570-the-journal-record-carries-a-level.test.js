@@ -120,17 +120,50 @@ describe('GH-570 — every journal record says what kind of record it is', () =>
     });
 });
 
-describe('GH-570 — the two receipts are written by note, in the shipped file', () => {
+describe('GH-570 — the GAIP_DISEASE_RESULT receipts are written by note, in the shipped file', () => {
     /**
-     * A guard on the tree rather than on a run: these two lines are the reason
-     * the field exists, and a later edit that turns either back into a `warn`
-     * would put a receipt for successful work back among the problems without
-     * any test noticing.
+     * A guard on the tree rather than on a run: this line is the reason the field exists, and a later
+     * edit that turns it back into a `warn` would put a receipt for successful work back among the
+     * problems without any test noticing.
+     *
+     * GH-755 (queue item 3bz) CHANGED WHAT IS TRUE HERE, so this says what it guarded before and what
+     * it guards now rather than being loosened until it went quiet:
+     *   BEFORE — two receipts existed, `writer1-mainBlock` in the full pass and `writer2` inside
+     *   `executeEngine`; the claim was "there are two and both are notes" — a count plus a shared
+     *   assertion.
+     *   NOW — `executeEngine` was exported, never called, and removed with its body, and `writer2`
+     *   went with it. The claim is the LIST: exactly these receipts exist, each named with the
+     *   function that writes it. It is stronger than the count it replaces in both directions — a
+     *   receipt turned into a `warn` is red as before, and a receipt ADDED anywhere is red too, which
+     *   `toHaveLength(2)` could not say once two were expected.
      */
-    test('both GAIP_DISEASE_RESULT receipts are notes', () => {
-        const hits = [...SRC.matchAll(/(\w+)\(\s*\n\s*"disease",\s*\n\s*`\[b35fix365 writer[12]/g)];
-        expect(hits).toHaveLength(2);
-        hits.forEach((h) => expect(h[1]).toBe('note'));
+    test('the receipts that exist are exactly these, each written by note', () => {
+        /**
+         * GH-755 (the reviewer's return) — AND THE PATTERN NO LONGER DEPENDS ON THE TYPOGRAPHY.
+         *
+         * It required a newline after `note(` and another after `"disease",`, because that is how the
+         * two receipts happened to be laid out. Measured by him: the same receipt written on ONE line
+         * is invisible to it, so the claim "a receipt ADDED anywhere is red too" held for one shape of
+         * whitespace only — and `writer2`, the receipt this delivery removed, could come back
+         * unnoticed. Whitespace is now whitespace, and the quote around the message may be any of the
+         * three JavaScript uses.
+         *
+         * WHERE IT STILL DOES NOT LOOK, his second remark, and it is measured rather than supposed.
+         * A COMMENT INSIDE THE CALL hides the receipt from this expression: a receipt whose call
+         * carried a block comment between `note(` and its first argument was put into the shipped
+         * file -- written as `note(`, a block comment, then `"disease"` -- and the file's own
+         * md5 changed from 1379b52a to 0e3dd14a and the probe was there by grep, and this case still
+         * printed one receipt and stayed green. So the claim this case can make is narrower than
+         * "a receipt added anywhere is red": it is "a receipt added with no comment between the
+         * call's own tokens is red". Widening the pattern to strip comments first is a decision
+         * nobody has taken -- naming the hole is what keeps it from being read as covered.
+         */
+        const hits = [...SRC.matchAll(/(\w+)\(\s*["']disease["']\s*,\s*[`'"]\[b35fix365 (writer[\w-]+)/g)]
+            .map((h) => [h[2], h[1]]);
+        process.stdout.write('[gh570] GAIP_DISEASE_RESULT receipts in the shipped file: '
+            + JSON.stringify(hits) + '\n');
+
+        expect(hits).toEqual([['writer1-mainBlock', 'note']]);
     });
 
     test('nothing else in the file writes a record without going through warn or note', () => {

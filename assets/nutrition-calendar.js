@@ -328,11 +328,14 @@
                 var rows = (res && res.data) || [];
                 self._tissueSamples = rows.map(function (s) {
                     var pl = s.payload || {};
+                    // GH-722: the readings as the server resolved them through the lab reading
+                    // names map; this page does not load the runner and spells no column itself.
+                    var rd = s.readings || {};
                     return {
                         id: s.id,
                         label: pl._label || s.client_uid || String(s.id),
                         date: s.lab_date || s.sample_date || '',
-                        N: pl.N, P: pl.P, K: pl.K
+                        N: rd.N, P: rd.P, K: rd.K
                     };
                 });
                 console.log('[NutritionCalendar] GH-414: ' + self._tissueSamples.length +
@@ -416,9 +419,12 @@
         function applySample(sample) {
             var pl = sample.payload || {};
             var existingSoil = (window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil) || {};
+            // GH-722: the nutrients as the server resolved them through the lab reading names
+            // map, not by their bare keys.
+            var rd = sample.readings || {};
             var ppm = {
-                P: pl.P, K: pl.K, Ca: pl.Ca, Mg: pl.Mg, S: pl.S,
-                Fe: pl.Fe, Mn: pl.Mn, Zn: pl.Zn, Cu: pl.Cu,
+                P: rd.P, K: rd.K, Ca: rd.Ca, Mg: rd.Mg, S: rd.S,
+                Fe: rd.Fe, Mn: rd.Mn, Zn: rd.Zn, Cu: rd.Cu,
             };
             // GH-413: pH, CEC and the sample's own texture snapshot travel with
             // the ppm figures. Until this ticket only the nutrients were copied,
@@ -762,7 +768,8 @@
             _methodologyDefaulted: !!(prog.sources && prog.sources.methodology === 'default'),
             overseedConfig: overseedSpecies
                 ? { isOverseed: true, baseSpecies: turf.species || null,
-                    overseedSpecies: overseedSpecies, summerIntent: turf.summerIntent || 'transition',
+                    // GH-741: an unset summer intent stays unset; 'transition' here was a guess that read as an answer.
+                    overseedSpecies: overseedSpecies, summerIntent: turf.summerIntent || null,
                     baseIsC4: !!turf.isC4 }
                 : { isOverseed: false, baseIsC4: !!turf.isC4 },
             monthlyTempsUnavailableReason: (inputs && inputs.climateReason) || null
@@ -939,11 +946,12 @@
                     const activeTissue = (SM && typeof SM.getActiveSample === 'function')
                         ? SM.getActiveSample('tissue') : null;
                     if (activeTissue) {
-                        const tSrc = activeTissue.normalized || activeTissue.rawData || {};
+                        // GH-722: through the lab reading names map, as the calculation reads it.
+                        const tRead = (typeof SM.readingsOf === 'function' && SM.readingsOf('tissue', activeTissue)) || {};
                         ['N', 'P', 'K'].forEach(function (nut) {
                             if (tissuePercent[nut] == null) {
-                                const v = parseFloat(tSrc[nut]);
-                                if (!isNaN(v) && v > 0) tissuePercent[nut] = v;
+                                const v = tRead[nut];
+                                if (typeof v === 'number' && v > 0) tissuePercent[nut] = v;
                             }
                         });
                     }
@@ -1321,9 +1329,12 @@
             if (activeSoil) {
                 // Sample structure: { id, label, date, rawData, normalized: {P, K, Ca, Mg, S, Fe, Mn, Zn, Cu, Na, ...} }
                 var src = activeSoil.normalized || activeSoil.rawData || {};
+                // GH-722: the nutrients and OM through the lab reading names map, as the
+                // calculation reads them. pH and CEC below still read `src` (open decisions).
+                var rd = (typeof SM.readingsOf === 'function' && SM.readingsOf('soil', activeSoil)) || {};
                 var nutKeys = ['P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn', 'Cu', 'Zn', 'Na'];
                 nutKeys.forEach(function(nut) {
-                    var v = parseFloat(src[nut]);
+                    var v = rd[nut] === undefined ? NaN : rd[nut];
                     if (!isNaN(v) && v > 0) {
                         soilState.ppm[nut] = v;
                         soilState[nut] = v;
@@ -1335,7 +1346,7 @@
                 if (src.methodology) soilState.methodology = src.methodology;
                 if (src.pH_water != null) soilState.pH_water = parseFloat(src.pH_water);
                 if (src.pH_cacl2 != null) soilState.pH_cacl2 = parseFloat(src.pH_cacl2);
-                if (src.OM != null) soilState.OM = parseFloat(src.OM);
+                if (rd.OM != null) soilState.OM = rd.OM;
                 if (src.CEC != null) soilState.CEC = parseFloat(src.CEC);
                 if (src.bulkDensity != null) soilState.bulkDensity = parseFloat(src.bulkDensity);
             }
@@ -2046,7 +2057,27 @@
             return { error: 'nutrition-requirement-core.js is not loaded — the nutrition programme cannot be computed' };
         }
 
-        const methodologyUsed = this.normalizeMethodology(inputs.methodology) || 'mlsn';
+        /**
+         * GH-749 (queue item 3ay) - THE SITE'S METHODOLOGY IS NOT SUPPLIED BY THIS FILE.
+         *
+         * This read `|| 'mlsn'`, so a site with no methodology was given MLSN thresholds and the
+         * programme was built on them. The methodology has exactly one owner, `config.turf.methodology`,
+         * and nothing is ever filled with `mlsn` for a site that has none - the same substitution was
+         * taken out of `resolveSufficiencyRanges` in nutrition-program-inputs.js by this item, and
+         * leaving this line would have kept it alive on the Plan page, because this value is what is
+         * handed to that resolver.
+         *
+         * IT REFUSES rather than computing, and it writes no reason for it: a reason would admit the
+         * case as an allowed one (the analyst's decision for item 3ay). The shape is the one this
+         * function already returns when a module it needs is not loaded, so no caller meets anything
+         * new. What a person sees on `/plan` in this state is NOT measured by any assertion here -
+         * `{ error: … }` reaches a `console.warn` and leaves the panel empty - and that measurement
+         * needs a real page with a site selected, which is why item 3ay does not close on it.
+         */
+        const methodologyUsed = this.normalizeMethodology(inputs.methodology);
+        if (!methodologyUsed) {
+            return { error: 'this site has no soil methodology — the nutrition programme is not computed without one' };
+        }
 
         // Sufficiency ranges: resolved ONCE, by the shared adapter, for all
         // three methodologies (AA certificate/generic band, SLAN Carrow 2004 +

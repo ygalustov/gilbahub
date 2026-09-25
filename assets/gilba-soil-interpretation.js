@@ -242,9 +242,10 @@
             
             const soil = state.soil;
             
-            // Get methodology
-            const methodSelect = document.querySelector('.gaip-soil-methodology');
-            const methodology = methodSelect?.value || soil.methodology || 'mlsn';
+            // GH-752: the site's methodology, from its config on the page -- the one owner. Not the
+            // form field, not the page's state, and no 'mlsn' in its place: absent stays absent.
+            const _siteTurf = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.gaipConfig && window.GAIP_HUB_CONFIG.gaipConfig.turf) || {};
+            const methodology = _siteTurf.methodology || null;
             
             // Get soil texture for Ammonium Acetate
             const textureSelect = document.querySelector('.gaip-aa-soil-texture');

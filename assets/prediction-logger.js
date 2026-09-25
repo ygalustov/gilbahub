@@ -240,7 +240,7 @@
                 predictions.push({
                     module: 'soil',
                     sub_key: `${nutrient}_rate`,
-                    cascade_run_id: cascadeId,
+                    cascade_id: cascadeId,
                     prediction_type: 'numeric',
                     predicted_value: rec.rate,
                     predicted_label: `Apply ${rec.rate.toFixed(1)} kg ${nutrient.charAt(0).toUpperCase()}/ha`,
@@ -293,7 +293,7 @@
             predictions.push({
                 module: 'disease',
                 sub_key: subKey,
-                cascade_run_id: cascadeId,
+                cascade_id: cascadeId,
                 prediction_type: 'probability',
                 predicted_value: probability,
                 predicted_label: `${displayName} risk: ${riskValue.toFixed(0)}% (${category})`,
@@ -325,7 +325,7 @@
             predictions.push({
                 module: 'pgr',
                 sub_key: 'gdd_trinexapac',
-                cascade_run_id: cascadeId,
+                cascade_id: cascadeId,
                 prediction_type: 'timing',
                 predicted_value: pgrResults.gddTarget,
                 predicted_label: `Reapply at ${pgrResults.gddTarget} GDD`,
@@ -343,7 +343,7 @@
             predictions.push({
                 module: 'pgr',
                 sub_key: 'reapplication_date',
-                cascade_run_id: cascadeId,
+                cascade_id: cascadeId,
                 prediction_type: 'timing',
                 predicted_value: new Date(pgrResults.predictedDate).getTime(),
                 predicted_label: `Predicted reapplication: ${pgrResults.predictedDate}`,
@@ -390,7 +390,7 @@
             predictions.push({
                 module: 'stress',
                 sub_key: 'peak_stress',
-                cascade_run_id: cascadeId,
+                cascade_id: cascadeId,
                 prediction_type: 'category',
                 predicted_value: peakStress.value,
                 predicted_label: `Peak stress: ${peakStress.category} (day ${peakStress.day + 1})`,
@@ -429,7 +429,7 @@
             predictions.push({
                 module: 'water',
                 sub_key: 'sodium_hazard',
-                cascade_run_id: cascadeId,
+                cascade_id: cascadeId,
                 prediction_type: 'category',
                 predicted_value: sar,
                 predicted_label: `SAR ${sar.toFixed(1)} - ${category} sodium hazard`,
@@ -455,7 +455,7 @@
             predictions.push({
                 module: 'water',
                 sub_key: 'salinity_hazard',
-                cascade_run_id: cascadeId,
+                cascade_id: cascadeId,
                 prediction_type: 'category',
                 predicted_value: ec,
                 predicted_label: `EC ${ec.toFixed(2)} dS/m - ${category} salinity`,
@@ -485,7 +485,7 @@
             predictions.push({
                 module: 'climate',
                 sub_key: 'monthly_eto',
-                cascade_run_id: cascadeId,
+                cascade_id: cascadeId,
                 prediction_type: 'numeric',
                 predicted_value: climate.monthlyETo,
                 predicted_label: `Monthly ET₀: ${climate.monthlyETo.toFixed(0)} mm`,
@@ -588,7 +588,23 @@
             return [];
         }
 
-        const cascadeId = generateUUID();
+        /**
+         * GH-729 (item 3al) — THE RUN THAT PRODUCED THE PREDICTION, NOT A FRESH UUID.
+         *
+         * This was `generateUUID()`: a number invented per call, equal to nothing else in the
+         * tree, so a stored prediction and the run that computed it had no way of being about the
+         * same attempt. It also travelled under `cascade_run_id` while the server reads
+         * `cascade_id`, so it never arrived at all — measured on the stand, 1718 rows and the
+         * column filled on none of them.
+         *
+         * The id comes from the one place that reads it, `GilbaPersistence.currentRunId()`, and is
+         * `null` when the page is not a run frame. A prediction made outside a run belongs to no
+         * run, and saying so is the point: an invented id is the same defect under a new name.
+         */
+        const persistence = global.GilbaPersistence;
+        const cascadeId = (persistence && typeof persistence.currentRunId === 'function')
+            ? persistence.currentRunId()
+            : null;
         const state = cascadeResult.state || {};
         const computed = state.computed || {};
         const inputs = state.inputs || {};
@@ -700,7 +716,12 @@
             overallRisk: result.overallRisk
         });
         
-        const cascadeId = generateUUID();
+        // GH-729 (item 3al): the run that produced it, from the one reader of the address.
+        // `null` outside a run frame — see the note in `extractPredictions`.
+        const cascadeId = (global.GilbaPersistence
+            && typeof global.GilbaPersistence.currentRunId === 'function')
+            ? global.GilbaPersistence.currentRunId()
+            : null;
         const siteId = getSiteIdentifier();
         const predictedAt = new Date().toISOString();
         
@@ -733,7 +754,7 @@
                 site_id: siteId,
                 module: 'disease',
                 sub_key: subKey,
-                cascade_run_id: cascadeId,
+                cascade_id: cascadeId,
                 predicted_at: predictedAt,
                 prediction_type: 'probability',
                 predicted_value: probability,

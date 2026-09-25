@@ -205,165 +205,13 @@
         showToast('✓ Exported ' + sampleCount + ' samples for ' + siteLabel);
     }
 
-    // =========================================================================
-    // IMPORT
-    // =========================================================================
-
-    function importSite(file) {
-        if (!file) return;
-
-        var reader = new FileReader();
-        reader.onload = function (e) {
-            var bundle;
-            try {
-                bundle = JSON.parse(e.target.result);
-            } catch (err) {
-                showToast('⚠ Invalid file, not a Gilba Hub export', true);
-                return;
-            }
-
-            // Basic validation
-            if (!bundle.version || !bundle.site || !bundle.samples) {
-                showToast('⚠ File format not recognised, was it exported from the Gilba Hub?', true);
-                return;
-            }
-
-            var incomingSiteId    = bundle.site.id;
-            var incomingSiteLabel = bundle.site.label;
-
-            // --- Merge samples ---
-            var SM = global.GAIP_SampleManager;
-            if (SM && typeof SM.getAllSamples === 'function') {
-                try {
-                    var existing = SM.getAllSamples();
-
-                    // Merge the incoming site into existing data
-                    if (!existing.allSites)  existing.allSites  = {};
-                    if (!existing.allActive) existing.allActive = {};
-                    if (!existing.allMeta)   existing.allMeta   = {};
-                    if (!existing.sites)     existing.sites     = {};
-
-                    if (bundle.samples.allSites[incomingSiteId]) {
-                        existing.allSites[incomingSiteId]  = bundle.samples.allSites[incomingSiteId];
-                    }
-                    if (bundle.samples.allActive[incomingSiteId]) {
-                        existing.allActive[incomingSiteId] = bundle.samples.allActive[incomingSiteId];
-                    }
-                    if (bundle.samples.allMeta[incomingSiteId]) {
-                        existing.allMeta[incomingSiteId]   = bundle.samples.allMeta[incomingSiteId];
-                    }
-                    if (bundle.samples.sites[incomingSiteId]) {
-                        existing.sites[incomingSiteId]     = bundle.samples.sites[incomingSiteId];
-                    } else {
-                        // Create minimal site entry if missing
-                        existing.sites[incomingSiteId] = {
-                            label:     incomingSiteLabel,
-                            createdAt: new Date().toISOString()
-                        };
-                    }
-
-                    SM.restoreFromPersistence(existing);
-                    log('Samples merged for site:', incomingSiteId);
-                } catch (err) {
-                    warn('Sample merge failed:', err);
-                }
-            }
-
-            // --- Site config: NOT restored, and no longer pretending to be ---
-            //
-            // GH-625. This wrote `bundle.siteConfig` into
-            // `gilba_hub_site_configs` and logged "Site config restored". It
-            // restored nothing: GH-441 took that key out of service, and
-            // `site-config-persistence.js` DELETES it on every page load, along
-            // with its namespaced twin. Nothing outside this file reads it. So
-            // the write landed in a key that is wiped moments later, and the
-            // line in the log said otherwise.
-            //
-            // The project rule for exactly this case: a control that stopped
-            // working because a write path was removed is REMOVED, not wired
-            // back up — and the config's write path was removed on purpose,
-            // because a page pushing a whole held config to the server is the
-            // defect GH-439 was opened for. Restoring it here would rebuild the
-            // browser copy the same work took out.
-            //
-            // The rest of the bundle is unaffected and still arrives: the
-            // samples are merged through the sample manager, and the site's
-            // coordinates are PATCHed to the server below, which is where they
-            // belong.
-            if (bundle.siteConfig) {
-                log('Site config in the bundle is not restored — config lives on the server (GH-441)');
-
-                // Save location to DB so the analysis engine uses correct coordinates.
-                // localStorage-only import leaves the DB with stale coordinates, causing
-                // the old hub iframe to fetch weather for the wrong location on re-run.
-                var _loc = bundle.siteConfig.location;
-                if (_loc && _loc.lat && _loc.lon && typeof fetch !== 'undefined') {
-                    var _siteTarget = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId) || incomingSiteId;
-                    var _apiBase    = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) || '/api/';
-                    var _csrf       = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
-                    fetch(_apiBase.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(_siteTarget), {
-                        method:  'PATCH',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': _csrf },
-                        body:    JSON.stringify({
-                            location_name: _loc.name || '',
-                            latitude:      _loc.lat,
-                            longitude:     _loc.lon
-                        })
-                    }).then(function() {
-                        log('Location saved to DB for', _siteTarget, ':', _loc.lat, _loc.lon);
-                    }).catch(function() { /* non-fatal */ });
-                }
-            }
-
-            // --- Merge turf profile ---
-            if (bundle.turfProfile && bundle.turfProfile.name && bundle.turfProfile.data) {
-                try {
-                    var profilesKey = 'gilba_turf_profiles';
-                    var profiles    = JSON.parse(_ls.getItem(profilesKey) || '{}');
-                    profiles[bundle.turfProfile.name] = bundle.turfProfile.data;
-                    _ls.setItem(profilesKey, JSON.stringify(profiles));
-                    log('Turf profile restored:', bundle.turfProfile.name);
-                } catch (err) {
-                    warn('Turf profile merge failed:', err);
-                }
-            }
-
-            // --- Merge sensor mapping ---
-            if (bundle.sensorMapping) {
-                try {
-                    var mappings = JSON.parse(_ls.getItem('gilba_sensor_mappings') || '{}');
-                    mappings[incomingSiteId] = bundle.sensorMapping;
-                    _ls.setItem('gilba_sensor_mappings', JSON.stringify(mappings));
-                    log('Sensor mapping restored for:', incomingSiteId);
-                } catch (err) { /* non-fatal */ }
-            }
-
-            // Count what came in
-            var sampleCount = 0;
-            var types = ['soil', 'water', 'tissue', 'loi'];
-            var store = (bundle.samples.allSites || {})[incomingSiteId] || {};
-            types.forEach(function (t) {
-                if (store[t]) sampleCount += Object.keys(store[t]).length;
-            });
-
-            log('Import complete,', incomingSiteLabel, ':', sampleCount, 'samples');
-
-            // Switch to the imported site and reload
-            setTimeout(function () {
-                var SM2 = global.GAIP_SampleManager;
-                if (SM2 && typeof SM2.setActiveSite === 'function') {
-                    SM2.setActiveSite(incomingSiteId);
-                }
-                // Persist import target across the reload so hub-persistence restores
-                // the correct site instead of forcing the PHP-active UUID.
-                try { sessionStorage.setItem('gilba_import_active_site', incomingSiteId); } catch (_e) {}
-                showToast('✓ Imported ' + sampleCount + ' samples for ' + incomingSiteLabel + ', reloading…');
-                setTimeout(function () { location.reload(); }, 1200);
-            }, 300);
-        };
-
-        reader.readAsText(file);
-    }
+    // GH-750 (queue item 3bg): THE IMPORT IS GONE. Its one write to the server PATCHed the
+    // file's coordinates into the site the PAGE had open (`GAIP_HUB_CONFIG.activeSiteId`), not
+    // the site the file described -- the class of GH-459. Without that write it would only have
+    // put the file's turf profiles into localStorage and merged its samples into the sample
+    // manager, which is a browser copy the project rule forbids. A control with no rightful
+    // write path is removed rather than repaired. Its button lived only in the /hub markup,
+    // which no client opens; the export, which only downloads a file, stays.
 
     // =========================================================================
     // UI INJECTION
@@ -396,49 +244,14 @@
         ].join(';');
         exportBtn.addEventListener('click', function () { exportSite(); });
 
-        // Import button + hidden file input
-        var importBtn = document.createElement('button');
-        importBtn.type      = 'button';
-        importBtn.id        = 'gaip-site-import-btn';
-        importBtn.title     = 'Import a site data file sent to you by your agronomist';
-        importBtn.innerHTML = '📥 Import';
-        importBtn.style.cssText = [
-            'padding:6px 12px',
-            'border:1px solid #6f42c1',
-            'border-radius:6px',
-            'background:var(--gaip-surface)',
-            'color:#6f42c1',
-            'cursor:pointer',
-            'font-size:13px',
-            'font-weight:600'
-        ].join(';');
-
-        var fileInput = document.createElement('input');
-        fileInput.type   = 'file';
-        fileInput.accept = '.json';
-        fileInput.style.display = 'none';
-        fileInput.id    = 'gaip-site-import-file';
-        fileInput.addEventListener('change', function () {
-            if (fileInput.files && fileInput.files[0]) {
-                importSite(fileInput.files[0]);
-                fileInput.value = ''; // reset so same file can be re-imported
-            }
-        });
-
-        importBtn.addEventListener('click', function () { fileInput.click(); });
-
         // Insert before the status span (or at end of bar)
         if (statusSpan && statusSpan.parentNode === bar) {
             bar.insertBefore(exportBtn, statusSpan);
-            bar.insertBefore(importBtn, statusSpan);
-            bar.insertBefore(fileInput, statusSpan);
         } else {
             bar.appendChild(exportBtn);
-            bar.appendChild(importBtn);
-            bar.appendChild(fileInput);
         }
 
-        log('v' + VERSION + ' ready, Export/Import buttons injected');
+        log('v' + VERSION + ' ready, Export button injected');
     }
 
     // =========================================================================

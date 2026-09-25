@@ -1,0 +1,10 @@
+{
+  "$comment": "GH-717 - member calls in a shape the resolution rule claims (a global name, or an object some file exports), which execution entered and the rule resolved to nothing, as found on the witness's first run. Each carries its reason. A new one is red by name; one no longer observed is red until taken off.",
+  "misses": {
+    "assets/gilba-hub-v2.js : t.set": "GH-717 - a minified local `t` shares its spelling with an object name another file exports; the rule matches objects by spelling and claims the call, then finds no such key",
+    "assets/gilba-hub-v2.js : n.on": "GH-717 - same as above, local `n`",
+    "assets/gilba-hub-v2.js : n.emit": "GH-717 - same as above, local `n`",
+    "assets/gilba-hub-v2.js : e.compute": "GH-717 - same as above, local `e`; execution entered the climate engine's `compute`",
+    "assets/mobile-turf-sheet.js : self._updateFABBadge": "GH-717 - `self` is a local alias of `this` here, and the rule reads `self` as the global object"
+  }
+}

@@ -64,13 +64,17 @@ class ExampleTest extends TestCase
         SiteConfig::query()->create([
             'site_id' => $site->id,
             'namespace' => 'gaip',
-            'config' => [
+            // GH-708: the wizard lock redirects a page whose site has not answered what the
+            // calculation needs. This case is about what `/hub` bootstraps, not about the answers —
+            // and `wizard.complete` is NOT what the lock reads: it reads the answers themselves, so a
+            // site claiming to be complete and holding nothing is exactly what it stops.
+            'config' => $this->configThePageLockAccepts([
                 'wizard' => [
                     'complete' => true,
                     'completedAt' => '2026-04-30T09:00:00Z',
                     'version' => '1.0.0',
                 ],
-            ],
+            ]),
             'synced_at' => now(),
         ]);
         $user->forceFill(['last_active_site_id' => $site->id])->save();

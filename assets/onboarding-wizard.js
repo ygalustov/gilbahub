@@ -482,12 +482,10 @@
              * one click, which the coordinator accepted when she decided this.
              */
 
-            var methods = [
-                { id: 'mlsn',             label: 'MLSN',              desc: 'Threshold-based. Validated for sand-based putting greens.' },
-                { id: 'slan',             label: 'SLAN',              desc: 'Sufficiency ranges. Standard for sports fields, fairways, lawns.' },
-            ];
+            // GH-744: the names and sentences come from the server, out of the inputs list.
+            var methods = [this._methodWords('mlsn'), this._methodWords('slan')];
             if (isNZ) {
-                methods.push({ id: 'ammonium_acetate', label: 'Ammonium Acetate', desc: 'Hill Labs NZ — Olsen P + NH₄OAc extraction.' });
+                methods.push(this._methodWords('ammonium_acetate'));
                 // GH-407: and take MLSN away, as Settings does (GH-395). This
                 // step already knew the location was NZ -- it just added
                 // Ammonium Acetate because of it, auto-selected it above, and
@@ -629,7 +627,19 @@
             });
         },
 
-        _METHOD_LABELS: { mlsn: 'MLSN', slan: 'SLAN', ammonium_acetate: 'Ammonium Acetate' },
+        /**
+         * GH-744: a methodology's name and sentence as the server delivered them with the setup
+         * state. A value it did not deliver is shown by its key, which is the value itself and not
+         * a word made up for it. A value it delivered carries its own label -- the list declares one
+         * for every value -- and nothing stands in for it.
+         */
+        _methodWords: function (id) {
+            var list = ((cfg.setup || {}).methodologyValues) || [];
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].id === id) return { id: id, label: list[i].label, desc: list[i].description || '' };
+            }
+            return { id: id, label: id, desc: '' };
+        },
 
         _methodNote: function () {
             var isNZ  = this._isNZ();
@@ -638,7 +648,7 @@
             // letting the button vanish between one visit to this step and the
             // next with no explanation.
             if (this._methodClearedForNZ) {
-                msg = this._METHOD_LABELS[this._methodClearedForNZ] || this._methodClearedForNZ;
+                msg = this._methodWords(this._methodClearedForNZ).label;
                 msg = msg + ' is not offered for New Zealand locations, so that choice has been cleared '
                     + 'and Ammonium Acetate is selected. NZ soil labs report Olsen P and '
                     + 'ammonium-acetate extractions, and other methodologies\u2019 thresholds are not '
@@ -682,8 +692,10 @@
             // GH-684: no stand-in. Reaching this step without a methodology is not possible now
             // that the gate is derived from the list, and if it ever were, the screen says what
             // is true rather than naming a method nobody chose.
+            // GH-744: the word is the list's, as everywhere else in this wizard -- it was built
+            // out of the key, which printed AMMONIUM ACETATE and made words up for undeclared keys.
             var method  = this.d.methodology
-                ? this.d.methodology.toUpperCase().replace('_', ' ')
+                ? this._methodWords(this.d.methodology).label
                 : 'not set';
 
             var steps = [

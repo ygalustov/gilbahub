@@ -1,0 +1,41 @@
+{
+  "provenance": {
+    "measured": "2026-09-25",
+    "how": "docker exec gilba_mysql mysql -ugilba gilba, read-only: samples WHERE sample_type='water' AND deleted_at IS NULL, joined to sites for the name",
+    "why": "GH-764 repaired the sample-store door, which had assembled nothing at all. These are every live water sample on the stand, so the door is measured against real payloads rather than invented ones."
+  },
+  "dependency_census": {
+    "measured": "2026-09-25",
+    "sites_with_a_water_sample": 3,
+    "door_last_produced_a_row": "2026-09-22 08:33:06",
+    "rows_after_that_per_site": { "Burns": 8, "Russley": 4, "New test - location": 4 },
+    "rows_after_that_carrying_water_per_site": { "Burns": 8, "Russley": 4, "New test - location": 4 },
+    "reading": "NO live site depends on this door today: every row produced after the door died carried a conductivity, so none of the three lost water. The repair closes a trap rather than restoring a loss.",
+    "what_this_does_not_see": [
+      { "key": "page-state-not-recorded",
+        "why": "whether the runner's page carried water in its state, which is what decides the door taken -- the database keeps no record of it, and `waterBalance.source` is JSON null both for a row assembled from page state and for a row from before that field existed" },
+      { "key": "sample-only-in-a-browser",
+        "why": "a water sample held only in a browser and never sent to `samples`" },
+      { "key": "today-not-reachability",
+        "why": "reachability rather than today's stand: a site created tomorrow with a water sample and no page water would meet the dead door, which is why the repair stands on its own" }
+    ]
+  },
+  "samples": [
+    { "site": "Burns", "id": 54, "date": "2018-07-12", "EC": 0.52,
+      "payload": { "B": 0, "K": 17, "Ca": 46, "Cl": 64, "EC": 0.52, "Fe": 1.3, "Mg": 6, "Mn": 0, "Na": 47, "pH": 7.6, "CO3": 0, "NO3": 4.8, "PO4": 0.27, "SO4": 9, "HCO3": 150, "_label": "Dam Water" } },
+    { "site": "New test - location", "id": 136, "date": "2025-09-01", "EC": 8.04,
+      "payload": { "K": 37.26, "Ca": 60.12, "Cl": 715.74, "EC": 8.04, "Fe": 0.11, "Mg": 36.88, "Na": 1795.62, "pH": 7.4, "CO3": 0, "NO3": 2.84, "PO4": 0.08, "SO4": 26.91, "HCO3": 1370.83, "_label": "Bore" } },
+    { "site": "New test - location", "id": 137, "date": "2025-09-01", "EC": 6.22,
+      "payload": { "K": 24.69, "Ca": 28.53, "Cl": 811.12, "EC": 6.22, "Fe": 0.01, "Mg": 20.58, "Na": 1362.29, "pH": 7.5, "CO3": 0, "NO3": 0.89, "PO4": 0.08, "SO4": 0.78, "HCO3": 1365, "_label": "Bore" } },
+    { "site": "New test - location", "id": 138, "date": "2025-09-01", "EC": 0.31,
+      "payload": { "K": 6.52, "Ca": 20.9, "Cl": 17.29, "EC": 0.31, "Fe": 0.33, "Mg": 5.53, "Na": 30.85, "pH": 6.3, "CO3": 0, "NO3": 3.15, "PO4": 0.08, "SO4": 27.99, "HCO3": 44.17, "_label": "Riparian" } },
+    { "site": "New test - location", "id": 139, "date": "2024-07-01", "EC": 0.45,
+      "payload": { "K": 6.52, "Ca": 20.9, "Cl": 44.36, "EC": 0.45, "Fe": 0.33, "Mg": 5.53, "Na": 47.96, "pH": 6.4, "CO3": 0, "NO3": 3.15, "PO4": 0.08, "SO4": 28, "HCO3": 44.17, "_label": "Riparian" } },
+    { "site": "New test - location", "id": 140, "date": "2025-07-01", "EC": 6,
+      "payload": { "K": 48.8, "Ca": 73, "Cl": 744, "EC": 6, "Fe": 0.19, "Mg": 136.32, "Mn": 4.12, "Na": 1049, "pH": 6.8, "CO3": 0, "NO3": 4.97, "PO4": 0.03, "SO4": 359.07, "HCO3": 105.83, "_label": "9th" } },
+    { "site": "Russley", "id": 114, "date": "2026-07-19", "EC": 0.5,
+      "payload": { "EC": 0.5, "Na": 1, "_label": "Bore water" } },
+    { "site": "Russley", "id": 115, "date": "2026-07-20", "EC": 90,
+      "payload": { "Ca": 3, "EC": 90, "Mg": 5, "Na": 2, "pH": 115, "HCO3": 2, "_label": "Bore water 2" } }
+  ]
+}

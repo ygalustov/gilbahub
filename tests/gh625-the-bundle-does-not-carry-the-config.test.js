@@ -49,7 +49,8 @@ describe('GH-625 — the bundle does not carry the site config', () => {
         // Positive control: every absence below is about one key, not about a
         // module that has gone missing.
         expect(SRC.length).toBeGreaterThan(5000);
-        expect(SRC).toContain('function importSite');
+        // GH-750: the import is gone; the export is what remains of the transfer.
+        expect(SRC).toContain('function exportSite');
         expect(code(SRC)).toContain('var siteConfig = null;');
     });
 
@@ -73,12 +74,32 @@ describe('GH-625 — the bundle does not carry the site config', () => {
         expect(initBody).toContain('forgetStoredConfigs();');
     });
 
-    test('what still works is untouched — samples and coordinates', () => {
-        // The removal must not read as wider than it is. The samples merge
-        // through the sample manager, and the coordinates go to the server.
+    test('GH-750: the import is gone — nothing of it writes to the server or to browser storage — and the export stays', () => {
+        // Its one server write PATCHed the file's coordinates into the site the PAGE had open, and
+        // without it the button would only have made browser copies. THIS case holds the CONTROL:
+        // the import function is gone and only the export button is added. That nothing here writes
+        // to the server is `gh711`'s claim, not this one's -- its census sees a write however the verb
+        // is spelt (measured: `var verb = "PATCH"` left this file green and turned gh711 red), so a
+        // text check for `method: 'PATCH'` here would only have looked like a second guard.
         const c = code(SRC);
-        expect(c).toContain('Samples merged for site:');
-        expect(c).toMatch(/method:\s*'PATCH'/);
-        expect(c).toContain('Location saved to DB for');
+        expect(c).not.toContain('function importSite');
+        expect(c).not.toContain('restoreFromPersistence');
+        expect(c).toContain('function exportSite');
+
+        const vm = require('vm');
+        const added = [];
+        const el = (tag) => ({ tag, style: {}, addEventListener() {}, set id(v) { this._id = v; }, get id() { return this._id; } });
+        const bar = { insertBefore(n) { added.push(n.id); }, appendChild(n) { added.push(n.id); } };
+        const box = {
+            console: { log() {}, warn() {} },
+            document: { readyState: 'complete', getElementById: (id) => (id === 'gaip-site-selector-top' ? bar : null),
+                createElement: el, querySelector: () => null, addEventListener() {}, body: { appendChild() {} } },
+            setInterval: (fn) => { fn(); return 1; }, clearInterval() {}, setTimeout: () => 0,
+            localStorage: { getItem: () => null, setItem() {} },
+        };
+        box.window = box; box.global = box; box.globalThis = box;
+        vm.runInContext(SRC, vm.createContext(box), { filename: 'site-data-transfer.js' });
+        process.stdout.write('[gh750] buttons added to a planted selector bar: ' + JSON.stringify(added) + '\n');
+        expect(added).toEqual(['gaip-site-export-btn']);
     });
 });

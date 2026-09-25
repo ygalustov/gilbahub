@@ -75,7 +75,23 @@ class Gilba_Soil_Interpretation {
      * @return array Interpretation result
      */
     public function interpret($soil_output ) {
-        
+
+        // GH-752: an interpretation is written for the site's methodology or not at all. The page
+        // sends the site's own value, or nothing when the site has none; putting MLSN in its place
+        // here would only move the substitution the page stopped making. Checked before the service
+        // so that the reason given is this one.
+        $raw_methodology = $this->to_scalar( $soil_output['methodology'] ?? '' );
+        $raw_surface     = strtolower( $this->to_scalar( $soil_output['surfaceType'] ?? '' ) );
+        $cotula_asked    = str_contains( strtolower( $raw_methodology ), 'cotula' )
+                        || str_contains( strtolower( $raw_methodology ), 's78' )
+                        || $raw_surface === 'cotula_bowling_green';
+        if ( ! $cotula_asked && $this->normalise_methodology( $raw_methodology ) === null ) {
+            return [
+                'success' => false,
+                'error'   => 'The site has no known soil test methodology, so no soil interpretation was written. Set it in Settings, Turf profile.',
+            ];
+        }
+
         if ( ! $this->is_available() ) {
             return [
                 'success' => false,
@@ -113,8 +129,9 @@ class Gilba_Soil_Interpretation {
         
         $template = $this->get_prompt_template();
         
-        $methodology = $this->normalise_methodology( $this->to_scalar( $soil_output['methodology'] ?? 'mlsn' ) );
-        $config = $this->methodology_config[ $methodology ] ?? $this->methodology_config['MLSN'];
+        // GH-752: `interpret` has refused an unknown methodology already; nothing stands in for it.
+        $methodology = $this->normalise_methodology( $this->to_scalar( $soil_output['methodology'] ?? '' ) );
+        $config = $this->methodology_config[ $methodology ];
         $context = $soil_output['context'] ?? [];
         $confidence = $soil_output['confidence'] ?? [];
         
@@ -260,7 +277,7 @@ PROMPT;
         
         $lines = [];
         $nutrients = isset( $soil_output['nutrients'] ) ? $soil_output['nutrients'] : [];
-        $methodology = $this->normalise_methodology( isset( $soil_output['methodology'] ) ? $soil_output['methodology'] : 'mlsn' );
+        $methodology = $this->normalise_methodology( isset( $soil_output['methodology'] ) ? $soil_output['methodology'] : '' );
         
         // Handle both array of nutrient objects and flat ppm structure
         if ( ! empty( $nutrients ) && is_array( $nutrients ) && isset( $nutrients[0] ) && is_array( $nutrients[0] ) ) {
@@ -501,7 +518,7 @@ PROMPT;
         }
         
         // Build default citations based on methodology
-        $methodology = $this->normalise_methodology( $soil_output['methodology'] ?? 'mlsn' );
+        $methodology = $this->normalise_methodology( $soil_output['methodology'] ?? '' );
         
         $default_citations = [
             'MLSN' => [
@@ -544,7 +561,7 @@ PROMPT;
             ],
         ];
         
-        return $default_citations[ $methodology ] ?? [];
+        return $methodology !== null ? ( $default_citations[ $methodology ] ?? [] ) : [];
     }
     
     /**
@@ -554,7 +571,11 @@ PROMPT;
      * @return string Normalised key
      */
     private function normalise_methodology($methodology ) {
-        
+
+        // GH-752: a value this does not recognise -- the empty one included -- is not MLSN.
+        if ( ! is_string( $methodology ) || trim( $methodology ) === '' ) {
+            return null;
+        }
         $upper = strtoupper( str_replace( [ '-', ' ' ], '_', $methodology ) );
         
         return match( true ) {
@@ -562,7 +583,8 @@ PROMPT;
             str_contains( $upper, 'S78' )      => 'COTULA_S78',
             str_contains( $upper, 'AMMONIUM' ) => 'AMMONIUM_ACETATE',
             str_contains( $upper, 'SLAN' )     => 'SLAN',
-            default                            => 'MLSN',
+            str_contains( $upper, 'MLSN' )     => 'MLSN',
+            default                            => null,
         };
     }
     

@@ -451,12 +451,49 @@ function gaip_transformToCascadeFormat(domState, weather) {
                 ledHours: domState.turf?.ledHours || 0,
                 ambientDLI: domState.turf?.ambientDLI || 0,
                 trafficLevel: domState.turf?.trafficLevel || "moderate",
-                pgrActive: domState.turf?.pgrActive || false,
+                /**
+                 * GH-725 (queue item 3bo) — THE ANSWER THE PERSON GAVE, FROM WHERE THEY GAVE IT.
+                 *
+                 * This read `domState.turf.pgrActive`, which NOTHING fills -- measured: every
+                 * occurrence of the name in the tree reads it, there is no form field called that,
+                 * and the engines that consult it therefore always saw `false`. What the person
+                 * actually answers is the PGR switch, and it is stored as `pgr.enabled` in the
+                 * site's own config; the server delivers that config to this frame, so the value
+                 * comes from the site's data rather than from a field on the page.
+                 *
+                 * ABSENCE STAYS ABSENCE. A config that says nothing about PGR is not a config that
+                 * says "off": `|| false` was a substitution, and the shade engine's own
+                 * `pgrActive && suspend` treats a missing answer as no conflict without being told
+                 * a falsehood to get there.
+                 *
+                 * It changes nothing on any site today -- PGR is off on all twelve configured
+                 * sites -- and that is why it is a trap rather than a defect: the first site to
+                 * switch PGR on would have been judged as though it had not.
+                 */
+                pgrActive: (function () {
+                    try {
+                        var cfg = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.gaipConfig;
+                        var answered = cfg && cfg.pgr && cfg.pgr.enabled;
+
+                        return answered === undefined || answered === null ? null : !!answered;
+                    } catch (err) {
+                        return null;
+                    }
+                })(),
             },
             // Soil inputs
             soil: {
                 bulkDensity: domState.soil?.bulkDensity || 1.4,
-                surfaceType: domState.soil?.surfaceType || "",
+                /**
+                 * GH-619 (queue item 3x, the reviewer's return): an empty string was manufactured
+                 * here out of an absence. Measured before choosing between declaring it an exception
+                 * and carrying absence: every reader applies its own `|| ""` where a string is needed
+                 * (`hub-tissue-v3.js` twice in the cascade path) or asks for truth of it
+                 * (`nutrition-au-fertiliser-integration.js`, `nutrition-prebble-integration.js`,
+                 * `nutrition-program-inputs.js`), so `null` costs no reader anything and says what is
+                 * true: nobody chose a surface.
+                 */
+                surfaceType: domState.soil?.surfaceType || null,
                 // GH-619 — THE SAME DEFAULT AS GH-618, ON THE SAME LINE OF
                 // FOUR MORE READINGS.
                 //
@@ -519,8 +556,27 @@ function gaip_transformToCascadeFormat(domState, weather) {
                 EC: domState.water?.EC ?? domState.water?.ecw ?? null,
                 pH: domState.water?.pH ?? null,
                 ions: domState.water?.ions || {},
-                SAR: domState.water?.SAR || 0,
-                adjSAR: domState.water?.adjSAR || 0,
+                // GH-725 (queue item 3bo): a sodium adsorption ratio of zero is the safest-looking
+                // water there is, and it was being asserted for every site that had not supplied
+                // one -- the same shape as the manufactured zero ions of GH-707. Absence travels as
+                // absence, as it does for the soil neighbours settled under GH-619.
+                //
+                // NOT CLOSED HERE, and said rather than covered: a water report MAY carry SAR
+                // (`assets/lab-import.js` recommends the column and gives it a range), and it still
+                // cannot reach this line, because the water reading map that would carry it lives in
+                // `assets/sample-manager.js`, which is another item's file. None of the eight live
+                // water samples carries a SAR today.
+                SAR: domState.water?.SAR ?? null,
+                /**
+                 * GH-619 (queue item 3x, the reviewer's return) - THE TWIN OF `SAR`, AND IT WAS LEFT.
+                 *
+                 * `|| 0` here asserted the safest-looking water there is for every site that supplied
+                 * no adjusted ratio, one line below the neighbour where the same zero was removed
+                 * under GH-725. It was left because the absence of this field was checked by a
+                 * hand-written list of names, and the case whose universe is the output's own keys
+                 * sends every field WITH a value, so it could not see an absence at all.
+                 */
+                adjSAR: domState.water?.adjSAR ?? null,
             },
             // Schedule/traffic inputs
             schedule: {
@@ -968,17 +1024,59 @@ function gaip_soilFromActiveSample() {
  * second table of column names here is a second source, and this whole question
  * has been removing those.
  */
+/**
+ * GH-724 (queue item 19) — THE SAMPLE THE OPENER NAMED, FOR A KIND THAT TRAVELS AS A PARAMETER.
+ *
+ * `null` means the opener said nothing about this kind, and the caller falls back to whatever the
+ * frame holds, which is what every opener before GH-588 relied on. `'none'` is an answer, not a
+ * silence: the site has no sample of this kind and there is nothing to look for.
+ *
+ * The site's own sample is never guessed at here. The server chose it, by the one rule it applies
+ * to soil, and this only looks up the sample the server named.
+ */
+function gaip_namedSample(kind) {
+    try {
+        var told = new URLSearchParams(window.location.search || "").get(kind);
+        if (!told || told === "unknown") return null;
+        if (told === "none") return "none";
+        var SM = window.GAIP_SampleManager;
+        if (!SM || typeof SM.getSamples !== "function") return null;
+        var all = SM.getSamples(kind) || [];
+        for (var i = 0; i < all.length; i++) {
+            if (all[i] && String(all[i].id) === String(told)) return all[i];
+        }
+        // Named and not found: an outcome of its own, and it must not silently become "the active
+        // one" -- that is how a run computes on a sample nobody asked for (the GH-586 class).
+        return "not-found";
+    } catch (e) {
+        return null;
+    }
+}
+
 function gaip_sampleReadings(kind) {
     try {
         var SM = window.GAIP_SampleManager;
         if (!SM || typeof SM.getActiveSample !== "function" || typeof SM.readingsOf !== "function") return null;
-        var active = SM.getActiveSample(kind);
-        if (!active) return null;
-        var readings = SM.readingsOf(kind, active);
+
+        /**
+         * GH-724 — WHEN THE OPENER NAMED A SAMPLE, THAT IS THE SAMPLE.
+         *
+         * Measured on the stand: `computed.tissue` was empty in 66 of 66 stored rows although
+         * three sites hold live tissue samples, because nothing in a run frame ever makes a tissue
+         * sample active and this asked the manager for the active one. Reading the named sample is
+         * the same rule the project settled after GH-459: what a result is about comes from the
+         * data of the object it is about, not from the state the page happens to be in.
+         */
+        var named = gaip_namedSample(kind);
+        if (named === "none" || named === "not-found") return null;
+
+        var chosen = named || SM.getActiveSample(kind);
+        if (!chosen) return null;
+        var readings = SM.readingsOf(kind, chosen);
         if (!readings || !Object.keys(readings).length) return null;
         return readings;
     } catch (e) {
-        console.warn("[GH-589] reading the active " + kind + " sample failed:", e && e.message);
+        console.warn("[GH-589] reading the " + kind + " sample failed:", e && e.message);
         return null;
     }
 }
@@ -1431,7 +1529,11 @@ function gaip_readSoilForm(e) {
         testDate: e.querySelector(".gaip-soil-date")?.value || null,
         depthCm: safeNum(e.querySelector(".gaip-depth")?.value, 10),
         bulkDensityOnTheForm: safeNum(e.querySelector(".gaip-bd")?.value, 1.4),
-        methodology: e.querySelector(".gaip-soil-methodology")?.value || "mlsn",
+        // GH-752: methodology has one owner, the site's `config.turf.methodology`, which the server
+        // sends with the page. The form field was the page's state, and `|| "mlsn"` put a methodology
+        // nobody chose in its place. Absent stays absent.
+        methodology: (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.gaipConfig && window.GAIP_HUB_CONFIG.gaipConfig.turf
+            && window.GAIP_HUB_CONFIG.gaipConfig.turf.methodology) || null,
         surfaceType: e.querySelector(".gaip-subcategory-option.selected")?.dataset?.surface ||
             window.gaipTurfProfile?.state?.subCategory ||
             "sports",
@@ -1668,7 +1770,11 @@ function gaip_build_state(e) {
                 return {
                     testDate: e.querySelector(".gaip-water-date")?.value || null,
                     ions: _gaipWaterSample ? _gaipWaterSample.ions : {},
-                    ecw: _gaipWaterSample ? (_gaipWaterSample.ecw || 0) : 0,
+                    // GH-736: no water sample is no conductivity. The zero that stood here was a
+                    // placeholder, and it died at the row's last gate until GH-731 made a zero a
+                    // reading there; from then on it would have given a site whose water was never
+                    // tested a leaching fraction. A measured zero is still a zero.
+                    ecw: _gaipWaterSample ? _gaipWaterSample.ecw : null,
                     pH: _gaipWaterSample && _gaipWaterSample.pH !== null ? _gaipWaterSample.pH : 7,
                     recycledWater: !!(e.querySelector(".gaip-recycled-water-flag")?.checked),
                 };
@@ -1700,7 +1806,8 @@ function gaip_build_state(e) {
                 warmBase: window.GAIP_STATE?.turf?.cotula === true ? "" : e.querySelector(".gaip-warm-base")?.value || "",
                 coolOverseed: e.querySelector(".gaip-cool-overseed")?.value || "",
                 overseedVariety: e.querySelector(".gaip-overseed-variety")?.value || "",
-                overseedSummerIntent: e.querySelector(".gaip-overseed-summer-intent")?.value || "transition",
+                // GH-741: an unset summer intent stays unset; 'transition' here was a guess that read as an answer.
+                overseedSummerIntent: e.querySelector(".gaip-overseed-summer-intent")?.value || null,
                 poaPercent: safeNum(e.querySelector(".gaip-poa-percent")?.value, 0),
                 percentC3Cover: safeNum(e.querySelector(".gaip-c3-cover")?.value, 0),
                 hoc: safeNum(e.querySelector(".gaip-hoc")?.value, 25),
@@ -1717,7 +1824,10 @@ function gaip_build_state(e) {
                     if (nutritionVal) return safeNum(nutritionVal, 0);
                     return safeNum(e.querySelector(".gaip-n-program")?.value, 0);
                 })(),
-                construction: e.querySelector(".gaip-construction")?.value || "",
+                // GH-752: the site's construction as the server resolved it for this page (GH-664),
+                // not the form field, which is the state of whatever page the run is drawn on.
+                construction: (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.construction
+                    && window.GAIP_HUB_CONFIG.construction.value) || null,
                 drainage: e.querySelector(".gaip-drainage")?.value || "",
                 cleggHammer: safeNum(e.querySelector(".gaip-clegg-hammer")?.value, 0),
                 cleggMax: safeNum(e.querySelector(".gaip-clegg-max")?.value, 0),
@@ -1774,7 +1884,17 @@ function gaip_build_state(e) {
                 costPerKL: safeNum(e.querySelector(".gaip-irr-cost")?.value, 3),
                 daysSinceIrrigation: safeNum(e.querySelector(".gaip-days-since-irrigation")?.value, 1),
                 soilVWC: safeNum(e.querySelector(".gaip-soil-vwc")?.value, 0) || null,
-                rootDepth: safeNum(e.querySelector(".gaip-root-depth")?.value, 100),
+                // GH-757 (queue item 3ah): the site's own root depth first. Settings saves it as
+                // `config.traffic.schedule.rootDepth` (the traffic form), and this assembly read
+                // only the `/hub` markup's field -- measured, the field lives in
+                // `legacy-hub-markup.blade.php` alone, so on every other page the entered value was
+                // replaced by the 100 below and irrigation worked from it with nothing on screen to
+                // say so. The page field is kept behind the config: `/hub` is a calculation runner,
+                // not a surface, so what the site says wins over what its markup happens to hold.
+                rootDepth: safeNum(
+                    (window.GAIP_HUB_CONFIG?.gaipConfig?.traffic?.schedule?.rootDepth
+                        ?? e.querySelector(".gaip-root-depth")?.value),
+                    100),
             },
             traffic: {
                 matchesPerWeek: safeNum(e.querySelector(".gaip-matches-week")?.value, 0),
@@ -1798,7 +1918,17 @@ function gaip_build_state(e) {
                 ].filter(function(e) {
                     return null !== e && !isNaN(e);
                 }),
-                rootDepth: safeNum(e.querySelector(".gaip-root-depth")?.value, 100),
+                // GH-757 (queue item 3ah): the site's own root depth first. Settings saves it as
+                // `config.traffic.schedule.rootDepth` (the traffic form), and this assembly read
+                // only the `/hub` markup's field -- measured, the field lives in
+                // `legacy-hub-markup.blade.php` alone, so on every other page the entered value was
+                // replaced by the 100 below and irrigation worked from it with nothing on screen to
+                // say so. The page field is kept behind the config: `/hub` is a calculation runner,
+                // not a surface, so what the site says wins over what its markup happens to hold.
+                rootDepth: safeNum(
+                    (window.GAIP_HUB_CONFIG?.gaipConfig?.traffic?.schedule?.rootDepth
+                        ?? e.querySelector(".gaip-root-depth")?.value),
+                    100),
                 overseedStatus: e.querySelector(".gaip-overseed-status")?.value || "none",
                 variety: e.querySelector(".gaip-variety")?.value || "generic",
             },
@@ -6444,12 +6574,9 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                 c &&
                     e.soil &&
                     (rt = {
-                        pH_water: e.soil.pH_water || e.soil.pH_cacl2,
-                        Na_ppm: e.soil.ppm?.Na || 0,
-                        EC1_5: e.soil.EC1_5 || 0,
-                        ECe: e.soil.ECe || 0,
-                        soilTexture: e.soil.soilTexture || "loam",
-                        ecw: e.water ? e.water.ecw : 0,
+                        // GH-756: the pane reads `ppm` and nothing else. The six fields beside it carried
+                        // values the soil did not have (zeros, "loam", pH CaCl2 as pH water) and reached
+                        // no screen; they are removed, not corrected.
                         ppm: e.soil.ppm || {},
                     });
                 var nt = window.renderTissueProgressiveDisclosure ?

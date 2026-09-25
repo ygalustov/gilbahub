@@ -799,6 +799,9 @@ function loadPage(record) {
     // `console.error` none of them had before.
     sandbox.GAIP_DEPENDENCY_GRAPH = JSON.parse(
         fs.readFileSync(path.join(ASSETS, 'dependency-graph.json'), 'utf8'));
+    // GH-722: the lab reading names the sample manager builds its spelling tables from.
+    sandbox.GAIP_LAB_READING_NAMES = JSON.parse(
+        fs.readFileSync(path.join(ASSETS, 'lab-reading-names.json'), 'utf8'));
     vm.createContext(sandbox);
     const failures = [];
     // docx and jszip capture the timer they find at load time for their own

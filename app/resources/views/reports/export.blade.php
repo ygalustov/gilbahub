@@ -314,8 +314,9 @@
         'spray-log.js','spray-log-ui.js','spray-log-integration.js',
         'spray-log-cascade.js','spray-log-print.js','gilba-alerts.js',
         'uv-residual-engine.js','site-settings-panel.js','site-data-transfer.js',
-        'environmental-utilisation-engine.js','eue-integration-bridge.js',
-        'gssh-operational-summary.js','shade-engine.js','global-solubles.js',
+        // GH-748: the EUE engine, its bridge and the operational summary are not loaded here --
+        // measured in a browser, nothing on this page runs them.
+        'shade-engine.js','global-solubles.js',
         'gaip-field-log-analysis.js','gaip-field-log.js','gaip-morning-briefing.js',
     ];
     // GH-383: the core and the input adapter must EXECUTE before the engine and

@@ -430,10 +430,49 @@
         if (!core) throw new Error('[NutritionInputs] resolveSufficiencyRanges: nutrition-requirement-core.js is not loaded');
 
         const w = _win();
-        const methodology = normalizeMethodology(opts.methodology) || 'mlsn';
+        /**
+         * GH-749 (queue item 3ay) - A SITE WITH NO METHODOLOGY GETS NO RANGES, AND IS NOT GIVEN ONE.
+         *
+         * This read `|| 'mlsn'`, so a site that has never been through its wizard was answered with
+         * MLSN thresholds. GH-521 took that same substitution out of `resolveSiteProgramInputs` one
+         * function below - the comment there names it - and it survived here, which is where the
+         * ranges are actually decided: that function resolves `methodology: null` honestly and this
+         * one turned the null back into `mlsn` on the next call. The owner's rule is that the
+         * methodology has one owner, `config.turf.methodology`, and that nothing is ever filled with
+         * `mlsn` for a site that has none.
+         *
+         * IT REFUSES, IT DOES NOT COMPUTE AND IT WRITES NO REASON - the analyst's decision, and the
+         * reason for it is that a reason would admit the case as an allowed one. This is the file's
+         * own form of refusal, the one it already uses for a core that is not loaded and for a site
+         * whose config did not resolve ("refusing to fall back to another site's configuration").
+         * The third link - a record of what was missing, shown to a person - is item 3ay's subject
+         * and belongs to the inputs that MAY be absent; a required setting with one owner is not one
+         * of them.
+         */
+        const methodology = normalizeMethodology(opts.methodology);
         const ranges = { P: null, K: null, Ca: null, Mg: null, S: null };
         const sources = { P: 'texture-fallback', K: 'texture-fallback', Ca: 'texture-fallback', Mg: 'texture-fallback', S: 'texture-fallback' };
         const ph = (opts.pH != null && !isNaN(opts.pH)) ? parseFloat(opts.pH) : null;
+        /**
+         * GH-749 (queue item 3ay) - THE THIRD LINK: WHAT WAS MISSING TRAVELS WITH THE ANSWER.
+         *
+         * A module that knows what it lacked and says it to nobody is the subject of item 3ay. This
+         * records the READING IT DID NOT HAVE, by the name the inputs list declares for it, and
+         * nothing else: the EFFECT of that absence is declared in `whenAbsent` beside the reading,
+         * and the inputs list is read by the server alone. So the pair {input, effect} is completed
+         * where the words live, this module keeps no copy of them, and a pair cannot drift from its
+         * declaration because only one half of it is written here.
+         */
+        const absent = [];
+        const noteAbsent = function (input) {
+            if (absent.indexOf(input) === -1) {
+                absent.push(input);
+            }
+        };
+        if (!methodology) {
+            throw new Error('[NutritionInputs] resolveSufficiencyRanges: this site has no methodology — ' +
+                'refusing to resolve sufficiency ranges without one (GH-749).');
+        }
         let certificateCode = null;
 
         if (methodology === 'ammonium_acetate') {
@@ -448,6 +487,21 @@
                 let r = (certificateCode && hlst && typeof hlst.getRangesPpm === 'function')
                     ? hlst.getRangesPpm(certificateCode, n, opts.CEC != null ? opts.CEC : undefined)
                     : null;
+                /**
+                 * GH-749: the pair is recorded only where the CEC IS the missing thing, and the
+                 * producer is asked which those are rather than guessed. Measured while writing
+                 * this: the first version fired on any nutrient whose band came out null, and on
+                 * `S277` that is Sulphur, which the certificate simply does not print - a pair
+                 * recorded where the absence cost nothing, which is the very defect this item is
+                 * about. Only a threshold held as a PROPORTION of the CEC (`%BS`) needs one: on
+                 * `S81` that is K, Ca and Mg; on `S277` and `S279` every band is absolute.
+                 */
+                const thresh = (hlst && typeof hlst.getThreshold === 'function')
+                    ? hlst.getThreshold(certificateCode, n) : null;
+                if (!r && thresh && thresh.axis === 'proportion' && thresh.unit === '%BS'
+                    && opts.CEC == null) {
+                    noteAbsent('soil.CEC');
+                }
                 if (r) {
                     sources[n] = 'certificate';
                 } else if (aam && typeof aam.getSufficiencyRange === 'function') {
@@ -465,7 +519,7 @@
                         : 'Ammonium-acetate generic sufficiency band (' + texKey + ')'
                 } : null;
             });
-            return { ranges: ranges, sources: sources, certificateCode: certificateCode };
+            return { ranges: ranges, sources: sources, certificateCode: certificateCode, absent: absent };
         }
 
         if (methodology === 'slan') {
@@ -477,6 +531,9 @@
                 let floor = r.floor;
                 let label = r.methodology || 'SLAN-Carrow-2004-range';
                 let citation = r.citation || 'Carrow et al. (2004). GCM 72(1):194-198.';
+                if (n === 'P' && ph === null) {
+                    noteAbsent('soil.pH_water');
+                }
                 if (n === 'P' && ph !== null) {
                     floor = core._getSlanTargetP(ph);
                     label = 'SLAN-Carrow-2004-range-PH-ADJUSTED';
@@ -488,7 +545,7 @@
                 // 'certificate' so the AA-gated "Generic" badge never fires.
                 sources[n] = 'certificate';
             });
-            return { ranges: ranges, sources: sources, certificateCode: null };
+            return { ranges: ranges, sources: sources, certificateCode: null, absent: absent };
         }
 
         // MLSN (default)
@@ -502,6 +559,9 @@
             // missing from the calendar, so a Plan-page MLSN site away from
             // pH 6.0-7.5 silently used the flat 21 while the export used the
             // ladder. Resolved here once, so both surfaces get it.
+            if (n === 'P' && ph === null) {
+                noteAbsent('soil.pH_water');
+            }
             if (n === 'P' && ph !== null) {
                 floor = core._getMLSNThreshold('P', ph);
             }
@@ -513,7 +573,7 @@
             };
             sources[n] = 'certificate';
         });
-        return { ranges: ranges, sources: sources, certificateCode: null };
+        return { ranges: ranges, sources: sources, certificateCode: null, absent: absent };
     }
 
     // ==========================================================================
@@ -918,14 +978,26 @@
         }
 
         // ── sufficiency ranges ──
-        const resolved = resolveSufficiencyRanges({
-            methodology: methodology,
-            speciesDisplay: speciesDisplay,
-            speciesKey: speciesKey,
-            soilTexture: tex.value,
-            CEC: CEC,
-            pH: pH
-        });
+        /**
+         * GH-749: THE REFUSAL BELONGS TO THE RANGES, NOT TO EVERY FIELD THIS FUNCTION RESOLVES.
+         *
+         * `resolveSufficiencyRanges` refuses a site with no methodology, and calling it
+         * unconditionally made this whole resolver throw — measured: three cases of `gh383` about
+         * CLIPPING and about the GH-521 rule broke, none of them about a range. This function's own
+         * answer for an absent methodology is already honest: `methodology` is `null` and
+         * `sources.methodology` is `'empty'`. So the ranges are simply not resolved, and the field
+         * that says why is the one already there.
+         */
+        const resolved = methodology
+            ? resolveSufficiencyRanges({
+                methodology: methodology,
+                speciesDisplay: speciesDisplay,
+                speciesKey: speciesKey,
+                soilTexture: tex.value,
+                CEC: CEC,
+                pH: pH
+            })
+            : { ranges: null, sources: null, certificateCode: null };
 
         return {
             siteId: siteId,

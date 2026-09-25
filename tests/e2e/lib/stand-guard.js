@@ -325,47 +325,197 @@ function captureConfigsOnce() {
 }
 
 /**
- * Put back every row whose bytes moved, timestamp included, and prove it by the
- * hash the database itself reports — not by the fact that the UPDATE ran.
+ * GH-753 — THE KEYS A GENERATE PRESS WRITES, AND THE ONLY ONES A RESTORE MAY PUT BACK.
+ *
+ * Read off the write paths rather than remembered: `nutritionCalendarProgram` and `maxNPerMonth`
+ * (nutrition-calendar.js, the persist beside computeProgram), `nutritionProgramCoords` (the stamp
+ * set on the same patch), `nutritionProgram` (the four regional integrations), `appliedMonthlyN`
+ * (the monthly-N field). Anything else in a site's configuration was not put there by the run.
+ *
+ * The list is PRINTED by the restore, and so is every key of the test's own site that moved and is
+ * NOT on it — because a list of keys goes stale the day someone writes a sixth, and a list that
+ * only lives in this comment would go stale silently.
  */
-function restoreConfigs() {
-    if (!_captured) return { restored: [], failed: [], unchanged: 0, note: 'nothing was captured' };
-    const now = {};
-    sqlRaw("SELECT CONCAT(site_id,'~',namespace,'~',MD5(config)) FROM site_configs;")
-        .split('\n').filter((l) => l.trim()).forEach((line) => {
-            const p = line.split('~');
-            if (p.length === 3) now[p[0] + '~' + p[1]] = p[2];
-        });
-    const restored = [];
-    const failed = [];
-    let unchanged = 0;
-    Object.keys(_captured).forEach((key) => {
-        const want = _captured[key];
-        if (now[key] === undefined) { failed.push(key + ': the row is gone'); return; }
-        if (now[key] === want.md5) { unchanged += 1; return; }
-        try {
-            sqlRaw("UPDATE site_configs SET config=CONVERT(FROM_BASE64('" + want.b64
-                + "') USING utf8mb4), updated_at=FROM_UNIXTIME(" + want.updated
-                + ") WHERE site_id='" + want.site + "' AND namespace='" + want.ns + "';");
-        } catch (e) {
-            failed.push(key + ': the UPDATE threw: ' + String(e && e.message).slice(0, 120));
+const PROGRAMME_KEYS = [
+    'nutritionCalendarProgram',
+    'maxNPerMonth',
+    'nutritionProgramCoords',
+    'nutritionProgram',
+    'appliedMonthlyN',
+];
+
+/** Base64 of a UTF-8 string, so a value travels into SQL without quoting rules. */
+function b64(text) {
+    return Buffer.from(String(text), 'utf8').toString('base64');
+}
+
+/**
+ * GH-753 — THE STATEMENTS A RESTORE WOULD RUN, BUILT WITHOUT A DATABASE.
+ *
+ * Kept apart from the running of them for one reason, which the reviewer of this item set as a
+ * condition: a Jest set with a stand-in database proves the statement it was given, so the text
+ * must be THE SAME text in both modes. It is built here, once, and either executed against the
+ * stand or handed to the set to be read.
+ *
+ * WHAT IT WILL NOT DO, and this is the whole of the item: it touches only the sites the caller
+ * names as its own, only the keys above, and never `updated_at`. A row of another site that moved
+ * during the run is REPORTED and left alone — the old restore put every changed row of every site
+ * back, timestamp included, so an owner editing Settings in that window lost the edit with no
+ * trace.
+ */
+function restoreStatements(captured, nowRows, mine, keys) {
+    /**
+     * GH-753 (the reviewer's return, position 2) — THE KEYS ARE A PARAMETER, defaulting to the five.
+     * `gh394` writes `traffic` as the very thing it is about, so the control site kept a traffic
+     * schedule after every run: a key the restore does not own is a key the run leaves behind. A
+     * test that writes outside the five says so here rather than being quietly uncovered.
+     */
+    const OWNED = (keys && keys.length) ? keys : PROGRAMME_KEYS;
+    const own = [];
+    const foreign = [];
+    const unlisted = [];
+    Object.keys(captured).forEach((key) => {
+        const want = captured[key];
+        const now = nowRows[key];
+        if (now === undefined) { foreign.push({ key: key, what: 'the row is gone' }); return; }
+        if (now.md5 === want.md5) return;
+        if (mine.indexOf(want.site) < 0) {
+            foreign.push({ key: key, what: 'changed during the run and was LEFT ALONE' });
+
             return;
         }
-        const back = sqlRaw("SELECT CONCAT(MD5(config),'~',UNIX_TIMESTAMP(updated_at)) FROM site_configs "
-            + "WHERE site_id='" + want.site + "' AND namespace='" + want.ns + "';").trim().split('~');
-        if (back[0] !== want.md5) { failed.push(key + ': md5 after the restore is ' + back[0] + ', wanted ' + want.md5); return; }
-        if (String(back[1]) !== String(want.updated)) { failed.push(key + ': the timestamp did not go back'); return; }
-        restored.push(key);
+        let before = {};
+        let after = {};
+        try { before = JSON.parse(Buffer.from(want.b64, 'base64').toString('utf8')) || {}; } catch (e) { before = {}; }
+        try { after = JSON.parse(Buffer.from(now.b64 || '', 'base64').toString('utf8')) || {}; } catch (e) { after = {}; }
+        Object.keys(after).forEach((k) => {
+            if (OWNED.indexOf(k) >= 0) return;
+            // GH-753 (position 1): `savedAt` is the SERVER's stamp, set on every PATCH of the
+            // config (`SiteController::patchConfig`). It is not the run's doing and is never put
+            // back — for the same reason `updated_at` is not. Reporting it as an unlisted key
+            // would cry wolf on every single run.
+            if (k === 'savedAt') return;
+            if (JSON.stringify(after[k]) !== JSON.stringify(before[k])) {
+                unlisted.push({ key: key, jsonKey: k });
+            }
+        });
+        let expr = 'config';
+        const touched = [];
+        OWNED.forEach((k) => {
+            const had = Object.prototype.hasOwnProperty.call(before, k);
+            const has = Object.prototype.hasOwnProperty.call(after, k);
+            if (!had && !has) return;
+            if (had && has && JSON.stringify(before[k]) === JSON.stringify(after[k])) return;
+            touched.push(k);
+            expr = had
+                ? "JSON_SET(" + expr + ", '$.\"" + k + "\"', CAST(CONVERT(FROM_BASE64('"
+                    + b64(JSON.stringify(before[k])) + "') USING utf8mb4) AS JSON))"
+                : "JSON_REMOVE(" + expr + ", '$.\"" + k + "\"')";
+        });
+        if (!touched.length) return;
+        own.push({
+            key: key,
+            site: want.site,
+            ns: want.ns,
+            keysPutBack: touched,
+            // `updated_at` is absent from the SET on purpose: the row's time belongs to whoever
+            // wrote it last, and moving it back was how this restore hid its own footprint.
+            sql: 'UPDATE site_configs SET config=' + expr
+                + " WHERE site_id='" + want.site + "' AND namespace='" + want.ns + "';",
+        });
     });
+
+    return { own: own, foreign: foreign, unlisted: unlisted, keys: OWNED.slice() };
+}
+
+/**
+ * Put back what THIS test wrote, on the sites it names as its own, and prove it by the hash the
+ * database itself reports — not by the fact that the UPDATE ran.
+ *
+ * GH-753: `sites` is required. A restore that does not know whose rows are its own is the restore
+ * this item exists against.
+ */
+function restoreConfigs(options) {
+    const mine = (options && options.sites) || [];
+    const keys = (options && options.keys) || null;
+    // GH-753 (the reviewer's return, position 4): asked for BEFORE the capture is looked at, so a
+    // call with no sites fails the same way whether or not a snapshot was taken — and so the demand
+    // can be witnessed without a stand.
+    if (!mine.length) {
+        throw new Error('GH-753: restoreConfigs({ sites: [...] }) needs the ids of the sites this '
+            + 'test wrote to. A restore that does not know whose rows are its own puts back every '
+            + 'changed row of every site, and an edit made by someone else in that window is gone '
+            + 'with no trace.');
+    }
+    if (!_captured) return { restored: [], failed: [], unchanged: 0, note: 'nothing was captured' };
+    const now = {};
+    sqlRaw("SELECT CONCAT(site_id,'~',namespace,'~',MD5(config),'~',"
+        + "REPLACE(REPLACE(TO_BASE64(config),'\n',''),'\r','')) FROM site_configs;")
+        .split('\n').filter((l) => l.trim()).forEach((line) => {
+            const p = line.split('~');
+            if (p.length === 4) now[p[0] + '~' + p[1]] = { md5: p[2], b64: p[3] };
+        });
+    const plan = restoreStatements(_captured, now, mine, keys);
+    const restored = [];
+    const failed = [];
+    const unchanged = Object.keys(_captured).length - plan.own.length - plan.foreign.length;
+    plan.own.forEach((stmt) => {
+        try {
+            sqlRaw(stmt.sql);
+        } catch (e) {
+            failed.push(stmt.key + ': the UPDATE threw: ' + String(e && e.message).slice(0, 120));
+
+            return;
+        }
+        /**
+         * GH-753 (the reviewer's return, position 1) — THE PROOF IS PER KEY, NOT THE ROW'S md5.
+         *
+         * Measured: the server stamps `savedAt` into the config on every `PATCH config/gaip`, which
+         * is the path a Generate press writes by. A narrowed restore does not put that stamp back —
+         * it is not the run's value — so the row's md5 CANNOT match afterwards, and a check on it
+         * would report a failure on the first live run of all eight tests. What the restore
+         * promises is the keys it owns, so that is what is read back, from the database, key by key.
+         */
+        const wantCfg = JSON.parse(Buffer.from(_captured[stmt.key].b64, 'base64').toString('utf8'));
+        const wrong = [];
+        stmt.keysPutBack.forEach((k) => {
+            const got = sqlRaw("SELECT IFNULL(JSON_EXTRACT(config,'$.\"" + k + "\"'),'ABSENT') "
+                + "FROM site_configs WHERE site_id='" + stmt.site + "' AND namespace='" + stmt.ns + "';").trim();
+            const wanted = Object.prototype.hasOwnProperty.call(wantCfg, k)
+                ? JSON.stringify(wantCfg[k]) : 'ABSENT';
+            // MySQL prints JSON with its own spacing, so the two are compared as parsed values.
+            const same = (got === 'ABSENT' && wanted === 'ABSENT')
+                || (got !== 'ABSENT' && wanted !== 'ABSENT'
+                    && JSON.stringify(JSON.parse(got)) === JSON.stringify(JSON.parse(wanted)));
+            if (!same) wrong.push(k + ': ' + got.slice(0, 60) + ' wanted ' + wanted.slice(0, 60));
+        });
+        if (wrong.length) {
+            failed.push(stmt.key + ': keys did not come back — ' + JSON.stringify(wrong));
+
+            return;
+        }
+        restored.push(stmt.key);
+    });
+    // Named, never touched: the rows of sites this test does not own, and the keys of its OWN
+    // sites that moved and are not on the programme list. Both are how this restore says what it
+    // saw rather than only what it did.
+    process.stdout.write('[e2e] GH-753 restore is narrowed to ' + JSON.stringify(mine)
+        + ' and to ' + JSON.stringify(plan.keys)
+        + '; neither `updated_at` nor the server\'s `savedAt` is put back, and the proof is per key\n');
+    plan.foreign.forEach((f) => process.stdout.write('[e2e] GH-753 ANOTHER SITE\'S ROW, left alone: '
+        + f.key + ' — ' + f.what + '\n'));
+    plan.unlisted.forEach((u) => process.stdout.write('[e2e] GH-753 A KEY OUTSIDE THE LIST moved on '
+        + 'this run\'s own site and was left alone: ' + u.key + ' -> ' + u.jsonKey + '\n'));
     // GH-550: and the rows the run APPENDED to analysis_results. A failure here
     // joins the same list rather than printing quietly, because a restore that
     // half-worked and reported success is the thing this file exists against.
-    const runs = restoreAnalysisRuns();
-    if (runs.ok === false) failed.push('analysis_results: rows above id ' + runs.deleted + ' are still there');
+    const runs = restoreAnalysisRuns(mine);
+    if (runs.ok === false) failed.push('analysis_results: ' + runs.high + ' row(s) of this run\'s own sites above id ' + runs.deleted + ' are still there');
 
     process.stdout.write('[e2e] GH-519 put back ' + restored.length + ' row(s), ' + unchanged
         + ' were untouched' + (failed.length ? '; FAILED: ' + JSON.stringify(failed) : '') + '\n');
-    return { restored: restored, failed: failed, unchanged: unchanged, runs: runs };
+    return { restored: restored, failed: failed, unchanged: unchanged, runs: runs,
+        leftAlone: plan.foreign, keysOutsideTheList: plan.unlisted, keys: plan.keys };
 }
 
 /**
@@ -415,16 +565,31 @@ function captureAnalysisRunsOnce() {
 }
 
 /** Delete the rows this run appended, and prove the table is back where it was. */
-function restoreAnalysisRuns() {
+function restoreAnalysisRuns(mine) {
     if (!_capturedRuns) return { deleted: 0, note: 'nothing was captured' };
     const before = _capturedRuns.high;
     if (before === null) return { deleted: 0, note: _capturedRuns.note };
-    sqlRaw('DELETE FROM analysis_results WHERE id > ' + before + ';');
-    const after = Number(sqlRaw('SELECT IFNULL(MAX(id), 0) FROM analysis_results;')
-        .trim().split('\n').filter((l) => l.trim()).pop());
-    const ok = after <= before;
-    process.stdout.write('[e2e] GH-550 analysis_results back to ' + after
-        + (ok ? '' : ' — FAILED, wanted <= ' + before) + '\n');
+    /**
+     * GH-753 (the reviewer's return, position 3) — AND THE RUNS ARE THIS TEST'S RUNS.
+     *
+     * `WHERE id > <snapshot>` removes whatever appeared after the snapshot, of any site and any
+     * author: a run the owner started in that window went with it. The site list is the same one
+     * the configuration restore is given, and rows of other sites are counted and named instead.
+     */
+    const own = "('" + mine.join("','") + "')";
+    const others = Number(sqlRaw('SELECT COUNT(*) FROM analysis_results WHERE id > ' + before
+        + ' AND site_id NOT IN ' + own + ';').trim().split('\n').filter((l) => l.trim()).pop());
+    if (others) {
+        process.stdout.write('[e2e] GH-753 ' + others + ' analysis_results row(s) of OTHER sites '
+            + 'appeared during the run and were LEFT ALONE\n');
+    }
+    sqlRaw('DELETE FROM analysis_results WHERE id > ' + before + ' AND site_id IN ' + own + ';');
+    const left = Number(sqlRaw('SELECT COUNT(*) FROM analysis_results WHERE id > ' + before
+        + ' AND site_id IN ' + own + ';').trim().split('\n').filter((l) => l.trim()).pop());
+    const after = left;
+    const ok = left === 0;
+    process.stdout.write('[e2e] GH-550/753 analysis_results rows of ' + JSON.stringify(mine)
+        + ' above id ' + before + ': ' + left + (ok ? '' : ' — FAILED, wanted 0') + '\n');
     return { deleted: before, high: after, ok: ok };
 }
 
@@ -432,3 +597,5 @@ module.exports.captureAnalysisRunsOnce = captureAnalysisRunsOnce;
 module.exports.restoreAnalysisRuns = restoreAnalysisRuns;
 module.exports.captureConfigsOnce = captureConfigsOnce;
 module.exports.restoreConfigs = restoreConfigs;
+module.exports.restoreStatements = restoreStatements;
+module.exports.PROGRAMME_KEYS = PROGRAMME_KEYS;

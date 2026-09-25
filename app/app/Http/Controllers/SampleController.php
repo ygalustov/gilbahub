@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Sample;
 use App\Models\Site;
 use App\Models\SiteSummary;
+use App\Support\LabReadingNames;
+use App\Support\SampleUploadOutcome;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -188,7 +190,59 @@ class SampleController extends Controller
         $forbidden = 0;
         $siteLabels = [];
 
-        DB::transaction(function () use ($data, $siteIds, $user, $clearSiteData, $sourceFile, &$synced, &$deleted, &$skipped, &$forbidden, &$siteLabels) {
+        // GH-722 — A FILE WITH NOTHING RECOGNISED IN IT IS NOT LOADED, AND NOTHING IS CLEARED FOR IT.
+        //
+        // The owner's decisions, 24.09.2026: a file whose readings the lab reading names map does
+        // not recognise is a problem of the upload, not of the calculation, so it is not loaded; a
+        // file with something recognised loads what was recognised; and the Settings import says
+        // so in the same words as the Data page upload (`SampleUploadOutcome`). The file is checked
+        // WHOLE and BEFORE the clear below, because the clear is irreversible for the journals: a
+        // refusal that came after it would leave the site with neither its old data nor the new.
+        //
+        // A sample in which no reading is recognised is not written and is named in the answer;
+        // its other columns are kept as they come, as the import always has — only whether a sample
+        // is loaded at all is decided here. Only the clearing import is checked. The ordinary push
+        // and manual entry are not, by her decision: "for manual entry we do not need this".
+        $read = 0;
+        $notSaved = [];
+        $notRecognised = [];
+        if ($clearSiteData) {
+            $checked = false;
+            foreach ($data['allSites'] as $siteId => $siteData) {
+                if (! is_string($siteId) || ! in_array($siteId, $siteIds, true) || ! is_array($siteData)) {
+                    continue;
+                }
+                $site = Site::query()->find($siteId);
+                // A site the user may not edit is answered by the `forbidden` count below, as before.
+                if (! $site || ! $user->canEditSite($site)) {
+                    continue;
+                }
+                $checked = true;
+                foreach (self::VALID_TYPES as $sampleType) {
+                    if (! is_array($siteData[$sampleType] ?? null)) {
+                        continue;
+                    }
+                    foreach ($siteData[$sampleType] as $sampleKey => $sampleData) {
+                        $read++;
+                        $row = is_array($sampleData) && is_array($sampleData['rawData'] ?? null) ? $sampleData['rawData'] : [];
+                        if ((LabReadingNames::recognise($sampleType, $row) ?? []) !== []) {
+                            continue;
+                        }
+                        $notRecognised[$sampleType][(string) $sampleKey] = true;
+                        $notSaved[] = [
+                            'type' => $sampleType,
+                            'label' => is_array($sampleData) && isset($sampleData['label']) ? (string) $sampleData['label'] : (string) $sampleKey,
+                            'reason' => 'no-reading-recognised',
+                        ];
+                    }
+                }
+            }
+            if ($checked && count($notSaved) === $read) {
+                return response()->json(SampleUploadOutcome::of($read, 0, $notSaved), 422);
+            }
+        }
+
+        DB::transaction(function () use ($data, $siteIds, $user, $clearSiteData, $sourceFile, $notRecognised, &$synced, &$deleted, &$skipped, &$forbidden, &$siteLabels) {
             foreach ($data['allSites'] as $siteId => $siteData) {
                 if (! is_string($siteId) || ! in_array($siteId, $siteIds, true) || ! is_array($siteData)) {
                     continue;
@@ -309,6 +363,10 @@ class SampleController extends Controller
                         if (! is_array($sampleData)) {
                             continue;
                         }
+                        // GH-722: checked above, named in the answer, not written.
+                        if (isset($notRecognised[$sampleType][(string) $sampleKey])) {
+                            continue;
+                        }
 
                         $payload = $sampleData['rawData'] ?? [];
                         if (! is_array($payload) || empty($payload)) {
@@ -393,6 +451,9 @@ class SampleController extends Controller
                 'skipped' => $skipped,
                 // GH-432: sites in the push the user may see but not edit.
                 'forbidden' => $forbidden,
+                // GH-722: what the file came to, for the clearing import only — the class, the
+                // numbers and the sentence the page shows.
+                'outcome' => $clearSiteData && $read > 0 ? SampleUploadOutcome::of($read, $synced, $notSaved) : null,
             ],
         ]);
     }
@@ -875,6 +936,9 @@ class SampleController extends Controller
             'soil_texture_snapshot' => $sample->soil_texture_snapshot,
             'notes' => $sample->notes,
             'payload' => $sample->payload ?? [],
+            // GH-722: the readings resolved through the lab reading names map, so a page that
+            // does not load the runner reads a sample without spelling its columns itself.
+            'readings' => LabReadingNames::readingsOf((string) $sample->sample_type, $sample->payload ?? []),
         ];
     }
 

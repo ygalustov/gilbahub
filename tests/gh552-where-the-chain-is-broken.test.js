@@ -294,6 +294,49 @@ describe('GH-552 — half one: does the producer build its body from the declare
         expect(out.messages.map((m) => m.type)).toEqual(['gilba:analysis-failed']);
     });
 
+    /**
+     * GH-700 (item 3ar) — ONE CODE, TWO MEANINGS, AND THE BODY SAYS WHICH.
+     *
+     * Every `422` was reported as `incomplete-result`, so a refusal of kind `site-mismatch` — the
+     * numbers were computed for another site — arrived in the failure report under the name of a
+     * different fault. The two ask for opposite things: an incomplete result asks the person for
+     * missing data, a mismatch says the run must not be filed at all. The reader had no way to tell.
+     *
+     * THE PAIR IS THE CLAIM. A case on the named refusal alone would be satisfied by reporting every
+     * `422` as `site-mismatch`, which is the same defect facing the other way, so the second half
+     * holds the unnamed `422` at `incomplete-result`.
+     */
+    test('a 422 that NAMES its refusal is reported under that name, not as an incomplete result', async () => {
+        const out = await runAndCapture(Object.assign({
+            __refuseResultWith: { status: 422, body: {
+                error: 'site-mismatch',
+                message: 'the result did not belong to the site the run was started for',
+                detail: { filedUnder: 'site-a', foreignSamples: [{ type: 'soil', sample: 'KEY_B' }] },
+            } },
+        }, ALL_ENGINES));
+
+        expect(out.failures.length).toBe(1);
+        expect(out.failures[0].body.reason).toBe('site-mismatch');
+        // What the server sent travels with it, and it carries no identifier of a site the caller
+        // may not see — that half is held on the server side, in `Gh666…Test`.
+        expect(out.failures[0].body.detail.status).toBe(422);
+        expect(out.failures[0].body.detail.detail).toEqual({
+            filedUnder: 'site-a', foreignSamples: [{ type: 'soil', sample: 'KEY_B' }],
+        });
+        expect(out.messages.map((m) => m.type)).toEqual(['gilba:analysis-failed']);
+    });
+
+    test('a 422 that names nothing is still an incomplete result', async () => {
+        // The other half of the pair: the old behaviour is right when the server did not name a
+        // refusal, and a repair that renamed every 422 would break this.
+        const out = await runAndCapture(Object.assign({
+            __refuseResultWith: { status: 422, body: { message: 'incomplete-result', missing: ['stressIndex'] } },
+        }, ALL_ENGINES));
+
+        expect(out.failures[0].body.reason).toBe('incomplete-result');
+        expect(out.failures[0].body.detail).toEqual({ status: 422, keys: ['stressIndex'] });
+    });
+
     test('a refusal that names nothing is reported as a refusal with no list', async () => {
         // A 403 has no list to carry, and the reason differs from a 422's.
         const out = await runAndCapture(Object.assign({

@@ -752,62 +752,9 @@
         "climate-engine",
         "salinity-penalty-engine"
       ],
-      "runner": "orchestrator",
-      "handle": "buildIrrigationInputs",
-      "requires": [],
-      "uses": [
-        "schedule.efficiency",
-        "schedule.precipRate",
-        "schedule.rootDepth",
-        "schedule.sprinklerPrecipRate",
-        "schedule.uniformity",
-        "site.construction",
-        "site.soilType",
-        "soil.ECe",
-        "soil.LOI",
-        "soil.OM_pct",
-        "soil.ece",
-        "soil.soilTexture",
-        "soil.type",
-        "turf.construction",
-        "turf.coolOverseed",
-        "turf.cultivar",
-        "turf.grassSpecies",
-        "turf.overseedSpecies",
-        "turf.overseedSummerIntent",
-        "turf.overseedVariety",
-        "turf.percentC3Cover",
-        "turf.poaPercent",
-        "turf.rootDepth",
-        "turf.species",
-        "turf.subCategory",
-        "turf.summerIntent",
-        "turf.turfType",
-        "turf.variety",
-        "turf.warmBase",
-        "water.ECw",
-        "water.ecw",
-        "water.ions",
-        "water.recycledWater"
-      ],
-      "_inputsBeforeTheSplit": [
-        "turf.species",
-        "turf.grassSpecies",
-        "soil.texture",
-        "water.EC"
-      ],
-      "readsWithNoPlaceInTheList": {
-        "names": [
-          "schedule.daysSinceIrrigation",
-          "schedule.irrigationStrategy",
-          "schedule.strategy"
-        ],
-        "why": "Read here with a substitution, and NO surface fills them -- not a form, not the wizard, not the API (measured 24.09.2026 over `app/resources/views`, `assets` and `app`). So the substitution is always the value. They are left UNDECLARED on purpose: where an input with no place belongs in the list is the analyst's decision, and until it is made declaring them here would either break the list's own guards or claim a place that does not exist. `fertility.monthlyN` is the measured cost of the question: 37 of 37 stored rows carry the nitrogen engine's skipped stub because nothing fills it."
-      },
-      "readsTheListExcuses": [
-        "turf.c3Fraction",
-        "turf.speciesFractions"
-      ]
+      "runner": null,
+      "handle": null,
+      "noRunnerBecause": "GH-755 (queue item 3bz) removed `executeEngine`, which held the ONLY call site of this node's handle -- measured on the bench: zero call sites outside that export. THE PASS DOES NOT COMPUTE IRRIGATION AND NO STORED ROW CARRIES `computed.irrigation`: measured by JSON type over all 80 rows, the key holds JSON null in 77 and is absent in 3, an object in none. Irrigation is computed by the /hub rendering instead -- `hub-tissue-v3.js` sets `window.GAIP_IRRIGATION_RESULT` -- and reaches a row from there through `hub-persistence.js` as `metrics.irrigationNeed` and `computed.waterBalance.weeklyNeed`, a number in 76 of 80 rows each. THE NODE STAYS ON ONE THING, AND IT IS DECLARED, NOT MEASURED: both forecast nodes name it in their `after`. Neither of those two runs either -- `irrigation-forecast` also has `runner: null` and an empty `uses` -- and whether the forecast drawn on the page reads this schedule has not been measured. Whether the irrigation schedule should run inside the pass is a product question and belongs to the owner."
     },
     "pgr-module": {
       "id": "pgr-module",
@@ -820,26 +767,9 @@
         "climate-engine",
         "stress-aggregator"
       ],
-      "runner": "orchestrator",
-      "handle": "buildPGRInputs",
-      "requires": [],
-      "uses": [
-        "pgr.applicationDate",
-        "pgr.mowingHeightMM",
-        "pgr.productType",
-        "turf.grassSpecies",
-        "turf.hoc"
-      ],
-      "_inputsBeforeTheSplit": [
-        "turf.species",
-        "turf.grassSpecies",
-        "pgr.product",
-        "pgr.lastApplication",
-        "pgr.rate"
-      ],
-      "readsTheListExcuses": [
-        "pgr.gddThreshold"
-      ]
+      "runner": null,
+      "handle": null,
+      "noRunnerBecause": "GH-755 (queue item 3bz) removed `executeEngine`, which held the ONLY call site of this node's handle and the only writes of `computed.pgr` -- measured on the bench: zero call sites outside that export, zero entries in 6987. THE NODE STAYS for two reasons, both measured: `computed.pgr` IS in the stored rows -- by JSON type, an object in 13 of 80 rows, all of them one site (`Russley`) -- and both forecast nodes name this node in their `after`. Whether PGR should run inside the pass is a product question and belongs to the owner."
     },
     "water-blender": {
       "id": "water-blender",

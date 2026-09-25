@@ -6,9 +6,14 @@
     "or, for a listener, what reachable means is narrowed and the pair leaves on its own.",
     "Nothing is ADDED to the batch: a new divergence reddens by name with its own ticket.",
     "Both directions: a pair that became declared, or left the found set, reddens as",
-    "\"resolved, remove from the list\"."
+    "\"resolved, remove from the list\".",
+    "GH-723 (item 3bi): every entry now carries its OWN reason and the facts it rests on.",
+    "One ticket over eighty-five entries answered for the batch and not for the entry;",
+    "a month later nobody could say why a given pair was here. `why` is a fact of the code:",
+    "which file the root is and which file the handle is declared in, on that very view."
   ],
   "ticket": "GH-680",
+  "refinedBy": "GH-723",
   "ruleVersion": "p1cghbtu",
   "reMeasuredBecauseTheRuleChanged": {
     "what": "members are resolved ON THE VIEW rather than over the catalogue; callers are keyed by the RESOLVED TARGET rather than by the name; on* attributes of the views count as page entry points; and a top level in a file no view loads is not a root",
@@ -28,276 +33,193 @@
     },
     "note": "this movement is growth BY RULE, not by code, and it is printed apart for that reason"
   },
+  "narrowedByGh723": {
+    "what": "reachable on a view now requires the view to load the HANDLE's file as well as the root's. A view that loads only the root cannot run the node: the function is not on the page.",
+    "before": {
+      "entries": 54
+    },
+    "after": {
+      "entries": 22
+    },
+    "edgesDropped": 80,
+    "note": "the dropped edges are a defect OF THE WALK, not of the product, and they are printed by the run under [gh723]. They need a ticket of their own; naming them is what keeps this narrowing from being a filter over the symptom."
+  },
   "entries": {
-    "ambient-dli-engine : account : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "ambient-dli-engine : analysis : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "ambient-dli-engine : analysis/disease : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "ambient-dli-engine : analysis/growth-light : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "ambient-dli-engine : dashboard : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "ambient-dli-engine : data : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
     "ambient-dli-engine : hub : top-level": {
       "entry": "top-level",
       "via": "assets/sensor-integration-manager.js",
-      "ticket": "GH-680"
-    },
-    "ambient-dli-engine : plan : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "ambient-dli-engine : reports : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "ambient-dli-engine : reports/accuracy : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/ambient-dli-engine.js",
+      "ticket": "GH-723",
+      "state": "internal-accounting",
+      "why": "ambient-dli-engine is reachable on hub: the view loads its root assets/sensor-integration-manager.js AND the file its handle is declared in, assets/ambient-dli-engine.js. `hub` is the run frame, which no client opens; internal accounting."
     },
     "ambient-dli-engine : reports/export : top-level": {
       "entry": "top-level",
       "via": "assets/sensor-integration-manager.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/ambient-dli-engine.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "ambient-dli-engine is reachable on reports/export: the view loads its root assets/sensor-integration-manager.js AND the file its handle is declared in, assets/ambient-dli-engine.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "ambient-dli-engine : reports/forensic : top-level": {
       "entry": "top-level",
       "via": "assets/sensor-integration-manager.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/ambient-dli-engine.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "ambient-dli-engine is reachable on reports/forensic: the view loads its root assets/sensor-integration-manager.js AND the file its handle is declared in, assets/ambient-dli-engine.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "ambient-dli-engine : reports/scenarios : top-level": {
       "entry": "top-level",
       "via": "assets/sensor-integration-manager.js",
-      "ticket": "GH-680"
-    },
-    "ambient-dli-engine : settings : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "ambient-dli-engine : stadium : top-level": {
-      "entry": "top-level",
-      "via": "assets/hub-tissue-v3.js",
-      "ticket": "GH-680"
-    },
-    "disease-forecast : account : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/ambient-dli-engine.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "ambient-dli-engine is reachable on reports/scenarios: the view loads its root assets/sensor-integration-manager.js AND the file its handle is declared in, assets/ambient-dli-engine.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "disease-forecast : analysis : top-level": {
       "entry": "top-level",
       "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/disease-forecast.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "disease-forecast is reachable on analysis: the view loads its root assets/dashboard-ui.js AND the file its handle is declared in, assets/disease-forecast.js. The root is suspicious: `dashboard-ui.js` is shared, and the likely real executor is assets/disease-analysis.js. CANDIDATE, NOT ESTABLISHED — same live-page proof as the report pages."
     },
     "disease-forecast : analysis/disease : top-level": {
       "entry": "top-level",
       "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "disease-forecast : analysis/growth-light : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "disease-forecast : dashboard : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "disease-forecast : data : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/disease-forecast.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "disease-forecast is reachable on analysis/disease: the view loads its root assets/dashboard-ui.js AND the file its handle is declared in, assets/disease-forecast.js. The root is suspicious: `dashboard-ui.js` is shared, and the likely real executor is assets/disease-analysis.js. CANDIDATE, NOT ESTABLISHED — same live-page proof as the report pages."
     },
     "disease-forecast : hub : top-level": {
       "entry": "top-level",
       "via": "assets/hub-tissue-v3.js",
-      "ticket": "GH-680"
-    },
-    "disease-forecast : plan : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "disease-forecast : reports : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "disease-forecast : reports/accuracy : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/disease-forecast.js",
+      "ticket": "GH-723",
+      "state": "internal-accounting",
+      "why": "disease-forecast is reachable on hub: the view loads its root assets/hub-tissue-v3.js AND the file its handle is declared in, assets/disease-forecast.js. `hub` is the run frame, which no client opens; internal accounting."
     },
     "disease-forecast : reports/export : top-level": {
       "entry": "top-level",
       "via": "assets/hub-tissue-v3.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/disease-forecast.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "disease-forecast is reachable on reports/export: the view loads its root assets/hub-tissue-v3.js AND the file its handle is declared in, assets/disease-forecast.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "disease-forecast : reports/forensic : top-level": {
       "entry": "top-level",
       "via": "assets/hub-tissue-v3.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/disease-forecast.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "disease-forecast is reachable on reports/forensic: the view loads its root assets/hub-tissue-v3.js AND the file its handle is declared in, assets/disease-forecast.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "disease-forecast : reports/scenarios : top-level": {
       "entry": "top-level",
       "via": "assets/hub-tissue-v3.js",
-      "ticket": "GH-680"
-    },
-    "disease-forecast : settings : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "disease-forecast : stadium : top-level": {
-      "entry": "top-level",
-      "via": "assets/hub-tissue-v3.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/disease-forecast.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "disease-forecast is reachable on reports/scenarios: the view loads its root assets/hub-tissue-v3.js AND the file its handle is declared in, assets/disease-forecast.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "nutrition-calendar : hub : top-level": {
       "entry": "top-level",
       "via": "assets/nutrition-calendar.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/nutrition-calendar.js",
+      "ticket": "GH-723",
+      "state": "internal-accounting",
+      "why": "nutrition-calendar is reachable on hub: the view loads its root assets/nutrition-calendar.js AND the file its handle is declared in, assets/nutrition-calendar.js. `hub` is the run frame, which no client opens; internal accounting."
     },
     "nutrition-calendar : reports/export : top-level": {
       "entry": "top-level",
       "via": "assets/nutrition-calendar.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/nutrition-calendar.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "nutrition-calendar is reachable on reports/export: the view loads its root assets/nutrition-calendar.js AND the file its handle is declared in, assets/nutrition-calendar.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "nutrition-calendar : reports/forensic : top-level": {
       "entry": "top-level",
       "via": "assets/nutrition-calendar.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/nutrition-calendar.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "nutrition-calendar is reachable on reports/forensic: the view loads its root assets/nutrition-calendar.js AND the file its handle is declared in, assets/nutrition-calendar.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "nutrition-calendar : reports/scenarios : top-level": {
       "entry": "top-level",
       "via": "assets/nutrition-calendar.js",
-      "ticket": "GH-680"
-    },
-    "nutrition-summary : account : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "nutrition-summary : analysis : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "nutrition-summary : analysis/disease : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "nutrition-summary : analysis/growth-light : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "nutrition-summary : dashboard : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "nutrition-summary : data : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/nutrition-calendar.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "nutrition-calendar is reachable on reports/scenarios: the view loads its root assets/nutrition-calendar.js AND the file its handle is declared in, assets/nutrition-calendar.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "nutrition-summary : hub : top-level": {
       "entry": "top-level",
       "via": "assets/sensor-integration-manager.js",
-      "ticket": "GH-680"
-    },
-    "nutrition-summary : plan : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "nutrition-summary : reports : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "nutrition-summary : reports/accuracy : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/nutrition-summary-integration.js",
+      "ticket": "GH-723",
+      "state": "internal-accounting",
+      "why": "nutrition-summary is reachable on hub: the view loads its root assets/sensor-integration-manager.js AND the file its handle is declared in, assets/nutrition-summary-integration.js. `hub` is the run frame, which no client opens; internal accounting."
     },
     "nutrition-summary : reports/export : top-level": {
       "entry": "top-level",
       "via": "assets/sensor-integration-manager.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/nutrition-summary-integration.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "nutrition-summary is reachable on reports/export: the view loads its root assets/sensor-integration-manager.js AND the file its handle is declared in, assets/nutrition-summary-integration.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "nutrition-summary : reports/forensic : top-level": {
       "entry": "top-level",
       "via": "assets/sensor-integration-manager.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/nutrition-summary-integration.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "nutrition-summary is reachable on reports/forensic: the view loads its root assets/sensor-integration-manager.js AND the file its handle is declared in, assets/nutrition-summary-integration.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "nutrition-summary : reports/scenarios : top-level": {
       "entry": "top-level",
       "via": "assets/sensor-integration-manager.js",
-      "ticket": "GH-680"
-    },
-    "nutrition-summary : settings : top-level": {
-      "entry": "top-level",
-      "via": "assets/dashboard-ui.js",
-      "ticket": "GH-680"
-    },
-    "nutrition-summary : stadium : top-level": {
-      "entry": "top-level",
-      "via": "assets/tab-navigation.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/nutrition-summary-integration.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "nutrition-summary is reachable on reports/scenarios: the view loads its root assets/sensor-integration-manager.js AND the file its handle is declared in, assets/nutrition-summary-integration.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "soil-temp-physics : hub : top-level": {
       "entry": "top-level",
       "via": "assets/hub-tissue-v3.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/gaip-soil-temp-integration.js",
+      "ticket": "GH-723",
+      "state": "internal-accounting",
+      "why": "soil-temp-physics is reachable on hub: the view loads its root assets/hub-tissue-v3.js AND the file its handle is declared in, assets/gaip-soil-temp-integration.js. `hub` is the run frame, which no client opens; internal accounting."
     },
     "soil-temp-physics : reports/export : top-level": {
       "entry": "top-level",
       "via": "assets/hub-tissue-v3.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/gaip-soil-temp-integration.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "soil-temp-physics is reachable on reports/export: the view loads its root assets/hub-tissue-v3.js AND the file its handle is declared in, assets/gaip-soil-temp-integration.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "soil-temp-physics : reports/forensic : top-level": {
       "entry": "top-level",
       "via": "assets/hub-tissue-v3.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/gaip-soil-temp-integration.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "soil-temp-physics is reachable on reports/forensic: the view loads its root assets/hub-tissue-v3.js AND the file its handle is declared in, assets/gaip-soil-temp-integration.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     },
     "soil-temp-physics : reports/scenarios : top-level": {
       "entry": "top-level",
       "via": "assets/hub-tissue-v3.js",
-      "ticket": "GH-680"
-    },
-    "soil-temp-physics : stadium : top-level": {
-      "entry": "top-level",
-      "via": "assets/hub-tissue-v3.js",
-      "ticket": "GH-680"
+      "handleFile": "assets/gaip-soil-temp-integration.js",
+      "ticket": "GH-723",
+      "state": "candidate-not-established",
+      "why": "soil-temp-physics is reachable on reports/scenarios: the view loads its root assets/hub-tissue-v3.js AND the file its handle is declared in, assets/gaip-soil-temp-integration.js. A report page loading an engine file itself is the GH-459 family: the numbers a reader sees could be computed ON THE PAGE instead of read from the stored result. CANDIDATE, NOT ESTABLISHED — proving it needs a wrapper in place on a live page (98.1), and no live run was taken."
     }
   },
   "declaredNotConfirmed": {

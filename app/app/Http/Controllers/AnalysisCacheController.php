@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Sample;
+use App\Support\SampleOwners;
 use App\Models\Site;
 use App\Support\AnalysisNotice;
 use App\Support\RunStart;
 use App\Support\AnalysisResults;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 
 class AnalysisCacheController extends Controller
@@ -80,6 +82,20 @@ class AnalysisCacheController extends Controller
         $site = Site::query()->find($validated['site_id']);
         abort_unless($site, 404, 'site-not-found');
 
+        /**
+         * GH-700 (item 3ar) — THE RIGHT TO WRITE IS ASKED BEFORE ANYTHING IS COMPARED.
+         *
+         * The comparison below stood first, so a caller with no right to this site received a `422`
+         * describing what is wrong with their body instead of the `403` that is the answer to them.
+         * The docblock above already says why order is part of a check, about completeness; this is
+         * the same sentence about the same route, one check earlier.
+         *
+         * IT IS THE SAME PREDICATE, NOT A SECOND COPY OF THE RULE. `AnalysisResults::record` asks
+         * `canEditSite` at the service door and still does; this asks the same question sooner so the
+         * refusal that reaches the caller is the one about them.
+         */
+        abort_unless($request->user()->canEditSite($site), 403, 'site-not-editable');
+
         // GH-663 (item 3ak, analyst 29.3 layer 3) — THE ROW IS REFUSED IF ITS
         // NUMBERS WERE COMPUTED FOR ANOTHER SITE.
         //
@@ -92,10 +108,43 @@ class AnalysisCacheController extends Controller
         $check = $this->siteCheck($site, $validated['inputs'] ?? null);
         $mismatch = $check['mismatch'];
         if ($mismatch !== null) {
+            /**
+             * GH-700 (item 3ar) — THE REFUSAL NAMES THE CALLER'S OWN KEYS AND NOTHING ELSE.
+             *
+             * It used to carry `belongsTo`: the ids of the sites that own the sample with the key
+             * that was sent, other accounts' and deleted samples included. Moving the permission
+             * check earlier closes only part of that, and the analyst said so before it was built —
+             * a caller who MAY write their own site gets the same list by sending someone else's
+             * key, and that caller passes every check there is.
+             *
+             * So the list does not leave. What the caller gets back is what they themselves sent:
+             * the type and the key that disagreed, and the site it was filed under. The owners are
+             * written where only an administrator sees them — the journal, with the `run_id`, so the
+             * diagnosis is not lost.
+             *
+             * WHAT STILL LEAKS, and it is named rather than hidden: the refusal itself says a sample
+             * with that key exists somewhere. It cannot go — guard 3ak rests on it — and it carries
+             * no identifier and no name.
+             */
+            $forClient = $mismatch;
+            if (isset($forClient['foreignSamples']) && is_array($forClient['foreignSamples'])) {
+                $forClient['foreignSamples'] = array_map(static function ($row) {
+                    unset($row['belongsTo']);
+
+                    return $row;
+                }, $forClient['foreignSamples']);
+            }
+            Log::warning('Gilba analysis result refused: the numbers were computed for another site', [
+                'run_id' => $validated['run_id'] ?? null,
+                'filed_under' => $site->id,
+                'by' => $mismatch['by'] ?? null,
+                'foreign_samples' => $mismatch['foreignSamples'] ?? ($mismatch['computedFor'] ?? null),
+            ]);
+
             return response()->json([
                 'error' => 'site-mismatch',
                 'message' => AnalysisNotice::reasonText('site-mismatch'),
-                'detail' => $mismatch,
+                'detail' => $forClient,
             ], 422);
         }
 
@@ -225,6 +274,19 @@ class AnalysisCacheController extends Controller
             // check would have passed over all of them in silence. Anything that is
             // a string or a number counts, and nothing else does — `true`, an array
             // or an object is not an identifier.
+            /**
+             * GH-724 (queue item 19) — `none` IS AN ANSWER, NOT AN IDENTIFIER.
+             *
+             * The row now records what the run was TOLD about each kind of sample, and for a site
+             * with no sample of that kind the opener's answer is the word `none`. Left in the
+             * identifiers it would be looked up as a key, resolve to no row, and sit in
+             * `samples.unresolved` for ever -- a stated absence reported as a thing that could not
+             * be found. It is not a disagreement either way, so nothing is refused; what changes
+             * is that the check stops pretending it went looking.
+             */
+            if ($id === 'none') {
+                continue;
+            }
             if (is_string($id) && $id !== '') {
                 $ids[$id] = $type;
             } elseif (is_int($id) || is_float($id)) {
@@ -241,35 +303,9 @@ class AnalysisCacheController extends Controller
         // several rows is only a disagreement when NONE of them is this site's.
         $foreign = [];
         foreach ($ids as $id => $type) {
-            $bare = preg_replace('/^sample_/', '', (string) $id);
-            // GH-663 — THE NUMERIC COLUMN IS ONLY ASKED A NUMERIC QUESTION, AND
-            // THIS GUARD HAS NO CASE. Both halves are said on purpose.
-            //
-            // The hazard, measured in both engines rather than reasoned about:
-            // `SELECT … WHERE id = '26_zz9y'` matches one row in MySQL and none in
-            // SQLite, because MySQL coerces the string to 26. The sample keys this
-            // product builds today begin with a letter — `Soil_26_zo0t` coerces to
-            // 0 and matches nothing — so nothing is wrong today; a key beginning
-            // with digits would let another site's row answer for this one, and
-            // clear a foreign sample rather than refuse it.
-            //
-            // THE BOUNDARY: the test bench is SQLite, which does not coerce, so no
-            // case here can show this red. The guard is hygiene with its reason
-            // written down, not a repair with a witness — and saying so is the
-            // difference between a boundary and a silence. Three attempts at a case
-            // went green with the guard removed before the engines were measured.
-            $owners = Sample::withTrashed()
-                ->where(function ($q) use ($id, $bare) {
-                    if (ctype_digit($bare)) {
-                        $q->orWhere('id', (int) $bare);
-                    }
-                    $q->orWhere('client_uid', (string) $id);
-                    if ($bare !== (string) $id) {
-                        $q->orWhere('client_uid', $bare);
-                    }
-                })
-                ->pluck('site_id')
-                ->all();
+            // GH-709: the resolution moved to one place so the data audit asks the same
+            // question the write path asks, rather than a copy of it.
+            $owners = SampleOwners::sitesOf((string) $id);
             if ($owners === []) {
                 // GH-670: NAMED, not skipped. A key that resolves to no row at all
                 // is not a disagreement — there is nothing to disagree with — but it

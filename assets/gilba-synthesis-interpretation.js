@@ -375,8 +375,12 @@
                 pH: soilState.pH_water || soilState.pH_cacl2 || getInputValue('.gaip-soil-ph'),
                 EC: soilState.ECe || soilState.EC1_5 || getInputValue('.gaip-soil-ec'),
                 CEC: soilState.CEC || getInputValue('.gaip-cec'),
-                methodology: soilState.methodology || 'mlsn',
-                construction: gaipState.turf?.construction || canonicalState.turf?.construction || getSelectedValue('.gaip-construction'),
+                // GH-752: methodology and construction are the site's, from its config on the page;
+                // not the page's state, not the form field, and nothing in their place.
+                methodology: (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.gaipConfig && window.GAIP_HUB_CONFIG.gaipConfig.turf
+                    && window.GAIP_HUB_CONFIG.gaipConfig.turf.methodology) || null,
+                construction: (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.construction
+                    && window.GAIP_HUB_CONFIG.construction.value) || null,
                 soilTexture: soilState.soilTexture || 'loam',
                 ppm: {},
                 status: {}

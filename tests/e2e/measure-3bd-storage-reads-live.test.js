@@ -72,8 +72,14 @@ const SWITCH_TO = process.env.GILBA_3BD_SWITCH_TO || null;
  *
  * ITS JOURNAL IS NOT A MEASUREMENT AND CANNOT BE MISTAKEN FOR ONE: the file is named
  * `3bd-DRY-not-a-measurement-…`, a standing line says so, and every reading carries `UNTRUSTED`.
- * It also writes outside the repository unless told otherwise, so a dry run leaves no artefact in
- * the tree.
+ *
+ * WHERE IT WRITES, SAID THE WAY THE CODE DOES IT. This paragraph used to claim the journal is
+ * written outside the repository unless told otherwise; the code does the opposite — the default is
+ * the ordinary output directory beside the real journals, and outside only when `GILBA_3BD_OUT`
+ * says so. The instrument does what its code says, and it was the sentence that disagreed. So: the
+ * default is BESIDE the real journals, the journal's own header names the path it was written to, and
+ * `3bd-DRY-*` is ignored by git — because a rehearsal artefact sitting in the record next to real
+ * ones will one day be read as a measurement, and a name alone does not stop that.
  */
 /**
  * GH-696 — THE KEYS THE DATA CONTROLS STAND ON, DECLARED ONCE AND READ TWICE.
@@ -83,6 +89,45 @@ const SWITCH_TO = process.env.GILBA_3BD_SWITCH_TO || null;
  * Written in one place because two lists of the same three keys drift the first time one changes.
  */
 const DATA_CONTROL_KEYS = ['gilba_import_active_site', 'gilba_hub_state', 'gilba_disease_cache_purged_v1'];
+/**
+ * GH-701 — THE EXACT KEY, BY THE RULE THAT BUILDS IT, not by a prefix and not by a literal.
+ *
+ * The control asked about `gilba_hub_state` and matched by prefix, and half the reason it failed was
+ * that: the key in the tree carries a suffix. `hub-persistence.js` builds it as
+ * `'gilba_hub_state' + (userId ? '_' + userId : '')` — the suffix is the USER, so writing
+ * `gilba_hub_state_1` would bind the control to whoever user 1 is on this stand.
+ *
+ * The two questions need the two forms and that is why both stay: the CONTROL asks about one exact
+ * key, and the dry pass's choice of views asks which census sites read a key of that FAMILY, because
+ * the census sees the expression, not the value.
+ */
+const exactHubStateKey = (userId) => 'gilba_hub_state' + (userId ? '_' + userId : '');
+
+/**
+ * GH-701 (the reviewer's return) — THE CONTROL IS BUILT BY A FUNCTION, SO SOMETHING WITHOUT THE STAND
+ * CAN SEE IT.
+ *
+ * His finding, and it is right: the expectation and the key both lived inside the live half, which
+ * the ordinary run skips. He put each back — the suffix removed, the expectation returned to
+ * `decides-input` — and the suite did not notice either. A repair nothing can guard without a press
+ * is a repair that lasts until the next person edits that line.
+ *
+ * WHY THE EXPECTATION IS `inert`, kept beside the value it decides: the control asked for
+ * `decides-input` and the instrument answered `inert`. Which of the two was wrong had been settled
+ * BEFORE the press — if the run frame is enumerated and no marker is found in it, the control is —
+ * and the third press settled the premise: the frame IS enumerated on a live pass, six markers were
+ * issued inside it with sinks in it. So the value reaches no field, and that is the product's answer
+ * rather than a hole in the measurement.
+ */
+function hubStateControl(userId, classOf) {
+    const key = exactHubStateKey(userId);
+
+    return {
+        name: key + ' kind',
+        expected: 'inert',
+        got: (classOf || {})[key] || 'NOT MARKED',
+    };
+}
 const DRY = process.env.GILBA_3BD_DRY === '1';
 const WRITE_TO = process.env.GILBA_3BD_OUT || OUT_DIR;
 const SIGN_VERSION = 1;
@@ -500,6 +545,19 @@ function dryPassFitness({ passes, censusSites, viewRoutes }) {
     return { numbers, failures };
 }
 
+/**
+ * GH-701 — THE JOURNAL NAMES ITS OWN PATH, AND WHETHER THAT PATH IS INSIDE THE REPOSITORY.
+ *
+ * A reader should not have to be told where the file came from, and a rehearsal must say that it is
+ * one in the place a reader looks first. Pure, so a case can hold it without a stand.
+ */
+function wroteLine(file, root, dry) {
+    return 'WROTE | ' + file
+        + ' | ' + (String(file).indexOf(root) === 0 ? 'INSIDE the repository, beside the real journals'
+            : 'outside the repository')
+        + (dry ? ' | this is a rehearsal: `3bd-DRY-*` is ignored by git so it cannot be committed beside a measurement' : '');
+}
+
 /** The sentence about what pass O is, and it is quoted rather than paraphrased. */
 const O_BOUNDARY = 'O is a new client with empty storage; a long-time client behaves somewhere between O and P.';
 
@@ -808,6 +866,79 @@ describe('3bd layer 1 — the census sees every form of read', () => {
         expect(flipped.failures.join(' | ')).toMatch(/pass P: no marker reached any sink/);
     });
 
+    test('the journal names where it was written, and a rehearsal says it is one', () => {
+        /**
+         * GH-701 — the reviewer's third point, and his reason for it: a rehearsal artefact lying in
+         * the record beside real journals will one day be read as a measurement, and the file's name
+         * alone does not stop that. So the journal states its own path, whether that path is inside
+         * the repository, and — when it is a rehearsal — that git ignores it.
+         *
+         * The sentence in the file's own docblock used to claim the opposite of what the code does:
+         * it promised "outside unless told otherwise" while the default writes inside. The
+         * instrument does what its code says; it was the sentence that was wrong, and it is fixed.
+         */
+        const inside = wroteLine('/repo/files/fixes/x/live-runs/3bd-DRY-a.log', '/repo', true);
+        const outside = wroteLine('/tmp/dry/3bd-DRY-a.log', '/repo', true);
+        const real = wroteLine('/repo/files/fixes/x/live-runs/3bd-storage-reads-a.log', '/repo', false);
+        process.stdout.write('[3bd] ' + inside + '\n[3bd] ' + outside + '\n[3bd] ' + real + '\n');
+
+        expect(inside).toContain('INSIDE the repository, beside the real journals');
+        expect(inside).toContain('ignored by git');
+        expect(outside).toContain('outside the repository');
+        // A measurement says where it is and does NOT claim to be ignorable.
+        expect(real).toContain('INSIDE the repository');
+        expect(real).not.toContain('ignored by git');
+    });
+
+    test('the hub-state key is DERIVED from the user, and the rule is the product’s own', () => {
+        /**
+         * GH-701 (the reviewer's return, his first recommendation). The key carries a suffix and the
+         * suffix is the user: `hub-persistence.js` builds it as
+         * `'gilba_hub_state' + (userId ? '_' + userId : '')`. A control asking about the bare name
+         * finds nothing, and one asking about `gilba_hub_state_1` is bound to whoever user 1 is on
+         * this stand — so the rule is taken from the product and asserted against it here.
+         */
+        expect(exactHubStateKey('7')).toBe('gilba_hub_state_7');
+        expect(exactHubStateKey(7)).toBe('gilba_hub_state_7');
+        expect(exactHubStateKey(null)).toBe('gilba_hub_state');
+        expect(exactHubStateKey(undefined)).toBe('gilba_hub_state');
+        // A suffix of zero is no user, which is what the product's own `uid ? … : ''` says.
+        expect(exactHubStateKey(0)).toBe('gilba_hub_state');
+
+        // AND THE RULE IS NOT INVENTED HERE. If the product stops building the key this way, this
+        // assertion is what says so, instead of the control quietly asking about a key nobody writes.
+        const persistence = fs.readFileSync(path.join(ROOT, 'assets', 'hub-persistence.js'), 'utf8');
+        process.stdout.write('[3bd] the product builds it as: '
+            + (persistence.match(/var suffix = [^\n]*/) || ['<not found>'])[0] + '\n');
+        expect(persistence).toContain("var suffix = uid ? '_' + uid : '';");
+        expect(persistence).toContain("state: 'gilba_hub_state' + suffix,");
+    });
+
+    test('the hub-state control expects `inert`, and it names the exact key', () => {
+        /**
+         * His second recommendation. Both halves in one case, because the control is one thing: the
+         * name it asks about and the answer it expects.
+         */
+        const built = hubStateControl('7', { gilba_hub_state_7: 'inert', gilba_hub_state: 'decides-input' });
+        process.stdout.write('[3bd] the control built for user 7: ' + JSON.stringify(built) + '\n');
+
+        expect(built.name).toBe('gilba_hub_state_7 kind');
+        expect(built.expected).toBe('inert');
+        expect(built.got).toBe('inert');
+        // The bare name is present in that same table with a DIFFERENT value, so a control reading
+        // the bare name would come back `decides-input` and pass for the wrong reason. This is what
+        // makes the exactness of the name a claim rather than a spelling.
+        expect(built.got).not.toBe('decides-input');
+
+        // And it is fit: with all controls ok the instrument is valid, which is the state a rehearsal
+        // reaches today.
+        const inst = instrumentBlock([built]);
+        expect(inst.failed).toEqual([]);
+        // A key the pass never marked is `NOT MARKED`, not a silent pass.
+        expect(hubStateControl('7', {}).got).toBe('NOT MARKED');
+        expect(instrumentBlock([hubStateControl('7', {})]).failed).toEqual(['gilba_hub_state_7 kind']);
+    });
+
     test('the run and the instrument are judged separately, and the run line names what went wrong', () => {
         // A valid run with an unfit instrument, and an invalid run with a fit one: the two verdicts
         // are about different things, and a reader who conflates them either throws away good
@@ -829,6 +960,7 @@ describe('3bd layer 1 — the census sees every form of read', () => {
     const readingLines = [];    // everything that is a READING, printed after the instrument
     const standing = [];        // statements about the run: the date, the O boundary, what was written
     const toTheStand = [];      // every non-GET that really went to the stand, with body and answer
+    let hubUserId = null;       // the suffix of the hub-state key is the user, read from the page
     /**
      * GH-694 — THIS DECLARATION WAS MISSING AND THE PRESS DIED ON IT.
      *
@@ -1196,6 +1328,7 @@ describe('3bd layer 1 — the census sees every form of read', () => {
             });
         }
         const pageSiteId = await activeSiteId(p0);
+        hubUserId = await p0.evaluate(() => (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.userId) || null);
         // Real ids a membership check accepts: another visible site; a non-active sample.
         const idsForMember = await p0.evaluate(async (here) => {
             const j = async (u) => { const r = await fetch(u, { headers: { Accept: 'application/json' } }); return r.ok ? r.json() : null; };
@@ -1253,13 +1386,14 @@ describe('3bd layer 1 — the census sees every form of read', () => {
 
         const treeAfter = treeMap();
         const drift = diffMaps(treeBefore || {}, treeAfter);
+        fs.mkdirSync(WRITE_TO, { recursive: true });
+        const file = path.join(WRITE_TO, (DRY ? '3bd-DRY-not-a-measurement-' : '3bd-storage-reads-')
+            + new Date().toISOString().replace(/[:.]/g, '-') + '.log');
+        standing.push(wroteLine(file, ROOT, DRY));
         const journal = assembleJournal({
             drift, pointerBefore, pointerAfter, controls, standing, readingLines, dry: DRY,
         });
         const out = journal.lines;
-        fs.mkdirSync(WRITE_TO, { recursive: true });
-        const file = path.join(WRITE_TO, (DRY ? '3bd-DRY-not-a-measurement-' : '3bd-storage-reads-')
-            + new Date().toISOString().replace(/[:.]/g, '-') + '.log');
         fs.writeFileSync(file, out.join('\n') + '\n');
         out.forEach((l) => process.stdout.write('[3bd] ' + l + '\n'));
         process.stdout.write('[3bd] written: ' + file + '\n');
@@ -1473,7 +1607,19 @@ describe('3bd layer 1 — the census sees every form of read', () => {
         // In the data, each on a read that executes.
         const ctl = (k) => Object.keys(classOf).filter((x) => x === k || x.startsWith(k)).map((x) => classOf[x]);
         controls.push({ name: 'gilba_import_active_site', expected: true, got: ctl('gilba_import_active_site').includes('writeback') });
-        controls.push({ name: 'gilba_hub_state', expected: true, got: ctl('gilba_hub_state').includes('decides-input') });
+        /**
+         * GH-701 — THE EXPECTATION IS `inert`, AND IT IS THE CONTROL THAT CHANGED, NOT THE PRODUCT.
+         *
+         * It expected `decides-input`. The rehearsal answered `inert`, and the reviewer had decided
+         * BEFORE the press which of the two would be wrong in that case: if the run frame is
+         * enumerated and no marker is found in it, the CONTROL is wrong. The third press settled the
+         * premise — the frame IS enumerated on a live pass, six markers were issued inside it with
+         * sinks in it — so the frame was seen and the value still reaches no field.
+         *
+         * Recorded here rather than in a report because a control whose expectation moves without a
+         * reason beside it is the thing this instrument exists to prevent.
+         */
+        controls.push(hubStateControl(hubUserId, classOf));
         const INERT_KEY = 'gilba_disease_cache_purged_v1';
         const inertSite = cen.sites.filter((s) => s.file === 'gaip-field-log-analysis.js' && s.key === INERT_KEY);
         const inertMarked = passes.P.reads.filter((r) => r.key === INERT_KEY && r.marked && inertSite.some((s) => byLine(s).test(r.stack)));

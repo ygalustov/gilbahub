@@ -374,7 +374,16 @@ describe('GH-377 — nutrition-calendar.js: collectProgramInputCandidates() + pr
         // which is the readable form of "they are not consulted".
         expect(NC.resolveSiteMethodology('mlsn', nz.lat, nz.lon)).toBe('mlsn');
         expect(NC.resolveSiteMethodology('', nz.lat, nz.lon)).toBe('');
-        expect(NC.resolveSiteMethodology.length).toBe(1);
+        /**
+         * GH-747 — ARITY, NAMED AS ARITY. A function's `length` is the number of parameters it
+         * declares and is not the length of a list at all; the two only share a property name.
+         * Written as `expect(fn.length).toBe(1)` it read as a length comparison to anything looking
+         * for one, and a census of length comparisons duly counted it. Declaring a kind for that
+         * would have made a coincidence of names into a concept, so the assertion says what it
+         * means instead, and prints the number it found.
+         */
+        expect({ declaredParameters: NC.resolveSiteMethodology.length })
+            .toEqual({ declaredParameters: 1 });
 
         // isNZCoordinates existed only to feed that fold and had no other
         // caller. It is removed rather than left dormant: a bounding box sitting

@@ -1,0 +1,118 @@
+{
+  "$comment": [
+    "GH-722 — HOW A LAB WRITES THE COLUMN FOR EACH READING OF A SAMPLE, DECLARED ONCE.",
+    "",
+    "Per kind of sample (`soil`, `water`, `tissue`, `loi`), per reading: the spellings of the",
+    "column a lab file may carry for it. The reading's own name (the key) is the name a sample",
+    "stores it under, and it is always one of its spellings.",
+    "",
+    "ONE READER, ON THE SERVER: `App\\Support\\LabReadingNames`. The page is handed what it read",
+    "(`window.GAIP_LAB_READING_NAMES`, both layouts); the sample manager builds its tables from",
+    "that and keeps only its own fact — which form field a reading fills. Before this file the",
+    "same knowledge lived in four tables that had drifted apart: the runner's, the upload page's",
+    "column map, and the upload page's display lists.",
+    "",
+    "ORDER IS PART OF THE DECLARATION. Where a row carries two spellings of one reading, the",
+    "runner's paths decide by order (`readingsOf` takes the first that answers, the form loader",
+    "the last). The spellings keep the order the runner's own tables had, and the ones the upload",
+    "page added come after them.",
+    "",
+    "`attributes` are columns that describe the sample rather than measure it; they are never a",
+    "reading. `extractionMethodSuffixes` are the method tokens the resolver strips from a column",
+    "name before it compares (`K_Mehlich3` is `K`). `cacl2` among them makes `pH_CaCl2` answer for",
+    "`pH` when no other pH column is present; that is the algorithm as it stands and is not",
+    "changed here.",
+    "",
+    "A reading declared here that the runner does not bind to a form field is accepted by the",
+    "upload and read by no calculation; `tests/gh722-one-map-of-lab-reading-names.test.js` names",
+    "each such reading, and a new one reddens it."
+  ],
+  "extractionMethodSuffixes": [
+    "mehlich3", "mehlich-3", "mehlich_3", "m3",
+    "olsen",
+    "colwell",
+    "kcl",
+    "bray", "bray1", "bray2", "brayi", "brayii", "bray-1", "bray-2",
+    "ammac", "nh4oac", "nh4ac", "ammonium acetate", "ammoniumacetate",
+    "hotwater", "hot water", "hot-water",
+    "dtpa",
+    "cacl2",
+    "mehlich",
+    "extractable",
+    "available",
+    "total"
+  ],
+  "types": {
+    "soil": {
+      "readings": {
+        "pH": ["pH_Water", "pH", "ph"],
+        "EC": ["EC_1_5", "EC1:5", "EC_1:5", "EC1_5", "EC_dSm", "EC", "ec", "Salinity"],
+        "CEC": ["CEC_meq100g", "CEC", "cec"],
+        "OM": ["OM_Percent", "Organic Matter", "OM", "LOI", "organic_matter", "OrganicMatter"],
+        "K": ["K_ppm", "K", "potassium"],
+        "P": ["P_ppm", "P", "phosphorus"],
+        "Ca": ["Ca_ppm", "Ca", "calcium"],
+        "Mg": ["Mg_ppm", "Mg", "magnesium"],
+        "S": ["S_ppm", "S", "sulfur", "sulphur"],
+        "Fe": ["Fe_ppm", "Fe", "iron"],
+        "Mn": ["Mn_ppm", "Mn", "manganese"],
+        "Cu": ["Cu_ppm", "Cu", "copper"],
+        "Zn": ["Zn_ppm", "Zn", "zinc"],
+        "B": ["B_ppm", "B", "boron"],
+        "Na": ["Na_ppm", "Na", "sodium"]
+      },
+      "attributes": {
+        "areaHa": ["areaHa", "area_ha", "Area_ha", "AreaHa", "area"]
+      }
+    },
+    "water": {
+      "readings": {
+        "pH": ["pH", "ph"],
+        "EC": ["EC_dSm", "EC", "ec", "ECw", "Salinity"],
+        "Ca": ["Ca_mgL", "Ca", "calcium"],
+        "Mg": ["Mg_mgL", "Mg", "magnesium"],
+        "Na": ["Na_mgL", "Na", "sodium"],
+        "K": ["K_mgL", "K", "potassium"],
+        "Cl": ["Cl_mgL", "Cl", "chloride"],
+        "SO4": ["SO4_mgL", "SO4", "sulfate"],
+        "HCO3": ["HCO3_mgL", "HCO3", "bicarbonate"],
+        "CO3": ["CO3_mgL", "CO3", "carbonate"],
+        "B": ["B_mgL", "B", "boron"],
+        "Fe": ["Fe_mgL", "Fe", "iron"],
+        "NO3": ["NO3_mgL", "NO3", "nitrate"],
+        "PO4": ["PO4_mgL", "PO4", "P_mgL", "P", "phosphate", "phosphorus"],
+        "Mn": ["Mn_mgL", "Mn", "manganese"],
+        "TDS": ["TDS"],
+        "SAR": ["SAR"]
+      }
+    },
+    "tissue": {
+      "readings": {
+        "N": ["N_Percent", "N", "nitrogen"],
+        "P": ["P_Percent", "P", "phosphorus"],
+        "K": ["K_Percent", "K", "potassium"],
+        "Ca": ["Ca_Percent", "Ca", "calcium"],
+        "Mg": ["Mg_Percent", "Mg", "magnesium"],
+        "S": ["S_Percent", "S", "sulfur"],
+        "Fe": ["Fe_mgkg", "Fe", "iron"],
+        "Mn": ["Mn_mgkg", "Mn", "manganese"],
+        "Zn": ["Zn_mgkg", "Zn", "zinc"],
+        "Cu": ["Cu_mgkg", "Cu", "copper"],
+        "B": ["B_mgkg", "B", "boron"],
+        "Na": ["Na_mgkg", "Na"],
+        "Mo": ["Mo_mgkg", "Mo"],
+        "Cl": ["Cl_Percent", "Cl"]
+      }
+    },
+    "loi": {
+      "readings": {
+        "LOI_0_2": ["LOI_0_2", "OM_0_2", "LOI_0-2", "OM_0-2cm", "0-2cm", "0-20mm", "loi_0_20"],
+        "LOI_2_4": ["LOI_2_4", "OM_2_4", "LOI_2-4", "OM_2-4cm", "2-4cm", "20-40mm", "loi_20_40"],
+        "LOI_4_6": ["LOI_4_6", "OM_4_6", "LOI_4-6", "OM_4-6cm", "4-6cm", "40-60mm", "loi_40_60"],
+        "OM": ["OM_Percent", "Organic Matter", "OM", "LOI", "Total_OM", "organic_matter", "OrganicMatter"],
+        "thatch": ["thatch"],
+        "moisture": ["moisture"]
+      }
+    }
+  }
+}

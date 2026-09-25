@@ -64,7 +64,8 @@ class Gh675TheClassComesFromTheStartNotFromTheDatabaseNowTest extends TestCase
         ]);
         $site->users()->attach($user->id, ['role' => 'manager']);
         SiteConfig::query()->create([
-            'site_id' => $site->id, 'namespace' => 'gaip', 'config' => $config,
+            // GH-708: the lock needs the site to have answered; this fixture's own values are kept.
+            'site_id' => $site->id, 'namespace' => 'gaip', 'config' => $this->configThePageLockAccepts($config),
         ]);
 
         return [$user->fresh(), $site];

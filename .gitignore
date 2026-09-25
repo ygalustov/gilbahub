@@ -21,3 +21,6 @@ files/fixes/**/dev-db-snapshot-*.sql
 calc-audit/
 calc-audit-results.json
 calc-audit-export-results.json
+# GH-701: rehearsal journals of the 3bd instrument. A dry pass writes beside the real ones by
+# default, and a rehearsal artefact sitting in the record will one day be read as a measurement.
+files/fixes/26-08-17-hoxton-v6/live-runs/3bd-DRY-*

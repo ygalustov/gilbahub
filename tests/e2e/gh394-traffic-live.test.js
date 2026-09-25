@@ -38,7 +38,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { fillOwnAnnualN, captureConfigsOnce, restoreConfigs } = require('./lib/stand-guard');
+const { fillOwnAnnualN, captureConfigsOnce, restoreConfigs, PROGRAMME_KEYS } = require('./lib/stand-guard');
 
 const CREDENTIALS_PATH = process.env.GILBA_E2E_CREDENTIALS
     || path.join(__dirname, '.e2e-credentials.json');
@@ -361,7 +361,7 @@ if (!ENABLED) {
             // not exist yet — measured, `restore report: null`. The teardown
             // still calls it, and on a run that reached this line it finds every
             // row already matching and writes nothing.
-            try { restoreReport = restoreConfigs(); }
+            try { restoreReport = restoreConfigs({ sites: Object.keys(original), keys: PROGRAMME_KEYS.concat(['traffic']) }); }
             catch (e) { restoreReport = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
             if (previousActiveSiteId) await setActiveSite(page, previousActiveSiteId);
 
@@ -411,7 +411,7 @@ if (!ENABLED) {
             // indistinguishable from a real save. SQL puts back the bytes and
             // the timestamp, and the check is the database's own md5.
             let __restore = null;
-            try { __restore = restoreConfigs(); restoreReport = __restore; }
+            try { __restore = restoreConfigs({ sites: Object.keys(original), keys: PROGRAMME_KEYS.concat(['traffic']) }); restoreReport = __restore; }
             catch (e) { __restore = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
             finally { if (browser) await browser.close(); }
             if (__restore && __restore.failed.length) {

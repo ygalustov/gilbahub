@@ -150,15 +150,26 @@
      * the returned value and does not have to be inferred from anything said
      * about it.
      */
+    /**
+     * GH-704 (queue item 3as) — TAKEN FROM `hub-orchestrator.js`, NOT KEPT HERE.
+     *
+     * This file used to carry its own copy of the predicate, identical to that one and measured to
+     * agree with it on every input. Identical copies are the problem rather than the comfort: a
+     * repair to either moves nothing any run can see, so the two part company without a sound. The
+     * definition lives in `hub-orchestrator.js`, this file's own header requires that file to be
+     * included first, and a case holds that no view loads this one without it.
+     *
+     * WITHOUT IT THE PASS REFUSES RATHER THAN JUDGES. A private fallback here would be the copy
+     * coming straight back, and quietly: the pass would go on deciding what it produced with a
+     * predicate that had stopped being shared.
+     */
     function producedSomething(value) {
-        if (value === undefined || value === null) return false;
-        if (Array.isArray(value)) return value.length > 0;
-        if (typeof value === 'object') {
-            var status = String(value.status || '');
-            if (status === 'Error' || status === 'Not available') return false;
-            return Object.keys(value).length > 0;
+        if (typeof global.GAIP_producedSomething !== 'function') {
+            throw new Error('GH-704: the produced predicate is not available — `hub-orchestrator.js`'
+                + ' defines it and must be loaded before this file');
         }
-        return true;
+
+        return global.GAIP_producedSomething(value);
     }
 
     // =========================================================================
@@ -588,7 +599,10 @@
                     current: global.climateMetrics?.temperature?.current || 20,
                     min: global.climateMetrics?.temperature?.min || 10,
                     max: global.climateMetrics?.temperature?.max || 30,
-                    soilTemp: global.GAIP_SOIL_TEMP?.raw?.T_50mm?.[0] || null
+                    // GH-734 (queue item 3az, delivery 2): the run's own result, from the
+                    // `computed` this executor already receives -- it used to read the rendering
+                    // panel's global, which is a different calculation of the same model.
+                    soilTemp: computed?.soilTempPhysics?.raw?.T_50mm?.[0] || null
                 },
                 
                 // Nutrition stress inputs

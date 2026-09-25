@@ -27,14 +27,12 @@
 
     {{-- Context pills --}}
     <div class="db-context-pills" id="db-context-pills">
-        @if($turfMethodology ?? null)
-            @php
-                $methLabel = match(strtolower($turfMethodology)) {
-                    'ammonium_acetate' => 'AA',
-                    'slan'             => 'SLAN',
-                    default            => 'MLSN',
-                };
-            @endphp
+        {{-- GH-744: the abbreviation comes from the inputs list. A value the list does not carry is
+             not printed: the old `default` printed MLSN for it, a methodology nobody chose. --}}
+        @php
+            $methLabel = \App\Support\CalculationInputs::methodologyShort(strtolower((string) ($turfMethodology ?? '')));
+        @endphp
+        @if($methLabel)
             <span class="db-pill">{{ $methLabel }}</span>
         @endif
         <span class="db-pill" id="db-pill-species">{{ $turfSpecies ?? '' }}</span>

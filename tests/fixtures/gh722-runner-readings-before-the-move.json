@@ -1,0 +1,10185 @@
+{
+ "$comment": "GH-722: what assets/sample-manager.js produced BEFORE its spelling tables moved into assets/lab-reading-names.json. Recorded once from the old code; read by tests/gh722-the-runner-reads-the-same-after-the-move.test.js. Stored payload key sets were read from the stand samples table (keys only); values are synthetic and distinct per column.",
+ "oldRunnerSpellings": {
+  "soil": {
+   "pH_Water": ".gaip-soil-ph",
+   "pH": ".gaip-soil-ph",
+   "ph": ".gaip-soil-ph",
+   "EC_1_5": ".gaip-soil-ec",
+   "EC1:5": ".gaip-soil-ec",
+   "EC_1:5": ".gaip-soil-ec",
+   "EC1_5": ".gaip-soil-ec",
+   "EC_dSm": ".gaip-soil-ec",
+   "EC": ".gaip-soil-ec",
+   "ec": ".gaip-soil-ec",
+   "CEC_meq100g": ".gaip-cec",
+   "CEC": ".gaip-cec",
+   "cec": ".gaip-cec",
+   "OM_Percent": ".gaip-loi",
+   "Organic Matter": ".gaip-loi",
+   "OM": ".gaip-loi",
+   "LOI": ".gaip-loi",
+   "areaHa": ".gaip-soil-area-ha",
+   "area_ha": ".gaip-soil-area-ha",
+   "Area_ha": ".gaip-soil-area-ha",
+   "AreaHa": ".gaip-soil-area-ha",
+   "area": ".gaip-soil-area-ha",
+   "LOI_0_2": ".gaip-loi-0-2",
+   "OM_0_2": ".gaip-loi-0-2",
+   "LOI_0-2": ".gaip-loi-0-2",
+   "OM_0-2cm": ".gaip-loi-0-2",
+   "LOI_2_4": ".gaip-loi-2-4",
+   "OM_2_4": ".gaip-loi-2-4",
+   "LOI_2-4": ".gaip-loi-2-4",
+   "OM_2-4cm": ".gaip-loi-2-4",
+   "LOI_4_6": ".gaip-loi-4-6",
+   "OM_4_6": ".gaip-loi-4-6",
+   "LOI_4-6": ".gaip-loi-4-6",
+   "OM_4-6cm": ".gaip-loi-4-6",
+   "K_ppm": "[data-mlsn=\"K\"]",
+   "K": "[data-mlsn=\"K\"]",
+   "P_ppm": "[data-mlsn=\"P\"]",
+   "P": "[data-mlsn=\"P\"]",
+   "Ca_ppm": "[data-mlsn=\"Ca\"]",
+   "Ca": "[data-mlsn=\"Ca\"]",
+   "Mg_ppm": "[data-mlsn=\"Mg\"]",
+   "Mg": "[data-mlsn=\"Mg\"]",
+   "S_ppm": "[data-mlsn=\"S\"]",
+   "S": "[data-mlsn=\"S\"]",
+   "Fe_ppm": "[data-mlsn=\"Fe\"]",
+   "Fe": "[data-mlsn=\"Fe\"]",
+   "Mn_ppm": "[data-mlsn=\"Mn\"]",
+   "Mn": "[data-mlsn=\"Mn\"]",
+   "Cu_ppm": "[data-mlsn=\"Cu\"]",
+   "Cu": "[data-mlsn=\"Cu\"]",
+   "Zn_ppm": "[data-mlsn=\"Zn\"]",
+   "Zn": "[data-mlsn=\"Zn\"]",
+   "B_ppm": "[data-mlsn=\"B\"]",
+   "B": "[data-mlsn=\"B\"]",
+   "Na_ppm": "[data-mlsn=\"Na\"]",
+   "Na": "[data-mlsn=\"Na\"]"
+  },
+  "water": {
+   "pH": ".gaip-water-ph",
+   "ph": ".gaip-water-ph",
+   "EC_dSm": ".gaip-ecw",
+   "EC": ".gaip-ecw",
+   "ec": ".gaip-ecw",
+   "Ca_mgL": "[data-ion=\"Ca\"]",
+   "Ca": "[data-ion=\"Ca\"]",
+   "Mg_mgL": "[data-ion=\"Mg\"]",
+   "Mg": "[data-ion=\"Mg\"]",
+   "Na_mgL": "[data-ion=\"Na\"]",
+   "Na": "[data-ion=\"Na\"]",
+   "K_mgL": "[data-ion=\"K\"]",
+   "K": "[data-ion=\"K\"]",
+   "Cl_mgL": "[data-ion=\"Cl\"]",
+   "Cl": "[data-ion=\"Cl\"]",
+   "SO4_mgL": "[data-ion=\"SO4\"]",
+   "SO4": "[data-ion=\"SO4\"]",
+   "HCO3_mgL": "[data-ion=\"HCO3\"]",
+   "HCO3": "[data-ion=\"HCO3\"]",
+   "CO3_mgL": "[data-ion=\"CO3\"]",
+   "CO3": "[data-ion=\"CO3\"]",
+   "B_mgL": "[data-ion=\"B\"]",
+   "B": "[data-ion=\"B\"]",
+   "Fe_mgL": "[data-ion=\"Fe\"]",
+   "Fe": "[data-ion=\"Fe\"]",
+   "NO3_mgL": "[data-ion=\"NO3\"]",
+   "NO3": "[data-ion=\"NO3\"]",
+   "PO4_mgL": "[data-ion=\"PO4\"]",
+   "PO4": "[data-ion=\"PO4\"]",
+   "P_mgL": "[data-ion=\"PO4\"]",
+   "P": "[data-ion=\"PO4\"]",
+   "Mn_mgL": "[data-ion=\"Mn\"]",
+   "Mn": "[data-ion=\"Mn\"]"
+  },
+  "tissue": {
+   "N_Percent": "N",
+   "N": "N",
+   "P_Percent": "P",
+   "P": "P",
+   "K_Percent": "K",
+   "K": "K",
+   "Ca_Percent": "Ca",
+   "Ca": "Ca",
+   "Mg_Percent": "Mg",
+   "Mg": "Mg",
+   "S_Percent": "S",
+   "S": "S",
+   "Fe_mgkg": "Fe",
+   "Fe": "Fe",
+   "Mn_mgkg": "Mn",
+   "Mn": "Mn",
+   "Zn_mgkg": "Zn",
+   "Zn": "Zn",
+   "Cu_mgkg": "Cu",
+   "Cu": "Cu",
+   "B_mgkg": "B",
+   "B": "B",
+   "Na_mgkg": "Na",
+   "Na": "Na",
+   "Mo_mgkg": "Mo",
+   "Mo": "Mo",
+   "Cl_Percent": "Cl",
+   "Cl": "Cl"
+  },
+  "loi": {
+   "LOI_0_2": ".gaip-loi-0-2",
+   "OM_0_2": ".gaip-loi-0-2",
+   "LOI_0-2": ".gaip-loi-0-2",
+   "OM_0-2cm": ".gaip-loi-0-2",
+   "0-2cm": ".gaip-loi-0-2",
+   "0-20mm": ".gaip-loi-0-2",
+   "LOI_2_4": ".gaip-loi-2-4",
+   "OM_2_4": ".gaip-loi-2-4",
+   "LOI_2-4": ".gaip-loi-2-4",
+   "OM_2-4cm": ".gaip-loi-2-4",
+   "2-4cm": ".gaip-loi-2-4",
+   "20-40mm": ".gaip-loi-2-4",
+   "LOI_4_6": ".gaip-loi-4-6",
+   "OM_4_6": ".gaip-loi-4-6",
+   "LOI_4-6": ".gaip-loi-4-6",
+   "OM_4-6cm": ".gaip-loi-4-6",
+   "4-6cm": ".gaip-loi-4-6",
+   "40-60mm": ".gaip-loi-4-6",
+   "OM_Percent": ".gaip-loi",
+   "Organic Matter": ".gaip-loi",
+   "OM": ".gaip-loi",
+   "LOI": ".gaip-loi",
+   "Total_OM": ".gaip-loi"
+  }
+ },
+ "readingKeysFor": {
+  "soil": [
+   "pH",
+   "EC",
+   "CEC",
+   "OM",
+   "K",
+   "P",
+   "Ca",
+   "Mg",
+   "S",
+   "Fe",
+   "Mn",
+   "Cu",
+   "Zn",
+   "B",
+   "Na"
+  ],
+  "water": [
+   "pH",
+   "EC",
+   "Ca",
+   "Mg",
+   "Na",
+   "K",
+   "Cl",
+   "SO4",
+   "HCO3",
+   "CO3",
+   "B",
+   "Fe",
+   "NO3",
+   "PO4",
+   "Mn"
+  ],
+  "tissue": [
+   "N",
+   "P",
+   "K",
+   "Ca",
+   "Mg",
+   "S",
+   "Fe",
+   "Mn",
+   "Zn",
+   "Cu",
+   "B",
+   "Na",
+   "Mo",
+   "Cl"
+  ],
+  "loi": null
+ },
+ "cases": [
+  {
+   "name": "live:loi#1",
+   "kind": "loi",
+   "row": {
+    "OM": 1.5,
+    "zone": "Greens",
+    "_label": "Green 1",
+    "loi_0_20": 5.25
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:loi#2",
+   "kind": "loi",
+   "row": {
+    "OM": 1.5,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1",
+    "thatch": 6.5,
+    "moisture": 7.75
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#1",
+   "kind": "soil",
+   "row": {
+    "pH": 1.5,
+    "zone": "Greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#2",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "pH": 2.75,
+    "zone": "Greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 2.75,
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 2.75,
+     "K": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 2.75,
+     "[data-mlsn=\"K\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#3",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "pH": 2.75,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 2.75,
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 2.75,
+     "K": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 2.75,
+     "[data-mlsn=\"K\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#4",
+   "kind": "soil",
+   "row": {
+    "pH": 1.5,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1",
+    "areaHa": 6.5,
+    "_source": "lab.csv"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 1.5,
+     "soil_area_ha": 6.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 1.5,
+     ".gaip-soil-area-ha": 6.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#5",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "pH": 4,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 4,
+     "K": 1.5,
+     "P": 2.75
+    },
+    "normalizeValues": {
+     "soil_ph": 4,
+     "K": 1.5,
+     "P": 2.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 4,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "live:soil#6",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "zone": "Greens",
+    "_zone": "greens",
+    "pH_water": 6.5,
+    "zoneType": "green"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 6.5,
+     "K": 1.5,
+     "P": 2.75
+    },
+    "normalizeValues": {
+     "soil_ph": 6.5,
+     "K": 1.5,
+     "P": 2.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 6.5,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "live:soil#7",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "Ca": 4,
+    "Mg": 5.25,
+    "Na": 6.5,
+    "zone": "Greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 5.25,
+     "Na": 6.5
+    },
+    "normalizeValues": {
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 5.25,
+     "Na": 6.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 4,
+     "[data-mlsn=\"Mg\"]": 5.25,
+     "[data-mlsn=\"Na\"]": 6.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#8",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "Ca": 4,
+    "EC": 5.25,
+    "Mg": 6.5,
+    "Na": 7.75,
+    "pH": 9,
+    "zone": "Greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 9,
+     "EC": 5.25,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 6.5,
+     "Na": 7.75
+    },
+    "normalizeValues": {
+     "soil_ph": 9,
+     "EC": 5.25,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 6.5,
+     "Na": 7.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 9,
+     ".gaip-soil-ec": 5.25,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 4,
+     "[data-mlsn=\"Mg\"]": 6.5,
+     "[data-mlsn=\"Na\"]": 7.75
+    }
+   }
+  },
+  {
+   "name": "live:soil#9",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "Ca": 2.75,
+    "Mg": 4,
+    "Na": 5.25,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1",
+    "pH_Water": 10.25,
+    "OM_Percent": 11.5,
+    "CEC_meq100g": 12.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 10.25,
+     "CEC": 12.75,
+     "OM": 11.5,
+     "K": 1.5,
+     "Ca": 2.75,
+     "Mg": 4,
+     "Na": 5.25
+    },
+    "normalizeValues": {
+     "soil_ph": 10.25,
+     "CEC": 12.75,
+     "OM": 11.5,
+     "K": 1.5,
+     "Ca": 2.75,
+     "Mg": 4,
+     "Na": 5.25
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 10.25,
+     ".gaip-cec": 12.75,
+     ".gaip-loi": 11.5,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"Ca\"]": 2.75,
+     "[data-mlsn=\"Mg\"]": 4,
+     "[data-mlsn=\"Na\"]": 5.25
+    }
+   }
+  },
+  {
+   "name": "live:soil#10",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "Ca": 2.75,
+    "Mg": 4,
+    "Na": 5.25,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv",
+    "pH_Water": 11.5,
+    "OM_Percent": 12.75,
+    "CEC_meq100g": 14
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 11.5,
+     "CEC": 14,
+     "OM": 12.75,
+     "K": 1.5,
+     "Ca": 2.75,
+     "Mg": 4,
+     "Na": 5.25
+    },
+    "normalizeValues": {
+     "soil_ph": 11.5,
+     "CEC": 14,
+     "OM": 12.75,
+     "K": 1.5,
+     "Ca": 2.75,
+     "Mg": 4,
+     "Na": 5.25
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 11.5,
+     ".gaip-cec": 14,
+     ".gaip-loi": 12.75,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"Ca\"]": 2.75,
+     "[data-mlsn=\"Mg\"]": 4,
+     "[data-mlsn=\"Na\"]": 5.25
+    }
+   }
+  },
+  {
+   "name": "live:soil#11",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "Ca": 4,
+    "EC": 5.25,
+    "Mg": 6.5,
+    "Na": 7.75,
+    "pH": 9,
+    "CEC": 10.25,
+    "zone": "Greens",
+    "EC1_5": 12.75,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "pH_Water": 16.5,
+    "CEC_meq100g": 17.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 16.5,
+     "EC": 12.75,
+     "CEC": 17.75,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 6.5,
+     "Na": 7.75
+    },
+    "normalizeValues": {
+     "soil_ph": 16.5,
+     "EC": 12.75,
+     "CEC": 17.75,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 6.5,
+     "Na": 7.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 9,
+     ".gaip-soil-ec": 5.25,
+     ".gaip-cec": 10.25,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 4,
+     "[data-mlsn=\"Mg\"]": 6.5,
+     "[data-mlsn=\"Na\"]": 7.75
+    }
+   }
+  },
+  {
+   "name": "live:soil#12",
+   "kind": "soil",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "P": 4,
+    "S": 5.25,
+    "Ca": 6.5,
+    "Cu": 7.75,
+    "EC": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "Na": 14,
+    "OM": 15.25,
+    "Zn": 16.5,
+    "pH": 17.75,
+    "CEC": 19
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 17.75,
+     "EC": 9,
+     "CEC": 19,
+     "OM": 15.25,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "normalizeValues": {
+     "soil_ph": 17.75,
+     "EC": 9,
+     "CEC": 19,
+     "OM": 15.25,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 17.75,
+     ".gaip-soil-ec": 9,
+     ".gaip-cec": 19,
+     ".gaip-loi": 15.25,
+     "[data-mlsn=\"K\"]": 2.75,
+     "[data-mlsn=\"P\"]": 4,
+     "[data-mlsn=\"Ca\"]": 6.5,
+     "[data-mlsn=\"Mg\"]": 11.5,
+     "[data-mlsn=\"S\"]": 5.25,
+     "[data-mlsn=\"Fe\"]": 10.25,
+     "[data-mlsn=\"Mn\"]": 12.75,
+     "[data-mlsn=\"Cu\"]": 7.75,
+     "[data-mlsn=\"Zn\"]": 16.5,
+     "[data-mlsn=\"B\"]": 1.5,
+     "[data-mlsn=\"Na\"]": 14
+    }
+   }
+  },
+  {
+   "name": "live:soil#13",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "Ca": 4,
+    "EC": 5.25,
+    "Mg": 6.5,
+    "Na": 7.75,
+    "pH": 9,
+    "CEC": 10.25,
+    "zone": "Greens",
+    "EC1_5": 12.75,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv",
+    "pH_Water": 17.75,
+    "CEC_meq100g": 19
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 17.75,
+     "EC": 12.75,
+     "CEC": 19,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 6.5,
+     "Na": 7.75
+    },
+    "normalizeValues": {
+     "soil_ph": 17.75,
+     "EC": 12.75,
+     "CEC": 19,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 6.5,
+     "Na": 7.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 9,
+     ".gaip-soil-ec": 5.25,
+     ".gaip-cec": 10.25,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 4,
+     "[data-mlsn=\"Mg\"]": 6.5,
+     "[data-mlsn=\"Na\"]": 7.75
+    }
+   }
+  },
+  {
+   "name": "live:soil#14",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "Ca": 4,
+    "EC": 5.25,
+    "Mg": 6.5,
+    "Na": 7.75,
+    "pH": 9,
+    "CEC": 10.25,
+    "zone": "Greens",
+    "EC1_5": 12.75,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "pH_CaCl2": 16.5,
+    "pH_Water": 17.75,
+    "CEC_meq100g": 19
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 17.75,
+     "EC": 12.75,
+     "CEC": 19,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 6.5,
+     "Na": 7.75
+    },
+    "normalizeValues": {
+     "soil_ph": 17.75,
+     "EC": 12.75,
+     "CEC": 19,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 6.5,
+     "Na": 7.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 9,
+     ".gaip-soil-ec": 5.25,
+     ".gaip-cec": 10.25,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 4,
+     "[data-mlsn=\"Mg\"]": 6.5,
+     "[data-mlsn=\"Na\"]": 7.75
+    }
+   }
+  },
+  {
+   "name": "live:soil#15",
+   "kind": "soil",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "P": 4,
+    "S": 5.25,
+    "Ca": 6.5,
+    "Cu": 7.75,
+    "EC": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "Na": 14,
+    "OM": 15.25,
+    "Zn": 16.5,
+    "pH": 17.75,
+    "CEC": 19,
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 17.75,
+     "EC": 9,
+     "CEC": 19,
+     "OM": 15.25,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "normalizeValues": {
+     "soil_ph": 17.75,
+     "EC": 9,
+     "CEC": 19,
+     "OM": 15.25,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 17.75,
+     ".gaip-soil-ec": 9,
+     ".gaip-cec": 19,
+     ".gaip-loi": 15.25,
+     "[data-mlsn=\"K\"]": 2.75,
+     "[data-mlsn=\"P\"]": 4,
+     "[data-mlsn=\"Ca\"]": 6.5,
+     "[data-mlsn=\"Mg\"]": 11.5,
+     "[data-mlsn=\"S\"]": 5.25,
+     "[data-mlsn=\"Fe\"]": 10.25,
+     "[data-mlsn=\"Mn\"]": 12.75,
+     "[data-mlsn=\"Cu\"]": 7.75,
+     "[data-mlsn=\"Zn\"]": 16.5,
+     "[data-mlsn=\"B\"]": 1.5,
+     "[data-mlsn=\"Na\"]": 14
+    }
+   }
+  },
+  {
+   "name": "live:soil#16",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "Ca": 4,
+    "EC": 5.25,
+    "Mg": 6.5,
+    "Na": 7.75,
+    "pH": 9,
+    "CEC": 10.25,
+    "zone": "Greens",
+    "EC1_5": 12.75,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv",
+    "pH_CaCl2": 17.75,
+    "pH_Water": 19,
+    "CEC_meq100g": 20.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 19,
+     "EC": 12.75,
+     "CEC": 20.25,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 6.5,
+     "Na": 7.75
+    },
+    "normalizeValues": {
+     "soil_ph": 19,
+     "EC": 12.75,
+     "CEC": 20.25,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 6.5,
+     "Na": 7.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 9,
+     ".gaip-soil-ec": 5.25,
+     ".gaip-cec": 10.25,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 4,
+     "[data-mlsn=\"Mg\"]": 6.5,
+     "[data-mlsn=\"Na\"]": 7.75
+    }
+   }
+  },
+  {
+   "name": "live:soil#17",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "S": 4,
+    "Ca": 5.25,
+    "Cu": 6.5,
+    "Fe": 7.75,
+    "Mg": 9,
+    "Mn": 10.25,
+    "Zn": 11.5,
+    "zone": "Greens",
+    "EC1_5": 14,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv",
+    "pH_Water": 19,
+    "CEC_meq100g": 20.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 19,
+     "EC": 14,
+     "CEC": 20.25,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 9,
+     "S": 4,
+     "Fe": 7.75,
+     "Mn": 10.25,
+     "Cu": 6.5,
+     "Zn": 11.5
+    },
+    "normalizeValues": {
+     "soil_ph": 19,
+     "EC": 14,
+     "CEC": 20.25,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 9,
+     "S": 4,
+     "Fe": 7.75,
+     "Mn": 10.25,
+     "Cu": 6.5,
+     "Zn": 11.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 19,
+     ".gaip-soil-ec": 14,
+     ".gaip-cec": 20.25,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 5.25,
+     "[data-mlsn=\"Mg\"]": 9,
+     "[data-mlsn=\"S\"]": 4,
+     "[data-mlsn=\"Fe\"]": 7.75,
+     "[data-mlsn=\"Mn\"]": 10.25,
+     "[data-mlsn=\"Cu\"]": 6.5,
+     "[data-mlsn=\"Zn\"]": 11.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#18",
+   "kind": "soil",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "P": 4,
+    "S": 5.25,
+    "Ca": 6.5,
+    "Cu": 7.75,
+    "EC": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "OM": 14,
+    "Zn": 15.25,
+    "pH": 16.5,
+    "CEC": 17.75,
+    "zone": "Greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 16.5,
+     "EC": 9,
+     "CEC": 17.75,
+     "OM": 14,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 15.25,
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 16.5,
+     "EC": 9,
+     "CEC": 17.75,
+     "OM": 14,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 15.25,
+     "B": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 16.5,
+     ".gaip-soil-ec": 9,
+     ".gaip-cec": 17.75,
+     ".gaip-loi": 14,
+     "[data-mlsn=\"K\"]": 2.75,
+     "[data-mlsn=\"P\"]": 4,
+     "[data-mlsn=\"Ca\"]": 6.5,
+     "[data-mlsn=\"Mg\"]": 11.5,
+     "[data-mlsn=\"S\"]": 5.25,
+     "[data-mlsn=\"Fe\"]": 10.25,
+     "[data-mlsn=\"Mn\"]": 12.75,
+     "[data-mlsn=\"Cu\"]": 7.75,
+     "[data-mlsn=\"Zn\"]": 15.25,
+     "[data-mlsn=\"B\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#19",
+   "kind": "soil",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "P": 4,
+    "S": 5.25,
+    "Ca": 6.5,
+    "Cu": 7.75,
+    "EC": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "Na": 14,
+    "OM": 15.25,
+    "Zn": 16.5,
+    "pH": 17.75,
+    "CEC": 19,
+    "zone": "Greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 17.75,
+     "EC": 9,
+     "CEC": 19,
+     "OM": 15.25,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "normalizeValues": {
+     "soil_ph": 17.75,
+     "EC": 9,
+     "CEC": 19,
+     "OM": 15.25,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 17.75,
+     ".gaip-soil-ec": 9,
+     ".gaip-cec": 19,
+     ".gaip-loi": 15.25,
+     "[data-mlsn=\"K\"]": 2.75,
+     "[data-mlsn=\"P\"]": 4,
+     "[data-mlsn=\"Ca\"]": 6.5,
+     "[data-mlsn=\"Mg\"]": 11.5,
+     "[data-mlsn=\"S\"]": 5.25,
+     "[data-mlsn=\"Fe\"]": 10.25,
+     "[data-mlsn=\"Mn\"]": 12.75,
+     "[data-mlsn=\"Cu\"]": 7.75,
+     "[data-mlsn=\"Zn\"]": 16.5,
+     "[data-mlsn=\"B\"]": 1.5,
+     "[data-mlsn=\"Na\"]": 14
+    }
+   }
+  },
+  {
+   "name": "live:soil#20",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "S": 4,
+    "Ca": 5.25,
+    "Cu": 6.5,
+    "Fe": 7.75,
+    "Mg": 9,
+    "Mn": 10.25,
+    "Na": 11.5,
+    "Zn": 12.75,
+    "zone": "Greens",
+    "EC1_5": 15.25,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "pH_CaCl2": 19,
+    "pH_Water": 20.25,
+    "CEC_meq100g": 21.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 20.25,
+     "EC": 15.25,
+     "CEC": 21.5,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 9,
+     "S": 4,
+     "Fe": 7.75,
+     "Mn": 10.25,
+     "Cu": 6.5,
+     "Zn": 12.75,
+     "Na": 11.5
+    },
+    "normalizeValues": {
+     "soil_ph": 20.25,
+     "EC": 15.25,
+     "CEC": 21.5,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 9,
+     "S": 4,
+     "Fe": 7.75,
+     "Mn": 10.25,
+     "Cu": 6.5,
+     "Zn": 12.75,
+     "Na": 11.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 19,
+     ".gaip-soil-ec": 15.25,
+     ".gaip-cec": 21.5,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 5.25,
+     "[data-mlsn=\"Mg\"]": 9,
+     "[data-mlsn=\"S\"]": 4,
+     "[data-mlsn=\"Fe\"]": 7.75,
+     "[data-mlsn=\"Mn\"]": 10.25,
+     "[data-mlsn=\"Cu\"]": 6.5,
+     "[data-mlsn=\"Zn\"]": 12.75,
+     "[data-mlsn=\"Na\"]": 11.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#21",
+   "kind": "soil",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "P": 4,
+    "S": 5.25,
+    "Ca": 6.5,
+    "Cu": 7.75,
+    "Fe": 9,
+    "Mg": 10.25,
+    "Mn": 11.5,
+    "Na": 12.75,
+    "Zn": 14,
+    "zone": "Greens",
+    "EC1_5": 16.5,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "Texture": "sand",
+    "pH_Water": 21.5,
+    "CEC_meq100g": 22.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 21.5,
+     "EC": 16.5,
+     "CEC": 22.75,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 10.25,
+     "S": 5.25,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Cu": 7.75,
+     "Zn": 14,
+     "B": 1.5,
+     "Na": 12.75
+    },
+    "normalizeValues": {
+     "soil_ph": 21.5,
+     "EC": 16.5,
+     "CEC": 22.75,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 10.25,
+     "S": 5.25,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Cu": 7.75,
+     "Zn": 14,
+     "B": 1.5,
+     "Na": 12.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 21.5,
+     ".gaip-soil-ec": 16.5,
+     ".gaip-cec": 22.75,
+     "[data-mlsn=\"K\"]": 2.75,
+     "[data-mlsn=\"P\"]": 4,
+     "[data-mlsn=\"Ca\"]": 6.5,
+     "[data-mlsn=\"Mg\"]": 10.25,
+     "[data-mlsn=\"S\"]": 5.25,
+     "[data-mlsn=\"Fe\"]": 9,
+     "[data-mlsn=\"Mn\"]": 11.5,
+     "[data-mlsn=\"Cu\"]": 7.75,
+     "[data-mlsn=\"Zn\"]": 14,
+     "[data-mlsn=\"B\"]": 1.5,
+     "[data-mlsn=\"Na\"]": 12.75
+    }
+   }
+  },
+  {
+   "name": "live:soil#22",
+   "kind": "soil",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "P": 4,
+    "S": 5.25,
+    "Ca": 6.5,
+    "Cu": 7.75,
+    "EC": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "Na": 14,
+    "OM": 15.25,
+    "Zn": 16.5,
+    "pH": 17.75,
+    "CEC": 19,
+    "zone": "Greens",
+    "_label": "Green 1",
+    "_source": "lab.csv"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 17.75,
+     "EC": 9,
+     "CEC": 19,
+     "OM": 15.25,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "normalizeValues": {
+     "soil_ph": 17.75,
+     "EC": 9,
+     "CEC": 19,
+     "OM": 15.25,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 17.75,
+     ".gaip-soil-ec": 9,
+     ".gaip-cec": 19,
+     ".gaip-loi": 15.25,
+     "[data-mlsn=\"K\"]": 2.75,
+     "[data-mlsn=\"P\"]": 4,
+     "[data-mlsn=\"Ca\"]": 6.5,
+     "[data-mlsn=\"Mg\"]": 11.5,
+     "[data-mlsn=\"S\"]": 5.25,
+     "[data-mlsn=\"Fe\"]": 10.25,
+     "[data-mlsn=\"Mn\"]": 12.75,
+     "[data-mlsn=\"Cu\"]": 7.75,
+     "[data-mlsn=\"Zn\"]": 16.5,
+     "[data-mlsn=\"B\"]": 1.5,
+     "[data-mlsn=\"Na\"]": 14
+    }
+   }
+  },
+  {
+   "name": "live:soil#23",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "S": 4,
+    "Ca": 5.25,
+    "Cu": 6.5,
+    "Fe": 7.75,
+    "Mg": 9,
+    "Mn": 10.25,
+    "Na": 11.5,
+    "Zn": 12.75,
+    "zone": "Greens",
+    "EC1_5": 15.25,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv",
+    "pH_Water": 20.25,
+    "OM_Percent": 21.5,
+    "CEC_meq100g": 22.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 20.25,
+     "EC": 15.25,
+     "CEC": 22.75,
+     "OM": 21.5,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 9,
+     "S": 4,
+     "Fe": 7.75,
+     "Mn": 10.25,
+     "Cu": 6.5,
+     "Zn": 12.75,
+     "Na": 11.5
+    },
+    "normalizeValues": {
+     "soil_ph": 20.25,
+     "EC": 15.25,
+     "CEC": 22.75,
+     "OM": 21.5,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 9,
+     "S": 4,
+     "Fe": 7.75,
+     "Mn": 10.25,
+     "Cu": 6.5,
+     "Zn": 12.75,
+     "Na": 11.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 20.25,
+     ".gaip-soil-ec": 15.25,
+     ".gaip-cec": 22.75,
+     ".gaip-loi": 21.5,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 5.25,
+     "[data-mlsn=\"Mg\"]": 9,
+     "[data-mlsn=\"S\"]": 4,
+     "[data-mlsn=\"Fe\"]": 7.75,
+     "[data-mlsn=\"Mn\"]": 10.25,
+     "[data-mlsn=\"Cu\"]": 6.5,
+     "[data-mlsn=\"Zn\"]": 12.75,
+     "[data-mlsn=\"Na\"]": 11.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#24",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "S": 4,
+    "Ca": 5.25,
+    "Cu": 6.5,
+    "EC": 7.75,
+    "Fe": 9,
+    "Mg": 10.25,
+    "Mn": 11.5,
+    "Na": 12.75,
+    "Zn": 14,
+    "pH": 15.25,
+    "CEC": 16.5,
+    "zone": "Greens",
+    "EC1_5": 19,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "pH_Water": 22.75,
+    "CEC_meq100g": 24
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 22.75,
+     "EC": 19,
+     "CEC": 24,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 10.25,
+     "S": 4,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Cu": 6.5,
+     "Zn": 14,
+     "Na": 12.75
+    },
+    "normalizeValues": {
+     "soil_ph": 22.75,
+     "EC": 19,
+     "CEC": 24,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 10.25,
+     "S": 4,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Cu": 6.5,
+     "Zn": 14,
+     "Na": 12.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 15.25,
+     ".gaip-soil-ec": 7.75,
+     ".gaip-cec": 16.5,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 5.25,
+     "[data-mlsn=\"Mg\"]": 10.25,
+     "[data-mlsn=\"S\"]": 4,
+     "[data-mlsn=\"Fe\"]": 9,
+     "[data-mlsn=\"Mn\"]": 11.5,
+     "[data-mlsn=\"Cu\"]": 6.5,
+     "[data-mlsn=\"Zn\"]": 14,
+     "[data-mlsn=\"Na\"]": 12.75
+    }
+   }
+  },
+  {
+   "name": "live:soil#25",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "Ca": 4,
+    "Cu": 5.25,
+    "EC": 6.5,
+    "Fe": 7.75,
+    "Mg": 9,
+    "Mn": 10.25,
+    "Na": 11.5,
+    "Zn": 12.75,
+    "pH": 14,
+    "CEC": 15.25,
+    "zone": "Greens",
+    "EC1_5": 17.75,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "pH_CaCl2": 21.5,
+    "pH_Water": 22.75,
+    "CEC_meq100g": 24
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 22.75,
+     "EC": 17.75,
+     "CEC": 24,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 9,
+     "Fe": 7.75,
+     "Mn": 10.25,
+     "Cu": 5.25,
+     "Zn": 12.75,
+     "Na": 11.5
+    },
+    "normalizeValues": {
+     "soil_ph": 22.75,
+     "EC": 17.75,
+     "CEC": 24,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 9,
+     "Fe": 7.75,
+     "Mn": 10.25,
+     "Cu": 5.25,
+     "Zn": 12.75,
+     "Na": 11.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 14,
+     ".gaip-soil-ec": 6.5,
+     ".gaip-cec": 15.25,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 4,
+     "[data-mlsn=\"Mg\"]": 9,
+     "[data-mlsn=\"Fe\"]": 7.75,
+     "[data-mlsn=\"Mn\"]": 10.25,
+     "[data-mlsn=\"Cu\"]": 5.25,
+     "[data-mlsn=\"Zn\"]": 12.75,
+     "[data-mlsn=\"Na\"]": 11.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#26",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "S": 4,
+    "Ca": 5.25,
+    "Cu": 6.5,
+    "EC": 7.75,
+    "Fe": 9,
+    "Mg": 10.25,
+    "Mn": 11.5,
+    "Na": 12.75,
+    "Zn": 14,
+    "pH": 15.25,
+    "CEC": 16.5,
+    "zone": "Greens",
+    "EC1_5": 19,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "pH_CaCl2": 22.75,
+    "pH_Water": 24,
+    "CEC_meq100g": 25.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 24,
+     "EC": 19,
+     "CEC": 25.25,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 10.25,
+     "S": 4,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Cu": 6.5,
+     "Zn": 14,
+     "Na": 12.75
+    },
+    "normalizeValues": {
+     "soil_ph": 24,
+     "EC": 19,
+     "CEC": 25.25,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 10.25,
+     "S": 4,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Cu": 6.5,
+     "Zn": 14,
+     "Na": 12.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 15.25,
+     ".gaip-soil-ec": 7.75,
+     ".gaip-cec": 16.5,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 5.25,
+     "[data-mlsn=\"Mg\"]": 10.25,
+     "[data-mlsn=\"S\"]": 4,
+     "[data-mlsn=\"Fe\"]": 9,
+     "[data-mlsn=\"Mn\"]": 11.5,
+     "[data-mlsn=\"Cu\"]": 6.5,
+     "[data-mlsn=\"Zn\"]": 14,
+     "[data-mlsn=\"Na\"]": 12.75
+    }
+   }
+  },
+  {
+   "name": "live:soil#27",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "Ca": 4,
+    "Cu": 5.25,
+    "EC": 6.5,
+    "Fe": 7.75,
+    "Mg": 9,
+    "Mn": 10.25,
+    "Na": 11.5,
+    "Zn": 12.75,
+    "pH": 14,
+    "CEC": 15.25,
+    "zone": "Greens",
+    "EC1_5": 17.75,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv",
+    "pH_CaCl2": 22.75,
+    "pH_Water": 24,
+    "CEC_meq100g": 25.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 24,
+     "EC": 17.75,
+     "CEC": 25.25,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 9,
+     "Fe": 7.75,
+     "Mn": 10.25,
+     "Cu": 5.25,
+     "Zn": 12.75,
+     "Na": 11.5
+    },
+    "normalizeValues": {
+     "soil_ph": 24,
+     "EC": 17.75,
+     "CEC": 25.25,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 4,
+     "Mg": 9,
+     "Fe": 7.75,
+     "Mn": 10.25,
+     "Cu": 5.25,
+     "Zn": 12.75,
+     "Na": 11.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 14,
+     ".gaip-soil-ec": 6.5,
+     ".gaip-cec": 15.25,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 4,
+     "[data-mlsn=\"Mg\"]": 9,
+     "[data-mlsn=\"Fe\"]": 7.75,
+     "[data-mlsn=\"Mn\"]": 10.25,
+     "[data-mlsn=\"Cu\"]": 5.25,
+     "[data-mlsn=\"Zn\"]": 12.75,
+     "[data-mlsn=\"Na\"]": 11.5
+    }
+   }
+  },
+  {
+   "name": "live:soil#28",
+   "kind": "soil",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "P": 4,
+    "S": 5.25,
+    "Ca": 6.5,
+    "Cu": 7.75,
+    "EC": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "Na": 14,
+    "OM": 15.25,
+    "Zn": 16.5,
+    "pH": 17.75,
+    "CEC": 19,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1",
+    "pH_Water": 24,
+    "OM_Percent": 25.25,
+    "CEC_meq100g": 26.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 24,
+     "EC": 9,
+     "CEC": 26.5,
+     "OM": 25.25,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "normalizeValues": {
+     "soil_ph": 24,
+     "EC": 9,
+     "CEC": 26.5,
+     "OM": 25.25,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 17.75,
+     ".gaip-soil-ec": 9,
+     ".gaip-cec": 19,
+     ".gaip-loi": 15.25,
+     "[data-mlsn=\"K\"]": 2.75,
+     "[data-mlsn=\"P\"]": 4,
+     "[data-mlsn=\"Ca\"]": 6.5,
+     "[data-mlsn=\"Mg\"]": 11.5,
+     "[data-mlsn=\"S\"]": 5.25,
+     "[data-mlsn=\"Fe\"]": 10.25,
+     "[data-mlsn=\"Mn\"]": 12.75,
+     "[data-mlsn=\"Cu\"]": 7.75,
+     "[data-mlsn=\"Zn\"]": 16.5,
+     "[data-mlsn=\"B\"]": 1.5,
+     "[data-mlsn=\"Na\"]": 14
+    }
+   }
+  },
+  {
+   "name": "live:soil#29",
+   "kind": "soil",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "P": 4,
+    "S": 5.25,
+    "Ca": 6.5,
+    "Cu": 7.75,
+    "EC": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "Na": 14,
+    "Zn": 15.25,
+    "pH": 16.5,
+    "CEC": 17.75,
+    "zone": "Greens",
+    "EC1_5": 20.25,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "Texture": "sand",
+    "pH_Water": 25.25,
+    "CEC_meq100g": 26.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 25.25,
+     "EC": 20.25,
+     "CEC": 26.5,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 15.25,
+     "B": 1.5,
+     "Na": 14
+    },
+    "normalizeValues": {
+     "soil_ph": 25.25,
+     "EC": 20.25,
+     "CEC": 26.5,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 15.25,
+     "B": 1.5,
+     "Na": 14
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 16.5,
+     ".gaip-soil-ec": 9,
+     ".gaip-cec": 17.75,
+     "[data-mlsn=\"K\"]": 2.75,
+     "[data-mlsn=\"P\"]": 4,
+     "[data-mlsn=\"Ca\"]": 6.5,
+     "[data-mlsn=\"Mg\"]": 11.5,
+     "[data-mlsn=\"S\"]": 5.25,
+     "[data-mlsn=\"Fe\"]": 10.25,
+     "[data-mlsn=\"Mn\"]": 12.75,
+     "[data-mlsn=\"Cu\"]": 7.75,
+     "[data-mlsn=\"Zn\"]": 15.25,
+     "[data-mlsn=\"B\"]": 1.5,
+     "[data-mlsn=\"Na\"]": 14
+    }
+   }
+  },
+  {
+   "name": "live:soil#30",
+   "kind": "soil",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "P": 4,
+    "S": 5.25,
+    "Ca": 6.5,
+    "Cu": 7.75,
+    "EC": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "Na": 14,
+    "Zn": 15.25,
+    "pH": 16.5,
+    "CEC": 17.75,
+    "zone": "Greens",
+    "EC1_5": 20.25,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "pH_CaCl2": 24,
+    "pH_Water": 25.25,
+    "CEC_meq100g": 26.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 25.25,
+     "EC": 20.25,
+     "CEC": 26.5,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 15.25,
+     "B": 1.5,
+     "Na": 14
+    },
+    "normalizeValues": {
+     "soil_ph": 25.25,
+     "EC": 20.25,
+     "CEC": 26.5,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 15.25,
+     "B": 1.5,
+     "Na": 14
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 16.5,
+     ".gaip-soil-ec": 9,
+     ".gaip-cec": 17.75,
+     "[data-mlsn=\"K\"]": 2.75,
+     "[data-mlsn=\"P\"]": 4,
+     "[data-mlsn=\"Ca\"]": 6.5,
+     "[data-mlsn=\"Mg\"]": 11.5,
+     "[data-mlsn=\"S\"]": 5.25,
+     "[data-mlsn=\"Fe\"]": 10.25,
+     "[data-mlsn=\"Mn\"]": 12.75,
+     "[data-mlsn=\"Cu\"]": 7.75,
+     "[data-mlsn=\"Zn\"]": 15.25,
+     "[data-mlsn=\"B\"]": 1.5,
+     "[data-mlsn=\"Na\"]": 14
+    }
+   }
+  },
+  {
+   "name": "live:soil#31",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "S": 4,
+    "Ca": 5.25,
+    "Cu": 6.5,
+    "EC": 7.75,
+    "Fe": 9,
+    "Mg": 10.25,
+    "Mn": 11.5,
+    "Na": 12.75,
+    "OM": 14,
+    "Zn": 15.25,
+    "pH": 16.5,
+    "CEC": 17.75,
+    "zone": "Greens",
+    "EC1_5": 20.25,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv",
+    "pH_Water": 25.25,
+    "CEC_meq100g": 26.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 25.25,
+     "EC": 20.25,
+     "CEC": 26.5,
+     "OM": 14,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 10.25,
+     "S": 4,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Cu": 6.5,
+     "Zn": 15.25,
+     "Na": 12.75
+    },
+    "normalizeValues": {
+     "soil_ph": 25.25,
+     "EC": 20.25,
+     "CEC": 26.5,
+     "OM": 14,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 10.25,
+     "S": 4,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Cu": 6.5,
+     "Zn": 15.25,
+     "Na": 12.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 16.5,
+     ".gaip-soil-ec": 7.75,
+     ".gaip-cec": 17.75,
+     ".gaip-loi": 14,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 5.25,
+     "[data-mlsn=\"Mg\"]": 10.25,
+     "[data-mlsn=\"S\"]": 4,
+     "[data-mlsn=\"Fe\"]": 9,
+     "[data-mlsn=\"Mn\"]": 11.5,
+     "[data-mlsn=\"Cu\"]": 6.5,
+     "[data-mlsn=\"Zn\"]": 15.25,
+     "[data-mlsn=\"Na\"]": 12.75
+    }
+   }
+  },
+  {
+   "name": "live:soil#32",
+   "kind": "soil",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "P": 4,
+    "S": 5.25,
+    "Ca": 6.5,
+    "Cu": 7.75,
+    "EC": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "Na": 14,
+    "OM": 15.25,
+    "Zn": 16.5,
+    "pH": 17.75,
+    "CEC": 19,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv",
+    "pH_Water": 25.25,
+    "OM_Percent": 26.5,
+    "CEC_meq100g": 27.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 25.25,
+     "EC": 9,
+     "CEC": 27.75,
+     "OM": 26.5,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "normalizeValues": {
+     "soil_ph": 25.25,
+     "EC": 9,
+     "CEC": 27.75,
+     "OM": 26.5,
+     "K": 2.75,
+     "P": 4,
+     "Ca": 6.5,
+     "Mg": 11.5,
+     "S": 5.25,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Cu": 7.75,
+     "Zn": 16.5,
+     "B": 1.5,
+     "Na": 14
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 17.75,
+     ".gaip-soil-ec": 9,
+     ".gaip-cec": 19,
+     ".gaip-loi": 15.25,
+     "[data-mlsn=\"K\"]": 2.75,
+     "[data-mlsn=\"P\"]": 4,
+     "[data-mlsn=\"Ca\"]": 6.5,
+     "[data-mlsn=\"Mg\"]": 11.5,
+     "[data-mlsn=\"S\"]": 5.25,
+     "[data-mlsn=\"Fe\"]": 10.25,
+     "[data-mlsn=\"Mn\"]": 12.75,
+     "[data-mlsn=\"Cu\"]": 7.75,
+     "[data-mlsn=\"Zn\"]": 16.5,
+     "[data-mlsn=\"B\"]": 1.5,
+     "[data-mlsn=\"Na\"]": 14
+    }
+   }
+  },
+  {
+   "name": "live:soil#33",
+   "kind": "soil",
+   "row": {
+    "K": 1.5,
+    "P": 2.75,
+    "S": 4,
+    "Ca": 5.25,
+    "Cu": 6.5,
+    "EC": 7.75,
+    "Fe": 9,
+    "Mg": 10.25,
+    "Mn": 11.5,
+    "Na": 12.75,
+    "OM": 14,
+    "Zn": 15.25,
+    "pH": 16.5,
+    "CEC": 17.75,
+    "zone": "Greens",
+    "EC1_5": 20.25,
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv",
+    "pH_Water": 25.25,
+    "OM_Percent": 26.5,
+    "CEC_meq100g": 27.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 25.25,
+     "EC": 20.25,
+     "CEC": 27.75,
+     "OM": 26.5,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 10.25,
+     "S": 4,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Cu": 6.5,
+     "Zn": 15.25,
+     "Na": 12.75
+    },
+    "normalizeValues": {
+     "soil_ph": 25.25,
+     "EC": 20.25,
+     "CEC": 27.75,
+     "OM": 26.5,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 10.25,
+     "S": 4,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Cu": 6.5,
+     "Zn": 15.25,
+     "Na": 12.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 16.5,
+     ".gaip-soil-ec": 7.75,
+     ".gaip-cec": 17.75,
+     ".gaip-loi": 14,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 5.25,
+     "[data-mlsn=\"Mg\"]": 10.25,
+     "[data-mlsn=\"S\"]": 4,
+     "[data-mlsn=\"Fe\"]": 9,
+     "[data-mlsn=\"Mn\"]": 11.5,
+     "[data-mlsn=\"Cu\"]": 6.5,
+     "[data-mlsn=\"Zn\"]": 15.25,
+     "[data-mlsn=\"Na\"]": 12.75
+    }
+   }
+  },
+  {
+   "name": "live:tissue#1",
+   "kind": "tissue",
+   "row": {
+    "N": 1.5,
+    "zone": "Greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 1.5
+    },
+    "normalizeValues": {
+     "N": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:tissue#2",
+   "kind": "tissue",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "N": 4,
+    "P": 5.25,
+    "S": 6.5,
+    "Ca": 7.75,
+    "Cu": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "Zn": 14
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 4,
+     "P": 5.25,
+     "K": 2.75,
+     "Ca": 7.75,
+     "Mg": 11.5,
+     "S": 6.5,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Zn": 14,
+     "Cu": 9,
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "N": 4,
+     "P": 5.25,
+     "K": 2.75,
+     "Ca": 7.75,
+     "Mg": 11.5,
+     "S": 6.5,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Zn": 14,
+     "Cu": 9,
+     "B": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:tissue#3",
+   "kind": "tissue",
+   "row": {
+    "K": 1.5,
+    "N": 2.75,
+    "P": 4,
+    "S": 5.25,
+    "Ca": 6.5,
+    "Cu": 7.75,
+    "Fe": 9,
+    "Mg": 10.25,
+    "Mn": 11.5,
+    "Zn": 12.75,
+    "zone": "Greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 2.75,
+     "P": 4,
+     "K": 1.5,
+     "Ca": 6.5,
+     "Mg": 10.25,
+     "S": 5.25,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Zn": 12.75,
+     "Cu": 7.75
+    },
+    "normalizeValues": {
+     "N": 2.75,
+     "P": 4,
+     "K": 1.5,
+     "Ca": 6.5,
+     "Mg": 10.25,
+     "S": 5.25,
+     "Fe": 9,
+     "Mn": 11.5,
+     "Zn": 12.75,
+     "Cu": 7.75
+    }
+   }
+  },
+  {
+   "name": "live:tissue#4",
+   "kind": "tissue",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "N": 4,
+    "P": 5.25,
+    "S": 6.5,
+    "Ca": 7.75,
+    "Cu": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "Zn": 14,
+    "zone": "Greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 4,
+     "P": 5.25,
+     "K": 2.75,
+     "Ca": 7.75,
+     "Mg": 11.5,
+     "S": 6.5,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Zn": 14,
+     "Cu": 9,
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "N": 4,
+     "P": 5.25,
+     "K": 2.75,
+     "Ca": 7.75,
+     "Mg": 11.5,
+     "S": 6.5,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Zn": 14,
+     "Cu": 9,
+     "B": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:tissue#5",
+   "kind": "tissue",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "N": 4,
+    "P": 5.25,
+    "S": 6.5,
+    "Ca": 7.75,
+    "Cu": 9,
+    "Fe": 10.25,
+    "Mg": 11.5,
+    "Mn": 12.75,
+    "Zn": 14,
+    "_zone": "greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 4,
+     "P": 5.25,
+     "K": 2.75,
+     "Ca": 7.75,
+     "Mg": 11.5,
+     "S": 6.5,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Zn": 14,
+     "Cu": 9,
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "N": 4,
+     "P": 5.25,
+     "K": 2.75,
+     "Ca": 7.75,
+     "Mg": 11.5,
+     "S": 6.5,
+     "Fe": 10.25,
+     "Mn": 12.75,
+     "Zn": 14,
+     "Cu": 9,
+     "B": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:water#1",
+   "kind": "water",
+   "row": {
+    "pH": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "water_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-water-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:water#2",
+   "kind": "water",
+   "row": {
+    "pH": 1.5,
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "water_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-water-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "live:water#3",
+   "kind": "water",
+   "row": {
+    "EC": 1.5,
+    "Na": 2.75,
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5,
+     "Na": 2.75
+    },
+    "normalizeValues": {
+     "ecw": 1.5,
+     "Na": 2.75
+    },
+    "loadSample": {
+     ".gaip-ecw": 1.5,
+     "[data-ion=\"Na\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "live:water#4",
+   "kind": "water",
+   "row": {
+    "EC": 1.5,
+    "Na": 2.75,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5,
+     "Na": 2.75
+    },
+    "normalizeValues": {
+     "ecw": 1.5,
+     "Na": 2.75
+    },
+    "loadSample": {
+     ".gaip-ecw": 1.5,
+     "[data-ion=\"Na\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "live:water#5",
+   "kind": "water",
+   "row": {
+    "Ca": 1.5,
+    "EC": 2.75,
+    "Mg": 4,
+    "Na": 5.25,
+    "pH": 6.5,
+    "HCO3": 7.75,
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 6.5,
+     "EC": 2.75,
+     "Ca": 1.5,
+     "Mg": 4,
+     "Na": 5.25,
+     "HCO3": 7.75
+    },
+    "normalizeValues": {
+     "water_ph": 6.5,
+     "ecw": 2.75,
+     "Ca": 1.5,
+     "Mg": 4,
+     "Na": 5.25,
+     "HCO3": 7.75
+    },
+    "loadSample": {
+     ".gaip-water-ph": 6.5,
+     ".gaip-ecw": 2.75,
+     "[data-ion=\"Ca\"]": 1.5,
+     "[data-ion=\"Mg\"]": 4,
+     "[data-ion=\"Na\"]": 5.25,
+     "[data-ion=\"HCO3\"]": 7.75
+    }
+   }
+  },
+  {
+   "name": "live:water#6",
+   "kind": "water",
+   "row": {
+    "Ca": 1.5,
+    "EC": 2.75,
+    "Mg": 4,
+    "Na": 5.25,
+    "pH": 6.5,
+    "HCO3": 7.75,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 6.5,
+     "EC": 2.75,
+     "Ca": 1.5,
+     "Mg": 4,
+     "Na": 5.25,
+     "HCO3": 7.75
+    },
+    "normalizeValues": {
+     "water_ph": 6.5,
+     "ecw": 2.75,
+     "Ca": 1.5,
+     "Mg": 4,
+     "Na": 5.25,
+     "HCO3": 7.75
+    },
+    "loadSample": {
+     ".gaip-water-ph": 6.5,
+     ".gaip-ecw": 2.75,
+     "[data-ion=\"Ca\"]": 1.5,
+     "[data-ion=\"Mg\"]": 4,
+     "[data-ion=\"Na\"]": 5.25,
+     "[data-ion=\"HCO3\"]": 7.75
+    }
+   }
+  },
+  {
+   "name": "live:water#7",
+   "kind": "water",
+   "row": {
+    "K": 1.5,
+    "Ca": 2.75,
+    "Cl": 4,
+    "EC": 5.25,
+    "Mg": 6.5,
+    "Na": 7.75,
+    "pH": 9,
+    "SO4": 10.25,
+    "HCO3": 11.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 9,
+     "EC": 5.25,
+     "Ca": 2.75,
+     "Mg": 6.5,
+     "Na": 7.75,
+     "K": 1.5,
+     "Cl": 4,
+     "SO4": 10.25,
+     "HCO3": 11.5
+    },
+    "normalizeValues": {
+     "water_ph": 9,
+     "ecw": 5.25,
+     "Ca": 2.75,
+     "Mg": 6.5,
+     "Na": 7.75,
+     "K": 1.5,
+     "Cl": 4,
+     "SO4": 10.25,
+     "HCO3": 11.5
+    },
+    "loadSample": {
+     ".gaip-water-ph": 9,
+     ".gaip-ecw": 5.25,
+     "[data-ion=\"Ca\"]": 2.75,
+     "[data-ion=\"Mg\"]": 6.5,
+     "[data-ion=\"Na\"]": 7.75,
+     "[data-ion=\"K\"]": 1.5,
+     "[data-ion=\"Cl\"]": 4,
+     "[data-ion=\"SO4\"]": 10.25,
+     "[data-ion=\"HCO3\"]": 11.5
+    }
+   }
+  },
+  {
+   "name": "live:water#8",
+   "kind": "water",
+   "row": {
+    "K": 1.5,
+    "Ca": 2.75,
+    "Cl": 4,
+    "EC": 5.25,
+    "Fe": 6.5,
+    "Mg": 7.75,
+    "Na": 9,
+    "pH": 10.25,
+    "CO3": 11.5,
+    "NO3": 12.75,
+    "PO4": 14,
+    "SO4": 15.25,
+    "HCO3": 16.5,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 10.25,
+     "EC": 5.25,
+     "Ca": 2.75,
+     "Mg": 7.75,
+     "Na": 9,
+     "K": 1.5,
+     "Cl": 4,
+     "SO4": 15.25,
+     "HCO3": 16.5,
+     "CO3": 11.5,
+     "Fe": 6.5,
+     "NO3": 12.75,
+     "PO4": 14
+    },
+    "normalizeValues": {
+     "water_ph": 10.25,
+     "ecw": 5.25,
+     "Ca": 2.75,
+     "Mg": 7.75,
+     "Na": 9,
+     "K": 1.5,
+     "Cl": 4,
+     "SO4": 15.25,
+     "HCO3": 16.5,
+     "CO3": 11.5,
+     "Fe": 6.5,
+     "NO3": 12.75,
+     "PO4": 14
+    },
+    "loadSample": {
+     ".gaip-water-ph": 10.25,
+     ".gaip-ecw": 5.25,
+     "[data-ion=\"Ca\"]": 2.75,
+     "[data-ion=\"Mg\"]": 7.75,
+     "[data-ion=\"Na\"]": 9,
+     "[data-ion=\"K\"]": 1.5,
+     "[data-ion=\"Cl\"]": 4,
+     "[data-ion=\"SO4\"]": 15.25,
+     "[data-ion=\"HCO3\"]": 16.5,
+     "[data-ion=\"CO3\"]": 11.5,
+     "[data-ion=\"Fe\"]": 6.5,
+     "[data-ion=\"NO3\"]": 12.75,
+     "[data-ion=\"PO4\"]": 14
+    }
+   }
+  },
+  {
+   "name": "live:water#9",
+   "kind": "water",
+   "row": {
+    "K": 1.5,
+    "Ca": 2.75,
+    "Cl": 4,
+    "EC": 5.25,
+    "Fe": 6.5,
+    "Mg": 7.75,
+    "Na": 9,
+    "pH": 10.25,
+    "CO3": 11.5,
+    "NO3": 12.75,
+    "PO4": 14,
+    "SO4": 15.25,
+    "HCO3": 16.5,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 10.25,
+     "EC": 5.25,
+     "Ca": 2.75,
+     "Mg": 7.75,
+     "Na": 9,
+     "K": 1.5,
+     "Cl": 4,
+     "SO4": 15.25,
+     "HCO3": 16.5,
+     "CO3": 11.5,
+     "Fe": 6.5,
+     "NO3": 12.75,
+     "PO4": 14
+    },
+    "normalizeValues": {
+     "water_ph": 10.25,
+     "ecw": 5.25,
+     "Ca": 2.75,
+     "Mg": 7.75,
+     "Na": 9,
+     "K": 1.5,
+     "Cl": 4,
+     "SO4": 15.25,
+     "HCO3": 16.5,
+     "CO3": 11.5,
+     "Fe": 6.5,
+     "NO3": 12.75,
+     "PO4": 14
+    },
+    "loadSample": {
+     ".gaip-water-ph": 10.25,
+     ".gaip-ecw": 5.25,
+     "[data-ion=\"Ca\"]": 2.75,
+     "[data-ion=\"Mg\"]": 7.75,
+     "[data-ion=\"Na\"]": 9,
+     "[data-ion=\"K\"]": 1.5,
+     "[data-ion=\"Cl\"]": 4,
+     "[data-ion=\"SO4\"]": 15.25,
+     "[data-ion=\"HCO3\"]": 16.5,
+     "[data-ion=\"CO3\"]": 11.5,
+     "[data-ion=\"Fe\"]": 6.5,
+     "[data-ion=\"NO3\"]": 12.75,
+     "[data-ion=\"PO4\"]": 14
+    }
+   }
+  },
+  {
+   "name": "live:water#10",
+   "kind": "water",
+   "row": {
+    "K": 1.5,
+    "Ca": 2.75,
+    "Cl": 4,
+    "EC": 5.25,
+    "Fe": 6.5,
+    "Mg": 7.75,
+    "Mn": 9,
+    "Na": 10.25,
+    "pH": 11.5,
+    "CO3": 12.75,
+    "NO3": 14,
+    "PO4": 15.25,
+    "SO4": 16.5,
+    "HCO3": 17.75,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 11.5,
+     "EC": 5.25,
+     "Ca": 2.75,
+     "Mg": 7.75,
+     "Na": 10.25,
+     "K": 1.5,
+     "Cl": 4,
+     "SO4": 16.5,
+     "HCO3": 17.75,
+     "CO3": 12.75,
+     "Fe": 6.5,
+     "NO3": 14,
+     "PO4": 15.25,
+     "Mn": 9
+    },
+    "normalizeValues": {
+     "water_ph": 11.5,
+     "ecw": 5.25,
+     "Ca": 2.75,
+     "Mg": 7.75,
+     "Na": 10.25,
+     "K": 1.5,
+     "Cl": 4,
+     "SO4": 16.5,
+     "HCO3": 17.75,
+     "CO3": 12.75,
+     "Fe": 6.5,
+     "NO3": 14,
+     "PO4": 15.25,
+     "Mn": 9
+    },
+    "loadSample": {
+     ".gaip-water-ph": 11.5,
+     ".gaip-ecw": 5.25,
+     "[data-ion=\"Ca\"]": 2.75,
+     "[data-ion=\"Mg\"]": 7.75,
+     "[data-ion=\"Na\"]": 10.25,
+     "[data-ion=\"K\"]": 1.5,
+     "[data-ion=\"Cl\"]": 4,
+     "[data-ion=\"SO4\"]": 16.5,
+     "[data-ion=\"HCO3\"]": 17.75,
+     "[data-ion=\"CO3\"]": 12.75,
+     "[data-ion=\"Fe\"]": 6.5,
+     "[data-ion=\"NO3\"]": 14,
+     "[data-ion=\"PO4\"]": 15.25,
+     "[data-ion=\"Mn\"]": 9
+    }
+   }
+  },
+  {
+   "name": "live:water#11",
+   "kind": "water",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "Ca": 4,
+    "Cl": 5.25,
+    "EC": 6.5,
+    "Fe": 7.75,
+    "Mg": 9,
+    "Mn": 10.25,
+    "Na": 11.5,
+    "pH": 12.75,
+    "CO3": 14,
+    "NO3": 15.25,
+    "PO4": 16.5,
+    "SO4": 17.75,
+    "HCO3": 19,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 12.75,
+     "EC": 6.5,
+     "Ca": 4,
+     "Mg": 9,
+     "Na": 11.5,
+     "K": 2.75,
+     "Cl": 5.25,
+     "SO4": 17.75,
+     "HCO3": 19,
+     "CO3": 14,
+     "B": 1.5,
+     "Fe": 7.75,
+     "NO3": 15.25,
+     "PO4": 16.5,
+     "Mn": 10.25
+    },
+    "normalizeValues": {
+     "water_ph": 12.75,
+     "ecw": 6.5,
+     "Ca": 4,
+     "Mg": 9,
+     "Na": 11.5,
+     "K": 2.75,
+     "Cl": 5.25,
+     "SO4": 17.75,
+     "HCO3": 19,
+     "CO3": 14,
+     "B": 1.5,
+     "Fe": 7.75,
+     "NO3": 15.25,
+     "PO4": 16.5,
+     "Mn": 10.25
+    },
+    "loadSample": {
+     ".gaip-water-ph": 12.75,
+     ".gaip-ecw": 6.5,
+     "[data-ion=\"Ca\"]": 4,
+     "[data-ion=\"Mg\"]": 9,
+     "[data-ion=\"Na\"]": 11.5,
+     "[data-ion=\"K\"]": 2.75,
+     "[data-ion=\"Cl\"]": 5.25,
+     "[data-ion=\"SO4\"]": 17.75,
+     "[data-ion=\"HCO3\"]": 19,
+     "[data-ion=\"CO3\"]": 14,
+     "[data-ion=\"B\"]": 1.5,
+     "[data-ion=\"Fe\"]": 7.75,
+     "[data-ion=\"NO3\"]": 15.25,
+     "[data-ion=\"PO4\"]": 16.5,
+     "[data-ion=\"Mn\"]": 10.25
+    }
+   }
+  },
+  {
+   "name": "live:water#12",
+   "kind": "water",
+   "row": {
+    "B": 1.5,
+    "K": 2.75,
+    "Ca": 4,
+    "Cl": 5.25,
+    "EC": 6.5,
+    "Fe": 7.75,
+    "Mg": 9,
+    "Mn": 10.25,
+    "Na": 11.5,
+    "pH": 12.75,
+    "CO3": 14,
+    "NO3": 15.25,
+    "PO4": 16.5,
+    "SO4": 17.75,
+    "HCO3": 19,
+    "zone": "Greens",
+    "_zone": "greens",
+    "_label": "Green 1",
+    "_source": "lab.csv"
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 12.75,
+     "EC": 6.5,
+     "Ca": 4,
+     "Mg": 9,
+     "Na": 11.5,
+     "K": 2.75,
+     "Cl": 5.25,
+     "SO4": 17.75,
+     "HCO3": 19,
+     "CO3": 14,
+     "B": 1.5,
+     "Fe": 7.75,
+     "NO3": 15.25,
+     "PO4": 16.5,
+     "Mn": 10.25
+    },
+    "normalizeValues": {
+     "water_ph": 12.75,
+     "ecw": 6.5,
+     "Ca": 4,
+     "Mg": 9,
+     "Na": 11.5,
+     "K": 2.75,
+     "Cl": 5.25,
+     "SO4": 17.75,
+     "HCO3": 19,
+     "CO3": 14,
+     "B": 1.5,
+     "Fe": 7.75,
+     "NO3": 15.25,
+     "PO4": 16.5,
+     "Mn": 10.25
+    },
+    "loadSample": {
+     ".gaip-water-ph": 12.75,
+     ".gaip-ecw": 6.5,
+     "[data-ion=\"Ca\"]": 4,
+     "[data-ion=\"Mg\"]": 9,
+     "[data-ion=\"Na\"]": 11.5,
+     "[data-ion=\"K\"]": 2.75,
+     "[data-ion=\"Cl\"]": 5.25,
+     "[data-ion=\"SO4\"]": 17.75,
+     "[data-ion=\"HCO3\"]": 19,
+     "[data-ion=\"CO3\"]": 14,
+     "[data-ion=\"B\"]": 1.5,
+     "[data-ion=\"Fe\"]": 7.75,
+     "[data-ion=\"NO3\"]": 15.25,
+     "[data-ion=\"PO4\"]": 16.5,
+     "[data-ion=\"Mn\"]": 10.25
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[pH_Water]",
+   "kind": "soil",
+   "row": {
+    "pH_Water": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[pH]",
+   "kind": "soil",
+   "row": {
+    "pH": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[ph]",
+   "kind": "soil",
+   "row": {
+    "ph": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[EC_1_5]",
+   "kind": "soil",
+   "row": {
+    "EC_1_5": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "EC": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ec": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[EC1:5]",
+   "kind": "soil",
+   "row": {
+    "EC1:5": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "EC": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ec": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[EC_1:5]",
+   "kind": "soil",
+   "row": {
+    "EC_1:5": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "EC": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ec": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[EC1_5]",
+   "kind": "soil",
+   "row": {
+    "EC1_5": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "EC": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ec": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[EC_dSm]",
+   "kind": "soil",
+   "row": {
+    "EC_dSm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "EC": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ec": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[EC]",
+   "kind": "soil",
+   "row": {
+    "EC": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "EC": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ec": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[ec]",
+   "kind": "soil",
+   "row": {
+    "ec": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "EC": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ec": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[CEC_meq100g]",
+   "kind": "soil",
+   "row": {
+    "CEC_meq100g": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "CEC": 1.5
+    },
+    "normalizeValues": {
+     "CEC": 1.5
+    },
+    "loadSample": {
+     ".gaip-cec": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[CEC]",
+   "kind": "soil",
+   "row": {
+    "CEC": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "CEC": 1.5
+    },
+    "normalizeValues": {
+     "CEC": 1.5
+    },
+    "loadSample": {
+     ".gaip-cec": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[cec]",
+   "kind": "soil",
+   "row": {
+    "cec": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "CEC": 1.5
+    },
+    "normalizeValues": {
+     "CEC": 1.5
+    },
+    "loadSample": {
+     ".gaip-cec": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[OM_Percent]",
+   "kind": "soil",
+   "row": {
+    "OM_Percent": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "OM": 1.5
+    },
+    "normalizeValues": {
+     "OM": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Organic Matter]",
+   "kind": "soil",
+   "row": {
+    "Organic Matter": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "OM": 1.5
+    },
+    "normalizeValues": {
+     "OM": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[OM]",
+   "kind": "soil",
+   "row": {
+    "OM": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "OM": 1.5
+    },
+    "normalizeValues": {
+     "OM": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[LOI]",
+   "kind": "soil",
+   "row": {
+    "LOI": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "OM": 1.5
+    },
+    "normalizeValues": {
+     "OM": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[areaHa]",
+   "kind": "soil",
+   "row": {
+    "areaHa": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "soil_area_ha": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-area-ha": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[area_ha]",
+   "kind": "soil",
+   "row": {
+    "area_ha": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "soil_area_ha": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-area-ha": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Area_ha]",
+   "kind": "soil",
+   "row": {
+    "Area_ha": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "soil_area_ha": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-area-ha": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[AreaHa]",
+   "kind": "soil",
+   "row": {
+    "AreaHa": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "soil_area_ha": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-area-ha": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[area]",
+   "kind": "soil",
+   "row": {
+    "area": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "soil_area_ha": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-area-ha": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[LOI_0_2]",
+   "kind": "soil",
+   "row": {
+    "LOI_0_2": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[OM_0_2]",
+   "kind": "soil",
+   "row": {
+    "OM_0_2": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[LOI_0-2]",
+   "kind": "soil",
+   "row": {
+    "LOI_0-2": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[OM_0-2cm]",
+   "kind": "soil",
+   "row": {
+    "OM_0-2cm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[LOI_2_4]",
+   "kind": "soil",
+   "row": {
+    "LOI_2_4": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[OM_2_4]",
+   "kind": "soil",
+   "row": {
+    "OM_2_4": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[LOI_2-4]",
+   "kind": "soil",
+   "row": {
+    "LOI_2-4": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[OM_2-4cm]",
+   "kind": "soil",
+   "row": {
+    "OM_2-4cm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[LOI_4_6]",
+   "kind": "soil",
+   "row": {
+    "LOI_4_6": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[OM_4_6]",
+   "kind": "soil",
+   "row": {
+    "OM_4_6": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[LOI_4-6]",
+   "kind": "soil",
+   "row": {
+    "LOI_4-6": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[OM_4-6cm]",
+   "kind": "soil",
+   "row": {
+    "OM_4-6cm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[K_ppm]",
+   "kind": "soil",
+   "row": {
+    "K_ppm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"K\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[K]",
+   "kind": "soil",
+   "row": {
+    "K": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"K\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[P_ppm]",
+   "kind": "soil",
+   "row": {
+    "P_ppm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 1.5
+    },
+    "normalizeValues": {
+     "P": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"P\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[P]",
+   "kind": "soil",
+   "row": {
+    "P": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 1.5
+    },
+    "normalizeValues": {
+     "P": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"P\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Ca_ppm]",
+   "kind": "soil",
+   "row": {
+    "Ca_ppm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Ca\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Ca]",
+   "kind": "soil",
+   "row": {
+    "Ca": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Ca\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Mg_ppm]",
+   "kind": "soil",
+   "row": {
+    "Mg_ppm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Mg\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Mg]",
+   "kind": "soil",
+   "row": {
+    "Mg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Mg\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[S_ppm]",
+   "kind": "soil",
+   "row": {
+    "S_ppm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "S": 1.5
+    },
+    "normalizeValues": {
+     "S": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"S\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[S]",
+   "kind": "soil",
+   "row": {
+    "S": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "S": 1.5
+    },
+    "normalizeValues": {
+     "S": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"S\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Fe_ppm]",
+   "kind": "soil",
+   "row": {
+    "Fe_ppm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Fe\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Fe]",
+   "kind": "soil",
+   "row": {
+    "Fe": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Fe\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Mn_ppm]",
+   "kind": "soil",
+   "row": {
+    "Mn_ppm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 1.5
+    },
+    "normalizeValues": {
+     "Mn": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Mn\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Mn]",
+   "kind": "soil",
+   "row": {
+    "Mn": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 1.5
+    },
+    "normalizeValues": {
+     "Mn": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Mn\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Cu_ppm]",
+   "kind": "soil",
+   "row": {
+    "Cu_ppm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cu": 1.5
+    },
+    "normalizeValues": {
+     "Cu": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Cu\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Cu]",
+   "kind": "soil",
+   "row": {
+    "Cu": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cu": 1.5
+    },
+    "normalizeValues": {
+     "Cu": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Cu\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Zn_ppm]",
+   "kind": "soil",
+   "row": {
+    "Zn_ppm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Zn": 1.5
+    },
+    "normalizeValues": {
+     "Zn": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Zn\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Zn]",
+   "kind": "soil",
+   "row": {
+    "Zn": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Zn": 1.5
+    },
+    "normalizeValues": {
+     "Zn": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Zn\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[B_ppm]",
+   "kind": "soil",
+   "row": {
+    "B_ppm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"B\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[B]",
+   "kind": "soil",
+   "row": {
+    "B": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"B\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Na_ppm]",
+   "kind": "soil",
+   "row": {
+    "Na_ppm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 1.5
+    },
+    "normalizeValues": {
+     "Na": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Na\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Na]",
+   "kind": "soil",
+   "row": {
+    "Na": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 1.5
+    },
+    "normalizeValues": {
+     "Na": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Na\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[potassium]",
+   "kind": "soil",
+   "row": {
+    "potassium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Potassium]",
+   "kind": "soil",
+   "row": {
+    "Potassium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[phosphorus]",
+   "kind": "soil",
+   "row": {
+    "phosphorus": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Phosphorus]",
+   "kind": "soil",
+   "row": {
+    "Phosphorus": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[calcium]",
+   "kind": "soil",
+   "row": {
+    "calcium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Calcium]",
+   "kind": "soil",
+   "row": {
+    "Calcium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[magnesium]",
+   "kind": "soil",
+   "row": {
+    "magnesium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Magnesium]",
+   "kind": "soil",
+   "row": {
+    "Magnesium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[sulfur]",
+   "kind": "soil",
+   "row": {
+    "sulfur": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[sulphur]",
+   "kind": "soil",
+   "row": {
+    "sulphur": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[iron]",
+   "kind": "soil",
+   "row": {
+    "iron": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Iron]",
+   "kind": "soil",
+   "row": {
+    "Iron": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[manganese]",
+   "kind": "soil",
+   "row": {
+    "manganese": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[zinc]",
+   "kind": "soil",
+   "row": {
+    "zinc": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[copper]",
+   "kind": "soil",
+   "row": {
+    "copper": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[boron]",
+   "kind": "soil",
+   "row": {
+    "boron": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[sodium]",
+   "kind": "soil",
+   "row": {
+    "sodium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[om]",
+   "kind": "soil",
+   "row": {
+    "om": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "OM": 1.5
+    },
+    "normalizeValues": {
+     "OM": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[organic_matter]",
+   "kind": "soil",
+   "row": {
+    "organic_matter": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Zone]",
+   "kind": "soil",
+   "row": {
+    "Zone": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[zone]",
+   "kind": "soil",
+   "row": {
+    "zone": "Greens"
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Sample_ID]",
+   "kind": "soil",
+   "row": {
+    "Sample_ID": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[SampleID]",
+   "kind": "soil",
+   "row": {
+    "SampleID": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Sample ID]",
+   "kind": "soil",
+   "row": {
+    "Sample ID": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Sample]",
+   "kind": "soil",
+   "row": {
+    "Sample": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[sample_id]",
+   "kind": "soil",
+   "row": {
+    "sample_id": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Date]",
+   "kind": "soil",
+   "row": {
+    "Date": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[date]",
+   "kind": "soil",
+   "row": {
+    "date": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Sample_Date]",
+   "kind": "soil",
+   "row": {
+    "Sample_Date": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Lab]",
+   "kind": "soil",
+   "row": {
+    "Lab": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[lab]",
+   "kind": "soil",
+   "row": {
+    "lab": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Lab_Name]",
+   "kind": "soil",
+   "row": {
+    "Lab_Name": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[PH]",
+   "kind": "soil",
+   "row": {
+    "PH": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[p]",
+   "kind": "soil",
+   "row": {
+    "p": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 1.5
+    },
+    "normalizeValues": {
+     "P": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"P\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[k]",
+   "kind": "soil",
+   "row": {
+    "k": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"K\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[OrganicMatter]",
+   "kind": "soil",
+   "row": {
+    "OrganicMatter": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[N]",
+   "kind": "soil",
+   "row": {
+    "N": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[n]",
+   "kind": "soil",
+   "row": {
+    "n": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[nitrogen]",
+   "kind": "soil",
+   "row": {
+    "nitrogen": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Nitrogen]",
+   "kind": "soil",
+   "row": {
+    "Nitrogen": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[ca]",
+   "kind": "soil",
+   "row": {
+    "ca": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Ca\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[mg]",
+   "kind": "soil",
+   "row": {
+    "mg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Mg\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[s]",
+   "kind": "soil",
+   "row": {
+    "s": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "S": 1.5
+    },
+    "normalizeValues": {
+     "S": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"S\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Sulfur]",
+   "kind": "soil",
+   "row": {
+    "Sulfur": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[fe]",
+   "kind": "soil",
+   "row": {
+    "fe": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Fe\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[mn]",
+   "kind": "soil",
+   "row": {
+    "mn": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 1.5
+    },
+    "normalizeValues": {
+     "Mn": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Mn\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Manganese]",
+   "kind": "soil",
+   "row": {
+    "Manganese": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[zn]",
+   "kind": "soil",
+   "row": {
+    "zn": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Zn": 1.5
+    },
+    "normalizeValues": {
+     "Zn": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Zn\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Zinc]",
+   "kind": "soil",
+   "row": {
+    "Zinc": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[cu]",
+   "kind": "soil",
+   "row": {
+    "cu": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cu": 1.5
+    },
+    "normalizeValues": {
+     "Cu": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Cu\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Copper]",
+   "kind": "soil",
+   "row": {
+    "Copper": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[b]",
+   "kind": "soil",
+   "row": {
+    "b": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"B\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:soil[Boron]",
+   "kind": "soil",
+   "row": {
+    "Boron": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[BS]",
+   "kind": "soil",
+   "row": {
+    "BS": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[base_saturation]",
+   "kind": "soil",
+   "row": {
+    "base_saturation": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[BaseSaturation]",
+   "kind": "soil",
+   "row": {
+    "BaseSaturation": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[base_sat]",
+   "kind": "soil",
+   "row": {
+    "base_sat": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[Salinity]",
+   "kind": "soil",
+   "row": {
+    "Salinity": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:soil[salinity]",
+   "kind": "soil",
+   "row": {
+    "salinity": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "all:soil:.gaip-soil-ph",
+   "kind": "soil",
+   "row": {
+    "pH_Water": 1.5,
+    "pH": 2.75,
+    "ph": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 4
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:.gaip-soil-ph",
+   "kind": "soil",
+   "row": {
+    "ph": 1.5,
+    "pH": 2.75,
+    "pH_Water": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 4
+    },
+    "normalizeValues": {
+     "soil_ph": 4
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:soil:.gaip-soil-ec",
+   "kind": "soil",
+   "row": {
+    "EC_1_5": 1.5,
+    "EC1:5": 2.75,
+    "EC_1:5": 4,
+    "EC1_5": 5.25,
+    "EC_dSm": 6.5,
+    "EC": 7.75,
+    "ec": 9
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "EC": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ec": 9
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:.gaip-soil-ec",
+   "kind": "soil",
+   "row": {
+    "ec": 1.5,
+    "EC": 2.75,
+    "EC_dSm": 4,
+    "EC1_5": 5.25,
+    "EC_1:5": 6.5,
+    "EC1:5": 7.75,
+    "EC_1_5": 9
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 9
+    },
+    "normalizeValues": {
+     "EC": 9
+    },
+    "loadSample": {
+     ".gaip-soil-ec": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:soil:.gaip-cec",
+   "kind": "soil",
+   "row": {
+    "CEC_meq100g": 1.5,
+    "CEC": 2.75,
+    "cec": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "CEC": 1.5
+    },
+    "normalizeValues": {
+     "CEC": 1.5
+    },
+    "loadSample": {
+     ".gaip-cec": 4
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:.gaip-cec",
+   "kind": "soil",
+   "row": {
+    "cec": 1.5,
+    "CEC": 2.75,
+    "CEC_meq100g": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "CEC": 4
+    },
+    "normalizeValues": {
+     "CEC": 4
+    },
+    "loadSample": {
+     ".gaip-cec": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:soil:.gaip-loi",
+   "kind": "soil",
+   "row": {
+    "OM_Percent": 1.5,
+    "Organic Matter": 2.75,
+    "OM": 4,
+    "LOI": 5.25,
+    "om": 6.5,
+    "organic_matter": 7.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "OM": 1.5
+    },
+    "normalizeValues": {
+     "OM": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 5.25
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:.gaip-loi",
+   "kind": "soil",
+   "row": {
+    "organic_matter": 1.5,
+    "om": 2.75,
+    "LOI": 4,
+    "OM": 5.25,
+    "Organic Matter": 6.5,
+    "OM_Percent": 7.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "OM": 7.75
+    },
+    "normalizeValues": {
+     "OM": 7.75
+    },
+    "loadSample": {
+     ".gaip-loi": 4
+    }
+   }
+  },
+  {
+   "name": "all:soil:.gaip-soil-area-ha",
+   "kind": "soil",
+   "row": {
+    "areaHa": 1.5,
+    "area_ha": 2.75,
+    "Area_ha": 4,
+    "AreaHa": 5.25,
+    "area": 6.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "soil_area_ha": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-area-ha": 6.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:.gaip-soil-area-ha",
+   "kind": "soil",
+   "row": {
+    "area": 1.5,
+    "AreaHa": 2.75,
+    "Area_ha": 4,
+    "area_ha": 5.25,
+    "areaHa": 6.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "soil_area_ha": 6.5
+    },
+    "loadSample": {
+     ".gaip-soil-area-ha": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:soil:.gaip-loi-0-2",
+   "kind": "soil",
+   "row": {
+    "LOI_0_2": 1.5,
+    "OM_0_2": 2.75,
+    "LOI_0-2": 4,
+    "OM_0-2cm": 5.25
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 5.25
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:.gaip-loi-0-2",
+   "kind": "soil",
+   "row": {
+    "OM_0-2cm": 1.5,
+    "LOI_0-2": 2.75,
+    "OM_0_2": 4,
+    "LOI_0_2": 5.25
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_0_2": 5.25
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:soil:.gaip-loi-2-4",
+   "kind": "soil",
+   "row": {
+    "LOI_2_4": 1.5,
+    "OM_2_4": 2.75,
+    "LOI_2-4": 4,
+    "OM_2-4cm": 5.25
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 5.25
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:.gaip-loi-2-4",
+   "kind": "soil",
+   "row": {
+    "OM_2-4cm": 1.5,
+    "LOI_2-4": 2.75,
+    "OM_2_4": 4,
+    "LOI_2_4": 5.25
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_2_4": 5.25
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:soil:.gaip-loi-4-6",
+   "kind": "soil",
+   "row": {
+    "LOI_4_6": 1.5,
+    "OM_4_6": 2.75,
+    "LOI_4-6": 4,
+    "OM_4-6cm": 5.25
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 5.25
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:.gaip-loi-4-6",
+   "kind": "soil",
+   "row": {
+    "OM_4-6cm": 1.5,
+    "LOI_4-6": 2.75,
+    "OM_4_6": 4,
+    "LOI_4_6": 5.25
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {
+     "loi_4_6": 5.25
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:soil:[data-mlsn=\"K\"]",
+   "kind": "soil",
+   "row": {
+    "K_ppm": 1.5,
+    "K": 2.75,
+    "potassium": 4,
+    "Potassium": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"K\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:[data-mlsn=\"K\"]",
+   "kind": "soil",
+   "row": {
+    "Potassium": 1.5,
+    "potassium": 2.75,
+    "K": 4,
+    "K_ppm": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 5.25
+    },
+    "normalizeValues": {
+     "K": 5.25
+    },
+    "loadSample": {
+     "[data-mlsn=\"K\"]": 4
+    }
+   }
+  },
+  {
+   "name": "all:soil:[data-mlsn=\"P\"]",
+   "kind": "soil",
+   "row": {
+    "P_ppm": 1.5,
+    "P": 2.75,
+    "phosphorus": 4,
+    "Phosphorus": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 1.5
+    },
+    "normalizeValues": {
+     "P": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"P\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:[data-mlsn=\"P\"]",
+   "kind": "soil",
+   "row": {
+    "Phosphorus": 1.5,
+    "phosphorus": 2.75,
+    "P": 4,
+    "P_ppm": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 5.25
+    },
+    "normalizeValues": {
+     "P": 5.25
+    },
+    "loadSample": {
+     "[data-mlsn=\"P\"]": 4
+    }
+   }
+  },
+  {
+   "name": "all:soil:[data-mlsn=\"Ca\"]",
+   "kind": "soil",
+   "row": {
+    "Ca_ppm": 1.5,
+    "Ca": 2.75,
+    "calcium": 4,
+    "Calcium": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Ca\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:[data-mlsn=\"Ca\"]",
+   "kind": "soil",
+   "row": {
+    "Calcium": 1.5,
+    "calcium": 2.75,
+    "Ca": 4,
+    "Ca_ppm": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 5.25
+    },
+    "normalizeValues": {
+     "Ca": 5.25
+    },
+    "loadSample": {
+     "[data-mlsn=\"Ca\"]": 4
+    }
+   }
+  },
+  {
+   "name": "all:soil:[data-mlsn=\"Mg\"]",
+   "kind": "soil",
+   "row": {
+    "Mg_ppm": 1.5,
+    "Mg": 2.75,
+    "magnesium": 4,
+    "Magnesium": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Mg\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:[data-mlsn=\"Mg\"]",
+   "kind": "soil",
+   "row": {
+    "Magnesium": 1.5,
+    "magnesium": 2.75,
+    "Mg": 4,
+    "Mg_ppm": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 5.25
+    },
+    "normalizeValues": {
+     "Mg": 5.25
+    },
+    "loadSample": {
+     "[data-mlsn=\"Mg\"]": 4
+    }
+   }
+  },
+  {
+   "name": "all:soil:[data-mlsn=\"S\"]",
+   "kind": "soil",
+   "row": {
+    "S_ppm": 1.5,
+    "S": 2.75,
+    "sulfur": 4,
+    "sulphur": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "S": 1.5
+    },
+    "normalizeValues": {
+     "S": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"S\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:[data-mlsn=\"S\"]",
+   "kind": "soil",
+   "row": {
+    "sulphur": 1.5,
+    "sulfur": 2.75,
+    "S": 4,
+    "S_ppm": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "S": 5.25
+    },
+    "normalizeValues": {
+     "S": 5.25
+    },
+    "loadSample": {
+     "[data-mlsn=\"S\"]": 4
+    }
+   }
+  },
+  {
+   "name": "all:soil:[data-mlsn=\"Fe\"]",
+   "kind": "soil",
+   "row": {
+    "Fe_ppm": 1.5,
+    "Fe": 2.75,
+    "iron": 4,
+    "Iron": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Fe\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:[data-mlsn=\"Fe\"]",
+   "kind": "soil",
+   "row": {
+    "Iron": 1.5,
+    "iron": 2.75,
+    "Fe": 4,
+    "Fe_ppm": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 5.25
+    },
+    "normalizeValues": {
+     "Fe": 5.25
+    },
+    "loadSample": {
+     "[data-mlsn=\"Fe\"]": 4
+    }
+   }
+  },
+  {
+   "name": "all:soil:[data-mlsn=\"Mn\"]",
+   "kind": "soil",
+   "row": {
+    "Mn_ppm": 1.5,
+    "Mn": 2.75,
+    "manganese": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 1.5
+    },
+    "normalizeValues": {
+     "Mn": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Mn\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:[data-mlsn=\"Mn\"]",
+   "kind": "soil",
+   "row": {
+    "manganese": 1.5,
+    "Mn": 2.75,
+    "Mn_ppm": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 4
+    },
+    "normalizeValues": {
+     "Mn": 4
+    },
+    "loadSample": {
+     "[data-mlsn=\"Mn\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:soil:[data-mlsn=\"Cu\"]",
+   "kind": "soil",
+   "row": {
+    "Cu_ppm": 1.5,
+    "Cu": 2.75,
+    "copper": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cu": 1.5
+    },
+    "normalizeValues": {
+     "Cu": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Cu\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:[data-mlsn=\"Cu\"]",
+   "kind": "soil",
+   "row": {
+    "copper": 1.5,
+    "Cu": 2.75,
+    "Cu_ppm": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cu": 4
+    },
+    "normalizeValues": {
+     "Cu": 4
+    },
+    "loadSample": {
+     "[data-mlsn=\"Cu\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:soil:[data-mlsn=\"Zn\"]",
+   "kind": "soil",
+   "row": {
+    "Zn_ppm": 1.5,
+    "Zn": 2.75,
+    "zinc": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Zn": 1.5
+    },
+    "normalizeValues": {
+     "Zn": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Zn\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:[data-mlsn=\"Zn\"]",
+   "kind": "soil",
+   "row": {
+    "zinc": 1.5,
+    "Zn": 2.75,
+    "Zn_ppm": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Zn": 4
+    },
+    "normalizeValues": {
+     "Zn": 4
+    },
+    "loadSample": {
+     "[data-mlsn=\"Zn\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:soil:[data-mlsn=\"B\"]",
+   "kind": "soil",
+   "row": {
+    "B_ppm": 1.5,
+    "B": 2.75,
+    "boron": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"B\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:[data-mlsn=\"B\"]",
+   "kind": "soil",
+   "row": {
+    "boron": 1.5,
+    "B": 2.75,
+    "B_ppm": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 4
+    },
+    "normalizeValues": {
+     "B": 4
+    },
+    "loadSample": {
+     "[data-mlsn=\"B\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:soil:[data-mlsn=\"Na\"]",
+   "kind": "soil",
+   "row": {
+    "Na_ppm": 1.5,
+    "Na": 2.75,
+    "sodium": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 1.5
+    },
+    "normalizeValues": {
+     "Na": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Na\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:soil:[data-mlsn=\"Na\"]",
+   "kind": "soil",
+   "row": {
+    "sodium": 1.5,
+    "Na": 2.75,
+    "Na_ppm": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 4
+    },
+    "normalizeValues": {
+     "Na": 4
+    },
+    "loadSample": {
+     "[data-mlsn=\"Na\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "spelling:water[pH]",
+   "kind": "water",
+   "row": {
+    "pH": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "water_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-water-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[ph]",
+   "kind": "water",
+   "row": {
+    "ph": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "water_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-water-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[EC_dSm]",
+   "kind": "water",
+   "row": {
+    "EC_dSm": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "ecw": 1.5
+    },
+    "loadSample": {
+     ".gaip-ecw": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[EC]",
+   "kind": "water",
+   "row": {
+    "EC": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "ecw": 1.5
+    },
+    "loadSample": {
+     ".gaip-ecw": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[ec]",
+   "kind": "water",
+   "row": {
+    "ec": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "ecw": 1.5
+    },
+    "loadSample": {
+     ".gaip-ecw": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Ca_mgL]",
+   "kind": "water",
+   "row": {
+    "Ca_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Ca\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Ca]",
+   "kind": "water",
+   "row": {
+    "Ca": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Ca\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Mg_mgL]",
+   "kind": "water",
+   "row": {
+    "Mg_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Mg\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Mg]",
+   "kind": "water",
+   "row": {
+    "Mg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Mg\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Na_mgL]",
+   "kind": "water",
+   "row": {
+    "Na_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 1.5
+    },
+    "normalizeValues": {
+     "Na": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Na\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Na]",
+   "kind": "water",
+   "row": {
+    "Na": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 1.5
+    },
+    "normalizeValues": {
+     "Na": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Na\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[K_mgL]",
+   "kind": "water",
+   "row": {
+    "K_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"K\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[K]",
+   "kind": "water",
+   "row": {
+    "K": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"K\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Cl_mgL]",
+   "kind": "water",
+   "row": {
+    "Cl_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cl": 1.5
+    },
+    "normalizeValues": {
+     "Cl": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Cl\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Cl]",
+   "kind": "water",
+   "row": {
+    "Cl": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cl": 1.5
+    },
+    "normalizeValues": {
+     "Cl": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Cl\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[SO4_mgL]",
+   "kind": "water",
+   "row": {
+    "SO4_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "SO4": 1.5
+    },
+    "normalizeValues": {
+     "SO4": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"SO4\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[SO4]",
+   "kind": "water",
+   "row": {
+    "SO4": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "SO4": 1.5
+    },
+    "normalizeValues": {
+     "SO4": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"SO4\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[HCO3_mgL]",
+   "kind": "water",
+   "row": {
+    "HCO3_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "HCO3": 1.5
+    },
+    "normalizeValues": {
+     "HCO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"HCO3\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[HCO3]",
+   "kind": "water",
+   "row": {
+    "HCO3": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "HCO3": 1.5
+    },
+    "normalizeValues": {
+     "HCO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"HCO3\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[CO3_mgL]",
+   "kind": "water",
+   "row": {
+    "CO3_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "CO3": 1.5
+    },
+    "normalizeValues": {
+     "CO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"CO3\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[CO3]",
+   "kind": "water",
+   "row": {
+    "CO3": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "CO3": 1.5
+    },
+    "normalizeValues": {
+     "CO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"CO3\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[B_mgL]",
+   "kind": "water",
+   "row": {
+    "B_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"B\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[B]",
+   "kind": "water",
+   "row": {
+    "B": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"B\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Fe_mgL]",
+   "kind": "water",
+   "row": {
+    "Fe_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Fe\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Fe]",
+   "kind": "water",
+   "row": {
+    "Fe": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Fe\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[NO3_mgL]",
+   "kind": "water",
+   "row": {
+    "NO3_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "NO3": 1.5
+    },
+    "normalizeValues": {
+     "NO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"NO3\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[NO3]",
+   "kind": "water",
+   "row": {
+    "NO3": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "NO3": 1.5
+    },
+    "normalizeValues": {
+     "NO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"NO3\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[PO4_mgL]",
+   "kind": "water",
+   "row": {
+    "PO4_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "PO4": 1.5
+    },
+    "normalizeValues": {
+     "PO4": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"PO4\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[PO4]",
+   "kind": "water",
+   "row": {
+    "PO4": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "PO4": 1.5
+    },
+    "normalizeValues": {
+     "PO4": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"PO4\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[P_mgL]",
+   "kind": "water",
+   "row": {
+    "P_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "PO4": 1.5
+    },
+    "normalizeValues": {
+     "PO4": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"PO4\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[P]",
+   "kind": "water",
+   "row": {
+    "P": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "PO4": 1.5
+    },
+    "normalizeValues": {
+     "PO4": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"PO4\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Mn_mgL]",
+   "kind": "water",
+   "row": {
+    "Mn_mgL": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 1.5
+    },
+    "normalizeValues": {
+     "Mn": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Mn\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Mn]",
+   "kind": "water",
+   "row": {
+    "Mn": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 1.5
+    },
+    "normalizeValues": {
+     "Mn": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Mn\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[ECw]",
+   "kind": "water",
+   "row": {
+    "ECw": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[TDS]",
+   "kind": "water",
+   "row": {
+    "TDS": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[tds]",
+   "kind": "water",
+   "row": {
+    "tds": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[calcium]",
+   "kind": "water",
+   "row": {
+    "calcium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[magnesium]",
+   "kind": "water",
+   "row": {
+    "magnesium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[sodium]",
+   "kind": "water",
+   "row": {
+    "sodium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[potassium]",
+   "kind": "water",
+   "row": {
+    "potassium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[chloride]",
+   "kind": "water",
+   "row": {
+    "chloride": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[sulfate]",
+   "kind": "water",
+   "row": {
+    "sulfate": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[hco3]",
+   "kind": "water",
+   "row": {
+    "hco3": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "HCO3": 1.5
+    },
+    "normalizeValues": {
+     "HCO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"HCO3\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[bicarbonate]",
+   "kind": "water",
+   "row": {
+    "bicarbonate": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Bicarbonate]",
+   "kind": "water",
+   "row": {
+    "Bicarbonate": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[co3]",
+   "kind": "water",
+   "row": {
+    "co3": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "CO3": 1.5
+    },
+    "normalizeValues": {
+     "CO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"CO3\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[carbonate]",
+   "kind": "water",
+   "row": {
+    "carbonate": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Carbonate]",
+   "kind": "water",
+   "row": {
+    "Carbonate": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[no3]",
+   "kind": "water",
+   "row": {
+    "no3": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "NO3": 1.5
+    },
+    "normalizeValues": {
+     "NO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"NO3\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[nitrate]",
+   "kind": "water",
+   "row": {
+    "nitrate": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Nitrate]",
+   "kind": "water",
+   "row": {
+    "Nitrate": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[p]",
+   "kind": "water",
+   "row": {
+    "p": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "PO4": 1.5
+    },
+    "normalizeValues": {
+     "PO4": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"PO4\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[phosphate]",
+   "kind": "water",
+   "row": {
+    "phosphate": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Phosphate]",
+   "kind": "water",
+   "row": {
+    "Phosphate": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[phosphorus]",
+   "kind": "water",
+   "row": {
+    "phosphorus": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[b]",
+   "kind": "water",
+   "row": {
+    "b": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"B\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[boron]",
+   "kind": "water",
+   "row": {
+    "boron": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Boron]",
+   "kind": "water",
+   "row": {
+    "Boron": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[fe]",
+   "kind": "water",
+   "row": {
+    "fe": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Fe\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[iron]",
+   "kind": "water",
+   "row": {
+    "iron": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Iron]",
+   "kind": "water",
+   "row": {
+    "Iron": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[mn]",
+   "kind": "water",
+   "row": {
+    "mn": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 1.5
+    },
+    "normalizeValues": {
+     "Mn": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Mn\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[manganese]",
+   "kind": "water",
+   "row": {
+    "manganese": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Manganese]",
+   "kind": "water",
+   "row": {
+    "Manganese": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[SAR]",
+   "kind": "water",
+   "row": {
+    "SAR": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[sar]",
+   "kind": "water",
+   "row": {
+    "sar": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Sample_ID]",
+   "kind": "water",
+   "row": {
+    "Sample_ID": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[SampleID]",
+   "kind": "water",
+   "row": {
+    "SampleID": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Sample ID]",
+   "kind": "water",
+   "row": {
+    "Sample ID": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Sample]",
+   "kind": "water",
+   "row": {
+    "Sample": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Date]",
+   "kind": "water",
+   "row": {
+    "Date": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[date]",
+   "kind": "water",
+   "row": {
+    "date": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Lab]",
+   "kind": "water",
+   "row": {
+    "Lab": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Lab_Name]",
+   "kind": "water",
+   "row": {
+    "Lab_Name": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[Notes]",
+   "kind": "water",
+   "row": {
+    "Notes": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[notes]",
+   "kind": "water",
+   "row": {
+    "notes": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[PH]",
+   "kind": "water",
+   "row": {
+    "PH": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "water_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-water-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Salinity]",
+   "kind": "water",
+   "row": {
+    "Salinity": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[salinity]",
+   "kind": "water",
+   "row": {
+    "salinity": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[ca]",
+   "kind": "water",
+   "row": {
+    "ca": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Ca\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[mg]",
+   "kind": "water",
+   "row": {
+    "mg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Mg\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[na]",
+   "kind": "water",
+   "row": {
+    "na": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 1.5
+    },
+    "normalizeValues": {
+     "Na": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Na\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[k]",
+   "kind": "water",
+   "row": {
+    "k": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"K\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[cl]",
+   "kind": "water",
+   "row": {
+    "cl": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cl": 1.5
+    },
+    "normalizeValues": {
+     "Cl": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Cl\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[so4]",
+   "kind": "water",
+   "row": {
+    "so4": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "SO4": 1.5
+    },
+    "normalizeValues": {
+     "SO4": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"SO4\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:water[Hardness]",
+   "kind": "water",
+   "row": {
+    "Hardness": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:water[hardness]",
+   "kind": "water",
+   "row": {
+    "hardness": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "all:water:.gaip-water-ph",
+   "kind": "water",
+   "row": {
+    "pH": 1.5,
+    "ph": 2.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "water_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-water-ph": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:.gaip-water-ph",
+   "kind": "water",
+   "row": {
+    "ph": 1.5,
+    "pH": 2.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 2.75
+    },
+    "normalizeValues": {
+     "water_ph": 2.75
+    },
+    "loadSample": {
+     ".gaip-water-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:water:.gaip-ecw",
+   "kind": "water",
+   "row": {
+    "EC_dSm": 1.5,
+    "EC": 2.75,
+    "ec": 4,
+    "ECw": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "ecw": 1.5
+    },
+    "loadSample": {
+     ".gaip-ecw": 4
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:.gaip-ecw",
+   "kind": "water",
+   "row": {
+    "ECw": 1.5,
+    "ec": 2.75,
+    "EC": 4,
+    "EC_dSm": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 5.25
+    },
+    "normalizeValues": {
+     "ecw": 5.25
+    },
+    "loadSample": {
+     ".gaip-ecw": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"Ca\"]",
+   "kind": "water",
+   "row": {
+    "Ca_mgL": 1.5,
+    "Ca": 2.75,
+    "calcium": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Ca\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"Ca\"]",
+   "kind": "water",
+   "row": {
+    "calcium": 1.5,
+    "Ca": 2.75,
+    "Ca_mgL": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 4
+    },
+    "normalizeValues": {
+     "Ca": 4
+    },
+    "loadSample": {
+     "[data-ion=\"Ca\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"Mg\"]",
+   "kind": "water",
+   "row": {
+    "Mg_mgL": 1.5,
+    "Mg": 2.75,
+    "magnesium": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Mg\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"Mg\"]",
+   "kind": "water",
+   "row": {
+    "magnesium": 1.5,
+    "Mg": 2.75,
+    "Mg_mgL": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 4
+    },
+    "normalizeValues": {
+     "Mg": 4
+    },
+    "loadSample": {
+     "[data-ion=\"Mg\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"Na\"]",
+   "kind": "water",
+   "row": {
+    "Na_mgL": 1.5,
+    "Na": 2.75,
+    "sodium": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 1.5
+    },
+    "normalizeValues": {
+     "Na": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Na\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"Na\"]",
+   "kind": "water",
+   "row": {
+    "sodium": 1.5,
+    "Na": 2.75,
+    "Na_mgL": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 4
+    },
+    "normalizeValues": {
+     "Na": 4
+    },
+    "loadSample": {
+     "[data-ion=\"Na\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"K\"]",
+   "kind": "water",
+   "row": {
+    "K_mgL": 1.5,
+    "K": 2.75,
+    "potassium": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"K\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"K\"]",
+   "kind": "water",
+   "row": {
+    "potassium": 1.5,
+    "K": 2.75,
+    "K_mgL": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 4
+    },
+    "normalizeValues": {
+     "K": 4
+    },
+    "loadSample": {
+     "[data-ion=\"K\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"Cl\"]",
+   "kind": "water",
+   "row": {
+    "Cl_mgL": 1.5,
+    "Cl": 2.75,
+    "chloride": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cl": 1.5
+    },
+    "normalizeValues": {
+     "Cl": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Cl\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"Cl\"]",
+   "kind": "water",
+   "row": {
+    "chloride": 1.5,
+    "Cl": 2.75,
+    "Cl_mgL": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cl": 4
+    },
+    "normalizeValues": {
+     "Cl": 4
+    },
+    "loadSample": {
+     "[data-ion=\"Cl\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"SO4\"]",
+   "kind": "water",
+   "row": {
+    "SO4_mgL": 1.5,
+    "SO4": 2.75,
+    "sulfate": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "SO4": 1.5
+    },
+    "normalizeValues": {
+     "SO4": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"SO4\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"SO4\"]",
+   "kind": "water",
+   "row": {
+    "sulfate": 1.5,
+    "SO4": 2.75,
+    "SO4_mgL": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "SO4": 4
+    },
+    "normalizeValues": {
+     "SO4": 4
+    },
+    "loadSample": {
+     "[data-ion=\"SO4\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"HCO3\"]",
+   "kind": "water",
+   "row": {
+    "HCO3_mgL": 1.5,
+    "HCO3": 2.75,
+    "hco3": 4,
+    "bicarbonate": 5.25,
+    "Bicarbonate": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "HCO3": 1.5
+    },
+    "normalizeValues": {
+     "HCO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"HCO3\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"HCO3\"]",
+   "kind": "water",
+   "row": {
+    "Bicarbonate": 1.5,
+    "bicarbonate": 2.75,
+    "hco3": 4,
+    "HCO3": 5.25,
+    "HCO3_mgL": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "HCO3": 6.5
+    },
+    "normalizeValues": {
+     "HCO3": 6.5
+    },
+    "loadSample": {
+     "[data-ion=\"HCO3\"]": 5.25
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"CO3\"]",
+   "kind": "water",
+   "row": {
+    "CO3_mgL": 1.5,
+    "CO3": 2.75,
+    "co3": 4,
+    "carbonate": 5.25,
+    "Carbonate": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "CO3": 1.5
+    },
+    "normalizeValues": {
+     "CO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"CO3\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"CO3\"]",
+   "kind": "water",
+   "row": {
+    "Carbonate": 1.5,
+    "carbonate": 2.75,
+    "co3": 4,
+    "CO3": 5.25,
+    "CO3_mgL": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "CO3": 6.5
+    },
+    "normalizeValues": {
+     "CO3": 6.5
+    },
+    "loadSample": {
+     "[data-ion=\"CO3\"]": 5.25
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"B\"]",
+   "kind": "water",
+   "row": {
+    "B_mgL": 1.5,
+    "B": 2.75,
+    "b": 4,
+    "boron": 5.25,
+    "Boron": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"B\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"B\"]",
+   "kind": "water",
+   "row": {
+    "Boron": 1.5,
+    "boron": 2.75,
+    "b": 4,
+    "B": 5.25,
+    "B_mgL": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 6.5
+    },
+    "normalizeValues": {
+     "B": 6.5
+    },
+    "loadSample": {
+     "[data-ion=\"B\"]": 5.25
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"Fe\"]",
+   "kind": "water",
+   "row": {
+    "Fe_mgL": 1.5,
+    "Fe": 2.75,
+    "fe": 4,
+    "iron": 5.25,
+    "Iron": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Fe\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"Fe\"]",
+   "kind": "water",
+   "row": {
+    "Iron": 1.5,
+    "iron": 2.75,
+    "fe": 4,
+    "Fe": 5.25,
+    "Fe_mgL": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 6.5
+    },
+    "normalizeValues": {
+     "Fe": 6.5
+    },
+    "loadSample": {
+     "[data-ion=\"Fe\"]": 5.25
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"NO3\"]",
+   "kind": "water",
+   "row": {
+    "NO3_mgL": 1.5,
+    "NO3": 2.75,
+    "no3": 4,
+    "nitrate": 5.25,
+    "Nitrate": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "NO3": 1.5
+    },
+    "normalizeValues": {
+     "NO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"NO3\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"NO3\"]",
+   "kind": "water",
+   "row": {
+    "Nitrate": 1.5,
+    "nitrate": 2.75,
+    "no3": 4,
+    "NO3": 5.25,
+    "NO3_mgL": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "NO3": 6.5
+    },
+    "normalizeValues": {
+     "NO3": 6.5
+    },
+    "loadSample": {
+     "[data-ion=\"NO3\"]": 5.25
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"PO4\"]",
+   "kind": "water",
+   "row": {
+    "PO4_mgL": 1.5,
+    "PO4": 2.75,
+    "P_mgL": 4,
+    "P": 5.25,
+    "p": 6.5,
+    "phosphate": 7.75,
+    "Phosphate": 9,
+    "phosphorus": 10.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "PO4": 1.5
+    },
+    "normalizeValues": {
+     "PO4": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"PO4\"]": 5.25
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"PO4\"]",
+   "kind": "water",
+   "row": {
+    "phosphorus": 1.5,
+    "Phosphate": 2.75,
+    "phosphate": 4,
+    "p": 5.25,
+    "P": 6.5,
+    "P_mgL": 7.75,
+    "PO4": 9,
+    "PO4_mgL": 10.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "PO4": 10.25
+    },
+    "normalizeValues": {
+     "PO4": 10.25
+    },
+    "loadSample": {
+     "[data-ion=\"PO4\"]": 6.5
+    }
+   }
+  },
+  {
+   "name": "all:water:[data-ion=\"Mn\"]",
+   "kind": "water",
+   "row": {
+    "Mn_mgL": 1.5,
+    "Mn": 2.75,
+    "mn": 4,
+    "manganese": 5.25,
+    "Manganese": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 1.5
+    },
+    "normalizeValues": {
+     "Mn": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Mn\"]": 2.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:water:[data-ion=\"Mn\"]",
+   "kind": "water",
+   "row": {
+    "Manganese": 1.5,
+    "manganese": 2.75,
+    "mn": 4,
+    "Mn": 5.25,
+    "Mn_mgL": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 6.5
+    },
+    "normalizeValues": {
+     "Mn": 6.5
+    },
+    "loadSample": {
+     "[data-ion=\"Mn\"]": 5.25
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[N_Percent]",
+   "kind": "tissue",
+   "row": {
+    "N_Percent": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 1.5
+    },
+    "normalizeValues": {
+     "N": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[N]",
+   "kind": "tissue",
+   "row": {
+    "N": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 1.5
+    },
+    "normalizeValues": {
+     "N": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[P_Percent]",
+   "kind": "tissue",
+   "row": {
+    "P_Percent": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 1.5
+    },
+    "normalizeValues": {
+     "P": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[P]",
+   "kind": "tissue",
+   "row": {
+    "P": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 1.5
+    },
+    "normalizeValues": {
+     "P": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[K_Percent]",
+   "kind": "tissue",
+   "row": {
+    "K_Percent": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[K]",
+   "kind": "tissue",
+   "row": {
+    "K": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Ca_Percent]",
+   "kind": "tissue",
+   "row": {
+    "Ca_Percent": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Ca]",
+   "kind": "tissue",
+   "row": {
+    "Ca": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Mg_Percent]",
+   "kind": "tissue",
+   "row": {
+    "Mg_Percent": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Mg]",
+   "kind": "tissue",
+   "row": {
+    "Mg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[S_Percent]",
+   "kind": "tissue",
+   "row": {
+    "S_Percent": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "S": 1.5
+    },
+    "normalizeValues": {
+     "S": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[S]",
+   "kind": "tissue",
+   "row": {
+    "S": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "S": 1.5
+    },
+    "normalizeValues": {
+     "S": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Fe_mgkg]",
+   "kind": "tissue",
+   "row": {
+    "Fe_mgkg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Fe]",
+   "kind": "tissue",
+   "row": {
+    "Fe": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Mn_mgkg]",
+   "kind": "tissue",
+   "row": {
+    "Mn_mgkg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 1.5
+    },
+    "normalizeValues": {
+     "Mn": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Mn]",
+   "kind": "tissue",
+   "row": {
+    "Mn": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 1.5
+    },
+    "normalizeValues": {
+     "Mn": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Zn_mgkg]",
+   "kind": "tissue",
+   "row": {
+    "Zn_mgkg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Zn": 1.5
+    },
+    "normalizeValues": {
+     "Zn": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Zn]",
+   "kind": "tissue",
+   "row": {
+    "Zn": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Zn": 1.5
+    },
+    "normalizeValues": {
+     "Zn": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Cu_mgkg]",
+   "kind": "tissue",
+   "row": {
+    "Cu_mgkg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cu": 1.5
+    },
+    "normalizeValues": {
+     "Cu": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Cu]",
+   "kind": "tissue",
+   "row": {
+    "Cu": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cu": 1.5
+    },
+    "normalizeValues": {
+     "Cu": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[B_mgkg]",
+   "kind": "tissue",
+   "row": {
+    "B_mgkg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[B]",
+   "kind": "tissue",
+   "row": {
+    "B": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Na_mgkg]",
+   "kind": "tissue",
+   "row": {
+    "Na_mgkg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 1.5
+    },
+    "normalizeValues": {
+     "Na": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Na]",
+   "kind": "tissue",
+   "row": {
+    "Na": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 1.5
+    },
+    "normalizeValues": {
+     "Na": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Mo_mgkg]",
+   "kind": "tissue",
+   "row": {
+    "Mo_mgkg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mo": 1.5
+    },
+    "normalizeValues": {
+     "Mo": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Mo]",
+   "kind": "tissue",
+   "row": {
+    "Mo": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mo": 1.5
+    },
+    "normalizeValues": {
+     "Mo": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Cl_Percent]",
+   "kind": "tissue",
+   "row": {
+    "Cl_Percent": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cl": 1.5
+    },
+    "normalizeValues": {
+     "Cl": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[Cl]",
+   "kind": "tissue",
+   "row": {
+    "Cl": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cl": 1.5
+    },
+    "normalizeValues": {
+     "Cl": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[nitrogen]",
+   "kind": "tissue",
+   "row": {
+    "nitrogen": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[Nitrogen]",
+   "kind": "tissue",
+   "row": {
+    "Nitrogen": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[phosphorus]",
+   "kind": "tissue",
+   "row": {
+    "phosphorus": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[potassium]",
+   "kind": "tissue",
+   "row": {
+    "potassium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[calcium]",
+   "kind": "tissue",
+   "row": {
+    "calcium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[magnesium]",
+   "kind": "tissue",
+   "row": {
+    "magnesium": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[sulfur]",
+   "kind": "tissue",
+   "row": {
+    "sulfur": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[iron]",
+   "kind": "tissue",
+   "row": {
+    "iron": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[manganese]",
+   "kind": "tissue",
+   "row": {
+    "manganese": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[zinc]",
+   "kind": "tissue",
+   "row": {
+    "zinc": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[copper]",
+   "kind": "tissue",
+   "row": {
+    "copper": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[boron]",
+   "kind": "tissue",
+   "row": {
+    "boron": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[Zone]",
+   "kind": "tissue",
+   "row": {
+    "Zone": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[zone]",
+   "kind": "tissue",
+   "row": {
+    "zone": "Greens"
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[Sample_ID]",
+   "kind": "tissue",
+   "row": {
+    "Sample_ID": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[SampleID]",
+   "kind": "tissue",
+   "row": {
+    "SampleID": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[Sample ID]",
+   "kind": "tissue",
+   "row": {
+    "Sample ID": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[Sample]",
+   "kind": "tissue",
+   "row": {
+    "Sample": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[Date]",
+   "kind": "tissue",
+   "row": {
+    "Date": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[date]",
+   "kind": "tissue",
+   "row": {
+    "date": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[Lab]",
+   "kind": "tissue",
+   "row": {
+    "Lab": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[Lab_Name]",
+   "kind": "tissue",
+   "row": {
+    "Lab_Name": 1.5
+   },
+   "outputs": {
+    "readingsOf": {},
+    "normalizeValues": {}
+   }
+  },
+  {
+   "name": "spelling:tissue[n]",
+   "kind": "tissue",
+   "row": {
+    "n": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 1.5
+    },
+    "normalizeValues": {
+     "N": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[p]",
+   "kind": "tissue",
+   "row": {
+    "p": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 1.5
+    },
+    "normalizeValues": {
+     "P": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[k]",
+   "kind": "tissue",
+   "row": {
+    "k": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[ca]",
+   "kind": "tissue",
+   "row": {
+    "ca": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[mg]",
+   "kind": "tissue",
+   "row": {
+    "mg": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:tissue[s]",
+   "kind": "tissue",
+   "row": {
+    "s": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "S": 1.5
+    },
+    "normalizeValues": {
+     "S": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:tissue:N",
+   "kind": "tissue",
+   "row": {
+    "N_Percent": 1.5,
+    "N": 2.75,
+    "nitrogen": 4,
+    "Nitrogen": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 1.5
+    },
+    "normalizeValues": {
+     "N": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:N",
+   "kind": "tissue",
+   "row": {
+    "Nitrogen": 1.5,
+    "nitrogen": 2.75,
+    "N": 4,
+    "N_Percent": 5.25
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 5.25
+    },
+    "normalizeValues": {
+     "N": 5.25
+    }
+   }
+  },
+  {
+   "name": "all:tissue:P",
+   "kind": "tissue",
+   "row": {
+    "P_Percent": 1.5,
+    "P": 2.75,
+    "phosphorus": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 1.5
+    },
+    "normalizeValues": {
+     "P": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:P",
+   "kind": "tissue",
+   "row": {
+    "phosphorus": 1.5,
+    "P": 2.75,
+    "P_Percent": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 4
+    },
+    "normalizeValues": {
+     "P": 4
+    }
+   }
+  },
+  {
+   "name": "all:tissue:K",
+   "kind": "tissue",
+   "row": {
+    "K_Percent": 1.5,
+    "K": 2.75,
+    "potassium": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:K",
+   "kind": "tissue",
+   "row": {
+    "potassium": 1.5,
+    "K": 2.75,
+    "K_Percent": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 4
+    },
+    "normalizeValues": {
+     "K": 4
+    }
+   }
+  },
+  {
+   "name": "all:tissue:Ca",
+   "kind": "tissue",
+   "row": {
+    "Ca_Percent": 1.5,
+    "Ca": 2.75,
+    "calcium": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:Ca",
+   "kind": "tissue",
+   "row": {
+    "calcium": 1.5,
+    "Ca": 2.75,
+    "Ca_Percent": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 4
+    },
+    "normalizeValues": {
+     "Ca": 4
+    }
+   }
+  },
+  {
+   "name": "all:tissue:Mg",
+   "kind": "tissue",
+   "row": {
+    "Mg_Percent": 1.5,
+    "Mg": 2.75,
+    "magnesium": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:Mg",
+   "kind": "tissue",
+   "row": {
+    "magnesium": 1.5,
+    "Mg": 2.75,
+    "Mg_Percent": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 4
+    },
+    "normalizeValues": {
+     "Mg": 4
+    }
+   }
+  },
+  {
+   "name": "all:tissue:S",
+   "kind": "tissue",
+   "row": {
+    "S_Percent": 1.5,
+    "S": 2.75,
+    "sulfur": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "S": 1.5
+    },
+    "normalizeValues": {
+     "S": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:S",
+   "kind": "tissue",
+   "row": {
+    "sulfur": 1.5,
+    "S": 2.75,
+    "S_Percent": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "S": 4
+    },
+    "normalizeValues": {
+     "S": 4
+    }
+   }
+  },
+  {
+   "name": "all:tissue:Fe",
+   "kind": "tissue",
+   "row": {
+    "Fe_mgkg": 1.5,
+    "Fe": 2.75,
+    "iron": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:Fe",
+   "kind": "tissue",
+   "row": {
+    "iron": 1.5,
+    "Fe": 2.75,
+    "Fe_mgkg": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 4
+    },
+    "normalizeValues": {
+     "Fe": 4
+    }
+   }
+  },
+  {
+   "name": "all:tissue:Mn",
+   "kind": "tissue",
+   "row": {
+    "Mn_mgkg": 1.5,
+    "Mn": 2.75,
+    "manganese": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 1.5
+    },
+    "normalizeValues": {
+     "Mn": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:Mn",
+   "kind": "tissue",
+   "row": {
+    "manganese": 1.5,
+    "Mn": 2.75,
+    "Mn_mgkg": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mn": 4
+    },
+    "normalizeValues": {
+     "Mn": 4
+    }
+   }
+  },
+  {
+   "name": "all:tissue:Zn",
+   "kind": "tissue",
+   "row": {
+    "Zn_mgkg": 1.5,
+    "Zn": 2.75,
+    "zinc": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Zn": 1.5
+    },
+    "normalizeValues": {
+     "Zn": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:Zn",
+   "kind": "tissue",
+   "row": {
+    "zinc": 1.5,
+    "Zn": 2.75,
+    "Zn_mgkg": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Zn": 4
+    },
+    "normalizeValues": {
+     "Zn": 4
+    }
+   }
+  },
+  {
+   "name": "all:tissue:Cu",
+   "kind": "tissue",
+   "row": {
+    "Cu_mgkg": 1.5,
+    "Cu": 2.75,
+    "copper": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cu": 1.5
+    },
+    "normalizeValues": {
+     "Cu": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:Cu",
+   "kind": "tissue",
+   "row": {
+    "copper": 1.5,
+    "Cu": 2.75,
+    "Cu_mgkg": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cu": 4
+    },
+    "normalizeValues": {
+     "Cu": 4
+    }
+   }
+  },
+  {
+   "name": "all:tissue:B",
+   "kind": "tissue",
+   "row": {
+    "B_mgkg": 1.5,
+    "B": 2.75,
+    "boron": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:B",
+   "kind": "tissue",
+   "row": {
+    "boron": 1.5,
+    "B": 2.75,
+    "B_mgkg": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 4
+    },
+    "normalizeValues": {
+     "B": 4
+    }
+   }
+  },
+  {
+   "name": "all:tissue:Na",
+   "kind": "tissue",
+   "row": {
+    "Na_mgkg": 1.5,
+    "Na": 2.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 1.5
+    },
+    "normalizeValues": {
+     "Na": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:Na",
+   "kind": "tissue",
+   "row": {
+    "Na": 1.5,
+    "Na_mgkg": 2.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 2.75
+    },
+    "normalizeValues": {
+     "Na": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:tissue:Mo",
+   "kind": "tissue",
+   "row": {
+    "Mo_mgkg": 1.5,
+    "Mo": 2.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mo": 1.5
+    },
+    "normalizeValues": {
+     "Mo": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:Mo",
+   "kind": "tissue",
+   "row": {
+    "Mo": 1.5,
+    "Mo_mgkg": 2.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mo": 2.75
+    },
+    "normalizeValues": {
+     "Mo": 2.75
+    }
+   }
+  },
+  {
+   "name": "all:tissue:Cl",
+   "kind": "tissue",
+   "row": {
+    "Cl_Percent": 1.5,
+    "Cl": 2.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cl": 1.5
+    },
+    "normalizeValues": {
+     "Cl": 1.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:tissue:Cl",
+   "kind": "tissue",
+   "row": {
+    "Cl": 1.5,
+    "Cl_Percent": 2.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "Cl": 2.75
+    },
+    "normalizeValues": {
+     "Cl": 2.75
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[LOI_0_2]",
+   "kind": "loi",
+   "row": {
+    "LOI_0_2": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[OM_0_2]",
+   "kind": "loi",
+   "row": {
+    "OM_0_2": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[LOI_0-2]",
+   "kind": "loi",
+   "row": {
+    "LOI_0-2": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[OM_0-2cm]",
+   "kind": "loi",
+   "row": {
+    "OM_0-2cm": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[0-2cm]",
+   "kind": "loi",
+   "row": {
+    "0-2cm": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[0-20mm]",
+   "kind": "loi",
+   "row": {
+    "0-20mm": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[LOI_2_4]",
+   "kind": "loi",
+   "row": {
+    "LOI_2_4": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[OM_2_4]",
+   "kind": "loi",
+   "row": {
+    "OM_2_4": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[LOI_2-4]",
+   "kind": "loi",
+   "row": {
+    "LOI_2-4": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[OM_2-4cm]",
+   "kind": "loi",
+   "row": {
+    "OM_2-4cm": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[2-4cm]",
+   "kind": "loi",
+   "row": {
+    "2-4cm": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[20-40mm]",
+   "kind": "loi",
+   "row": {
+    "20-40mm": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[LOI_4_6]",
+   "kind": "loi",
+   "row": {
+    "LOI_4_6": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[OM_4_6]",
+   "kind": "loi",
+   "row": {
+    "OM_4_6": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[LOI_4-6]",
+   "kind": "loi",
+   "row": {
+    "LOI_4-6": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[OM_4-6cm]",
+   "kind": "loi",
+   "row": {
+    "OM_4-6cm": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[4-6cm]",
+   "kind": "loi",
+   "row": {
+    "4-6cm": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[40-60mm]",
+   "kind": "loi",
+   "row": {
+    "40-60mm": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[OM_Percent]",
+   "kind": "loi",
+   "row": {
+    "OM_Percent": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[Organic Matter]",
+   "kind": "loi",
+   "row": {
+    "Organic Matter": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[OM]",
+   "kind": "loi",
+   "row": {
+    "OM": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[LOI]",
+   "kind": "loi",
+   "row": {
+    "LOI": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[Total_OM]",
+   "kind": "loi",
+   "row": {
+    "Total_OM": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[om]",
+   "kind": "loi",
+   "row": {
+    "om": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[organic_matter]",
+   "kind": "loi",
+   "row": {
+    "organic_matter": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[OrganicMatter]",
+   "kind": "loi",
+   "row": {
+    "OrganicMatter": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[thatch]",
+   "kind": "loi",
+   "row": {
+    "thatch": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[Thatch]",
+   "kind": "loi",
+   "row": {
+    "Thatch": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[THATCH]",
+   "kind": "loi",
+   "row": {
+    "THATCH": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[moisture]",
+   "kind": "loi",
+   "row": {
+    "moisture": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[Moisture]",
+   "kind": "loi",
+   "row": {
+    "Moisture": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[Zone]",
+   "kind": "loi",
+   "row": {
+    "Zone": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[zone]",
+   "kind": "loi",
+   "row": {
+    "zone": "Greens"
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[Sample_ID]",
+   "kind": "loi",
+   "row": {
+    "Sample_ID": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[SampleID]",
+   "kind": "loi",
+   "row": {
+    "SampleID": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[Sample ID]",
+   "kind": "loi",
+   "row": {
+    "Sample ID": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[Sample]",
+   "kind": "loi",
+   "row": {
+    "Sample": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[Date]",
+   "kind": "loi",
+   "row": {
+    "Date": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[date]",
+   "kind": "loi",
+   "row": {
+    "date": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[Lab]",
+   "kind": "loi",
+   "row": {
+    "Lab": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[Lab_Name]",
+   "kind": "loi",
+   "row": {
+    "Lab_Name": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[loi_0_20]",
+   "kind": "loi",
+   "row": {
+    "loi_0_20": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[loi_0_2]",
+   "kind": "loi",
+   "row": {
+    "loi_0_2": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[loi_20_40]",
+   "kind": "loi",
+   "row": {
+    "loi_20_40": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[loi_2_4]",
+   "kind": "loi",
+   "row": {
+    "loi_2_4": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[loi_40_60]",
+   "kind": "loi",
+   "row": {
+    "loi_40_60": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[loi_4_6]",
+   "kind": "loi",
+   "row": {
+    "loi_4_6": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "spelling:loi[loi_60_80]",
+   "kind": "loi",
+   "row": {
+    "loi_60_80": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[loi_6_8]",
+   "kind": "loi",
+   "row": {
+    "loi_6_8": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[LOI_6_8]",
+   "kind": "loi",
+   "row": {
+    "LOI_6_8": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "spelling:loi[OM_6_8]",
+   "kind": "loi",
+   "row": {
+    "OM_6_8": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {},
+    "loadSample": {}
+   }
+  },
+  {
+   "name": "all:loi:.gaip-loi-0-2",
+   "kind": "loi",
+   "row": {
+    "LOI_0_2": 1.5,
+    "OM_0_2": 2.75,
+    "LOI_0-2": 4,
+    "OM_0-2cm": 5.25,
+    "0-2cm": 6.5,
+    "0-20mm": 7.75
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 7.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:loi:.gaip-loi-0-2",
+   "kind": "loi",
+   "row": {
+    "0-20mm": 1.5,
+    "0-2cm": 2.75,
+    "OM_0-2cm": 4,
+    "LOI_0-2": 5.25,
+    "OM_0_2": 6.5,
+    "LOI_0_2": 7.75
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_0_2": 7.75
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:loi:.gaip-loi-2-4",
+   "kind": "loi",
+   "row": {
+    "LOI_2_4": 1.5,
+    "OM_2_4": 2.75,
+    "LOI_2-4": 4,
+    "OM_2-4cm": 5.25,
+    "2-4cm": 6.5,
+    "20-40mm": 7.75
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_2_4": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 7.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:loi:.gaip-loi-2-4",
+   "kind": "loi",
+   "row": {
+    "20-40mm": 1.5,
+    "2-4cm": 2.75,
+    "OM_2-4cm": 4,
+    "LOI_2-4": 5.25,
+    "OM_2_4": 6.5,
+    "LOI_2_4": 7.75
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_2_4": 7.75
+    },
+    "loadSample": {
+     ".gaip-loi-2-4": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:loi:.gaip-loi-4-6",
+   "kind": "loi",
+   "row": {
+    "LOI_4_6": 1.5,
+    "OM_4_6": 2.75,
+    "LOI_4-6": 4,
+    "OM_4-6cm": 5.25,
+    "4-6cm": 6.5,
+    "40-60mm": 7.75
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_4_6": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 7.75
+    }
+   }
+  },
+  {
+   "name": "all-reversed:loi:.gaip-loi-4-6",
+   "kind": "loi",
+   "row": {
+    "40-60mm": 1.5,
+    "4-6cm": 2.75,
+    "OM_4-6cm": 4,
+    "LOI_4-6": 5.25,
+    "OM_4_6": 6.5,
+    "LOI_4_6": 7.75
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_4_6": 7.75
+    },
+    "loadSample": {
+     ".gaip-loi-4-6": 1.5
+    }
+   }
+  },
+  {
+   "name": "all:loi:.gaip-loi",
+   "kind": "loi",
+   "row": {
+    "OM_Percent": 1.5,
+    "Organic Matter": 2.75,
+    "OM": 4,
+    "LOI": 5.25,
+    "Total_OM": 6.5,
+    "om": 7.75,
+    "organic_matter": 9,
+    "OrganicMatter": 10.25
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 6.5
+    }
+   }
+  },
+  {
+   "name": "all-reversed:loi:.gaip-loi",
+   "kind": "loi",
+   "row": {
+    "OrganicMatter": 1.5,
+    "organic_matter": 2.75,
+    "om": 4,
+    "Total_OM": 5.25,
+    "LOI": 6.5,
+    "OM": 7.75,
+    "Organic Matter": 9,
+    "OM_Percent": 10.25
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 10.25
+    },
+    "loadSample": {
+     ".gaip-loi": 5.25
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[K_Mehlich3]",
+   "kind": "soil",
+   "row": {
+    "K_Mehlich3": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"K\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[P_Olsen]",
+   "kind": "soil",
+   "row": {
+    "P_Olsen": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 1.5
+    },
+    "normalizeValues": {
+     "P": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"P\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[P (Colwell)]",
+   "kind": "soil",
+   "row": {
+    "P (Colwell)": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "P": 1.5
+    },
+    "normalizeValues": {
+     "P": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"P\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[Ca_AmmAc]",
+   "kind": "soil",
+   "row": {
+    "Ca_AmmAc": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Ca\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[S_KCl]",
+   "kind": "soil",
+   "row": {
+    "S_KCl": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "S": 1.5
+    },
+    "normalizeValues": {
+     "S": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"S\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[B_HotWater]",
+   "kind": "soil",
+   "row": {
+    "B_HotWater": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "B": 1.5
+    },
+    "normalizeValues": {
+     "B": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"B\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[Fe_DTPA]",
+   "kind": "soil",
+   "row": {
+    "Fe_DTPA": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Fe\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[pH_CaCl2]",
+   "kind": "soil",
+   "row": {
+    "pH_CaCl2": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[PH]",
+   "kind": "soil",
+   "row": {
+    "PH": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "soil_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[cec]",
+   "kind": "soil",
+   "row": {
+    "cec": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "CEC": 1.5
+    },
+    "normalizeValues": {
+     "CEC": 1.5
+    },
+    "loadSample": {
+     ".gaip-cec": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[Mg-Mehlich3]",
+   "kind": "soil",
+   "row": {
+    "Mg-Mehlich3": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Mg": 1.5
+    },
+    "normalizeValues": {
+     "Mg": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Mg\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[Zn_total]",
+   "kind": "soil",
+   "row": {
+    "Zn_total": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Zn": 1.5
+    },
+    "normalizeValues": {
+     "Zn": 1.5
+    },
+    "loadSample": {
+     "[data-mlsn=\"Zn\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[om_percent]",
+   "kind": "soil",
+   "row": {
+    "om_percent": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "OM": 1.5
+    },
+    "normalizeValues": {
+     "OM": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:soil[ec1_5]",
+   "kind": "soil",
+   "row": {
+    "ec1_5": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "EC": 1.5
+    },
+    "loadSample": {
+     ".gaip-soil-ec": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant-all:soil",
+   "kind": "soil",
+   "row": {
+    "K_Mehlich3": 1.5,
+    "P_Olsen": 2.75,
+    "P (Colwell)": 4,
+    "Ca_AmmAc": 5.25,
+    "S_KCl": 6.5,
+    "B_HotWater": 7.75,
+    "Fe_DTPA": 9,
+    "pH_CaCl2": 10.25,
+    "PH": 11.5,
+    "cec": 12.75,
+    "Mg-Mehlich3": 14,
+    "Zn_total": 15.25,
+    "om_percent": 16.5,
+    "ec1_5": 17.75
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 11.5,
+     "EC": 17.75,
+     "CEC": 12.75,
+     "OM": 16.5,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 14,
+     "S": 6.5,
+     "Fe": 9,
+     "Zn": 15.25,
+     "B": 7.75
+    },
+    "normalizeValues": {
+     "soil_ph": 11.5,
+     "EC": 17.75,
+     "CEC": 12.75,
+     "OM": 16.5,
+     "K": 1.5,
+     "P": 2.75,
+     "Ca": 5.25,
+     "Mg": 14,
+     "S": 6.5,
+     "Fe": 9,
+     "Zn": 15.25,
+     "B": 7.75
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 11.5,
+     ".gaip-soil-ec": 17.75,
+     ".gaip-cec": 12.75,
+     ".gaip-loi": 16.5,
+     "[data-mlsn=\"K\"]": 1.5,
+     "[data-mlsn=\"P\"]": 2.75,
+     "[data-mlsn=\"Ca\"]": 5.25,
+     "[data-mlsn=\"Mg\"]": 14,
+     "[data-mlsn=\"S\"]": 6.5,
+     "[data-mlsn=\"Fe\"]": 9,
+     "[data-mlsn=\"Zn\"]": 15.25,
+     "[data-mlsn=\"B\"]": 7.75
+    }
+   }
+  },
+  {
+   "name": "tolerant:water[Ca_total]",
+   "kind": "water",
+   "row": {
+    "Ca_total": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Ca": 1.5
+    },
+    "normalizeValues": {
+     "Ca": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Ca\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:water[ph]",
+   "kind": "water",
+   "row": {
+    "ph": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 1.5
+    },
+    "normalizeValues": {
+     "water_ph": 1.5
+    },
+    "loadSample": {
+     ".gaip-water-ph": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:water[EC_available]",
+   "kind": "water",
+   "row": {
+    "EC_available": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "EC": 1.5
+    },
+    "normalizeValues": {
+     "ecw": 1.5
+    },
+    "loadSample": {
+     ".gaip-ecw": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:water[hco3]",
+   "kind": "water",
+   "row": {
+    "hco3": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "HCO3": 1.5
+    },
+    "normalizeValues": {
+     "HCO3": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"HCO3\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:water[na_mgl]",
+   "kind": "water",
+   "row": {
+    "na_mgl": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Na": 1.5
+    },
+    "normalizeValues": {
+     "Na": 1.5
+    },
+    "loadSample": {
+     "[data-ion=\"Na\"]": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant-all:water",
+   "kind": "water",
+   "row": {
+    "Ca_total": 1.5,
+    "ph": 2.75,
+    "EC_available": 4,
+    "hco3": 5.25,
+    "na_mgl": 6.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 2.75,
+     "EC": 4,
+     "Ca": 1.5,
+     "Na": 6.5,
+     "HCO3": 5.25
+    },
+    "normalizeValues": {
+     "water_ph": 2.75,
+     "ecw": 4,
+     "Ca": 1.5,
+     "Na": 6.5,
+     "HCO3": 5.25
+    },
+    "loadSample": {
+     ".gaip-water-ph": 2.75,
+     ".gaip-ecw": 4,
+     "[data-ion=\"Ca\"]": 1.5,
+     "[data-ion=\"Na\"]": 6.5,
+     "[data-ion=\"HCO3\"]": 5.25
+    }
+   }
+  },
+  {
+   "name": "tolerant:tissue[N_total]",
+   "kind": "tissue",
+   "row": {
+    "N_total": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 1.5
+    },
+    "normalizeValues": {
+     "N": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:tissue[k]",
+   "kind": "tissue",
+   "row": {
+    "k": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "K": 1.5
+    },
+    "normalizeValues": {
+     "K": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:tissue[Fe_extractable]",
+   "kind": "tissue",
+   "row": {
+    "Fe_extractable": 1.5
+   },
+   "outputs": {
+    "readingsOf": {
+     "Fe": 1.5
+    },
+    "normalizeValues": {
+     "Fe": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant-all:tissue",
+   "kind": "tissue",
+   "row": {
+    "N_total": 1.5,
+    "k": 2.75,
+    "Fe_extractable": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "N": 1.5,
+     "K": 2.75,
+     "Fe": 4
+    },
+    "normalizeValues": {
+     "N": 1.5,
+     "K": 2.75,
+     "Fe": 4
+    }
+   }
+  },
+  {
+   "name": "tolerant:loi[om]",
+   "kind": "loi",
+   "row": {
+    "om": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:loi[loi_0_2]",
+   "kind": "loi",
+   "row": {
+    "loi_0_2": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_0_2": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant:loi[Total_om]",
+   "kind": "loi",
+   "row": {
+    "Total_om": 1.5
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi": 1.5
+    }
+   }
+  },
+  {
+   "name": "tolerant-all:loi",
+   "kind": "loi",
+   "row": {
+    "om": 1.5,
+    "loi_0_2": 2.75,
+    "Total_om": 4
+   },
+   "outputs": {
+    "readingsOf": null,
+    "normalizeValues": {
+     "loi_0_2": 2.75,
+     "loi": 1.5
+    },
+    "loadSample": {
+     ".gaip-loi-0-2": 2.75,
+     ".gaip-loi": 4
+    }
+   }
+  },
+  {
+   "name": "with-cacl2:soil",
+   "kind": "soil",
+   "row": {
+    "pH_CaCl2": 1.5,
+    "pH_Water": 2.75,
+    "K": 4
+   },
+   "outputs": {
+    "readingsOf": {
+     "pH": 2.75,
+     "K": 4
+    },
+    "normalizeValues": {
+     "soil_ph": 2.75,
+     "K": 4
+    },
+    "loadSample": {
+     ".gaip-soil-ph": 1.5,
+     "[data-mlsn=\"K\"]": 4
+    }
+   }
+  }
+ ]
+}

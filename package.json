@@ -22,7 +22,9 @@
     "test:e2e:shapes": "GILBA_E2E=1 jest tests/e2e/store-shapes-live.test.js --runInBand --testTimeout=300000",
     "test:e2e:shapes:record": "GILBA_E2E=1 GILBA_RECORD=1 jest tests/e2e/store-shapes-live.test.js --runInBand --testTimeout=300000",
     "fixtures:field-owners": "docker exec gilba_app php artisan sites:export-field-owners > tests/fixtures/field-owners.json",
-    "fixtures:substitutions": "node tests/lib/write-substitution-inventory.js"
+    "fixtures:substitutions": "node tests/lib/write-substitution-inventory.js",
+    "tree": "node -e \"const t=require('./tests/lib/tree-fingerprint');console.log(t.line('now',t.fingerprint()))\"",
+    "marks": "node tests/lib/claim-marks.js"
   },
   "dependencies": {
     "docx": "^9.6.1",

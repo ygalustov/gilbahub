@@ -332,6 +332,40 @@ describe('GH-678 — the three lists, and a zero that means something', () => {
         expect(Object.keys(now)).toContain('resolveMember');
     });
 
+    test('THE PERIMETER NAMES THE FUNCTION THAT CHANGED, AND ONLY THAT ONE', () => {
+        /**
+         * GH-740 (the acceptor's return) — the guard's sentence is "a change NAMES ITS FUNCTION",
+         * and for a while it named the wrong one. Bodies were cut from one `function` keyword to
+         * the next, so an export line, a docblock or a WHOLE NEW FUNCTION added between two
+         * declarations fell to the one before it. Measured: a function inserted after
+         * `splitDeadFromUnresolved` moved its hash `fh74f5q` -> `f1cyabyd` with not a character of
+         * it changing.
+         *
+         * A false address is worse than none, which this repository has said twice today about
+         * other guards: silence is noticed, a name is followed. So the claim is made against the
+         * walk's own source with text inserted BETWEEN declarations — nothing inside any function
+         * is touched, and therefore no fingerprint may move.
+         */
+        const src = fs.readFileSync(path.join(ROOT, 'tests', 'helpers', 'gh678-caller-walk.js'), 'utf8');
+        const anchor = 'module.exports.splitDeadFromUnresolved = splitDeadFromUnresolved;';
+        expect(src).toContain(anchor);
+        const between = src.replace(anchor,
+            '/** inserted between declarations, inside none of them */\n'
+            + 'function probeBetweenDeclarations() { return 1; }\n' + anchor);
+
+        const asIs = walk.resolutionPerimeter();
+        const withText = walk.resolutionPerimeter(between);
+        const moved = Object.keys(asIs).filter((k) => withText[k] !== asIs[k])
+            .map((k) => k + ': ' + asIs[k] + ' -> ' + withText[k]);
+        process.stdout.write('[gh678] text inserted BETWEEN declarations; fingerprints that moved: '
+            + JSON.stringify(moved) + '\n');
+
+        // Positive control: the perimeter was really measured, twice, over a real file.
+        expect(Object.keys(asIs).length).toBeGreaterThan(10);
+        expect(Object.keys(withText)).toEqual(expect.arrayContaining(Object.keys(asIs)));
+        expect({ movedWithoutBeingTouched: moved }).toEqual({ movedWithoutBeingTouched: [] });
+    });
+
     test('BOTH DIRECTIONS on each list, by name', () => {
         const now = measure();
         /**
@@ -351,21 +385,79 @@ describe('GH-678 — the three lists, and a zero that means something', () => {
          */
         const reasonOf = (entry) => (entry && (entry.kind || entry.why)) || null;
         const check = (name, current, listed) => {
+            // Declared first: the header line below prints it, and the addresses further down use it.
+            const carries = Object.values(current)
+                .some((e) => e && e.line !== null && e.line !== undefined);
             const appeared = Object.keys(current).filter((k) => !Object.prototype.hasOwnProperty.call(listed, k));
             const gone = Object.keys(listed).filter((k) => !Object.prototype.hasOwnProperty.call(current, k));
-            const reasonChanged = Object.keys(current)
+            /**
+             * GH-740 (the acceptor's return) — THE THIRD DIRECTION LOOKS THE ENTRY UP BY ITS KEY.
+             *
+             * `reasonChanged` is a list of SENTENCES, `key: reason -> reason`, because that is what
+             * the failure compares. The print handed one of those sentences to `addressOf`, which
+             * looks the entry up by key — so it found nothing and said `no line recorded`, every
+             * time, for entries whose line is right there. Measured by the acceptor: an entry at
+             * `assets/disease-forecast.js:1616` printed as having no line.
+             *
+             * Worse than a missing address: those words were put in to tell "there is no address"
+             * apart from "the address was not printed", and in this direction they said the first
+             * while the second was true. The keys are kept beside the sentences now.
+             */
+            const reasonChangedKeys = Object.keys(current)
                 .filter((k) => Object.prototype.hasOwnProperty.call(listed, k))
-                .filter((k) => reasonOf(current[k]) !== reasonOf(listed[k]))
+                .filter((k) => reasonOf(current[k]) !== reasonOf(listed[k]));
+            const reasonChanged = reasonChangedKeys
                 .map((k) => k + ': ' + reasonOf(listed[k]) + ' -> ' + reasonOf(current[k]));
             process.stdout.write('[gh678] ' + name + ': now ' + Object.keys(current).length
                 + ', listed ' + Object.keys(listed).length
-                + ', reasons changed ' + reasonChanged.length + '\n');
+                + ', reasons changed ' + reasonChanged.length
+                + (carries ? '' : ' — THIS LIST CARRIES NO LINE FOR ANY ENTRY') + '\n');
             // THE WHOLE LIST, not the first four: a ratchet that reddens on a shift of five and
             // shows four of them leaves the fifth to be guessed at, and the difference between a
             // shift explained and a shift fitted is exactly the entries you never saw.
-            appeared.forEach((k) => process.stdout.write('[gh678]    NEW: ' + k + '\n'));
-            gone.forEach((k) => process.stdout.write('[gh678]    RESOLVED, remove: ' + k + '\n'));
-            reasonChanged.forEach((k) => process.stdout.write('[gh678]    SAME KEY, OTHER REASON: ' + k + '\n'));
+            /**
+             * GH-740 (the acceptor's return) — AND THE MOVED ENTRY CARRIES ITS ADDRESS.
+             *
+             * The key became the CALL rather than the place, so that an edit above a call could no
+             * longer be read as that call moving. What went with the line was the reader's way of
+             * finding it: `NEW: assets/disease-forecast.js : generateForecast : Math.min.apply #1`
+             * names a call and leaves whoever reads it to search the file for which one. The walk
+             * has kept the line all along — it is on the entry, beside the key, which is the shape
+             * this file chose on purpose.
+             *
+             * So it is printed and still never compared. A key with no line recorded says so in
+             * words, because "no address" and "the address was not printed" look alike otherwise.
+             */
+            /**
+             * GH-740 (found inside the acceptor's return, and repaired inside it) — THE WORDS SAY
+             * WHAT THE LIST DOES, NOT WHAT ONE ENTRY LACKS.
+             *
+             * `no line recorded` was written for an entry whose line is missing. Measured on the
+             * fixture: 826 of 1003 entries have `line: null` — every one of FUNCTION_EMPTY (805)
+             * and every one of UNREAD_UNIVERSE (21), while all 177 of EDGE_UNRESOLVED carry one.
+             * The field is not kept for those two lists AT ALL. So the words fired on 82% of the
+             * output and sent whoever read them looking for why THIS entry has no line, when the
+             * true sentence is "this list does not carry lines".
+             *
+             * Which is the same fault the acceptor returned, one step further out: a phrase put in
+             * to separate two cases, printed where it separates nothing. A discriminator that
+             * fires on four fifths of the lines has stopped being one.
+             */
+            const addressOf = (entry, key) => {
+                const file = String(key).split(' : ')[0];
+                if (entry && entry.line !== null && entry.line !== undefined) {
+                    return '   <- ' + file + ':' + entry.line;
+                }
+                // The list keeps lines and this one has none: that IS about the entry.
+                if (carries) return '   <- ' + file + ', no line recorded for this entry';
+
+                return '   <- ' + file;
+            };
+            appeared.forEach((k) => process.stdout.write('[gh678]    NEW: ' + k + addressOf(current[k], k) + '\n'));
+            gone.forEach((k) => process.stdout.write('[gh678]    RESOLVED, remove: ' + k + addressOf(listed[k], k) + '\n'));
+            reasonChangedKeys.forEach((k) => process.stdout.write('[gh678]    SAME KEY, OTHER REASON: '
+                + k + ': ' + reasonOf(listed[k]) + ' -> ' + reasonOf(current[k])
+                + addressOf(current[k], k) + '\n'));
 
             return { appeared, gone, reasonChanged };
         };
@@ -382,6 +474,39 @@ describe('GH-678 — the three lists, and a zero that means something', () => {
             newEmpty: [], resolvedEmpty: [], emptyReasonsChanged: [],
             newUnread: [], resolvedUnread: [], unreadReasonsChanged: [],
         });
+    });
+
+    test('THE WORDS ABOUT A LINE: each list is all-or-nothing, so the sentence can be about the list', () => {
+        /**
+         * GH-740 (found inside the acceptor's return) — WHAT MAKES THE SENTENCE ABOVE TRUE.
+         *
+         * The printer now says "this list carries no line for any entry" for a list that keeps no
+         * lines, and "no line recorded for this entry" only where the list does keep them. That is
+         * only honest while each list is ALL-OR-NOTHING. A list that carried a line for some of its
+         * entries and not others would need the second sentence — and nothing would have said so.
+         *
+         * So the split is measured, printed with its numbers, and asserted. A mixed list reddens
+         * here with its own counts, which is the moment the wording has to be looked at again.
+         */
+        const now = measure();
+        const rows = [['EDGE_UNRESOLVED', now.edges], ['FUNCTION_EMPTY', now.empty],
+            ['UNREAD_UNIVERSE', now.unread]].map(([list, m]) => {
+            const all = Object.values(m);
+            const withLine = all.filter((e) => e && e.line !== null && e.line !== undefined).length;
+
+            return { list, entries: all.length, withLine };
+        });
+        rows.forEach((r) => process.stdout.write('[gh678] ' + r.list + ': ' + r.withLine + ' of '
+            + r.entries + ' entries carry a line'
+            + (r.withLine === 0 ? ' — the list keeps none, and the print says so' : '') + '\n'));
+
+        // The positive control: the walk was really read, and at least one list DOES carry lines —
+        // without it this case would pass over three empty lists and prove nothing.
+        expect(rows.reduce((n, r) => n + r.entries, 0)).toBeGreaterThan(100);
+        expect(rows.some((r) => r.withLine > 0)).toBe(true);
+        const mixed = rows.filter((r) => r.withLine !== 0 && r.withLine !== r.entries)
+            .map((r) => r.list + ': ' + r.withLine + ' of ' + r.entries);
+        expect({ mixed }).toEqual({ mixed: [] });
     });
 
     test('UNITY: the lists are fed by the FIXPOINT, and a broken count moves them BY NAME', () => {

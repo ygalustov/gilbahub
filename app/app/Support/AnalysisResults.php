@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\AnalysisResult;
 use App\Models\Site;
+use App\Models\SiteConfig;
 use App\Models\User;
 use App\Support\AnalysisResultSchema;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -428,9 +429,47 @@ class AnalysisResults
         // complete one — see project().
         $partials  = self::latestPerSite($ids, 'partial');
 
+        /**
+         * GH-742 (queue item 3ad) — THE SITE'S METHODOLOGY TRAVELS WITH THE PROJECTION, FROM ITS ONE
+         * OWNER.
+         *
+         * The panel names the soil part of the analysis by a fixed word: `STEP_NAMES['mlsn']` is
+         * keyed on the name of the STEP, so every site is told `MLSN` whatever its settings say.
+         * The owner's decision is that the panel must name the methodology the site is set to and
+         * the calculation ran under.
+         *
+         * It is read from `config.turf.methodology` and from nowhere else. That is the project's
+         * settled rule and it is not re-derived here: not from the coordinates, not from a sample's
+         * stamp, not from a field on a page. A site that has not finished its wizard has no
+         * methodology, and that is an expected state -- it travels as `null`, and nothing is
+         * substituted for it.
+         *
+         * WHAT THIS DOES NOT DO: turn the key into the word a person reads. Three places already
+         * spell those words out, and a fourth copy here is what this project keeps removing; where
+         * that vocabulary is owned is an open question for the analyst. The key's journey does not
+         * wait on it.
+         */
+        /**
+         * ONE QUERY FOR ALL THE SITES, not one per site and not two. The first version asked for the
+         * sites and eager-loaded their configs, which is two queries, and `Gh550` holds this function
+         * to a ceiling because the property it guards is that the cost must not grow with the number
+         * of sites. Reading the configs directly needs neither the `Site` rows nor the relation.
+         */
+        $methodologies = [];
+        foreach (SiteConfig::query()->whereIn('site_id', $ids)->where('namespace', 'gaip')
+            ->get(['site_id', 'config']) as $record) {
+            $config = is_array($record->config) ? $record->config : [];
+            $value  = $config['turf']['methodology'] ?? null;
+            $methodologies[$record->site_id] = (is_string($value) && $value !== '') ? $value : null;
+        }
+
         $out = [];
         foreach ($ids as $id) {
-            $out[$id] = self::project($completed->get($id), $attempts->get($id), $partials->get($id));
+            $projection = self::project($completed->get($id), $attempts->get($id), $partials->get($id));
+            if (is_array($projection)) {
+                $projection['methodology'] = $methodologies[$id] ?? null;
+            }
+            $out[$id] = $projection;
         }
 
         return $out;

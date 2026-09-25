@@ -219,6 +219,121 @@ class CalculationInputs
      * cells are open questions for the owner (26.2), two of them live. A consumer
      * whose cell is empty says "not computed"; it does not substitute.
      */
+    /**
+     * GH-742 (queue item 3ad) - THE NAME OF A METHODOLOGY, FROM THE ONE PLACE THAT OWNS IT.
+     *
+     * The panel named the soil part of the analysis by a fixed word, so every site was told `MLSN`
+     * whatever its settings said. The name comes from the `values` of `turf.methodology` in the
+     * inputs list now, beside the keys, the way a construction's name does (GH-656).
+     *
+     * A key the list does not carry returns `null` rather than itself: a word this project has not
+     * declared is not a word to print at a client. An absent methodology - a site that has not
+     * finished its wizard - is the same answer, and nothing is substituted for it.
+     */
+    public static function methodologyLabel(?string $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+        $values = self::all()['inputs']['turf.methodology']['values'] ?? [];
+        $entry = $values[trim($value)] ?? null;
+        $label = is_array($entry) ? ($entry['label'] ?? null) : null;
+
+        return (is_string($label) && $label !== '') ? $label : null;
+    }
+
+    /**
+     * GH-742 (reviewer's return) - THE WORD FOR THE SOIL PART OF THE ANALYSIS.
+     *
+     * The site's methodology names it. Where no DECLARED methodology names it - a site whose wizard
+     * is not finished, or a stored value this list does not carry - the answer is the word the list
+     * holds for that case, and it is not the name of a methodology: the step's own word was `MLSN`,
+     * so an absence was read by a client as a choice, and nothing is ever filled with `mlsn`.
+     *
+     * Null only if the list carries no word at all, which `Gh742` asserts it does.
+     */
+    public static function methodologySoilStepLabel(?string $value): ?string
+    {
+        $label = self::methodologyLabel($value);
+        if ($label !== null) {
+            return $label;
+        }
+        $word = self::all()['inputs']['turf.methodology']['labelWhenUndeclared'] ?? null;
+
+        return (is_string($word) && $word !== '') ? $word : null;
+    }
+
+    /**
+     * GH-744 (queue item 3bu) - EVERY WORD A SURFACE PRINTS FOR A METHODOLOGY, FROM ONE PLACE.
+     *
+     * Four kinds of text, each saying something different, lived in four surfaces: the name
+     * (`label`), the topbar's abbreviation (`short`), what the Settings chooser adds to the name -
+     * the full name of MLSN and SLAN, the lab of ammonium acetate (`fullName` / `lab`) - and the
+     * wizard's explaining sentence (`description`). They sit in the `values` of `turf.methodology`,
+     * verbatim from the screen, so no screen changes. There is no `labelLong`: "Hill Labs NZ" is a
+     * lab, not a longer spelling of a name, and the chooser builds its line from the field that says
+     * which it is. A value the list does not carry answers null to every one of these.
+     */
+    public static function methodologyValue(?string $value): ?array
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+        $entry = (self::all()['inputs']['turf.methodology']['values'] ?? [])[trim($value)] ?? null;
+
+        return is_array($entry) ? $entry : null;
+    }
+
+    /** The topbar's abbreviation, or null for a value the list does not carry. */
+    public static function methodologyShort(?string $value): ?string
+    {
+        $short = self::methodologyValue($value)['short'] ?? null;
+
+        return (is_string($short) && $short !== '') ? $short : null;
+    }
+
+    /** The Settings chooser's line: the name and its full name, or the name and its lab. */
+    public static function methodologyChoiceText(string $value): ?string
+    {
+        $v = self::methodologyValue($value);
+        if (! $v || empty($v['label'])) {
+            return null;
+        }
+        if (! empty($v['fullName'])) {
+            return $v['label'].' — '.$v['fullName'];
+        }
+        if (! empty($v['lab'])) {
+            return $v['label'].' ('.$v['lab'].')';
+        }
+
+        return $v['label'];
+    }
+
+    /** Every methodology the list carries, in its order, for the Settings chooser. */
+    public static function methodologyChoices(): array
+    {
+        $out = [];
+        foreach (array_keys(self::all()['inputs']['turf.methodology']['values'] ?? []) as $value) {
+            $text = self::methodologyChoiceText($value);
+            if ($text !== null) {
+                $out[$value] = $text;
+            }
+        }
+
+        return $out;
+    }
+
+    /** What the wizard prints for each methodology: its name and its sentence. */
+    public static function methodologyValuesForWizard(): array
+    {
+        $out = [];
+        foreach (self::all()['inputs']['turf.methodology']['values'] ?? [] as $id => $v) {
+            $out[] = ['id' => $id, 'label' => $v['label'] ?? null, 'description' => $v['description'] ?? null];
+        }
+
+        return $out;
+    }
+
     public static function resolveConstruction(?array $config): ?array
     {
         $value = $config['turf']['construction'] ?? null;

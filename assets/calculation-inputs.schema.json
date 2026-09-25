@@ -51,6 +51,9 @@
       "filledIn": [
         "wizard.step1",
         "settings.site"
+      ],
+      "readAs": [
+        "climate.lon"
       ]
     },
     "turf.turfType": {
@@ -133,7 +136,11 @@
         "WHAT IS NOT DECLARED HERE AND WHY: `wearSandBased` and `preEmergentTexture` are",
         "stated as measured, but their tables are not loadable on their own - one is a",
         "list inside a minified engine, the other a comparison inside the orchestrator.",
-        "The equality test says so by name instead of pretending it checked them."
+        "The equality test says so by name instead of pretending it checked them.",
+        "",
+        "GH-752: `slanSoilType` is the soil type the SLAN ranges are chosen by -- a key of",
+        "assets/slan-ranges.json `bySoilType`. Moved as it stood in mlsnEngine: `sand_profile`",
+        "is `sands`, every other construction `others`."
       ],
       "offeredFor": null,
       "offeredForDecision": "owner: which constructions are offered to which turf type",
@@ -146,7 +153,8 @@
             "irrigationSoilType": "sand",
             "structurePathway": "sand",
             "wearSandBased": true,
-            "preEmergentTexture": "sand"
+            "preEmergentTexture": "sand",
+            "slanSoilType": "others"
           }
         },
         "sand_profile": {
@@ -157,7 +165,8 @@
             "irrigationSoilType": "sandProfile",
             "structurePathway": "sand",
             "wearSandBased": false,
-            "preEmergentTexture": "loam"
+            "preEmergentTexture": "loam",
+            "slanSoilType": "sands"
           }
         },
         "pipe_drained": {
@@ -168,7 +177,8 @@
             "irrigationSoilType": null,
             "structurePathway": "clay",
             "wearSandBased": false,
-            "preEmergentTexture": "loam"
+            "preEmergentTexture": "loam",
+            "slanSoilType": "others"
           }
         },
         "soil": {
@@ -179,7 +189,8 @@
             "irrigationSoilType": null,
             "structurePathway": "clay",
             "wearSandBased": false,
-            "preEmergentTexture": "loam"
+            "preEmergentTexture": "loam",
+            "slanSoilType": "others"
           }
         },
         "hybrid": {
@@ -190,7 +201,8 @@
             "irrigationSoilType": null,
             "structurePathway": "sand",
             "wearSandBased": false,
-            "preEmergentTexture": "loam"
+            "preEmergentTexture": "loam",
+            "slanSoilType": "others"
           }
         },
         "california": {
@@ -201,7 +213,8 @@
             "irrigationSoilType": "sandProfile",
             "structurePathway": "sand",
             "wearSandBased": false,
-            "preEmergentTexture": "loam"
+            "preEmergentTexture": "loam",
+            "slanSoilType": "others"
           }
         },
         "push_up": {
@@ -212,7 +225,8 @@
             "irrigationSoilType": "loam",
             "structurePathway": "clay",
             "wearSandBased": false,
-            "preEmergentTexture": "loam"
+            "preEmergentTexture": "loam",
+            "slanSoilType": "others"
           }
         },
         "native": {
@@ -223,7 +237,8 @@
             "irrigationSoilType": "sandyLoam",
             "structurePathway": "clay",
             "wearSandBased": false,
-            "preEmergentTexture": "loam"
+            "preEmergentTexture": "loam",
+            "slanSoilType": "others"
           }
         },
         "sand_capped": {
@@ -234,7 +249,8 @@
             "irrigationSoilType": null,
             "structurePathway": "clay",
             "wearSandBased": false,
-            "preEmergentTexture": "loam"
+            "preEmergentTexture": "loam",
+            "slanSoilType": "others"
           }
         },
         "imported": {
@@ -245,7 +261,8 @@
             "irrigationSoilType": null,
             "structurePathway": "clay",
             "wearSandBased": false,
-            "preEmergentTexture": "loam"
+            "preEmergentTexture": "loam",
+            "slanSoilType": "others"
           }
         },
         "sandy_loam": {
@@ -256,7 +273,8 @@
             "irrigationSoilType": null,
             "structurePathway": "clay",
             "wearSandBased": false,
-            "preEmergentTexture": "loam"
+            "preEmergentTexture": "loam",
+            "slanSoilType": "others"
           }
         }
       }
@@ -280,7 +298,64 @@
       ],
       "readAs": [
         "soil.methodology"
-      ]
+      ],
+      "$comment": [
+        "GH-742 (queue item 3ad) - THE NAME OF A METHODOLOGY IS OWNED HERE, beside its key, the way",
+        "`turf.construction` owns its own (GH-656). The panel named the soil part of the analysis by a",
+        "fixed word -- every site was told MLSN whatever its settings said -- and the owner's decision is",
+        "that it must name the methodology the site is set to and the calculation ran under.",
+        "",
+        "GH-744 (queue item 3bu) - EVERY WORD A SURFACE PRINTS FOR A METHODOLOGY IS HERE, verbatim from",
+        "the screen: `label` the name, `short` the topbar's abbreviation, `fullName` or `lab` what the",
+        "Settings chooser adds to the name, `description` the wizard's sentence. They are four fields",
+        "because they say four different things: `Hill Labs NZ` is a laboratory and a country, not a",
+        "longer spelling of a name, so there is no `labelLong`. Settings, the topbar and the wizard read them.",
+        "",
+        "READ BY THE SERVER ONLY, like the rest of this file: `CalculationInputs::methodology()` is the one",
+        "reader, and every surface takes the name from it rather than keeping a copy.",
+        "",
+        "`labelWhenUndeclared` - THE WORD FOR THE SOIL PART WHEN NO DECLARED METHODOLOGY NAMES IT.",
+        "Two cases, one answer: a site whose wizard is not finished carries no methodology, and a",
+        "stored value this list does not declare cannot be shown to a client. The word printed in both",
+        "was `MLSN`, because the step's own word in `AnalysisNotice::STEP_NAMES` is the name of a",
+        "methodology -- an absence read as a choice, against the rule that nothing is ever filled with",
+        "`mlsn`. This word names the part of the analysis without naming a methodology.",
+        "",
+        "DRAFT: the word is the developer's, it stands on the screen marked as a draft, and the owner",
+        "accepts or replaces it. It is not a default for a missing value -- nothing is substituted for",
+        "the methodology itself, which stays absent: the projection carries `null` and no surface",
+        "turns it into a choice.",
+        "",
+        "AND WHAT THE PANEL DOES NOT DO, corrected here on the reviewer's return because this text",
+        "promised it: the absence is not ANNOUNCED to a client anywhere. The sentence a person reads",
+        "is about the part of the analysis that was not computed, not about a setting that is",
+        "missing. Saying it out loud needs words that are the owner's, and that is the open question",
+        "this draft belongs to.",
+        "",
+        "It lives beside the names it stands in for, in the one file the server reads, so the panel has",
+        "no word of its own to drift from this one."
+      ],
+      "labelWhenUndeclared": "soil nutrition",
+      "values": {
+        "mlsn": {
+          "label": "MLSN",
+          "short": "MLSN",
+          "fullName": "Minimum Levels for Sustainable Nutrition",
+          "description": "Threshold-based. Validated for sand-based putting greens."
+        },
+        "slan": {
+          "label": "SLAN",
+          "short": "SLAN",
+          "fullName": "Sufficiency Level of Available Nutrients",
+          "description": "Sufficiency ranges. Standard for sports fields, fairways, lawns."
+        },
+        "ammonium_acetate": {
+          "label": "Ammonium Acetate",
+          "short": "AA",
+          "lab": "Hill Labs NZ",
+          "description": "Hill Labs NZ — Olsen P + NH₄OAc extraction."
+        }
+      }
     },
     "turf.nProgram": {
       "required": null,
@@ -351,15 +426,13 @@
     },
     "turf.percentC3Cover": {
       "required": false,
-      "filledIn": [
-        "settings.turf"
-      ]
+      "$comment": "GH-757 (queue item 3ah) - NOBODY FILLS THIS IN. The entry said `settings.turf`, and Settings carries no such field: measured, `percentC3Cover` appears 0 times in settings.blade.php and in settings-init.js, and the value is absent on all 14 stand sites. FIVE places READ it - climate-module-v2.js, disease-integration.js twice, climate-module-v2-ui.js, gaip-field-log-analysis.js - so the entry stays: a read with no entry is the defect this file exists against. What changes is the promise: `filledIn` is empty because no surface fills it.",
+      "filledIn": []
     },
     "turf.warmBase": {
       "required": false,
-      "filledIn": [
-        "settings.turf"
-      ]
+      "$comment": "GH-757 (queue item 3ah) - NOBODY FILLS THIS IN either. `warmBase` appears 0 times in Settings and is absent on all 14 stand sites, while climate-module-v2.js, disease-integration.js, ambient-dli-engine.js and contradiction-detector.js twice read it. The entry stays for the readers; the promise of a writer does not.",
+      "filledIn": []
     },
     "sites.soil_texture_override": {
       "required": false,
@@ -389,7 +462,38 @@
         "schedule.matchCode",
         "schedule.trainingCode",
         "schedule.traffic",
-        "schedule.nextMatch"
+        "schedule.nextMatch",
+        "traffic.matchesPerWeek",
+        "traffic.sessionsPerWeek",
+        "traffic.restDays",
+        "traffic.matchCode",
+        "traffic.trainingCode"
+      ]
+    },
+    "pgr.enabled": {
+      "required": false,
+      "filledIn": [
+        "settings.turf"
+      ],
+      "readAs": [
+        "turf.pgrActive"
+      ],
+      "$comment": [
+        "GH-725 (queue item 3bo, the reviewer's return) - THE ANSWER THE PERSON GIVES ABOUT PGR, AND",
+        "IT WAS READ BEFORE IT WAS DECLARED. The repair of this very item made the run read",
+        "`config.pgr.enabled` in `gaip_transformToCascadeFormat`, and the list said nothing about it:",
+        "the rule is that a new input joins this list FIRST, and the guards of this file stayed green",
+        "because they see the reads that are declared, not the reads that exist.",
+        "",
+        "Filled in by the PGR switch in Settings; the run assembles it into `turf.pgrActive`, which is",
+        "declared under `derived` rather than here, because it is worked out from this answer.",
+        "",
+        "WHAT ITS ABSENCE COSTS: the shade engine's `currentlyActive` and `conflictDetected` have no",
+        "answer to give, so a PGR conflict is neither asserted nor denied. That effect is NOT written",
+        "as a `whenAbsent` pair yet, and the reason is a rule rather than an oversight: a declared pair",
+        "must have a module that RECORDS it, the guard holds both directions, and the recorder for the",
+        "run's own side is the next delivery of item 3ay. Declaring the pair today would make that",
+        "guard red about nothing."
       ]
     },
     "pgr.productType": {
@@ -442,6 +546,35 @@
         "data.soil"
       ],
       "readings": "readingKeysFor:soil",
+      "whenAbsent": {
+        "soil.pH_water": [
+          "no pH reading was there where one was asked for, and the module that asked records that it was not"
+        ],
+        "soil.CEC": [
+          "a certificate band held as a proportion of the CEC is not computed and the generic band for the soil texture stands in"
+        ]
+      },
+      "$commentWhenAbsent": [
+        "GH-749 (queue item 3ay) - WHAT THE ABSENCE OF A READING COSTS, declared beside the reading",
+        "rather than written into each module that meets it. A pair is {input, effect}: the key is one",
+        "of the read spellings this entry already declares, and each effect is one thing that does not",
+        "happen without it. The guard holds the pairs the code records against these, both ways -- a",
+        "pair recorded and not declared is red, and a pair declared that no module records is red --",
+        "and every declared pair has a case that runs the module and reads the pair back.",
+        "",
+        "THESE ARE NOT THE WORDS A CLIENT READS. They name the effect for a reader of the run's own",
+        "record; the sentence a person sees is the owner's and is a separate question.",
+        "",
+        "AND A PAIR SAYS WHAT IT DOES, NOT WHAT SOMETHING ELSE DOES. The pH pair used to read `the",
+        "phosphorus floor is not adjusted by pH`, which is a statement about how MLSN and SLAN behave -",
+        "parked as an open question by the owner's decision of 25.09.2026, and not this record's to",
+        "assert. The wording names the absence and the fact that a module recorded it; what any",
+        "methodology then does with a missing reading is that methodology's own subject.",
+        "",
+        "A REQUIRED SETTING HAS NO PAIR HERE, and that is the analyst's decision rather than an",
+        "omission: `turf.methodology` has one owner and no allowed absence, so the resolver REFUSES",
+        "instead of recording an effect -- an effect would admit the case as an allowed one."
+      ],
       "$comment": [
         "`readAs` here is the soil state the run assembles FROM this sample -",
         "measured in `gaip_soilStateFrom` (GH-628), not guessed. The readings",
@@ -514,9 +647,8 @@
     },
     "soil.clay": {
       "required": false,
-      "filledIn": [
-        "data.soil"
-      ],
+      "$comment": "GH-757 (queue item 3ah) - THE DATA PAGE DOES NOT TAKE IT. The entry said `data.soil`, and measured, `clay` appears 0 times in data.blade.php; the value is absent on all 14 stand sites. One reader: soil-structure-engine.js, which falls back to 20 when it is missing - a substitution named here rather than left in the engine's argument list.",
+      "filledIn": [],
       "readings": "readingKeysFor:soil"
     },
     "irrigation.method": {
@@ -573,40 +705,43 @@
       "fact derived from an input. Anything read and in neither this block nor the list",
       "is an input nobody declared, and the equality test names it."
     ],
-    "turf.ambientDLI": "a result: the ambient DLI engine writes it",
-    "turf.dli": "a result: the shade engine writes it",
-    "turf.shade": "a result: the shade engine writes it",
-    "turf.pgrActive": "a result: the PGR module writes it",
-    "soil.ESP": "a result: the salinity engine writes it",
-    "climate.data": "a result: the climate engine writes it",
-    "site.hemisphere": "derived from the latitude",
-    "site.region": "derived from the coordinates",
-    "location.region": "derived from the coordinates",
-    "site.ledAvailable": "a result: the lighting step writes it",
-    "site.country": "derived from the coordinates, like `site.region` beside it",
-    "pgr.gddThreshold": "derived from the PGR product type -- a property of the product, not asked of anyone",
-    "climate.historical": "a result: the historical weather window the run fetches from the PGR application date and carries into the next pass (GH-589). Nobody enters it.",
-    "turf.ambientDLISource": "derived: which road the ambient DLI came by, written by the run beside `turf.ambientDLI`, which is itself a result"
+    "turf.ambientDLI": "a result: the shade engine returns it in its own output -- `assets/shade-engine.js` / `gssh_shade_engine`, and the run carries it into the next pass at `assets/hub-tissue-v3.js` / `gaip_carryRunComputedInto`",
+    "turf.dli": "a result: the cascade's shade engine produces it, declared as the output `computed.shade.dli` by `assets/dependency-graph.json` / `computed.shade.dli` and executed at `assets/cascade-orchestrator.js` / `executeShadeEngine`",
+    "turf.shade": "a result: the same engine's whole shade block, declared as the output `computed.shade` -- `assets/cascade-orchestrator.js` / `executeShadeEngine`",
+    "soil.ESP": "a result: worked out from the sodium and the CEC -- `assets/hub-tissue-v3.js` / `assessSoilSodium`",
+    "climate.data": "a result: the climate block the run fetches and stores each pass -- `assets/hub-orchestrator.js` / `getAuthoritativeClimate`",
+    "site.hemisphere": "derived from the latitude, one comparison -- `assets/shade-orchestrator.js` / `_onClimateReady`",
+    "site.region": "derived from the coordinates -- `assets/hub-orchestrator.js` / `detectRegion`. Measured under GH-712: the derivation exists in ten files under that name, and this is the one in the run's own path",
+    "location.region": "derived from the coordinates, the same derivation as `site.region` -- `assets/hub-orchestrator.js` / `detectRegion`; the places that name `location.region` read it and none writes it",
+    "site.ledAvailable": "a result: whether the lighting step found any lamp hours -- `assets/hub-tissue-v3.js` / `ledAvailable: o > 0`",
+    "pgr.gddThreshold": "derived from the PGR product type, a property of the product rather than a question -- `assets/gilba-pgr-module-v3.js` / `w_pure`",
+    "climate.historical": "a result: the historical weather window the run fetches from the PGR application date and carries into the next pass (GH-589) -- `assets/hub-tissue-v3.js` / `gaip_carryRunComputedInto`",
+    "turf.ambientDLISource": "derived: which road the ambient DLI came by, returned beside `turf.ambientDLI` -- `assets/shade-engine.js` / `gssh_shade_engine`",
+    "water.SAR": "BOTH A LAB COLUMN AND A COMPUTED VALUE, measured under GH-712 and narrower than the reason written earlier the same night: a water report may carry SAR itself -- `assets/lab-import.js` / `SAR: { min: 0, max: 100, unit: '' }` -- and it is also computed from the ions where no column supplied it -- `assets/word-export.js` / `data.water.SAR = Na_meq`. Because a person's report can supply it, calling it purely a result is wrong; which class it belongs to is not settled here",
+    "water.adjSAR": "a result: the Suarez adjusted SAR, computed from the ions -- `assets/soil-structure-engine.js` / `calcSuarezAdjSAR`",
+    "soil.meq": "a result: the milliequivalent cations the sample layer derives from the sample's own ppm values -- `assets/sample-manager.js` / `meq: { K: K_me, Ca: Ca_me, Mg: Mg_me, Na: Na_me }`",
+    "turf.growthMultiplier": "a result: the combined growth modifier the stress engine wrote, read back when the wear inputs are built -- `assets/hub-orchestrator.js` / `buildWearRecoveryInputs`",
+    "site.country": "READ BY TWO ENGINES AND FILLED BY NOTHING, measured under GH-725: `assets/gilba-hub-v2.js` / `country: null` is the only place it is set, so both readers always see null -- `assets/ambient-dli-engine.js` / `detectRegion(lat, lon, state?.site?.country)`, where it is only an alternative to a coordinate box, and the pre-emergent engine, which keys a New Zealand branch on it. Whether it should be asked for is not settled here"
   },
   "derived": {
+    "turf.pgrActive": "from `pgr.enabled`, the PGR switch in Settings, assembled by `assets/hub-tissue-v3.js` / `gaip_transformToCascadeFormat`. GH-725 (queue item 3bo) made this true and the record did not follow: it used to say NOT PRODUCED ANYWHERE and that the engines consulting it always see false, which was measured and correct until the same item's repair. An unanswered switch stays `null` rather than becoming `false`. The reviewer's return named this record: a list that is wrong about itself is the defect this item exists to remove.",
     "$comment": [
       "Not inputs: worked out from an input rather than asked for. Named one by one so",
       "the equality test excludes them with a reason instead of by a rule that would",
       "also excuse a real omission."
     ],
-    "climateRegime": "from the latitude",
-    "purpose": "from the turf type and the surface",
-    "timezone": "from the coordinates",
-    "effectiveSpecies": "from the species and the overseed",
-    "effectiveVariety": "from the variety and the overseed",
-    "effectiveIsC4": "from the species",
-    "c3Fraction": "from the species",
-    "c4Fraction": "from the species",
-    "turf.isC4": "from the species",
-    "turf.speciesFractions": "from the species and the overseed",
-    "turf.grassType": "from the species, normalised to an engine key",
-    "turf.speciesKey": "from the species, normalised to an engine key",
-    "turf.effectiveSpeciesKey": "from the effective species, normalised to an engine key",
-    "turf.baseSpecies": "from the species, before the overseed is applied"
+    "climateRegime": "from the latitude. Measured under GH-712: the only trace of it in the tree is the provenance read `assets/identity-enforcement.js` / `location.climateRegime ? 'user' : 'derived'`, which decides whether a person set it or it was worked out",
+    "timezone": "from the coordinates, on the server, with a non-empty request value treated as a manual override -- `app/app/Http/Controllers/SiteController.php` / `timezoneFromCoordinates`",
+    "effectiveSpecies": "from the species and the overseed -- `assets/hub-orchestrator.js` / `populateCanonicalState`",
+    "effectiveVariety": "from the variety and the overseed -- `assets/hub-orchestrator.js` / `populateCanonicalState`",
+    "effectiveIsC4": "from the effective species -- `assets/hub-tissue-v3.js` / `o.turf.effectiveIsC4 = !!c`",
+    "c3Fraction": "from the species, or from the C4 answer when the species carries no fraction -- `assets/hub-orchestrator.js` / `populateCanonicalState`",
+    "c4Fraction": "one minus the C3 fraction, in the same place -- `assets/hub-orchestrator.js` / `populateCanonicalState`",
+    "turf.isC4": "from the species, answered by the one owner of species questions -- `assets/species-controller.js` / `isC4Species`",
+    "turf.speciesFractions": "from the species and the overseed -- `assets/hub-tissue-v3.js` / `o.turf.speciesFractions = {`",
+    "turf.grassType": "from the species, normalised to an engine key, with a stand-in where the state carries none -- `assets/cascade-orchestrator.js` / `grassType: state.turf?.grassType || 'C4'`",
+    "turf.speciesKey": "from the species, normalised to an engine key -- `assets/hub-orchestrator.js` / `populateCanonicalState`",
+    "turf.effectiveSpeciesKey": "from the effective species, normalised to an engine key -- `assets/hub-orchestrator.js` / `populateCanonicalState`",
+    "turf.baseSpecies": "from the species before any overseed, answered by the owner of species questions -- `assets/species-controller.js` / `getBaseSpecies`"
   }
 }

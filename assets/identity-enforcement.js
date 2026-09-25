@@ -156,6 +156,12 @@
     /**
      * Engine identity requirements
      * Each engine declares which keys it needs and how it behaves under unknown
+     *
+     * GH-714: no entry declares a recommendation ban any more. Six entries said an engine
+     * could not recommend under an unknown key (fungicide timing, mm/day, PGR rate, kg/ha, and
+     * wear twice); nothing outside this file ever asked, so the table described a product that
+     * does not exist. The owner's decision of 22.09.2026 is to fix the incoming data rather
+     * than switch such bans on, so the table is brought to the code.
      */
     const ENGINE_REQUIREMENTS = {
         'disease-engine': {
@@ -168,10 +174,6 @@
             unknownBehaviour: {
                 climateRegimeKey: 'Disables regional disease weighting',
                 surfaceKey: 'Uses conservative drainage assumptions'
-            },
-            canEmitRecommendations: {
-                climateRegimeKey: false,  // No fungicide timing with unknown regime
-                surfaceKey: true
             }
         },
 
@@ -208,10 +210,6 @@
             unknownBehaviour: {
                 surfaceKey: 'Uses median recovery coefficients',
                 turfIntentKey: 'Runs without intent: recovery windows are not tailored to a playing intent'
-            },
-            canEmitRecommendations: {
-                surfaceKey: false,
-                turfIntentKey: false
             }
         },
 
@@ -225,10 +223,6 @@
             unknownBehaviour: {
                 surfaceKey: 'Uses conservative infiltration rates',
                 climateRegimeKey: 'Uses measured ET only, no regime adjustments'
-            },
-            canEmitRecommendations: {
-                surfaceKey: false,  // No mm/day with unknown profile
-                climateRegimeKey: true
             }
         },
 
@@ -242,10 +236,6 @@
             unknownBehaviour: {
                 turfIntentKey: 'Uses conservative GDD thresholds',
                 climateRegimeKey: 'No seasonal regime adjustments'
-            },
-            canEmitRecommendations: {
-                turfIntentKey: false,  // No rate recommendations with unknown intent
-                climateRegimeKey: true
             }
         },
 
@@ -259,10 +249,6 @@
             unknownBehaviour: {
                 turfIntentKey: 'Uses maintenance-level demand curves',
                 surfaceKey: 'Ignores CEC-based adjustments'
-            },
-            canEmitRecommendations: {
-                turfIntentKey: false,  // No kg/ha with unknown intent
-                surfaceKey: true
             }
         },
 
@@ -276,10 +262,6 @@
             unknownBehaviour: {
                 climateRegimeKey: 'Uses conservative stress thresholds',
                 turfIntentKey: 'Uses general maintenance thresholds'
-            },
-            canEmitRecommendations: {
-                climateRegimeKey: true,
-                turfIntentKey: true  // Advisory only anyway
             }
         },
 
@@ -291,9 +273,6 @@
             },
             unknownBehaviour: {
                 surfaceKey: 'Uses species-only DLI thresholds'
-            },
-            canEmitRecommendations: {
-                surfaceKey: true
             }
         }
     };
@@ -313,9 +292,7 @@
             defaultedKeys: [],
             totalConfidencePenalty: 0,
             canExport: true,
-            canPrescribe: true,
-            blockedEngines: [],
-            restrictedEngines: []
+            blockedEngines: []
         },
         validatedAt: null
     };
@@ -420,9 +397,7 @@
                 defaultedKeys: [],
                 totalConfidencePenalty: 0,
                 canExport: true,
-                canPrescribe: true,
-                blockedEngines: [],
-                restrictedEngines: []
+                blockedEngines: []
             },
             validatedAt: new Date().toISOString()
         };
@@ -451,7 +426,6 @@
         if (!speciesResult.valid && !_isCotulaSurface) {
             _identityState.quality.tier0Valid = false;
             _identityState.quality.canExport = false;
-            _identityState.quality.canPrescribe = false;
             _identityState.quality.blockReason = speciesResult.error;
 
             console.error('[IdentityEnforcement] TIER 0 FAILURE:', speciesResult.error);
@@ -527,10 +501,6 @@
             _identityState.quality.defaultedKeys.push(assumption.key);
             _identityState.quality.totalConfidencePenalty += assumption.confidencePenalty;
 
-            // Check if this blocks exports/prescriptions
-            if (assumption.impact === 'high') {
-                _identityState.quality.canPrescribe = false;
-            }
             if (assumption.impact === 'high' || assumption.impact === 'medium') {
                 // Check which engines are affected
                 assumption.affectedEngines.forEach(engineId => {
@@ -539,10 +509,6 @@
                         if (!req.canRunUnknown?.[assumption.key]) {
                             if (!_identityState.quality.blockedEngines.includes(engineId)) {
                                 _identityState.quality.blockedEngines.push(engineId);
-                            }
-                        } else if (!req.canEmitRecommendations?.[assumption.key]) {
-                            if (!_identityState.quality.restrictedEngines.includes(engineId)) {
-                                _identityState.quality.restrictedEngines.push(engineId);
                             }
                         }
                     }
@@ -924,8 +890,7 @@
                 } else {
                     restrictions.push({
                         key: keyName,
-                        behaviour: req.unknownBehaviour?.[keyName],
-                        canEmitRecommendations: req.canEmitRecommendations?.[keyName] ?? true
+                        behaviour: req.unknownBehaviour?.[keyName]
                     });
                 }
             }
@@ -938,24 +903,12 @@
         };
     }
 
-    /**
-     * Check if an engine can emit recommendations
-     * @param {string} engineId - Engine identifier
-     * @returns {boolean}
-     */
-    function canEngineRecommend(engineId) {
-        const runCheck = canEngineRun(engineId);
-        if (!runCheck.canRun) return false;
-
-        // Check if any restriction blocks recommendations
-        for (const restriction of runCheck.restrictions) {
-            if (!restriction.canEmitRecommendations) {
-                return false;
-            }
-        }
-
-        return _identityState.quality.canPrescribe;
-    }
+    // GH-714: `canEngineRecommend`, `quality.canPrescribe` and `quality.restrictedEngines` are gone.
+    // They answered whether an engine may recommend under an unknown key, and nothing outside this
+    // module ever asked: measured across assets (minified files included), app code, views,
+    // templates, data and the tests, by name and through every reference to this module object. The
+    // one boundary of that measurement: a member reached through a computed name is invisible to a
+    // text search. The owner's decision of 22.09.2026 is not to switch such bans on.
 
     /**
      * Get confidence penalty for current identity state
@@ -1103,7 +1056,6 @@
 
         // Engine interface
         canEngineRun: canEngineRun,
-        canEngineRecommend: canEngineRecommend,
 
         // Output gating
         canExport: canExport,

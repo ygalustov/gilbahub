@@ -36,6 +36,7 @@
  */
 
 const vm = require('vm');
+const { asTheSite, siteFor } = require('./lib/soil-page-site');
 const fs = require('fs');
 const path = require('path');
 const { buildContext, run } = require('./helpers/mlsn-engine-harness');
@@ -253,7 +254,12 @@ function loadSoilNutritionAnalysis() {
     sandbox.globalThis = sandbox;
     const ctx = vm.createContext(sandbox);
     vm.runInContext(testSrc, ctx, { filename: 'soil-nutrition-analysis.js' });
-    return ctx.window.GAIP_SoilNutritionAnalysis;
+    // GH-752: the page renders for a site whose methodology is the one each case names.
+    const m = ctx.window.GAIP_SoilNutritionAnalysis;
+    return Object.assign({}, m, {
+        __test_renderNutrientCards: asTheSite(ctx.window, m.__test_renderNutrientCards),
+        __test_renderAnnualRequirements: asTheSite(ctx.window, m.__test_renderAnnualRequirements),
+    });
 }
 
 describe('GH-304 — soil-nutrition-analysis.js labels generic-range figures', () => {

@@ -1,0 +1,128 @@
+{
+  "$comment": [
+    "GH-704 (queue item 3as) — ONE INPUT TABLE, ASKED OF EVERY COPY OF THE PRODUCED PREDICATE.",
+    "Three copies decide whether a pass produced a result: one on the server and two in the",
+    "browser. They are said to agree today, and if they do, repairing one of them moves nothing",
+    "that any run can see — which is how three answers drift into two.",
+    "This file is the question. The jest case asks the two browser copies, the PHPUnit case asks",
+    "the server's, and both print what came back, so the comparison is between each copy and a",
+    "declared input rather than between two copies of ours.",
+    "It lives under `app/tests/fixtures/` because that is the one place BOTH runners can read it: the container mounts only `assets` and the Laravel app, so PHPUnit cannot see `tests/`, while jest runs on the host and can read anything. One file, two readers — a second copy of this table would be the very thing this item is about.",
+    "`expected` is the answer every copy must give, and it is the reason this file exists: after the browser pair became one implementation they can no longer disagree with each other, so a comparison between them proves nothing. Each runner now checks its own copy against THIS declared answer, and a change in either language reddens that language's own case.",
+    "`expectedFromTheServerWithTheKey` is the one deliberate difference: asked WITH a key, the server also consults the result form's `emptyWhen` marker, which is about the REASON a section is empty. The plan for this item does not consolidate the reason, so the difference is declared here rather than discovered by whoever next tries to make the three agree."
+  ],
+  "cases": [
+    {
+      "name": "null",
+      "value": null,
+      "key": null,
+      "expected": false
+    },
+    {
+      "name": "an empty object",
+      "value": {},
+      "key": null,
+      "expected": false
+    },
+    {
+      "name": "an empty list",
+      "value": [],
+      "key": null,
+      "expected": false
+    },
+    {
+      "name": "a list with one entry",
+      "value": [
+        1
+      ],
+      "key": null,
+      "expected": true
+    },
+    {
+      "name": "an object with a key",
+      "value": {
+        "a": 1
+      },
+      "key": null,
+      "expected": true
+    },
+    {
+      "name": "status Error",
+      "value": {
+        "status": "Error"
+      },
+      "key": null,
+      "expected": false
+    },
+    {
+      "name": "status Not available",
+      "value": {
+        "status": "Not available"
+      },
+      "key": null,
+      "expected": false
+    },
+    {
+      "name": "status Not available with other keys",
+      "value": {
+        "status": "Not available",
+        "a": 1
+      },
+      "key": null,
+      "expected": false
+    },
+    {
+      "name": "status of its own",
+      "value": {
+        "status": "Complete",
+        "a": 1
+      },
+      "key": null,
+      "expected": true
+    },
+    {
+      "name": "a number",
+      "value": 0,
+      "key": null,
+      "expected": true
+    },
+    {
+      "name": "a number that is not zero",
+      "value": 5,
+      "key": null,
+      "expected": true
+    },
+    {
+      "name": "an empty string",
+      "value": "",
+      "key": null,
+      "expected": true
+    },
+    {
+      "name": "a string",
+      "value": "x",
+      "key": null,
+      "expected": true
+    },
+    {
+      "name": "false",
+      "value": false,
+      "key": null,
+      "expected": true
+    },
+    {
+      "name": "a shape whose own verdict says it is empty",
+      "value": {
+        "verdict": "NO DATA",
+        "nutrients": [
+          1,
+          2,
+          3
+        ]
+      },
+      "key": "soilNutrition",
+      "expected": true,
+      "expectedFromTheServerWithTheKey": false
+    }
+  ]
+}

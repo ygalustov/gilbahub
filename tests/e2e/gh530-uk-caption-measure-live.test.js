@@ -193,7 +193,7 @@ if (!ENABLED) {
             // md5 by the restore itself. Here rather than in afterAll: afterAll
             // runs after every test, so a test asking whether the stand was put
             // back would read a report that does not exist yet.
-            try { M.restore = restoreConfigs(); }
+            try { M.restore = restoreConfigs({ sites: [SITE.id] }); }
             catch (e) { M.restore = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
             out('GH-519 restore: ' + JSON.stringify(M.restore));
         }, 600000);

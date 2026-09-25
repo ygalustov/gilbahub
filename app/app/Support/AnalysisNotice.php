@@ -126,6 +126,12 @@ final class AnalysisNotice
         // GH-572: the code the withdrawn journal rule wrote. Kept because rows
         // recorded under it are still in the table; nothing writes it now.
         'engine-did-not-produce' => ['class' => 'run-incomplete', 'text' => 'the run reported a problem in that part of the analysis'],
+        // GH-734: the run no longer computes the soil temperature on a construction nobody chose or
+        // on a moisture nobody measured, and says which of the two it lacked. BOTH SENTENCES ARE
+        // DRAFTS awaiting the owner's words, written by the analyst in the form of the texts above:
+        // they name what is absent and where it is filled in, and suggest no value.
+        'setting-missing' => ['class' => 'setting-missing', 'text' => 'no construction type is set for this site, so the soil temperature was not computed. Set it in Settings, Turf profile'],
+        'soil-moisture-unavailable' => ['class' => 'run-incomplete', 'text' => 'the weather data for this run carried no soil moisture, so the soil temperature was not computed'],
     ];
 
     /**
@@ -191,6 +197,12 @@ final class AnalysisNotice
         'stress'            => 'stress',
         'stress-trajectory' => 'stress trajectory',
         'climate'           => 'climate',
+        // GH-734: the run notes a skip under this module when no construction type is
+        // set and when the weather carried no soil moisture, and `gh572` went red
+        // naming it -- a module warned under with no word here is printed as its own
+        // identifier. The word is the graph's label for `soil-temp-physics`, as every
+        // other word in this map is the label of the engine that writes the key.
+        'soil-temp-physics' => 'soil temperature',
         'dew'               => 'dew prediction',
         'shade'             => 'shade',
         'salinity'          => 'salinity penalty',
@@ -273,6 +285,34 @@ final class AnalysisNotice
      *
      * @return array{cause:?string,class:string,step:?string,module:?string,retry:bool,text:?string}|null
      */
+    /**
+     * GH-742 - the word for a step, and for the soil step it is the site's methodology.
+     *
+     * Both readers of `STEP_NAMES` go through this, so the two cannot drift: the reviewer's
+     * condition for this item was that it be checked on BOTH, not on one.
+     */
+    private static function stepName(string $step, ?array $projection): string
+    {
+        if ($step === 'mlsn') {
+            /**
+             * GH-742 (reviewer's return): the word is the site's methodology, and where no declared
+             * methodology names the site it is the list's word for that case. It was this map's own
+             * word, `MLSN`, which is the name of a methodology - so a site with none, and a site
+             * carrying a value this project never declared, were both told a methodology they are
+             * not set to. The entry below stays as the last resort and as the graph's own word for
+             * the engine; while the list carries its word, nothing reaches it by this branch.
+             */
+            $label = CalculationInputs::methodologySoilStepLabel(
+                is_array($projection) ? ($projection['methodology'] ?? null) : null
+            );
+            if ($label !== null) {
+                return $label;
+            }
+        }
+
+        return self::STEP_NAMES[$step] ?? $step;
+    }
+
     public static function section(string $key, ?array $projection): ?array
     {
         $computed = $projection['computed'] ?? null;
@@ -291,7 +331,20 @@ final class AnalysisNotice
             'cause'  => $code,
             'class'  => self::classOf($code),
             'step'   => $step,
-            'module' => $step === null ? null : (self::STEP_NAMES[$step] ?? $step),
+            /**
+             * GH-742 (queue item 3ad) - THE SOIL STEP IS NAMED BY THE SITE'S METHODOLOGY.
+             *
+             * `STEP_NAMES['mlsn']` is keyed on the name of the STEP, so every site was told `MLSN`
+             * whatever its settings said -- measured on the stand, eight of thirteen are set to
+             * something else. The owner's decision, in her words: print the methodology that is in
+             * the settings and that the calculation ran under.
+             *
+             * The name comes from the one place that owns it, and the KEY from the one place that
+             * owns that: `config.turf.methodology`, carried here by the projection. A site with no
+             * methodology keeps the step's own word, because a site that has not finished its wizard
+             * has no methodology to name and nothing is invented for it.
+             */
+            'module' => $step === null ? null : self::stepName($step, $projection),
             'retry'  => $code === null ? false : self::retryCanHelp($code),
             'text'   => self::sectionText($code),
         ];
@@ -837,7 +890,7 @@ final class AnalysisNotice
             }
             // GH-572: the module's word for itself is not the reader's word for
             // it. An identifier with no entry is printed as it is.
-            $name = self::STEP_NAMES[$key] ?? (string) $key;
+            $name = self::stepName((string) $key, $projection);
             if (! in_array($name, $names, true)) {
                 $names[] = $name;
             }

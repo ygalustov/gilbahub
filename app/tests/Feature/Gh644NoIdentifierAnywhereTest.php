@@ -101,14 +101,32 @@ class Gh644NoIdentifierAnywhereTest extends TestCase
         $unknown = (new \ReflectionClass(AnalysisNotice::class))->getConstant('UNKNOWN_REASON');
         $this->assertStringContainsString('{code}', $unknown);
 
-        // and nothing else in the composer's output carries a raw code shape
-        $texts = AnalysisNotice::clientTexts();
-        $flat = [];
-        array_walk_recursive($texts, function ($v) use (&$flat) {
-            if (is_string($v)) {
-                $flat[] = $v;
+        /**
+         * And no SENTENCE in the composer's output carries a raw code shape.
+         *
+         * GH-734 NARROWED THE UNIVERSE, and the narrowing is a correction of this case rather than
+         * room made for a change. It flattened the whole payload, and the payload legitimately
+         * carries identifiers beside the sentences: every section travels with its `step`, `class`
+         * and `cause`, which are the server's words for the server and are never printed — the page
+         * prints `text`. The shape `a-b-c` therefore matched the first step identifier of three
+         * words to reach a section, `soil-temp-physics`, and called a working payload a defect. What
+         * a reader is shown is the reasons, the frame, the last resort and each section's `text`, so
+         * that is what is inspected; the fields are named here rather than filtered by shape,
+         * because a field added to a section must be classified by a person, not skipped by a regex.
+         */
+        $payload  = AnalysisNotice::clientTexts();
+        $sentences = array_values((array) $payload['reasons']);
+        $sentences[] = $payload['frame'];
+        $sentences[] = $payload['unknown'];
+        foreach ((array) $payload['sections'] as $key => $section) {
+            if (is_array($section) && isset($section['text'])) {
+                $sentences[] = $section['text'];
             }
-        });
+        }
+        $flat = array_values(array_filter($sentences, 'is_string'));
+        fwrite(STDOUT, '[gh644] sentences that travel to the browser: '.count($flat).PHP_EOL);
+        $this->assertGreaterThan(5, count($flat), 'nothing was inspected, and an empty set agrees with anything');
+
         $withCodeShape = array_values(array_filter($flat, fn ($t) => $t !== $unknown && preg_match('/^[a-z]+(-[a-z]+){2,}$/', trim($t))));
         $this->assertSame([], $withCodeShape, 'a sentence that is really an identifier travels to the browser');
     }

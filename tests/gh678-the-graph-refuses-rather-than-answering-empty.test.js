@@ -63,7 +63,19 @@ describe('GH-678 — the graph takes its data from the page', () => {
         // wrong engines, and the whole purpose of the graph is which ones.
         expect(affected).toContain('firmness-engine');
         expect(affected).toContain('wear-recovery-engine');
-        expect(affected).toContain('irrigation-scheduler');
+        /**
+         * GH-755 (queue item 3bz): THE SPECIMEN CHANGED, THE CLAIM DID NOT. `irrigation-scheduler`
+         * stood here as the third name. It left the affected list through its `uses` list, NOT through
+         * its runner: `getAffectedEngines` never looks at `runner`. Those `uses` lists were taken from
+         * the reads of the input builders (GH-677); `buildIrrigationInputs` was removed with its body
+         * in GH-755, the reads that named `turf.construction` went with it, and this node's `uses` is
+         * now empty — measured, not inferred. `traffic-engine` replaces it, and the control got
+         * STRICTER rather than equal: this node does not read `turf.construction` at all — measured,
+         * the input is not in its `uses` — it is on the list only transitively, through
+         * `after: firmness-engine`. So if the walk over `after` ever stops, `traffic-engine` drops
+         * out of the list and this line reddens.
+         */
+        expect(affected).toContain('traffic-engine');
         expect(graph.getAllEngines().length).toBe(Object.keys(DATA.nodes).length);
     });
 

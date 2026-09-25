@@ -167,10 +167,24 @@
      *              sample" — which is the substitution this whole question is
      *              about, wearing a helpful face.
      */
-    function askServerForSoilSample(siteId) {
+    /**
+     * GH-724 (queue item 19) — THE SAME QUESTION, FOR ANY KIND OF SAMPLE.
+     *
+     * This asked about soil alone, so the runner was told which soil sample to compute on and was
+     * told nothing about tissue. Measured on the stand: `computed.tissue` is empty in 66 of 66
+     * stored rows while `Burns`, `Russley` and `Test5 - NZ` each hold live tissue samples.
+     *
+     * The choice is the SERVER'S, by the one rule it already applies to soil
+     * (`COALESCE(lab_date, sample_date) DESC, id DESC`), and it is asked HERE rather than inside
+     * the runner: awaiting anything in the runner's own handler stops the weather from ever being
+     * fetched and the run dies having written nothing (GH-587, GH-588). The runner only ever
+     * receives a fact.
+     */
+    function askServerForSample(kind, siteId) {
         return new Promise(function (resolve) {
             if (!siteId) return resolve('unknown');
-            var url = '/api/samples?sample_type=soil&site_id=' + encodeURIComponent(siteId) + '&limit=1';
+            var url = '/api/samples?sample_type=' + encodeURIComponent(kind)
+                + '&site_id=' + encodeURIComponent(siteId) + '&limit=1';
             fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
                 .then(function (r) { return r.ok ? r.json() : null; })
                 .then(function (j) {
@@ -181,6 +195,26 @@
                     resolve(first && first.id != null ? String(first.id) : 'unknown');
                 })
                 .catch(function () { resolve('unknown'); });
+        });
+    }
+
+    /**
+     * GH-724 — THE ADDRESS OF A RUN FRAME, BUILT IN ONE PLACE.
+     *
+     * There are two openers — this page's Re-run button and the one in `settings-init.js` — and
+     * the second passed neither `&soil=` nor `&tissue=`, so a run started from Settings took
+     * whatever the frame happened to hold. Both ask the same question now, and a sample kind
+     * added here reaches both without a second edit.
+     */
+    function buildRunFrameUrl(runId, siteId, waterSampleId) {
+        return Promise.all([
+            askServerForSample('soil', siteId),
+            askServerForSample('tissue', siteId),
+        ]).then(function (answers) {
+            return '/hub?rerun=' + encodeURIComponent(runId) + '&site=' + encodeURIComponent(siteId)
+                + (waterSampleId ? '&water=' + encodeURIComponent(waterSampleId) : '')
+                + '&soil=' + encodeURIComponent(answers[0])
+                + '&tissue=' + encodeURIComponent(answers[1]);
         });
     }
 
@@ -251,10 +285,8 @@
             // being fetched and the run dies on its budget having written
             // nothing (GH-587). So the waiting happens here, before anything
             // begins, and the runner only ever receives a fact.
-            askServerForSoilSample(siteId).then(function (soilAnswer) {
-                iframe.src = '/hub?rerun=' + encodeURIComponent(runId) + '&site=' + encodeURIComponent(siteId)
-                    + (_waterSampleId ? '&water=' + encodeURIComponent(_waterSampleId) : '')
-                    + '&soil=' + encodeURIComponent(soilAnswer);
+            buildRunFrameUrl(runId, siteId, _waterSampleId).then(function (src) {
+                iframe.src = src;
             });
 
             var done = false;
@@ -411,6 +443,13 @@
     global.GilbaAnalysisNotice = {
         failureText: analysisFailureText,
         show:        showAnalysisNotice,
+    };
+
+    /**
+     * GH-724 — the one builder of a run frame's address, so both openers ask the same questions.
+     */
+    global.GilbaRunFrame = {
+        url: buildRunFrameUrl,
     };
 
     /** Dismiss, shared by every page that carries the panel. */

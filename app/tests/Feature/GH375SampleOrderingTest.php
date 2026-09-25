@@ -56,6 +56,9 @@ class GH375SampleOrderingTest extends TestCase
 
         $site->users()->attach($user->id, ['role' => 'manager']);
         $user->forceFill(['last_active_site_id' => $site->id])->save();
+        // GH-708: the wizard lock redirects a page whose site has not answered what the
+        // calculation needs. This fixture's subject is the page, not the answers.
+        $this->giveTheSiteWhatTheLockNeeds($site);
 
         return $site;
     }

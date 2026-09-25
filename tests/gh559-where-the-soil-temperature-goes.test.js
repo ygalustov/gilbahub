@@ -123,11 +123,14 @@ describe('GH-559 — and the metric is read from somewhere it is not', () => {
         // collector falls to the orchestrator's computed climate — which does
         // not carry a soil temperature — and then to the model's own global,
         // which does. GH-561 corrected WHERE that is after a live run.
+        // GH-734 (delivery 3): the third home was the panel's global and it is gone; the run hands
+        // its own result out under `getComputed`, which is what this branch falls to now.
         const m = metricsFrom({
             GaipOrchestrator: {
                 getState: () => ({ computed: { climate: { growth: { weighted: 61 }, temperature: { mean: 14.8 } } } }),
+                getComputed: (k) => (k === 'soilTempPhysics'
+                    ? { summary: { available: true, depths: { '100mm': { current: 18.2 } } } } : null),
             },
-            GAIP_SOIL_TEMP: { summary: { available: true, depths: { '100mm': { current: 18.2 } } } },
         });
 
         process.stdout.write('[q31] metrics.soilTemp on the orchestrator branch: ' + JSON.stringify(m.soilTemp) + '\n');
@@ -232,37 +235,57 @@ describe('GH-559 — and the metric is read from somewhere it is not', () => {
      * The bench agreed with a fixture instead of with the page. These cases use
      * the global the page actually sets.
      */
-    test('the physics model’s own global is read when the climate carries nothing', () => {
-        const withPhysics = metricsFrom({
-            GaipOrchestrator: { getState: () => ({ computed: {
-                climate: { growth: { weighted: 61 }, temperature: { mean: 14.8 } },
-            } }) },
-            GAIP_SOIL_TEMP: { summary: { available: true, depths: { '100mm': { current: 18.2, mean: 15.0 } } } },
+    /**
+     * TURNED OVER BY GH-734 (queue item 3az, delivery 3), and kept rather than deleted.
+     *
+     * The claim is unchanged: when the climate the collector reads carries no soil temperature, the
+     * physics result is still found, and a summary without the depth asked for yields null rather
+     * than something else. What changed is WHERE that result lives. The panel used to publish its own
+     * calculation on `GAIP_SOIL_TEMP`, which is how one model came to be computed twice on different
+     * inputs; the run computes it once now and hands it out under the orchestrator's own accessor,
+     * and the global does not exist any more. So the bench supplies it the way a run does.
+     */
+    test('GH-734: the run’s own physics result is read when the climate carries nothing', () => {
+        const runWith = (depths) => ({
+            GaipOrchestrator: {
+                getState: () => ({ computed: {
+                    climate: { growth: { weighted: 61 }, temperature: { mean: 14.8 } },
+                } }),
+                getComputed: (k) => (k === 'soilTempPhysics'
+                    ? { summary: { available: true, depths: depths } } : null),
+            },
         });
+
+        const withPhysics = metricsFrom(runWith({ '100mm': { current: 18.2, mean: 15.0 } }));
         expect(withPhysics.soilTemp).toBe(18.2);
 
-        const physicsWithoutThatDepth = metricsFrom({
-            GaipOrchestrator: { getState: () => ({ computed: {
-                climate: { growth: { weighted: 61 }, temperature: { mean: 14.8 } },
-            } }) },
-            GAIP_SOIL_TEMP: { summary: { available: true, depths: { '20mm': { current: 19.9 } } } },
-        });
+        const physicsWithoutThatDepth = metricsFrom(runWith({ '20mm': { current: 19.9 } }));
         expect(physicsWithoutThatDepth.soilTemp).toBeNull();
     });
 
-    test('MEASUREMENT: the orchestrator’s state never carries the physics result', () => {
-        // The mistake GH-560 made, pinned so it cannot be made again: reading it
-        // from `computed.soilTempPhysics` is reading a key nothing puts there.
+    /**
+     * TURNED OVER BY GH-734 (queue item 3az, delivery 1 of 3), and kept rather than deleted so the
+     * reversal can be read.
+     *
+     * It asserted that the orchestrator's state NEVER carries the physics result, and it was right
+     * about the tree of the day: GH-560 had read a key nothing wrote. The item's whole point is that
+     * the run computes the soil temperature once, on its own inputs, and puts it there — so the
+     * measurement reverses BY DECISION, and what was a warning ("do not read that key") is now the
+     * contract ("that key is where the run's result lives").
+     *
+     * The second half of the old case still holds and is kept: the metric collector reads the
+     * global, because the readers inside the run move in delivery 2 and the global goes in
+     * delivery 3. Removing it first would give them nothing for one run (the analyst's 24.3).
+     */
+    test('GH-734: the orchestrator’s state carries the physics result, and the collector still reads the global', () => {
         const src = fs.readFileSync(path.join(__dirname, '..', 'assets', 'hub-orchestrator.js'), 'utf8');
-        expect(src).not.toMatch(/computed\.soilTempPhysics/);
+        expect(src).toMatch(/_hubState\.computed\.soilTempPhysics = \{/);
+        // The inputs travel with it, or "which moisture was it computed on" has no answer.
+        expect(src).toMatch(/inputs: \{\s*\n\s*moisture: soilMoisture,/);
 
         const producer = fs.readFileSync(path.join(__dirname, '..', 'assets', 'hub-persistence.js'), 'utf8');
-        // The producer writes it — and does so AFTER the collector has run.
         const collector = producer.indexOf('function collectDashboardMetrics()');
-        const writesPhysics = producer.indexOf('cache.computed.soilTempPhysics =');
-        expect(writesPhysics).toBeGreaterThan(-1);
-        expect(writesPhysics).toBeLessThan(collector);  // the collector is declared after it in the file
-        // …and the collector reads the global the model sets, not the copy.
+        expect(collector).toBeGreaterThan(-1);
         const body = producer.slice(collector, collector + 3000);
         expect(body).toMatch(/GAIP_SOIL_TEMP/);
     });
@@ -409,6 +432,12 @@ describe('GH-559 — where it is lost', () => {
         // metric looks for it.
         const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
         expect(code).not.toMatch(/climate\.soilTemp\s*=/);
-        expect(code).toMatch(/cache\.computed\.soilTempPhysics\s*=/);
+        /**
+         * GH-734: the producer no longer WRITES this key from a global of its own — it narrows the
+         * one the run put in `computed` to what the row carries. The old assertion was that the
+         * producer writes it; the fact that replaced it is that the producer does not invent it.
+         */
+        expect(code).not.toMatch(/soilTempPhysics: \{\s*summary:\s*global\.GAIP_SOIL_TEMP/);
+        expect(code).toMatch(/cache\.computed && cache\.computed\.soilTempPhysics/);
     });
 });

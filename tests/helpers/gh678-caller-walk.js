@@ -251,6 +251,20 @@ function analyse(rel, source) {
             },
             MemberExpression(p) {
                 const { object, property, computed } = p.node;
+                /** What a call's receiver READS AS, for the key — `a`, `a.b`, `this.b`, or null. */
+                const textOf = (node) => {
+                    if (!node) return null;
+                    if (types.isIdentifier(node)) return node.name;
+                    if (types.isThisExpression(node)) return 'this';
+                    if (types.isMemberExpression(node) && !node.computed
+                        && types.isIdentifier(node.property)) {
+                        const head = textOf(node.object);
+
+                        return head ? head + '.' + node.property.name : null;
+                    }
+
+                    return null;
+                };
                 const called = p.parentPath && CALL_NODE_TYPES.includes(p.parentPath.node.type)
                     && p.parentPath.node.callee === p.node;
                 if (!called) return;
@@ -267,7 +281,26 @@ function analyse(rel, source) {
                 }
                 const key = property.name;
                 if (key === 'call' || key === 'apply' || key === 'bind') {
-                    unresolvable.push(Object.assign({ why: '`.' + key + '`' }, where));
+                    /**
+                     * GH-740 (the reviewer's return) — THE KEY CARRIES THE CALL, AND THE ORDINAL
+                     * ONLY SEPARATES CALLS THAT READ THE SAME.
+                     *
+                     * `why` alone is `` `.apply` ``, so every apply inside one function collapsed
+                     * onto one base and was told apart by its POSITION among them: 44 keys in the
+                     * fixture carried `#2` or higher. Insert an apply above another one and every
+                     * ordinal below it shifts, so the ratchet reports places that did not move —
+                     * it points at a neighbour. The receiver is written into the key instead, the
+                     * way the three keys repaired earlier already read.
+                     *
+                     * THE BOUNDARY THAT REMAINS, and it cannot be removed here: two calls that
+                     * read IDENTICALLY inside one function are still separated by an ordinal, so
+                     * inserting a third identical one above them still shifts those numbers.
+                     */
+                    const receiver = textOf(object);
+                    unresolvable.push(Object.assign({
+                        why: '`.' + key + '`',
+                        text: receiver ? receiver + '.' + key : null,
+                    }, where));
 
                     return;
                 }
@@ -382,7 +415,7 @@ const UNRESOLVED_KINDS = [...EDGE_UNRESOLVED, ...FUNCTION_EMPTY, ...UNREAD_UNIVE
  * code, which is the mistake `gh669` made with its sign. A change of rule is an announced
  * event: the fingerprint changes, and the test says the list must be re-measured.
  */
-function resolutionPerimeter() {
+function resolutionPerimeter(src) {
     /**
      * THE PERIMETER IS EVERYTHING THE LIST PRODUCER CAN REACH, and it starts AT THE PRODUCER
      * (reviewer's correction) rather than at the resolver. The fingerprint serves the ratchet: it
@@ -398,20 +431,53 @@ function resolutionPerimeter() {
      *
      * So the fingerprint is PER FUNCTION, and the red names the function whose tokens moved.
      */
-    const file = fs.readFileSync(path.join(__dirname, 'gh678-caller-walk.js'), 'utf8');
-    const forms = /(?:^|\n)(?:async )?function ([A-Za-z_$][\w$]*)\s*\(/g;
+    /**
+     * GH-740 (the acceptor's return) — A FUNCTION'S BODY IS WHAT THE PARSE SAYS IT IS.
+     *
+     * The bodies used to be cut with a regular expression, from one `function` keyword to the next.
+     * Everything BETWEEN two functions — the export lines, a docblock, a whole new function — fell
+     * to the one before it. Measured by the acceptor and again here: adding a function after
+     * `splitDeadFromUnresolved` moved that function's hash from `fh74f5q` to `f1cyabyd` without a
+     * character of it changing, and the guard would have named it.
+     *
+     * That is worse than the blindness repaired one position earlier. Silence a reader notices; a
+     * name he takes and goes looking, and this one sends him into a function nobody touched.
+     *
+     * So the bodies come from the parse this file already runs. `start`..`end` of a declaration is
+     * the declaration and nothing else, and text between declarations belongs to no function —
+     * which is the truth the regular expression could not tell.
+     */
+    const file = src === undefined
+        ? fs.readFileSync(path.join(__dirname, 'gh678-caller-walk.js'), 'utf8')
+        : src;
     const bodies = new Map();
-    let m;
-    const starts = [];
-    while ((m = forms.exec(file)) !== null) starts.push({ name: m[1], at: m.index });
-    starts.forEach((f, i) => {
-        const to = i + 1 < starts.length ? starts[i + 1].at : file.length;
-        bodies.set(f.name, file.slice(f.at, to));
+    const ast = parser.parse(file, { sourceType: 'script', errorRecovery: true });
+    ast.program.body.forEach((node) => {
+        if (node.type === 'FunctionDeclaration' && node.id) {
+            bodies.set(node.id.name, file.slice(node.start, node.end));
+        }
     });
 
-    // Reachable from the producer, by name, inside this file.
+    /**
+     * GH-740 (the acceptor's return) — THE PRODUCER IS NOT ONE FUNCTION, SO THE PERIMETER HAS MORE
+     * THAN ONE ROOT.
+     *
+     * Starting at `currentUnresolved` alone was a correction of an earlier, narrower form, and it
+     * carried its own blindness: `splitDeadFromUnresolved` is EXPORTED and called from outside this
+     * file, so the walk over calls inside the file never arrives at it. Measured: the perimeter held
+     * 19 functions and that one was not among them — while it is the function that sorts every entry
+     * into the three lists and decides which of them carries a `line` at all.
+     *
+     * HOW IT WAS FOUND, and the way matters more than the hole: the acceptor said BEFORE her run
+     * that she expected an echo here, and then it did not come — `functions whose tokens moved: []`
+     * under two edits that moved the lists. A prediction that failed, not a red that appeared.
+     *
+     * So the roots are every exported function that produces or sorts the lists. A new one added
+     * later and not named here is the same blindness again, which is why they are listed rather
+     * than derived: the list is short and a reader can check it against `module.exports`.
+     */
     const reached = new Set();
-    const queue = ['currentUnresolved'];
+    const queue = ['currentUnresolved', 'splitDeadFromUnresolved'];
     while (queue.length) {
         const name = queue.shift();
         if (reached.has(name) || !bodies.has(name)) continue;
@@ -757,17 +823,42 @@ function currentUnresolved(opts) {
         const kind = String(u).split('@')[0];
         const at = String(u).slice(kind.length + 1);
         if (kind === 'no-caller') return;               // classified by component above
+        /**
+         * GH-740 (item 3by) — THE KEY IS THE CALL, NOT THE LINE IT SITS ON.
+         *
+         * `callee` was the address `<file>:<line>`, so the ratchet key carried a line number
+         * after all — against this file's own rule a few hundred lines above, which says a key
+         * has none because a line lives until the next edit. Measured: a delivery that added 89
+         * lines to `hub-orchestrator.js` moved `:5022` to `:5111`, and the ratchet reported one
+         * edge RESOLVED and another NEW — the same call, read as two events.
+         *
+         * The call's own text is taken instead, from the use the walk already recorded at that
+         * place. The twins `gaip-whatif-ui.js` and `gssh-whatif-ui.js` write the identical call
+         * `scenarioEngine.compareScenarios`, and they stay apart because the FILE is the first
+         * part of the key; two identical calls inside one file are told apart by the ordinal the
+         * key already carries. The line travels beside the key, printed and never compared.
+         *
+         * WHEN THE TEXT CANNOT BE FOUND the address is kept, so the entry is never lost — and
+         * that case is visible, because such a key still looks like an address.
+         */
+        const atFile = at.slice(0, at.lastIndexOf(':')) || at;
+        const atLine = Number(at.slice(at.lastIndexOf(':') + 1));
+        const atRec = files.find((f) => f.rel === atFile);
+        const atUse = atRec && atRec.uses.find((x) => x.line === atLine
+            && (x.how === 'member call' || x.how === 'call'));
         put({
-            file: at.slice(0, at.lastIndexOf(':')) || at,
+            file: atFile,
             enclosing: null,
-            callee: at,
+            callee: atUse ? ((atUse.object ? atUse.object + '.' : '') + atUse.name) : at,
+            line: Number.isFinite(atLine) ? atLine : null,
             kind: UNRESOLVED_KINDS.includes(kind) ? kind : 'member-unresolved',
         });
     });
 
     // ---- what the parse itself could not follow, which no walk decides.
     files.forEach((f) => f.unresolvable.forEach((u) => put({
-        file: f.rel, enclosing: u.enclosing, callee: u.why, line: u.line,
+        // GH-740: the call's own text where the parse could read it, the reason where it could not.
+        file: f.rel, enclosing: u.enclosing, callee: u.text || u.why, line: u.line,
         kind: /computed/.test(u.why) ? 'computed-member' : 'call-apply-bind',
     })));
     files.filter((f) => f.failed.length && !f.rel.startsWith('assets/')).forEach((f) => put({
@@ -1304,21 +1395,48 @@ function pagePairsFound(fp, graph) {
             && (!pref || k.startsWith(pref))) || null;
     };
     const pairs = new Map();
+    /**
+     * GH-723 (item 3bi) — REACHABLE ON A VIEW MEANS THE VIEW LOADS THE HANDLE'S FILE TOO.
+     *
+     * This paired a node with every view that loads the file of its ROOT, and the root is often
+     * a shared file such as `dashboard-ui.js`. A view that loads the root but never loads the
+     * file where the node's own handle is declared cannot run that node at all: the function is
+     * not on the page. Those pairs were found, listed, and each carried the batch's ticket
+     * rather than a reason of its own.
+     *
+     * THE PAIRS THAT LEAVE ARE NOT SWALLOWED. They are collected on `pairs.falseEdges`, because
+     * a walk that reports an edge the page cannot have is a defect OF THE WALK, with its own
+     * ticket — narrowing the definition without recording them would hide the symptom instead
+     * of closing it. That is the analyst's condition, kept in her words.
+     */
+    const falseEdges = [];
     Object.entries(graph.nodes).forEach(([id, n]) => {
         (Array.isArray(n.handle) ? n.handle : (n.handle ? [n.handle] : [])).forEach((h) => {
             const key = keyFor(h);
             if (!key) return;
+            // The fixpoint keys a function as `<file>:<name>`, so the handle's file is a fact
+            // already in hand rather than a second search.
+            const handleFile = key.slice(0, key.lastIndexOf(':'));
+            const viewsWithTheHandle = new Set(viewsLoading(handleFile));
             const e = executorsOfHandle(fp, key, { graph });
             e.pages.forEach((p) => {
                 const asset = p.slice('page|'.length);
                 const rec = byRel[asset];
                 const entry = rec ? entryKindOf(rec) : 'unknown';
                 viewsLoading(asset).forEach((view) => {
-                    pairs.set(id + ' : ' + view + ' : ' + entry, { node: id, view, entry, via: asset });
+                    if (!viewsWithTheHandle.has(view)) {
+                        falseEdges.push(id + ' : ' + view + ' : ' + entry
+                            + ' | root ' + asset + ' is loaded, handle file ' + handleFile + ' is not');
+
+                        return;
+                    }
+                    pairs.set(id + ' : ' + view + ' : ' + entry,
+                        { node: id, view, entry, via: asset, handleFile });
                 });
             });
         });
     });
+    pairs.falseEdges = falseEdges.sort();
 
     return pairs;
 }

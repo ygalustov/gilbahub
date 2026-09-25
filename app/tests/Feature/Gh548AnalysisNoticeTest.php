@@ -303,6 +303,9 @@ class Gh548AnalysisNoticeTest extends TestCase
             'runId' => 'run-bad', 'reason' => 'calculation-error', 'detail' => ['message' => 'cascade exploded'],
         ]);
         $user->forceFill(['last_active_site_id' => $site->id])->save();
+        // GH-708: the wizard lock redirects a page whose site has not answered what the
+        // calculation needs. This fixture's subject is the page, not the answers.
+        $this->giveTheSiteWhatTheLockNeeds($site);
 
         foreach (self::SCREENS as $url) {
             $r = $this->actingAs($user->fresh())->get($url);
@@ -320,6 +323,9 @@ class Gh548AnalysisNoticeTest extends TestCase
         AnalysisResults::record($user, $site, $this->aResult());
         AnalysisResults::recordFailure($user, $site, ['runId' => 'run-bad', 'reason' => 'calculation-error']);
         $user->forceFill(['last_active_site_id' => $site->id])->save();
+        // GH-708: the wizard lock redirects a page whose site has not answered what the
+        // calculation needs. This fixture's subject is the page, not the answers.
+        $this->giveTheSiteWhatTheLockNeeds($site);
 
         foreach (self::SCREENS as $url) {
             $html = $this->actingAs($user->fresh())->get($url)->assertOk()->getContent();

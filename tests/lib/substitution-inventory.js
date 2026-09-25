@@ -168,16 +168,16 @@ function sinksOf(ast) {
             const l = p.node.left;
             if (l.type === 'MemberExpression' && l.property.type === 'Identifier'
                 && PRINT_PROPS.indexOf(l.property.name) >= 0) {
-                sinks.push({ node: p.node.right, why: l.property.name });
+                sinks.push({ node: p.node.right, why: l.property.name, scope: p.scope });
             }
         },
         NewExpression(p) {
             if (calleeName(p.node.callee) !== 'TextRun') return;
-            sinks.push({ node: p.node.arguments[0], why: 'TextRun' });
+            sinks.push({ node: p.node.arguments[0], why: 'TextRun', scope: p.scope });
         },
         CallExpression(p) {
             const name = calleeName(p.node.callee);
-            if (name === 'TextRun') { sinks.push({ node: p.node.arguments[0], why: 'TextRun' }); return; }
+            if (name === 'TextRun') { sinks.push({ node: p.node.arguments[0], why: 'TextRun', scope: p.scope }); return; }
             // fetch(url, { method: 'PATCH', body: … }) — the body is saved
             p.node.arguments.forEach((a) => {
                 if (!a || a.type !== 'ObjectExpression') return;
@@ -186,7 +186,7 @@ function sinksOf(ast) {
                     && WRITE_METHODS.indexOf(pr.value.value.toUpperCase()) >= 0)[0];
                 if (!method) return;
                 const body = a.properties.filter((pr) => pr.key && pr.key.name === 'body')[0];
-                if (body) sinks.push({ node: body.value, why: method.value.value.toUpperCase() });
+                if (body) sinks.push({ node: body.value, why: method.value.value.toUpperCase(), scope: p.scope });
             });
         }
     });
@@ -198,37 +198,96 @@ function inventoryOf(file, src, watched) {
     try { ast = parser.parse(src, { sourceType: 'script', errorRecovery: true }); }
     catch (e) { return []; }
 
-    // name -> substitutions it carries
-    // Null-prototype maps: a name like `constructor` or `toString` is an
-    // ordinary identifier in this code and must not inherit an answer.
-    const carries = Object.create(null);
-    const add = (name, subs) => {
-        if (!name || !subs.length) return false;
-        const seen = carries[name] || (carries[name] = []);
+    /**
+     * GH-728 (queue item 3bs) — A VARIABLE IS ITS BINDING, NOT ITS NAME.
+     *
+     * This was one map keyed by identifier NAME for the whole file, so two
+     * different variables that happen to share a name carried each other's
+     * substitutions. The analyst hit it inside another item: a new `text` of
+     * hers picked up what a different `text` in the same file carried, and she
+     * renamed her variable rather than repairing the census — which is this
+     * item.
+     *
+     * Bindings come from Babel's scope, the way the sample census already does
+     * it (`tests/lib/sample-payload-reads.js`): a `Binding` object is unique to
+     * one declaration in one scope, so `text` in two functions is two keys.
+     *
+     * OBJECT FIELD PATHS STAY KEYED BY NAME, and that is not an oversight: a
+     * path like `data.site.location` names a field, which has no scope to
+     * resolve it in. The two stores are kept apart so the difference is visible
+     * rather than implied.
+     *
+     * AND WHAT CANNOT BE RESOLVED IS COUNTED, not silently dropped: an
+     * identifier with no binding in scope is a global or something the parser
+     * could not place, and it keeps the old by-name behaviour. The number is
+     * reported, because a census that quietly stopped following a name would
+     * look like a census that found nothing to follow.
+     */
+    const byBinding = new Map();
+    const byPath = Object.create(null);
+    const unresolved = new Set();
+    const addTo = (store, key, subs) => {
+        if (!key || !subs.length) return false;
+        const seen = store instanceof Map
+            ? (store.get(key) || (store.set(key, []), store.get(key)))
+            : (store[key] || (store[key] = []));
         let grew = false;
         subs.forEach((s) => {
             if (!seen.some((o) => o.line === s.line && o.kind === s.kind)) { seen.push(s); grew = true; }
         });
         return grew;
     };
+    const addBinding = (scope, name, subs) => {
+        if (!name || !subs.length) return false;
+        const b = scope && scope.getBinding ? scope.getBinding(name) : null;
+        if (!b) { unresolved.add(name); return addTo(byPath, name, subs); }
+        return addTo(byBinding, b, subs);
+    };
+    const add = (name, subs) => addTo(byPath, name, subs);
+    /**
+     * GH-728 (queue item 3bs, the reviewer's return) — A CALLEE IS KEYED BY ITS BINDING, NOT BY ITS
+     * NAME.
+     *
+     * The values were moved onto Babel's binding objects and this map was left keyed by name, so two
+     * functions of one name in different scopes shared one entry and the LAST one parsed won. Her
+     * planted case, reproduced before the change: a substitution that reaches `innerHTML` through
+     * `fill(place)` is NOT FOUND when a silent `fill` is declared below it, and IS found when the
+     * same twin is declared above — the census answered by the order of the file.
+     *
+     * A function whose name has no binding — a method on an object literal, whose key is a property
+     * rather than a name in a scope — stays keyed by name, because there is nothing to key it by.
+     * Those names are carried out beside the result as `callsKeyedByNameOnly`, so the boundary is
+     * printed rather than remembered.
+     */
     const PARAMS = Object.create(null);
+    const PARAMS_BY_BINDING = new Map();
+    const byNameOnly = new Set();
+    const rememberParams = (lookupScope, name, params, fnScope) => {
+        const b = lookupScope && lookupScope.getBinding ? lookupScope.getBinding(name) : null;
+        if (b) { PARAMS_BY_BINDING.set(b, { params: params, scope: fnScope }); return; }
+        PARAMS[name] = { params: params, scope: fnScope };
+    };
     traverse(ast, {
-        FunctionDeclaration(p) { if (p.node.id) PARAMS[p.node.id.name] = p.node.params; },
+        FunctionDeclaration(p) { if (p.node.id) rememberParams(p.scope, p.node.id.name, p.node.params, p.scope); },
         VariableDeclarator(p) {
             if (p.node.id.type === 'Identifier' && p.node.init && /Function/.test(p.node.init.type)) {
-                PARAMS[p.node.id.name] = p.node.init.params;
+                rememberParams(p.scope, p.node.id.name, p.node.init.params, p.get('init').scope);
             }
         },
         ObjectProperty(p) {
             const k = p.node.key;
             const kn = k.type === 'Identifier' ? k.name : (k.type === 'StringLiteral' ? k.value : null);
-            if (kn && /Function/.test(p.node.value.type)) PARAMS[kn] = p.node.value.params;
+            if (kn && /Function/.test(p.node.value.type)) PARAMS[kn] = { params: p.node.value.params, scope: p.get('value').scope };
         }
     });
-    const carried = (node) => {
+    const carried = (node, scope) => {
         const subs = substitutionsIn(node, [], 0, watched);
-        namesIn(node).forEach((n) => { (carries[n] || []).forEach((s) => subs.push(s)); });
-        pathsIn(node).forEach((n) => { (carries[n] || []).forEach((s) => subs.push(s)); });
+        namesIn(node).forEach((n) => {
+            const b = scope && scope.getBinding ? scope.getBinding(n) : null;
+            const from = b ? byBinding.get(b) : byPath[n];
+            (from || []).forEach((s) => subs.push(s));
+        });
+        pathsIn(node).forEach((n) => { (byPath[n] || []).forEach((s) => subs.push(s)); });
         return subs;
     };
 
@@ -239,11 +298,11 @@ function inventoryOf(file, src, watched) {
         traverse(ast, {
             VariableDeclarator(p) {
                 if (p.node.id.type !== 'Identifier' || !p.node.init) return;
-                if (add(p.node.id.name, carried(p.node.init))) grew = true;
+                if (addBinding(p.scope, p.node.id.name, carried(p.node.init, p.scope))) grew = true;
             },
             AssignmentExpression(p) {
                 if (p.node.left.type === 'Identifier') {
-                    if (add(p.node.left.name, carried(p.node.right))) grew = true;
+                    if (addBinding(p.scope, p.node.left.name, carried(p.node.right, p.scope))) grew = true;
                     return;
                 }
                 // `data.site.location = name || <substitute>` — the document
@@ -251,7 +310,7 @@ function inventoryOf(file, src, watched) {
                 // in another, so the field itself has to carry what was put
                 // into it.
                 if (p.node.left.type !== 'MemberExpression') return;
-                const subs = carried(p.node.right);
+                const subs = carried(p.node.right, p.scope);
                 keysForPath(pathOf(p.node.left)).forEach((k) => { if (add(k, subs)) grew = true; });
             },
             ReturnStatement(p) {
@@ -260,14 +319,24 @@ function inventoryOf(file, src, watched) {
                 const name = fp && ((fp.node.id && fp.node.id.name)
                     || (fp.parent && fp.parent.type === 'VariableDeclarator' && fp.parent.id.type === 'Identifier' && fp.parent.id.name)
                     || (fp.parent && fp.parent.type === 'ObjectProperty' && fp.parent.key.type === 'Identifier' && fp.parent.key.name));
-                if (name && add(name, carried(p.node.argument))) grew = true;
+                if (name && addBinding(p.scope, name, carried(p.node.argument, p.scope))) grew = true;
             },
             CallExpression(p) {
                 const name = calleeName(p.node.callee);
-                const params = name && PARAMS[name];
-                if (!params) return;
+                // The binding the CALL resolves — the same lookup the declaration used, so two
+                // same-named functions in different scopes cannot share an entry.
+                const bound = name && p.scope.getBinding ? p.scope.getBinding(name) : null;
+                let declared = bound ? PARAMS_BY_BINDING.get(bound) : null;
+                if (!declared && name && PARAMS[name]) {
+                    declared = PARAMS[name];
+                    byNameOnly.add(name);
+                }
+                if (!declared) return;
+                const params = declared.params;
                 p.node.arguments.forEach((a, i) => {
-                    if (params[i] && params[i].type === 'Identifier' && add(params[i].name, carried(a))) grew = true;
+                    // The parameter's binding lives in the CALLEE's scope, not at the call site.
+                    if (params[i] && params[i].type === 'Identifier'
+                        && addBinding(declared.scope, params[i].name, carried(a, p.scope))) grew = true;
                 });
             }
         });
@@ -281,7 +350,7 @@ function inventoryOf(file, src, watched) {
     const found = [];
     const seen = new Set();
     sinksOf(ast).forEach((sink) => {
-        carried(sink.node).forEach((s) => {
+        carried(sink.node, sink.scope).forEach((s) => {
             if (s.line == null || !s.node) return;
             const signature = [file, s.field, s.kind, sink.why, text(s.node)].join(' | ');
             if (seen.has(signature)) return;
@@ -290,6 +359,21 @@ function inventoryOf(file, src, watched) {
                          text: text(s.node), line: s.line, signature: signature });
         });
     });
+    // GH-728: carried BESIDE the result, not IN it. Attached as an ordinary property it broke two
+    // negative controls that compare the whole return with `[]` -- an empty array with an own
+    // property is not deeply equal to an empty array, and the first version of this reported
+    // "serializes to the same string" rather than a wrong answer. It is information about the
+    // census, so it travels where a reader can ask for it without changing what the census IS.
+    Object.defineProperty(found, 'unresolvedNames', {
+        value: [...unresolved].sort(), enumerable: false, configurable: true,
+    });
+    // GH-728, the return's second position: the boundary is printed, not remembered. These callees
+    // were matched by NAME because their name has no binding to match by — a method on an object
+    // literal, or a name this file never declares.
+    Object.defineProperty(found, 'callsKeyedByNameOnly', {
+        value: [...byNameOnly].sort(), enumerable: false, configurable: true,
+    });
+
     return found.sort((a, b) => (a.signature < b.signature ? -1 : 1));
 }
 

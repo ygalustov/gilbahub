@@ -97,9 +97,49 @@
      * of another, and nothing else in the frame would notice.
      */
     var _siteChangedAfterStart = false;
+
+    /**
+     * GH-720 (item 3e) — WHETHER A SITE-CHANGE EVENT IS ABOUT ANOTHER SITE.
+     *
+     * Kept as a function of its two arguments so it can be measured on its own: the wiring and
+     * the condition fail in different ways, and a single listener body hides which one did.
+     *
+     * AN EVENT THAT NAMES NO SITE HAS NOT SPOKEN, which is the rule the reporters below already
+     * follow: silence is not a disagreement. And an event naming the site the run is FOR is the
+     * frame's own legitimate first settling — the sample layer restoring to the site the address
+     * asked for — so it must not refuse the run it belongs to.
+     *
+     * This is what makes the order of that first event and the run's start stop deciding
+     * anything: `_runIntent` is read from the address when this script loads, above, so the
+     * comparison is available before any listener can fire, and the condition is about WHICH
+     * site rather than about WHEN.
+     */
+    function _foreignSiteChange(detail, intent) {
+        if (!intent) return false;
+        var named = detail && detail.siteId;
+        if (!named) return false;
+
+        return String(named) !== String(intent.siteId);
+    }
+
+    /**
+     * GH-720 — THE LISTENER MOVES FROM `window` TO `document`, BECAUSE IT WAS DEAF.
+     *
+     * Measured in a real browser (`tests/gh720-the-frame-hears-a-site-change.test.js`), not read
+     * off the specification: an event dispatched the way all three senders dispatch it — on
+     * `document`, a plain `CustomEvent` with no `bubbles` — reaches a `window` listener in the
+     * bubble phase FALSE of the time. So `_siteChangedAfterStart` could not become true, and the
+     * safety net reported by `siteDisagreement` as `siteChangedDuringRun` had never once fired.
+     *
+     * The case this catches and nothing else can: a frame switched `A -> X -> A` mid-run has
+     * computed part of one site and part of another, and by the time the result is filed both
+     * reporters name `A` again.
+     */
     try {
-        window.addEventListener('gaip:site-changed', function () { _siteChangedAfterStart = true; });
-    } catch (e) { /* no window to listen on; the comparison below still runs */ }
+        document.addEventListener('gaip:site-changed', function (e) {
+            if (_foreignSiteChange(e && e.detail, _runIntent)) _siteChangedAfterStart = true;
+        });
+    } catch (e) { /* no document to listen on; the comparison below still runs */ }
 
     /**
      * The site THIS DOCUMENT was built for, as the document itself reports it.
@@ -180,6 +220,21 @@
             return SM.readingsOf('water', sample) || {};
         } catch (e) {
             return {};
+        }
+    }
+
+    /**
+     * GH-722: one reading the lab reading names map declares and no form field takes (water
+     * `SAR`, `TDS`), by name, through the sample manager. Kept out of `_waterReadingsOf` on
+     * purpose: its callers split what they get into EC, pH and ions, and a SAR is not an ion.
+     */
+    function _labReadingOf(kind, sample, key) {
+        try {
+            var SM = global.GAIP_SampleManager;
+            if (!SM || typeof SM.labReadingOf !== 'function' || !sample) return null;
+            return SM.labReadingOf(kind, sample, key);
+        } catch (e) {
+            return null;
         }
     }
 
@@ -551,6 +606,21 @@
                     ['soil', 'water', 'tissue'].forEach(function (type) {
                         try {
                             var SM = global.GAIP_SampleManager;
+                            /**
+                             * GH-724 (queue item 19) — THE SAMPLE THE RUN WAS TOLD TO COMPUTE ON,
+                             * WHERE IT WAS TOLD ONE.
+                             *
+                             * The row is the record of what this run read, and for a kind the
+                             * opener names the answer is the parameter, not whatever the frame's
+                             * manager calls active -- which for tissue was nothing at all, so the
+                             * field was `null` in every stored row. `'none'` is written as `'none'`
+                             * rather than dropped, because "the site has no tissue sample" and "the
+                             * run did not record one" are different facts.
+                             */
+                            var told = new URLSearchParams(global.location.search || '').get(type);
+                            if (told === 'none') { out.samples[type] = 'none'; return; }
+                            if (told && told !== 'unknown') { out.samples[type] = told; return; }
+
                             var a = (SM && typeof SM.getActiveSample === 'function') ? SM.getActiveSample(type) : null;
                             // The sample's IDENTITY, not its numbers: the numbers
                             // are already in the result, and a second copy of them
@@ -559,7 +629,15 @@
                         } catch (e) { out.samples[type] = null; }
                     });
                     try {
-                        var st = global.GAIP_SOIL_TEMP && global.GAIP_SOIL_TEMP.summary;
+                        // GH-734 (delivery 3): the run's own result, not the panel's global.
+                        var _stp = (function () {
+                            try {
+                                var O = global.GaipOrchestrator;
+
+                                return (O && typeof O.getComputed === 'function') ? O.getComputed('soilTempPhysics') : null;
+                            } catch (e) { return null; }
+                        })();
+                        var st = _stp && _stp.summary;
                         out.sensors.soilTemp = st && st.available ? (st.source || 'sensor') : null;
                         out.sensors.vwc = (global.GAIP_SENSOR_VWC != null) ? 'sensor' : null;
                     } catch (e) { /* a sensor that is not there is not an error */ }
@@ -629,7 +707,27 @@
                     // that list is what the screen needs — "the server refused
                     // the result" says nothing a person can act on.
                     if (r.status === 422) {
+                        /**
+                         * GH-700 (item 3ar) — THE CODE IS ONE, THE MEANINGS ARE TWO, AND THE BODY
+                         * SAYS WHICH.
+                         *
+                         * Every `422` was reported as `incomplete-result`, so a refusal of kind
+                         * `site-mismatch` — the numbers were computed for another site — reached the
+                         * failure report under the name of a different fault. The reader could not
+                         * tell them apart, and the two call for opposite things: an incomplete result
+                         * asks the person for missing data, a mismatch says the run must not be
+                         * filed at all.
+                         *
+                         * The server names its refusal in `error`; that name is what travels. An
+                         * unnamed `422` stays `incomplete-result`, which is what it was.
+                         */
                         r.json().then(function (j) {
+                            var named = j && typeof j.error === 'string' ? j.error : null;
+                            if (named && named !== 'incomplete-result') {
+                                _fail(named, { status: 422, detail: (j && j.detail) || null });
+
+                                return;
+                            }
                             _fail('incomplete-result', { status: 422, keys: (j && j.missing) || null });
                         }).catch(function () {
                             _fail('incomplete-result', { status: 422 });
@@ -1679,16 +1777,32 @@
             }
         }
 
-        // Save physics-model soil temp for growth-light analysis page.
-        // GAIP_SOIL_TEMP is set by climate-module-v2-ui.js renderSoilTempPanel() during hub run.
-        // Save only .summary (depths + thermalProps) — not the raw hourly arrays which are large.
-        if (global.GAIP_SOIL_TEMP && global.GAIP_SOIL_TEMP.summary && global.GAIP_SOIL_TEMP.summary.available) {
-            cache.computed = Object.assign({}, cache.computed || {});
-            cache.computed.soilTempPhysics = {
-                summary:     global.GAIP_SOIL_TEMP.summary,
-                profileType: global.GAIP_SOIL_TEMP.profileType,
-                computed:    global.GAIP_SOIL_TEMP.computed
-            };
+        /**
+         * GH-734 (queue item 3az, device 24.2 point 4) — ONE AUTHOR FOR THIS KEY, AND IT IS THE RUN.
+         *
+         * This took the row's soil temperature from `GAIP_SOIL_TEMP`, which the RENDERING panel sets
+         * (`climate-module-v2-ui.js`, `renderSoilTempPanel`). So the number stored in the database
+         * was the one the panel had computed, on the panel's own inputs, while the run computed the
+         * same model a second time on different ones -- the defect this item names.
+         *
+         * The run's own result arrives with `cache.computed` above, where the orchestrator puts it,
+         * and the raw hourly arrays are dropped here as they always were: the row carries the
+         * summary, the profile and the inputs the run used.
+         *
+         * THE GLOBAL IS NOT REMOVED YET and that is the order rather than an oversight: the readers
+         * inside the run still take it (delivery 2), and the panel and the last fallback go with it
+         * (delivery 3). Removing it first would give those readers nothing for one run, which is the
+         * analyst's own warning in 24.3.
+         */
+        if (cache.computed && cache.computed.soilTempPhysics) {
+            const _stp = cache.computed.soilTempPhysics;
+            cache.computed = Object.assign({}, cache.computed, {
+                soilTempPhysics: {
+                    summary:     _stp.summary || null,
+                    profileType: _stp.profileType || null,
+                    inputs:      _stp.inputs || null,
+                },
+            });
         }
 
         // Augment computed.climate with Climate V2 dual metrics (daily GP chips + trend text).
@@ -1948,7 +2062,13 @@
                     methodology:  _si.methodology || null,
                     pH:           _si.pH_water || _si.pH_cacl2 || _si.ph || null,
                     ECe:          _si.ECe || null,
-                    soilNa:       (_si.ppm && _si.ppm.Na) || _si.Na_ppm || null,
+                    // GH-737: a sodium the lab measured at zero is a reading, the rule GH-731
+                    // settled for conductivity. The `||` chain let it fall through to null.
+                    soilNa:       (function () {
+                                      var v = parseFloat(_si.ppm && _si.ppm.Na);
+                                      if (isNaN(v)) v = parseFloat(_si.Na_ppm);
+                                      return isNaN(v) ? null : v;
+                                  })(),
                     CEC:          _si.CEC || _si.cec || null,
                     sampleDate:   _si.testDate || null,
                     sampleLabel:  _si.sampleLabel || null,
@@ -2168,7 +2288,16 @@
                                                  var tx = _smRaw.Texture || _smRaw.texture || _smTexDom || 'loam';
                                                  return ec15 * ({sand:5,loamy_sand:5.5,sandy_loam:6,loam:7,clay_loam:8,clay:10}[tx] || 7);
                                              })(),
-                                soilNa:      _smPpm.Na || parseFloat(_smRaw.Na || 0) || _smNaDom || null,
+                                // GH-722: the sample's Na through the lab reading names map.
+                                // GH-737: the same rule on this door. A measured zero stops here; only a
+                                // sample with no sodium at all goes on to the page field, as before.
+                                soilNa:      (function () {
+                                                 var v = parseFloat(_smPpm.Na);
+                                                 if (isNaN(v) && global.GAIP_SampleManager && typeof global.GAIP_SampleManager.readingsOf === 'function') {
+                                                     v = parseFloat((global.GAIP_SampleManager.readingsOf('soil', _smSample) || {}).Na);
+                                                 }
+                                                 return isNaN(v) ? (_smNaDom || null) : v;
+                                             })(),
                                 CEC:         _smRaw.CEC || _smRaw.cec || null,
                                 sampleDate:  _smSample.date || null,
                                 sampleLabel: _smSample.label || _smLatestId,
@@ -2293,9 +2422,14 @@
                         var s   = _allSoil[sid];
                         var raw = s.rawData || s;
                         var ppm = {};
+                        // GH-722: the nutrients through the lab reading names map, as the
+                        // calculation reads them, instead of `X_ppm` then `X` spelled here.
+                        var _zSM = global.GAIP_SampleManager;
+                        var _zReadings = (_zSM && typeof _zSM.readingsOf === 'function')
+                            ? (_zSM.readingsOf('soil', { values: raw }) || {}) : {};
                         _ZONE_NUTS.forEach(function(nut) {
-                            var v = parseFloat(raw[nut + '_ppm'] != null ? raw[nut + '_ppm'] : raw[nut]);
-                            if (!isNaN(v) && v > 0) ppm[nut] = v;
+                            var v = _zReadings[nut];
+                            if (typeof v === 'number' && v > 0) ppm[nut] = v;
                         });
                         if (!Object.keys(ppm).length) return; // skip empty samples
                         var zoneKey = _zoneKeyOf(s, sid);
@@ -2460,10 +2594,24 @@
                 var _ovEC = _ovReadings.EC != null ? _ovReadings.EC : null;
                 var _ovIons = _ionsOf(_ovReadings);
                 _waterIn = {
-                    ecw:         _ovEC || (parseFloat(_ovPl.TDS || 0) / 640) || null,
+                    // GH-722: TDS and a lab SAR through the lab reading names map, by name.
+                    /**
+                     * GH-731 (queue items 3g and 3am) — A MEASURED ZERO IS A MEASUREMENT HERE TOO.
+                     *
+                     * The rule is this file's own, three hundred lines down: a value that parses is
+                     * a reading whatever it is, and only an unparsable one is absent. It was applied
+                     * to the trace ions and not to these, so a conductivity of zero fell through the
+                     * `||` chain into the TDS branch and out the other side as `null`, and a
+                     * reported SAR of zero did the same. `pH` keeps its old shape deliberately: it
+                     * is not in this item's class and changing it would be a decision nobody took.
+                     */
+                    ecw:         _readingOf(_ovEC) !== null ? _readingOf(_ovEC)
+                                     : (_readingOf(_labReadingOf('water', _ovSample, 'TDS')) !== null
+                                         ? _readingOf(_labReadingOf('water', _ovSample, 'TDS')) / 640
+                                         : null),
                     ions:        _ovIons,
                     pH:          parseFloat(_ovPl.pH || _ovPl.ph) || null,
-                    SAR:         parseFloat(_ovPl.SAR || _ovPl.sar) || null,
+                    SAR:         _readingOf(_labReadingOf('water', _ovSample, 'SAR')),
                     sourceLabel: _wbOverride.label || null,
                     source:      'wb-dropdown-override',
                 };
@@ -2507,14 +2655,30 @@
                             // copies of a name list drift, and the one nobody
                             // looked at is the one that drifts.
                             var _wReadings = _waterReadingsOf(_wSmp);
-                            var _wEC = _wReadings.EC != null ? _wReadings.EC : 0;
-                            if (_wEC > 0) {
+                            // GH-731: absence is not zero, and a zero is not absence. The gate used
+                            // to ask `> 0`, which threw away a measured zero and a substituted one
+                            // alike -- the second was this line's own doing.
+                            var _wEC = _readingOf(_wReadings.EC);
+                            if (_wEC !== null) {
                                 var _wIons = _ionsOf(_wReadings);
+                                /**
+                                 * GH-764: THIS DOOR DID NOT ASSEMBLE ANYTHING AT ALL. `_wData` is
+                                 * declared nowhere -- twice in this object, twice in the whole tree
+                                 * -- and this block sits inside a `try {} catch(e) {}`, so the
+                                 * ReferenceError was swallowed and the fallback produced no row and
+                                 * no complaint. Found by the case GH-731 asked for: a stored sample
+                                 * with a conductivity of zero reached the row as nothing, and the
+                                 * `> 0` gate one line up could not be measured because the path
+                                 * died under it. The sample's own payload and the declared lab
+                                 * reader replace it, which is what the run-parameter door above
+                                 * already does.
+                                 */
+                                var _wPl = _wSmp.rawData || _wSmp.values || {};
                                 _waterIn = {
                                     ecw:  _wEC,
                                     ions: _wIons,
-                                    pH:   parseFloat(_wData.pH || _wData.ph) || null,
-                                    SAR:  parseFloat(_wData.SAR || _wData.sar) || null,
+                                    pH:   parseFloat(_wPl.pH || _wPl.ph) || null,
+                                    SAR:  _readingOf(_labReadingOf('water', _wSmp, 'SAR')),
                                     source: 'sample-store-fallback',
                                 };
                                 _stateHasWater = true;
@@ -2535,8 +2699,11 @@
             // site's stale values in that case.
             if (!_stateHasWater && !_siteWaterConfirmedEmpty) {
                 var _ecwDomEl = document.querySelector('.gaip-ecw');
-                var _ecwDomVal = _ecwDomEl ? parseFloat(_ecwDomEl.value) : 0;
-                if (_ecwDomVal > 0) {
+                // GH-731: the same class, and the distinction it needs is between a field that is
+                // NOT THERE and a field holding zero. `> 0` could not tell them apart, and the
+                // absent element was already being reported as a zero before the gate saw it.
+                var _ecwDomVal = _ecwDomEl ? _readingOf(_ecwDomEl.value) : null;
+                if (_ecwDomVal !== null) {
                     var _ionsDom = {};
                     var _ionEls = document.querySelectorAll('[data-ion]');
                     for (var _ii = 0; _ii < _ionEls.length; _ii++) {
@@ -2577,7 +2744,20 @@
             var _mgToMeq = { Ca: 20.04, Mg: 12.15, Na: 23.0, K: 39.1, HCO3: 61.0, CO3: 30.0, Cl: 35.45, SO4: 48.0 };
             function _meq(ion) { var f = _mgToMeq[ion]; return f ? (parseFloat(_ions[ion]) || 0) / f : 0; }
 
-            var _ecw    = parseFloat((_waterIn && _waterIn.ecw) || (_waterIn && _waterIn.ec)) || null;
+            /**
+             * GH-731 — THE LAST GATE, AND THE ONE THAT ACTUALLY DECIDED.
+             *
+             * The four places above carry a measured zero now, and this line collapsed it again:
+             * `0 || undefined` falls to `parseFloat(undefined)`, which is NaN, which `|| null`
+             * turns into absence. So a rainwater tank measured at zero arrived in the row as a
+             * site with no conductivity at all. Found by the case rather than by reading: the
+             * bench drives the NAMED-sample path, which is the path this line serves.
+             *
+             * `ec` remains the second name to try, and it is tried only when `ecw` is absent
+             * rather than when it is falsy.
+             */
+            var _ecw    = _readingOf(_waterIn && _waterIn.ecw);
+            if (_ecw === null) _ecw = _readingOf(_waterIn && _waterIn.ec);
             var _pH     = parseFloat((_waterIn && _waterIn.pH) || (_waterIn && _waterIn.ph)) || null;
             var _source = (_waterIn && _waterIn.source) || null;
             var _label  = (_waterIn && _waterIn.sourceLabel) || null;
@@ -2692,9 +2872,11 @@
                                              Object.values(_sWStore).sort(function(a,b){return (b.date||'')>(a.date||'')?1:-1;})[0];
                         }
                         if (!_wSampleForSAR) _wSampleForSAR = global.GAIP_SampleManager.getActiveSample('water');
-                        var _wDataForSAR = _wSampleForSAR && (_wSampleForSAR.rawData || _wSampleForSAR.values) || {};
-                        var _sarDirect = parseFloat(_wDataForSAR.SAR || _wDataForSAR.sar || _wDataForSAR.SAR_ppm);
-                        if (!isNaN(_sarDirect) && _sarDirect > 0) {
+                        // GH-722: the lab SAR through the lab reading names map. `SAR_ppm` was
+                        // read here and is declared nowhere; no stored sample carries it.
+                        var _sarDirect = _labReadingOf('water', _wSampleForSAR, 'SAR');
+                        // GH-731: a lab that reports SAR 0 has measured it. `> 0` discarded that.
+                        if (_sarDirect !== null) {
                             _SAR = Math.round(_sarDirect * 100) / 100;
                             _SARadj = _SAR;
                         }
@@ -2934,7 +3116,16 @@
             return soilTempAt100mm(_cm && _cm.soilTemp)
                 ?? soilTempAt100mm(_cc && _cc.soilTemp)
                 ?? soilTempAt100mm(global.GAIP_CANONICAL_STATE && global.GAIP_CANONICAL_STATE.soilTemp)
-                ?? soilTempAt100mm(global.GAIP_SOIL_TEMP && global.GAIP_SOIL_TEMP.summary);
+                // GH-734 (delivery 3): the third home of this measurement was the panel's
+                // global; it is the run's result now, which is the only one left.
+                ?? soilTempAt100mm((function () {
+                    try {
+                        var O = global.GaipOrchestrator;
+                        var p = (O && typeof O.getComputed === 'function') ? O.getComputed('soilTempPhysics') : null;
+
+                        return p && p.summary;
+                    } catch (e) { return null; }
+                })());
         };
 
         if (_cm) {
@@ -2948,12 +3139,14 @@
             // answer is the other place it can be. Same measurement, filed under
             // another name by another step — not a substitute for it.
             //
-            // `global.GAIP_SOIL_TEMP`, not the orchestrator's state: the model
-            // is run by `climate-module-v2-ui.js` and its result never enters
-            // `computed` at all. `cacheAnalysisResults` copies it into
-            // `cache.computed.soilTempPhysics` LATER IN THE SAME FUNCTION, after
-            // this collector has already returned — which is why reading it from
-            // there looked right and measured `null` on the live run.
+            // GH-734: THE RUN'S OWN RESULT, and this note said the opposite until the
+            // work of item 3az. It read `global.GAIP_SOIL_TEMP` because the model was
+            // run by `climate-module-v2-ui.js` and its answer never entered `computed`
+            // at all; the run computes it once now and hands it out under its own
+            // accessor, the global is gone, and `_soilTempAnywhere` takes the run's
+            // result. The note is kept rather than deleted because it explains why
+            // reading `cache.computed.soilTempPhysics` here once measured `null`:
+            // `cacheAnalysisResults` filled it later in the same function.
             metrics.soilTemp        = _soilTempAnywhere();
         }
         
@@ -3531,6 +3724,23 @@
     // for the same length of time this runner allows the whole run — two limits
     // in one run drift the way two copies of any rule drift.
     GilbaPersistence.RUN_BUDGET_MS = RUN_BUDGET_MS;
+
+    /**
+     * GH-729 (item 3al) — THE RUN'S OWN ID, PUBLISHED RATHER THAN RE-DERIVED.
+     *
+     * The prediction logger stamped every batch with a fresh UUID of its own, so a stored
+     * prediction could not be tied to the run that produced it: measured, 1718 rows and
+     * `cascade_id` filled on none of them. It needs the id this file already reads from the
+     * address (`/hub?rerun=<runId>&site=<siteId>`), and a second reader of that address would be
+     * a second answer waiting to disagree — the same shape as any other duplicated rule.
+     *
+     * `null` WHEN THERE IS NO RUN, never a stand-in. A page opened without `?rerun=` is not a run
+     * frame and its predictions belong to no run; writing an invented id there is exactly the
+     * defect this removes, one name later.
+     */
+    GilbaPersistence.currentRunId = function () {
+        return _runIntent ? _runIntent.runId : null;
+    };
 
     // Export to global
     global.GilbaPersistence = GilbaPersistence;

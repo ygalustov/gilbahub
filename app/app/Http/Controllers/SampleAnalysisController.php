@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LabReadingNames;
+use App\Support\CalculationInputs;
 use App\Support\ClassificationConstants;
+use App\Support\SlanRanges;
 use App\Models\Sample;
 use App\Models\SiteConfig;
 use App\Services\HillLabsSampleTypesService;
@@ -122,7 +125,11 @@ class SampleAnalysisController extends Controller
         ) ?? $sample->soil_texture_snapshot ?? 'sands';
         $species     = $config?->config['turf']['species'] ?? $config?->config['turf']['grassSpecies'] ?? null;
 
-        $nutrients = $this->computeNutrients($payload, $methodology, $soilTexture, $species);
+        // GH-752: the soil type the SLAN ranges are chosen by is a property of the site's construction,
+        // resolved by the one dictionary. No construction, no soil type -- and no guessed one.
+        $slanSoilType = CalculationInputs::resolveConstruction($config?->config ?? [])['resolves']['slanSoilType'] ?? null;
+
+        $nutrients = $this->computeNutrients($payload, $methodology, $soilTexture, $species, $slanSoilType);
 
         $statuses = array_column($nutrients, 'statusClass');
         $verdict  = in_array('deficient', $statuses)
@@ -141,7 +148,8 @@ class SampleAnalysisController extends Controller
             // somebody else's run (owner's rule on defaults).
             'pH'          => $payload['pH_Water'] ?? $payload['pH'] ?? $payload['ph'] ?? null,
             'ECe'         => $payload['ECe'] ?? $payload['EC_paste'] ?? $this->computeEce($payload) ?? null,
-            'soilNa'      => (($v = (float)($payload['Na'] ?? $payload['Na_ppm'] ?? 0)) > 0 ? $v : null),
+            // GH-722: Na through the lab reading names map, as the calculation reads it.
+            'soilNa'      => (($v = (float)((LabReadingNames::readingsOf('soil', $payload) ?? [])['Na'] ?? 0)) > 0 ? $v : null),
             'CEC'         => $payload['CEC'] ?? $payload['cec'] ?? null,
             'validation'  => ($validation['errors'] || $validation['warnings']) ? $validation : null,
             'methodology' => $methodology,
@@ -171,9 +179,11 @@ class SampleAnalysisController extends Controller
      */
     private function computeNutrients(
         array $payload,
-        ?string $methodology = null, string $soilTexture = 'sands', ?string $species = null
+        ?string $methodology = null, string $soilTexture = 'sands', ?string $species = null,
+        ?string $slanSoilType = null
     ): array {
         $isAA    = $methodology !== null && strtolower($methodology) === 'ammonium_acetate';
+        $isSLAN  = $methodology !== null && strtolower($methodology) === 'slan';
         $texKey  = (stripos($soilTexture, 'sand') !== false) ? 'sands' : 'others';
 
         // GH-268 (D07 item 4): resolve a certificate-backed sample-type code
@@ -211,12 +221,15 @@ class SampleAnalysisController extends Controller
             $canonicalOrder
         );
 
+        // GH-722: each nutrient through the lab reading names map, as the calculation reads it,
+        // rather than by its bare key — a sample spelled `K_ppm` was "No data" here.
+        $readings = LabReadingNames::readingsOf('soil', $payload) ?? [];
+
         return array_values(array_map(
-            function (array $n) use ($payload, $isAA, $texKey, $sampleTypeCode, $cec, $methodology) {
+            function (array $n) use ($readings, $isAA, $isSLAN, $slanSoilType, $texKey, $sampleTypeCode, $cec, $methodology) {
                 $thresholds = self::MLSN_DEFAULTS;
                 $nut    = $n['nutrient'];
-                $raw    = $payload[$nut] ?? null;
-                $actual = $raw !== null ? floatval($raw) : null;
+                $actual = $readings[$nut] ?? null;
 
                 if ($actual === null) {
                     return array_merge($n, ['actual' => null, 'status' => 'No data', 'statusClass' => 'no-data']);
@@ -232,6 +245,13 @@ class SampleAnalysisController extends Controller
                         'status'      => 'No methodology set',
                         'statusClass' => 'no-data',
                     ]);
+                }
+
+                // GH-752: SLAN is graded as the run grades it -- the SLAN ranges of the site's soil type,
+                // Low / Sufficient / High on lo and hi, Fe and Mn adjusted by the sample's pH -- and not
+                // by MLSN's thresholds, which the branch below used to apply to every site that was not AA.
+                if ($isSLAN) {
+                    return array_merge($n, self::gradeSlan($nut, (float) $actual, $slanSoilType, $readings['pH'] ?? null));
                 }
 
                 // AA methodology: use Hill Labs sufficiency ranges
@@ -279,7 +299,7 @@ class SampleAnalysisController extends Controller
                     ]);
                 }
 
-                // MLSN / SLAN: single-threshold classification
+                // MLSN: single-threshold classification
                 $mlsn = $thresholds[$nut] ?? floatval($n['mlsn'] ?? 0);
                 if ($mlsn > 0) {
                     if ($actual < $mlsn)           { $status = 'Deficient';  $sc = 'deficient'; }
@@ -300,15 +320,56 @@ class SampleAnalysisController extends Controller
         ));
     }
 
+    /**
+     * GH-752 (queue item 3bl, part C) - one SLAN reading, graded as `mlsnEngine` grades it.
+     *
+     * The ranges come from `assets/slan-ranges.json` through its one reader. What is not known is said:
+     * a site whose construction resolves no soil type is not graded by a guessed one, and Fe and Mn
+     * without a pH on the sample are not graded -- the run puts 7 there, which is an open owner
+     * question and is not copied here.
+     *
+     * @return array<string,mixed>
+     */
+    private static function gradeSlan(string $nut, float $actual, ?string $soilType, ?float $pH): array
+    {
+        $ranges = SlanRanges::forSoilType($soilType);
+        if ($ranges === null) {
+            return ['actual' => (string) $actual, 'status' => 'No construction set', 'statusClass' => 'no-data'];
+        }
+        $adj = SlanRanges::forClient()['phAdjusted'];
+        if (isset($adj['nutrients'][$nut])) {
+            if ($pH === null) {
+                return ['actual' => (string) $actual, 'status' => 'No pH on the sample', 'statusClass' => 'no-data'];
+            }
+            $f = (max($adj['phFrom'], min($adj['phTo'], $pH)) - $adj['phFrom']) / ($adj['phTo'] - $adj['phFrom']);
+            $x = $adj['nutrients'][$nut];
+            $range = ['lo' => $x['base'] + $x['span'] * $f * $adj['loFactor'], 'hi' => $x['base'] + $x['span'] * $f * $adj['hiFactor']];
+        } else {
+            $range = $ranges[$nut] ?? null;
+        }
+        if ($range === null) {
+            return ['actual' => (string) $actual, 'status' => 'No data', 'statusClass' => 'no-data'];
+        }
+        if ($actual < $range['lo'])       { $status = 'Low';        $sc = 'deficient'; }
+        elseif ($actual <= $range['hi'])  { $status = 'Sufficient'; $sc = 'adequate'; }
+        else                              { $status = 'High';       $sc = 'high'; }
+
+        return [
+            'actual'      => (string) $actual,
+            'status'      => $status,
+            'statusClass' => $sc,
+            'mlsn'        => number_format($range['lo'], 1).'-'.number_format($range['hi'], 1),
+            'rangeMin'    => $range['lo'],
+            'rangeMax'    => $range['hi'],
+        ];
+    }
+
     private function computeEce(array $payload): ?float
     {
         // All EC 1:5 key variants seen across import paths and SampleManager normalisation
-        $ec15 = (float)(
-            $payload['EC']      ?? $payload['ec']     ??
-            $payload['EC1_5']   ?? $payload['EC_1_5'] ??
-            $payload['EC1:5']   ?? $payload['EC_1:5'] ??
-            $payload['EC_dSm']  ?? 0
-        );
+        // GH-722: EC 1:5 through the lab reading names map; the chain that stood here spelled it
+        // seven ways in its own order.
+        $ec15 = (float) ((LabReadingNames::readingsOf('soil', $payload) ?? [])['EC'] ?? 0);
         if ($ec15 <= 0) return null;
         $multipliers = [
             'sand' => 5, 'loamy_sand' => 5.5, 'sandy_loam' => 6,
@@ -322,8 +383,10 @@ class SampleAnalysisController extends Controller
     {
         $warnings = [];
 
+        // GH-722: the same readings the cards above are built from.
+        $readings = LabReadingNames::readingsOf('soil', $payload) ?? [];
         foreach (self::UNUSUAL_RANGES as $nut => [$min, $max]) {
-            $val = isset($payload[$nut]) ? floatval($payload[$nut]) : null;
+            $val = $readings[$nut] ?? null;
             if ($val !== null && ($val < $min || $val > $max)) {
                 $warnings[] = "{$nut} value {$val} ppm is outside the typical range ({$min}–{$max} ppm) — verify data entry.";
             }

@@ -11,7 +11,10 @@
  *   metrics:  window.climateMetrics,       // from climate-engine.js
  *   computed: {
  *     shade:    window.GAIP_SHADE_RESULT,  // from shade-engine.js
- *     soilTemp: window.GAIP_SOIL_TEMP      // from climate-module-v2-ui.js
+ *     soilTemp: the run's own result       // GH-734: GaipOrchestrator.getComputed('soilTempPhysics'),
+ *                                          // computed once by the run. This said
+ *                                          // `window.GAIP_SOIL_TEMP`, the panel's global, which
+ *                                          // no longer exists.
  *   },
  *   analyzedAt: ISO string
  * }
@@ -405,10 +408,11 @@
         // Physics-model result saved by hub-persistence during hub analysis run
         var p = data && data.computed && data.computed.soilTempPhysics;
         if (p && p.summary && p.summary.available) return p;
-        // Live session fallback (if running on hub page)
-        if (global.GAIP_SOIL_TEMP && global.GAIP_SOIL_TEMP.summary && global.GAIP_SOIL_TEMP.summary.available) {
-            return global.GAIP_SOIL_TEMP;
-        }
+        /**
+         * GH-734 (delivery 3): the live-session fallback read the panel's global, which no longer
+         * exists. The stored row is the one source now, and a run that did not compute it leaves
+         * `null` -- an outcome rather than a number from somewhere else.
+         */
         return null;
     }
 

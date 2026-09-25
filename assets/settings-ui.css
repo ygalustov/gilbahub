@@ -465,6 +465,12 @@
     color: var(--gaip-good, #16a34a);
     font-weight: 500;
 }
+/* GH-722: an import that loaded only part of the file is not shown as a success. */
+.imp-success.partial {
+    background: var(--gaip-warning-bg, #fffbeb);
+    border-color: var(--gaip-warning-border, #fcd34d);
+    color: var(--gaip-warning, #d97706);
+}
 
 /* ── Info icon & popover ───────────────────────────────────── */
 .stg-info-icon {

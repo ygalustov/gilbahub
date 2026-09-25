@@ -39,6 +39,20 @@
      * Each entry: [globalName, clearValue]
      * clearValue is what to set (null to clear, or a sentinel object)
      */
+    /**
+     * GH-734 (queue item 3az) — THREE NAMES LEFT THIS LIST, AND THE ORDER MATTERS.
+     *
+     * `GAIP_MLSN_RESULT` and `GAIP_WEATHER_DATA` were cleaned and assigned by nothing in the tree:
+     * an entry about a global that does not exist is not a protection, it is a name nobody can act
+     * on. (`GAIP_MLSN_RESULT` is still READ, by `environmental-utilisation-engine.js` -- whether a
+     * live reader of a value nobody writes is a defect is its own subject and not this one.)
+     *
+     * `GAIP_SOIL_TEMP` goes because the run computes the soil temperature itself now and hands it
+     * out under the orchestrator's accessor; the global it replaced is removed in the same delivery.
+     * The ENTRY goes first and the global after, and that order is compulsory rather than careful:
+     * `tests/gh734-the-cleanup-list-and-the-globals-agree.test.js` reddens on a name that is cleaned
+     * and assigned nowhere, so the reverse order cannot pass.
+     */
     const SITE_SCOPED_GLOBALS = [
         // Nutrition program (Prebble NZ / AU fertiliser integration)
         ['GAIP_NUTRITION_PROGRAM', null],
@@ -53,11 +67,9 @@
         ['GAIP_IRRIGATION_RESULT', null],
         ['GAIP_SALINITY_RESULT', null],
         ['GAIP_TISSUE_RESULT', null],
-        ['GAIP_MLSN_RESULT', null],
         ['GAIP_DMI_RESULT', null],
         ['GAIP_PHYTOTOXICITY_RESULT', null],
         ['GAIP_NUTRIENT_DEMAND_RESULT', null],
-        ['GAIP_SOIL_TEMP', null],
         ['GAIP_PRE_EMERGENT_RESULT', null],   // b35fix236: was missing — caused stale pre-emergent panel on site-switch
 
         // Climate metrics (recalculated per location)
@@ -67,7 +79,6 @@
         // engines don't use stale forecast from previous site while new
         // weather fetch is in flight.
         ['rawWeatherData', null],
-        ['GAIP_WEATHER_DATA', null],
 
         // Canonical state — rebuilt at start of every orchestrator run, but
         // stale coords are used as fallback if new site has no location yet.

@@ -119,15 +119,31 @@ const LargePatchModel = {
         let soilTempSource = 'estimated';
         
         // Priority 1: GAIP physics-based soil temp model (50mm depth)
-        if (typeof window !== 'undefined' && 
-            window.GAIP_SOIL_TEMP?.summary?.depths?.['50mm']?.mean) {
-            soilTemp = window.GAIP_SOIL_TEMP.summary.depths['50mm'].mean;
+        var _runPhysics = (function () {
+            /**
+             * GH-734 (queue item 3az, delivery 2) — THE RUN'S OWN RESULT, FROM THE RUN'S OWN OWNER.
+             *
+             * This read `window.GAIP_SOIL_TEMP`, which the rendering panel sets. The run computes the
+             * soil temperature once now and the orchestrator hands it out under its own accessor, so
+             * a reader inside the run takes what the run computed rather than what a panel drew. The
+             * global still exists for the places that have not moved yet and goes in delivery 3.
+             */
+            try {
+                var O = (typeof global !== 'undefined' ? global : window).GaipOrchestrator;
+
+                return (O && typeof O.getComputed === 'function') ? O.getComputed('soilTempPhysics') : null;
+            } catch (e) {
+                return null;
+            }
+        })();
+        if (_runPhysics?.summary?.depths?.['50mm']?.mean) {
+            soilTemp = _runPhysics.summary.depths['50mm'].mean;
             soilTempSource = 'physics_model_50mm';
         }
         // Priority 2: 100mm depth (close enough)
         else if (typeof window !== 'undefined' && 
-                 window.GAIP_SOIL_TEMP?.summary?.depths?.['100mm']?.mean) {
-            soilTemp = window.GAIP_SOIL_TEMP.summary.depths['100mm'].mean;
+                 _runPhysics?.summary?.depths?.['100mm']?.mean) {
+            soilTemp = _runPhysics.summary.depths['100mm'].mean;
             soilTempSource = 'physics_model_100mm';
         }
         // Priority 3: Sensor data

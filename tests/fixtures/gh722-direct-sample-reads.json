@@ -1,0 +1,174 @@
+{
+ "$comment": "GH-722: every place that reads a stored lab sample by column name itself, found by tests/lib/sample-payload-reads.js, with what it is and what happens to it. Held both ways by tests/gh722-direct-sample-reads.test.js: a read not listed reddens, a listed read that is gone reddens.",
+ "states": {
+  "reading-off-the-map": "a lab reading the map declares, read by name past the map",
+  "ph-rule-open": "pH, where the map (through the cacl2 method suffix) and this reader disagree about pH_CaCl2 — the owner has not decided which is right",
+  "cec": "CEC, where moving to the map changes a number for stored samples that carry only CEC_meq100g",
+  "not-in-the-map": "a column the map does not declare at all",
+  "computed-name": "a column named by computation; listed, not resolved",
+  "not-a-reading": "describes the sample (label, zone, source, depth, bulk density, methodology, area), not a lab reading",
+  "not-a-sample": "a payload that is not a lab sample (a request body, a field log entry)",
+  "the-resolver": "the runner reading a row through the map, by the column the map resolved"
+ },
+ "places": {
+  "app/app/Http/Controllers/SampleAnalysisController.php | computeEce | $payload": [
+   "the texture for the ECe estimate, read from the sample with loam in its place; EC comes through the map since part 2",
+   "Texture is not a reading in the map and texture is a site property (GH-274): no stored sample carries it, so every ECe here is computed as loam; with the site texture, Russley (2 samples) and Test5 - NZ (1) would change — a finding for its own item"
+  ],
+  "app/app/Http/Controllers/SampleAnalysisController.php | computeNutrients | $payload": [
+   "CEC for the certificate ranges, CEC or cec only",
+   "CEC through the map adds CEC_meq100g and gives a CEC to four stored samples that have none today — a change of numbers, held for the owner"
+  ],
+  "app/app/Http/Controllers/SampleAnalysisController.php | run | $payload": [
+   "pH, ECe and CEC printed on the analysis card, each by its own chain; Na comes through the map since part 2",
+   "pH waits for the owner (whether pH_CaCl2 stands in for pH); CEC held for the owner (numbers change for four samples); ECe and EC_paste are not in the map, carried by no stored sample"
+  ],
+  "assets/hub-persistence.js | <anonymous> | _smRaw": [
+   "the second door builds ppm by stripping _ppm and _me from every column (a resolver of its own), and EC and texture for ECe",
+   "held: through the map, three live samples of New test - location that carry only EC1_5 would take ECe from the sample instead of the page field; the _ppm/_me resolver changes the shape of ppm and needs its own proof"
+  ],
+  "assets/hub-persistence.js | <anonymous> | raw": [
+   "zone comparison: CEC or cec, pH with a pH_cacl2 fallback that matches no stored spelling; the nutrients come through the map since part 2",
+   "CEC held; pH waits for the owner"
+  ],
+  "assets/hub-persistence.js | cacheAnalysisResults | _ovPl": [
+   "the water sample chosen on the page: pH by its own chain; TDS and the lab SAR come through the map by name since delivery 5",
+   "pH waits for the owner"
+  ],
+  "assets/hub-persistence.js | cacheAnalysisResults | _wPl": [
+   "the water sample taken from the store when the page carries no water: pH by its own chain, the same chain as the door above; the lab SAR comes through the map by name since GH-764",
+   "pH waits for the owner"
+  ],
+  "assets/hub-persistence.js | cacheAnalysisResults | _smRaw": [
+   "the soil nutrition row, second door: pH, ECe and CEC each by its own chain; Na comes through the map since part 2",
+   "pH waits for the owner; CEC held; ECe and EC_paste not in the map"
+  ],
+  "assets/hub-tissue-v3.js | gaip_soilFromActiveSample | raw": [
+   "pH_CaCl2 read as a quantity of its own (soil.pH_cacl2), while the map treats it as a spelling of pH through the cacl2 suffix",
+   "waits for the owner: one of the two readings of pH_CaCl2 is wrong"
+  ],
+  "assets/nutrient-trend.js | calculateNutrientTrend | .rawData": [
+   "water pH for the trend by its own chain; EC comes through the map since part 2",
+   "pH waits for the owner"
+  ],
+  "assets/nutrient-trend.js | renderMultiSourceChart | .rawData": [
+   "water pH for the multi-source chart by its own chain; EC comes through the map since part 2",
+   "pH waits for the owner"
+  ],
+  "assets/nutrition-calendar.js | applySample | pl": [
+   "the Plan soil: pH explicitly refusing pH_CaCl2, CEC then CEC_meq100g; the nutrients come from the readings the server resolves since part 2",
+   "pH waits for the owner; CEC held with the other CEC readers"
+  ],
+  "assets/nutrition-calendar.js | syncSoilFromDOM | src": [
+   "soil from the active sample: CEC, pH_water, pH_cacl2 by name; nutrients and OM come through the map since part 2",
+   "pH waits for the owner; CEC held with the other CEC readers"
+  ],
+  "assets/word-export.js | collectData | _soilRow": [
+   "ESP read from the soil row",
+   "ESP is not in the map — a finding: either a reading the map lacks or a read of nothing"
+  ]
+ },
+ "reads": {
+  "app/app/Console/Commands/NormaliseSampleMeasurements.php | handle | $payload | _label": "not-a-reading",
+  "app/app/Http/Controllers/FieldLogEntryController.php | index | $payload | data": "not-a-sample",
+  "app/app/Http/Controllers/FieldLogEntryController.php | index | $payload | photo": "not-a-sample",
+  "app/app/Http/Controllers/InterpretationController.php | soil | $payload | soil_output": "not-a-sample",
+  "app/app/Http/Controllers/InterpretationController.php | synthesis | $payload | synthesis_data": "not-a-sample",
+  "app/app/Http/Controllers/InterpretationController.php | water | $payload | water_output": "not-a-sample",
+  "app/app/Http/Controllers/SampleAnalysisController.php | computeEce | $payload | Texture": "not-in-the-map",
+  "app/app/Http/Controllers/SampleAnalysisController.php | computeEce | $payload | texture": "not-in-the-map",
+  "app/app/Http/Controllers/SampleAnalysisController.php | computeNutrients | $payload | CEC": "cec",
+  "app/app/Http/Controllers/SampleAnalysisController.php | computeNutrients | $payload | cec": "cec",
+  "app/app/Http/Controllers/SampleAnalysisController.php | run | $payload | CEC": "cec",
+  "app/app/Http/Controllers/SampleAnalysisController.php | run | $payload | EC_paste": "not-in-the-map",
+  "app/app/Http/Controllers/SampleAnalysisController.php | run | $payload | ECe": "not-in-the-map",
+  "app/app/Http/Controllers/SampleAnalysisController.php | run | $payload | cec": "cec",
+  "app/app/Http/Controllers/SampleAnalysisController.php | run | $payload | pH": "ph-rule-open",
+  "app/app/Http/Controllers/SampleAnalysisController.php | run | $payload | pH_Water": "ph-rule-open",
+  "app/app/Http/Controllers/SampleAnalysisController.php | run | $payload | ph": "ph-rule-open",
+  "app/app/Http/Controllers/SampleController.php | buildSummaryPayload | $payload | label": "not-a-reading",
+  "app/app/Http/Controllers/SampleController.php | buildSummaryPayload | $payload | zone": "not-a-reading",
+  "app/app/Http/Controllers/SampleController.php | sync | $payload | depth_mm": "not-a-reading",
+  "assets/bulk-area-modal.js | <anonymous> | .rawData | areaHa": "not-a-reading",
+  "assets/hub-persistence.js | <anonymous> | _smRaw | <computed>": "computed-name",
+  "assets/hub-persistence.js | <anonymous> | _smRaw | EC": "reading-off-the-map",
+  "assets/hub-persistence.js | <anonymous> | _smRaw | EC_1_5": "reading-off-the-map",
+  "assets/hub-persistence.js | <anonymous> | _smRaw | EC_dSm": "reading-off-the-map",
+  "assets/hub-persistence.js | <anonymous> | _smRaw | Texture": "not-in-the-map",
+  "assets/hub-persistence.js | <anonymous> | _smRaw | texture": "not-in-the-map",
+  "assets/hub-persistence.js | <anonymous> | raw | CEC": "cec",
+  "assets/hub-persistence.js | <anonymous> | raw | cec": "cec",
+  "assets/hub-persistence.js | <anonymous> | raw | pH": "ph-rule-open",
+  "assets/hub-persistence.js | <anonymous> | raw | pH_Water": "ph-rule-open",
+  "assets/hub-persistence.js | <anonymous> | raw | pH_cacl2": "ph-rule-open",
+  "assets/hub-persistence.js | cacheAnalysisResults | _ovPl | pH": "ph-rule-open",
+  "assets/hub-persistence.js | cacheAnalysisResults | _ovPl | ph": "ph-rule-open",
+  "assets/hub-persistence.js | cacheAnalysisResults | _wPl | pH": "ph-rule-open",
+  "assets/hub-persistence.js | cacheAnalysisResults | _wPl | ph": "ph-rule-open",
+  "assets/hub-persistence.js | cacheAnalysisResults | _smRaw | CEC": "cec",
+  "assets/hub-persistence.js | cacheAnalysisResults | _smRaw | EC_paste": "not-in-the-map",
+  "assets/hub-persistence.js | cacheAnalysisResults | _smRaw | ECe": "not-in-the-map",
+  "assets/hub-persistence.js | cacheAnalysisResults | _smRaw | bulkDensity": "not-a-reading",
+  "assets/hub-persistence.js | cacheAnalysisResults | _smRaw | cec": "cec",
+  "assets/hub-persistence.js | cacheAnalysisResults | _smRaw | depthCm": "not-a-reading",
+  "assets/hub-persistence.js | cacheAnalysisResults | _smRaw | depth_mm": "not-a-reading",
+  "assets/hub-persistence.js | cacheAnalysisResults | _smRaw | pH": "ph-rule-open",
+  "assets/hub-persistence.js | cacheAnalysisResults | _smRaw | pH_Water": "ph-rule-open",
+  "assets/hub-persistence.js | cacheAnalysisResults | _smRaw | ph": "ph-rule-open",
+  "assets/hub-persistence.js | cacheAnalysisResults | _wbPl | _label": "not-a-reading",
+  "assets/hub-tissue-v3.js | gaip_soilFromActiveSample | raw | bulkDensity": "not-a-reading",
+  "assets/hub-tissue-v3.js | gaip_soilFromActiveSample | raw | pH_CaCl2": "ph-rule-open",
+  "assets/hub-tissue-v3.js | gaip_soilFromActiveSample | raw | pH_cacl2": "ph-rule-open",
+  "assets/nutrient-trend.js | calculateNutrientTrend | .rawData | pH": "ph-rule-open",
+  "assets/nutrient-trend.js | calculateNutrientTrend | .rawData | ph": "ph-rule-open",
+  "assets/nutrient-trend.js | renderMultiSourceChart | .rawData | pH": "ph-rule-open",
+  "assets/nutrient-trend.js | renderMultiSourceChart | .rawData | ph": "ph-rule-open",
+  "assets/nutrition-au-fertiliser-integration.js | <anonymous> | _normData | <computed>": "computed-name",
+  "assets/nutrition-calendar.js | <anonymous> | pl | _label": "not-a-reading",
+  "assets/nutrition-calendar.js | applySample | pl | CEC": "cec",
+  "assets/nutrition-calendar.js | applySample | pl | CEC_meq100g": "cec",
+  "assets/nutrition-calendar.js | applySample | pl | _label": "not-a-reading",
+  "assets/nutrition-calendar.js | applySample | pl | bulkDensity": "not-a-reading",
+  "assets/nutrition-calendar.js | applySample | pl | depth": "not-a-reading",
+  "assets/nutrition-calendar.js | applySample | pl | methodology": "not-a-reading",
+  "assets/nutrition-calendar.js | applySample | pl | pH": "ph-rule-open",
+  "assets/nutrition-calendar.js | applySample | pl | pH_Water": "ph-rule-open",
+  "assets/nutrition-calendar.js | syncSoilFromDOM | src | CEC": "cec",
+  "assets/nutrition-calendar.js | syncSoilFromDOM | src | bulkDensity": "not-a-reading",
+  "assets/nutrition-calendar.js | syncSoilFromDOM | src | methodology": "not-a-reading",
+  "assets/nutrition-calendar.js | syncSoilFromDOM | src | pH_cacl2": "ph-rule-open",
+  "assets/nutrition-calendar.js | syncSoilFromDOM | src | pH_water": "ph-rule-open",
+  "assets/nutrition-summary-integration.js | <anonymous> | raw | <computed>": "computed-name",
+  "assets/nutrition-uk-fertiliser-integration.js | <anonymous> | normData | <computed>": "computed-name",
+  "assets/sample-manager.js | labReadingOf | row | <computed>": "the-resolver",
+  "assets/sample-manager.js | loadSample | _sampleData | <computed>": "the-resolver",
+  "assets/sample-manager.js | readingsOf | row | <computed>": "the-resolver",
+  "assets/sample-persistence.js | <anonymous> | .payload | label": "not-a-reading",
+  "assets/sample-persistence.js | <anonymous> | .payload | sampleId": "not-a-reading",
+  "assets/sample-persistence.js | <anonymous> | pld | _label": "not-a-reading",
+  "assets/sample-persistence.js | <anonymous> | pld | _source": "not-a-reading",
+  "assets/sample-persistence.js | <anonymous> | pld | _turfProfile": "not-a-reading",
+  "assets/sample-persistence.js | <anonymous> | pld | _zone": "not-a-reading",
+  "assets/sample-persistence.js | <anonymous> | pld | label": "not-a-reading",
+  "assets/sample-persistence.js | <anonymous> | pld | zone": "not-a-reading",
+  "assets/sample-persistence.js | buildPayload | out | _label": "not-a-reading",
+  "assets/sample-persistence.js | buildPayload | out | _source": "not-a-reading",
+  "assets/sample-persistence.js | buildPayload | out | _turfProfile": "not-a-reading",
+  "assets/sample-persistence.js | buildPayload | out | _zone": "not-a-reading",
+  "assets/sample-switcher-ui.js | <anonymous> | .rawData | areaHa": "not-a-reading",
+  "assets/soil-nutrition-analysis.js | <anonymous> | .payload | _label": "not-a-reading",
+  "assets/soil-nutrition-analysis.js | <anonymous> | pl | _label": "not-a-reading",
+  "assets/soil-nutrition-analysis.js | <anonymous> | pl | _source": "not-a-reading",
+  "assets/soil-nutrition-analysis.js | injectSampleDropdown | .payload | _label": "not-a-reading",
+  "assets/soil-nutrition-analysis.js | labelFor | .payload | _label": "not-a-reading",
+  "assets/water-balance-analysis.js | <anonymous> | .payload | _label": "not-a-reading",
+  "assets/water-balance-analysis.js | <anonymous> | pl | _label": "not-a-reading",
+  "assets/water-balance-analysis.js | _wbInjectDropdown | pl | _label": "not-a-reading",
+  "assets/water-balance-analysis.js | findActiveIdx | pl | _label": "not-a-reading",
+  "assets/word-export.js | collectData | _soilRow | ESP": "not-in-the-map",
+  "assets/word-export.js | collectData | _soilRow | areaHa": "not-a-reading",
+  "assets/word-export.js | collectData | _soilRow | bulkDensity": "not-a-reading",
+  "assets/word-export.js | collectData | _soilRow | depth": "not-a-reading",
+  "assets/word-export.js | collectData | _soilRow | depthCm": "not-a-reading"
+ }
+}

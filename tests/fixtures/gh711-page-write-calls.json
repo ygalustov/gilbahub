@@ -1,0 +1,98 @@
+{
+  "$comment": [
+    "GH-711 - which page script calls which write route (routes from app/tests/fixtures/gh711-write-paths.json), and the write calls whose address or method the sign cannot resolve, by file.",
+    "Compared both ways by tests/gh711-page-write-calls.test.js. The sign it was measured under travels with it; a changed sign is announced with a new version.",
+    "GH-762 (queue item 3vg), sign version 2: the form `fetch-options-variable` was added, so a call written as `fetch(url, options)` with the options in a variable is no longer read as a plain GET. Routes before this: 18, after: 18. Unresolved before: 13, after: 21 - the growth is calls that were INVISIBLE, now named at the file that makes them."
+  ],
+  "sign": {
+    "version": 2,
+    "forms": [
+      "fetch-literal-method",
+      "xhr-open-literal-method",
+      "sendBeacon",
+      "fetch-options-variable",
+      "wrapper-call"
+    ]
+  },
+  "byRoute": {
+    "DELETE api/sites/{site}": [
+      "assets/account-init.js"
+    ],
+    "PATCH api/active-site": [
+      "assets/account-init.js",
+      "assets/dashboard-ui.js",
+      "assets/hub-persistence.js"
+    ],
+    "PATCH api/profile/password-prompt": [
+      "app/resources/views/dashboard.blade.php"
+    ],
+    "PATCH api/samples/{sample}": [
+      "app/resources/views/data.blade.php"
+    ],
+    "PATCH api/sites/{site}": [
+      "app/resources/views/data.blade.php"
+    ],
+    "POST api/analysis-cache": [
+      "assets/hub-persistence.js"
+    ],
+    "POST api/analysis-cache/runs": [
+      "assets/hub-persistence.js"
+    ],
+    "POST api/field-log/entries": [
+      "assets/gaip-field-log.js"
+    ],
+    "POST api/interpretations/soil": [
+      "assets/gilba-soil-interpretation.js"
+    ],
+    "POST api/interpretations/synthesis": [
+      "assets/gilba-synthesis-interpretation.js"
+    ],
+    "POST api/interpretations/water": [
+      "assets/gilba-water-interpretation.js"
+    ],
+    "POST api/outcomes": [
+      "assets/outcome-capture-ui.js"
+    ],
+    "POST api/sites": [
+      "assets/account-init.js"
+    ],
+    "POST api/spray-log": [
+      "assets/gaip-field-log.js"
+    ],
+    "POST api/stadium/rig-calculate": [
+      "assets/stadium-tab-ui.js"
+    ],
+    "POST api/stadium/seasonal-plan": [
+      "assets/stadium-tab-ui.js"
+    ],
+    "POST api/stadium/shade-render": [
+      "assets/stadium-tab-ui.js"
+    ],
+    "POST login/magic": [
+      "assets/account-init.js"
+    ]
+  },
+  "unresolved": [
+    "app/resources/views/auth/login.blade.php: POST X",
+    "app/resources/views/data.blade.php: DELETE X",
+    "app/resources/views/data.blade.php: POST X",
+    "app/resources/views/data.blade.php: method-not-literal X",
+    "assets/account-init.js: method-not-literal X",
+    "assets/gaip-field-log-analysis.js: method-not-literal ?",
+    "assets/gaip-field-log.js: POST X",
+    "assets/gilba-alerts.js: method-not-literal ?",
+    "assets/lab-report-parser.js: POST X",
+    "assets/nutrition-calendar.js: PATCH X",
+    "assets/onboarding-wizard.js: method-not-literal ?",
+    "assets/prediction-logger.js: POST X",
+    "assets/sample-persistence.js: method-not-literal ?",
+    "assets/sensor-api-hydrosight.js: POST X",
+    "assets/sensor-api-specconnect.js: POST X",
+    "assets/settings-init.js: POST X",
+    "assets/settings-init.js: method-not-literal X",
+    "assets/site-config-persistence.js: method-not-literal ?",
+    "assets/site-setup-wizard.js: method-not-literal ?",
+    "assets/spray-log.js: method-not-literal ?",
+    "assets/stadium/venue-profile-persistence.js: method-not-literal ?"
+  ]
+}

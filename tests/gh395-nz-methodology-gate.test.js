@@ -50,7 +50,9 @@ const src = fs.readFileSync(BLADE, 'utf8');
 
 // The @php block that builds the dropdown, isolated so a match elsewhere in a
 // 1000-line template cannot make these pass by accident.
-const blockStart = src.indexOf('$methOptions = [');
+// GH-744: the list's words come from the inputs list now; the block still starts where the
+// chooser's options are taken, and everything the region does to them follows it.
+const blockStart = src.indexOf('$methOptions = \\App\\Support\\CalculationInputs::methodologyChoices();');
 const blockEnd = src.indexOf('</select>', blockStart);
 const block = src.slice(blockStart, blockEnd);
 const after = src.slice(blockEnd, blockEnd + 2400);
@@ -63,10 +65,11 @@ expect(after.length).toBeGreaterThan(500);
 
 describe('GH-395/521 — the NZ methodology gate narrows the choices, not the value', () => {
     test('the option list still offers all three methodologies by default', () => {
+        // GH-744: the three are the inputs list's, which the chooser now takes whole.
         expect(blockStart).toBeGreaterThan(-1);
-        expect(block).toMatch(/'mlsn'\s*=>/);
-        expect(block).toMatch(/'slan'\s*=>/);
-        expect(block).toMatch(/'ammonium_acetate'\s*=>/);
+        const listed = Object.keys(JSON.parse(fs.readFileSync(
+            path.join(__dirname, '../assets/calculation-inputs.schema.json'), 'utf8')).inputs['turf.methodology'].values);
+        expect(listed).toEqual(['mlsn', 'slan', 'ammonium_acetate']);
     });
 
     test('on a New Zealand site the list is Ammonium Acetate alone', () => {

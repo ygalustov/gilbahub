@@ -68,6 +68,10 @@
              and stops carrying its own copy of the nodes, so a module's inputs are
              declared in one place instead of two that drift. --}}
         window.GAIP_DEPENDENCY_GRAPH = @json(\App\Support\DependencyGraph::forClient());
+        {{-- GH-722: how a lab writes the column for each reading of a sample, from the
+             one file that declares it. The sample manager builds its tables from this
+             and keeps only which form field a reading fills. --}}
+        window.GAIP_LAB_READING_NAMES = @json(\App\Support\LabReadingNames::forClient());
         window.GAIP_FIELD_LOG_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG, window.GAIP_FIELD_LOG_CONFIG || {});
         window.GAIP_WIZARD_CONFIG = Object.assign({}, window.GAIP_WIZARD_CONFIG || {}, {
             nonce: "{{ csrf_token() }}",

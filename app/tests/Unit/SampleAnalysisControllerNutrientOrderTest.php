@@ -120,7 +120,9 @@ class SampleAnalysisControllerNutrientOrderTest extends TestCase
             'computeNutrients still accepts a threshold override; the canonical MLSN '
             .'table is meant to be the only one it classifies against.');
 
-        // And the parameters it does take are the sample's own facts.
-        $this->assertSame(['payload', 'methodology', 'soilTexture', 'species'], $names);
+        // And the parameters it does take are the sample's own facts and its site's settings.
+        // GH-752: `slanSoilType` is the site's soil type, resolved from its construction by the
+        // construction dictionary -- a setting, not a threshold handed in.
+        $this->assertSame(['payload', 'methodology', 'soilTexture', 'species', 'slanSoilType'], $names);
     }
 }

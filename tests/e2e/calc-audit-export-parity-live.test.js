@@ -391,7 +391,7 @@ describe('Calculation audit — the document against the Plan, one sample per si
 
         let __restore = null;
 
-        try { __restore = await restoreConfigs(page); }
+        try { __restore = await restoreConfigs({ sites: [SITE_ID] }); }
 
         catch (e) { __restore = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
         if (page && previousActiveSiteId) { try { await setActiveSite(page, previousActiveSiteId); } catch (e) { /* */ } }

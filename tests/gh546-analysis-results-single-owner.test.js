@@ -68,6 +68,11 @@ const EXEMPT = {
         'this IS the owner — the one place allowed to read or write the analysis result',
     'Models/AnalysisResult.php':
         'the record itself (GH-550). A model naming its own table is not a reader reaching round the owner; nothing may query it but the owner above, which is what the walk checks',
+    // GH-709: one file, read only. The data audit checks the STORAGE itself; reading it through
+    // the owner would audit the owner's projection, not the rows. It writes nothing, which its
+    // own test asserts from the query log.
+    'Console/Commands/AuditData.php':
+        'the data audit reads the stored rows, not the owner\'s projection of them, and only reads (GH-709)',
 };
 
 /**
@@ -177,6 +182,9 @@ describe('GH-546 — one owner for the analysis result', () => {
         expect(Object.keys(EXEMPT)).toEqual([
             'Support/AnalysisResults.php',
             'Models/AnalysisResult.php',
+            // GH-709: the third, after the conversation this line asks for — the coordinator's
+            // decision that the data audit reads the storage rather than the owner's projection.
+            'Console/Commands/AuditData.php',
         ]);
     });
 

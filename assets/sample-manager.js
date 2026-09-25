@@ -411,41 +411,94 @@
     }
 
     // =========================================================================
-    // FIELD MAPPINGS (from lab-import.js, extended)
+    // FIELD MAPPINGS
+    //
+    // GH-722 — THE SPELLINGS ARE NOT KEPT HERE ANY MORE. How a lab writes the
+    // column for each reading is declared once, in `assets/lab-reading-names.json`;
+    // the server reads it (`App\Support\LabReadingNames`) and hands it to the page as
+    // `window.GAIP_LAB_READING_NAMES`. This file used to carry four tables of its
+    // own, and the upload page three more, and they had drifted apart: the upload
+    // page saved readings under spellings this runner did not know, and knew
+    // spellings this runner did.
+    //
+    // What stays here is this file's own fact: which FORM FIELD a reading fills.
+    // The four `*_FIELD_MAP` tables below are BUILT from the two — every spelling of
+    // a reading points at that reading's field, in the order the map declares, which
+    // is the order the old tables had (order decides between two spellings of one
+    // reading). A reading the map declares and this table does not bind is not read
+    // by the runner at all.
+    //
+    // Deliberately absent: soil texture (GH-274 — a site property, never written
+    // into `.gaip-soil-texture` from a sample) and, for soil, the layered organic
+    // columns (`LOI_0_2`...): layered organic matter has one source, the LOI sample.
+    //
+    // GIVEN NO MAP, NOTHING IS INVENTED. A marker is left, said out loud, and the
+    // readers answer null — "cannot read" — rather than an empty set of readings,
+    // which would read as a sample that carries none.
     // =========================================================================
 
-    const SOIL_FIELD_MAP = {
-        'pH_Water': '.gaip-soil-ph', 'pH': '.gaip-soil-ph', 'ph': '.gaip-soil-ph',
-        'EC_1_5': '.gaip-soil-ec', 'EC1:5': '.gaip-soil-ec', 'EC_1:5': '.gaip-soil-ec',
-        'EC1_5': '.gaip-soil-ec', 'EC_dSm': '.gaip-soil-ec', 'EC': '.gaip-soil-ec', 'ec': '.gaip-soil-ec',
-        // GH-274: Texture/texture/Soil_Texture intentionally NOT mapped here.
-        // Soil texture is a site property (sites.soil_texture_override), not a
-        // per-sample value -- this generic loop writing a sample's raw payload
-        // field into `.gaip-soil-texture` silently undid GH-270's live
-        // initialisation on every auto-load, the same conceptual bug GH-272
-        // already fixed for the dedicated soilTextureSnapshot restore.
-        'CEC_meq100g': '.gaip-cec', 'CEC': '.gaip-cec', 'cec': '.gaip-cec',
-        'OM_Percent': '.gaip-loi', 'Organic Matter': '.gaip-loi', 'OM': '.gaip-loi', 'LOI': '.gaip-loi',
-        // b35fix311: area of the zone this sample represents, for Fertiliser Purchasing Summary totals
-        'areaHa': '.gaip-soil-area-ha', 'area_ha': '.gaip-soil-area-ha', 'Area_ha': '.gaip-soil-area-ha',
-        'AreaHa': '.gaip-soil-area-ha', 'area': '.gaip-soil-area-ha',
-        // Stratified OM fields (Golf Greens)
-        'LOI_0_2': '.gaip-loi-0-2', 'OM_0_2': '.gaip-loi-0-2', 'LOI_0-2': '.gaip-loi-0-2', 'OM_0-2cm': '.gaip-loi-0-2',
-        'LOI_2_4': '.gaip-loi-2-4', 'OM_2_4': '.gaip-loi-2-4', 'LOI_2-4': '.gaip-loi-2-4', 'OM_2-4cm': '.gaip-loi-2-4',
-        'LOI_4_6': '.gaip-loi-4-6', 'OM_4_6': '.gaip-loi-4-6', 'LOI_4-6': '.gaip-loi-4-6', 'OM_4-6cm': '.gaip-loi-4-6',
-        // Nutrient fields
-        'K_ppm': '[data-mlsn="K"]', 'K': '[data-mlsn="K"]',
-        'P_ppm': '[data-mlsn="P"]', 'P': '[data-mlsn="P"]',
-        'Ca_ppm': '[data-mlsn="Ca"]', 'Ca': '[data-mlsn="Ca"]',
-        'Mg_ppm': '[data-mlsn="Mg"]', 'Mg': '[data-mlsn="Mg"]',
-        'S_ppm': '[data-mlsn="S"]', 'S': '[data-mlsn="S"]',
-        'Fe_ppm': '[data-mlsn="Fe"]', 'Fe': '[data-mlsn="Fe"]',
-        'Mn_ppm': '[data-mlsn="Mn"]', 'Mn': '[data-mlsn="Mn"]',
-        'Cu_ppm': '[data-mlsn="Cu"]', 'Cu': '[data-mlsn="Cu"]',
-        'Zn_ppm': '[data-mlsn="Zn"]', 'Zn': '[data-mlsn="Zn"]',
-        'B_ppm': '[data-mlsn="B"]', 'B': '[data-mlsn="B"]',
-        'Na_ppm': '[data-mlsn="Na"]', 'Na': '[data-mlsn="Na"]'
+    const READING_FIELDS = {
+        soil: {
+            pH: '.gaip-soil-ph', EC: '.gaip-soil-ec', CEC: '.gaip-cec', OM: '.gaip-loi',
+            K: '[data-mlsn="K"]', P: '[data-mlsn="P"]', Ca: '[data-mlsn="Ca"]', Mg: '[data-mlsn="Mg"]',
+            S: '[data-mlsn="S"]', Fe: '[data-mlsn="Fe"]', Mn: '[data-mlsn="Mn"]', Cu: '[data-mlsn="Cu"]',
+            Zn: '[data-mlsn="Zn"]', B: '[data-mlsn="B"]', Na: '[data-mlsn="Na"]',
+            // b35fix311: area of the zone this sample represents, for Fertiliser Purchasing Summary totals
+            areaHa: '.gaip-soil-area-ha'
+        },
+        water: {
+            pH: '.gaip-water-ph', EC: '.gaip-ecw',
+            Ca: '[data-ion="Ca"]', Mg: '[data-ion="Mg"]', Na: '[data-ion="Na"]', K: '[data-ion="K"]',
+            Cl: '[data-ion="Cl"]', SO4: '[data-ion="SO4"]', HCO3: '[data-ion="HCO3"]', CO3: '[data-ion="CO3"]',
+            B: '[data-ion="B"]', Fe: '[data-ion="Fe"]', NO3: '[data-ion="NO3"]', PO4: '[data-ion="PO4"]',
+            Mn: '[data-ion="Mn"]'
+        },
+        tissue: {
+            N: 'N', P: 'P', K: 'K', Ca: 'Ca', Mg: 'Mg', S: 'S', Fe: 'Fe', Mn: 'Mn', Zn: 'Zn', Cu: 'Cu',
+            B: 'B', Na: 'Na', Mo: 'Mo', Cl: 'Cl'
+        },
+        // Stratified OM, a sample of its own
+        loi: {
+            LOI_0_2: '.gaip-loi-0-2', LOI_2_4: '.gaip-loi-2-4', LOI_4_6: '.gaip-loi-4-6', OM: '.gaip-loi'
+        }
     };
+
+    const LAB_READING_NAMES = (global.GAIP_LAB_READING_NAMES && typeof global.GAIP_LAB_READING_NAMES === 'object'
+        && global.GAIP_LAB_READING_NAMES.types) ? global.GAIP_LAB_READING_NAMES : null;
+    if (!LAB_READING_NAMES) {
+        global.GAIP_LAB_READING_NAMES_UNAVAILABLE = {
+            reason: global.GAIP_LAB_READING_NAMES ? 'the injected lab reading names carried no types'
+                : 'the page was not given the lab reading names',
+            at: new Date().toISOString(),
+        };
+        console.error('[SampleManager] lab reading names not installed: '
+            + global.GAIP_LAB_READING_NAMES_UNAVAILABLE.reason
+            + '. No sample reading can be read on this page.');
+    }
+
+    // spelling -> reading key, readings only (an attribute such as the zone's area is
+    // never a reading). Built together with the field maps, from the same map.
+    const READING_KEY_OF = { soil: {}, water: {}, tissue: {}, loi: {} };
+
+    function _fieldMapFromNames(kind) {
+        const out = {};
+        const t = LAB_READING_NAMES && LAB_READING_NAMES.types[kind];
+        if (!t) return out;
+        [['readings', true], ['attributes', false]].forEach(function(pair) {
+            const group = t[pair[0]] || {};
+            Object.keys(group).forEach(function(key) {
+                const field = READING_FIELDS[kind][key];
+                if (!field) return;
+                (group[key] || []).forEach(function(spelling) {
+                    out[spelling] = field;
+                    if (pair[1]) READING_KEY_OF[kind][spelling] = key;
+                });
+            });
+        });
+        return out;
+    }
+
+    const SOIL_FIELD_MAP = _fieldMapFromNames('soil');
 
     // b35fix409 (C3+C5): canonical-key override for the normaliser. Pre-fix, the
     // normaliser derived `sample.normalized` keys from the DOM selector via
@@ -476,53 +529,9 @@
         '.gaip-loi': 'OM'
     };
 
-    const WATER_FIELD_MAP = {
-        'pH': '.gaip-water-ph', 'ph': '.gaip-water-ph',
-        'EC_dSm': '.gaip-ecw', 'EC': '.gaip-ecw', 'ec': '.gaip-ecw',
-        'Ca_mgL': '[data-ion="Ca"]', 'Ca': '[data-ion="Ca"]',
-        'Mg_mgL': '[data-ion="Mg"]', 'Mg': '[data-ion="Mg"]',
-        'Na_mgL': '[data-ion="Na"]', 'Na': '[data-ion="Na"]',
-        'K_mgL': '[data-ion="K"]', 'K': '[data-ion="K"]',
-        'Cl_mgL': '[data-ion="Cl"]', 'Cl': '[data-ion="Cl"]',
-        'SO4_mgL': '[data-ion="SO4"]', 'SO4': '[data-ion="SO4"]',
-        'HCO3_mgL': '[data-ion="HCO3"]', 'HCO3': '[data-ion="HCO3"]',
-        'CO3_mgL': '[data-ion="CO3"]', 'CO3': '[data-ion="CO3"]',
-        'B_mgL': '[data-ion="B"]', 'B': '[data-ion="B"]',
-        'Fe_mgL': '[data-ion="Fe"]', 'Fe': '[data-ion="Fe"]',
-        'NO3_mgL': '[data-ion="NO3"]', 'NO3': '[data-ion="NO3"]',
-        'PO4_mgL': '[data-ion="PO4"]', 'PO4': '[data-ion="PO4"]', 'P_mgL': '[data-ion="PO4"]', 'P': '[data-ion="PO4"]',
-        'Mn_mgL': '[data-ion="Mn"]', 'Mn': '[data-ion="Mn"]'
-    };
-
-    const TISSUE_FIELD_MAP = {
-        'N_Percent': 'N', 'N': 'N',
-        'P_Percent': 'P', 'P': 'P',
-        'K_Percent': 'K', 'K': 'K',
-        'Ca_Percent': 'Ca', 'Ca': 'Ca',
-        'Mg_Percent': 'Mg', 'Mg': 'Mg',
-        'S_Percent': 'S', 'S': 'S',
-        'Fe_mgkg': 'Fe', 'Fe': 'Fe',
-        'Mn_mgkg': 'Mn', 'Mn': 'Mn',
-        'Zn_mgkg': 'Zn', 'Zn': 'Zn',
-        'Cu_mgkg': 'Cu', 'Cu': 'Cu',
-        'B_mgkg': 'B', 'B': 'B',
-        'Na_mgkg': 'Na', 'Na': 'Na',
-        'Mo_mgkg': 'Mo', 'Mo': 'Mo',
-        'Cl_Percent': 'Cl', 'Cl': 'Cl'
-    };
-
-    // LOI/Stratified OM field map (separate from soil for dedicated LOI testing)
-    const LOI_FIELD_MAP = {
-        // Depth-based LOI (various lab formats)
-        'LOI_0_2': '.gaip-loi-0-2', 'OM_0_2': '.gaip-loi-0-2', 'LOI_0-2': '.gaip-loi-0-2', 
-        'OM_0-2cm': '.gaip-loi-0-2', '0-2cm': '.gaip-loi-0-2', '0-20mm': '.gaip-loi-0-2',
-        'LOI_2_4': '.gaip-loi-2-4', 'OM_2_4': '.gaip-loi-2-4', 'LOI_2-4': '.gaip-loi-2-4', 
-        'OM_2-4cm': '.gaip-loi-2-4', '2-4cm': '.gaip-loi-2-4', '20-40mm': '.gaip-loi-2-4',
-        'LOI_4_6': '.gaip-loi-4-6', 'OM_4_6': '.gaip-loi-4-6', 'LOI_4-6': '.gaip-loi-4-6', 
-        'OM_4-6cm': '.gaip-loi-4-6', '4-6cm': '.gaip-loi-4-6', '40-60mm': '.gaip-loi-4-6',
-        // Overall OM (some labs report this too)
-        'OM_Percent': '.gaip-loi', 'Organic Matter': '.gaip-loi', 'OM': '.gaip-loi', 'LOI': '.gaip-loi', 'Total_OM': '.gaip-loi'
-    };
+    const WATER_FIELD_MAP = _fieldMapFromNames('water');
+    const TISSUE_FIELD_MAP = _fieldMapFromNames('tissue');
+    const LOI_FIELD_MAP = _fieldMapFromNames('loi');
 
     // =========================================================================
     // b35fix377 — case-and-suffix-tolerant column resolver
@@ -545,25 +554,13 @@
     // instead of doing literal lookups.
     //
     // Suffix list covers the AU/NZ/UK/EU lab vocabulary Gilba sees in
-    // production. Adding more is a one-line edit. Suffix matching is on the
+    // production (GH-722: declared in `assets/lab-reading-names.json`). Suffix matching is on the
     // FULL trailing token after a separator (`_`, ` `, `-`), so `K_Mehlich3`
     // strips to `K`, `P (Olsen)` strips to `P`, `K-Colwell` strips to `K`.
     // =========================================================================
-    const EXTRACTION_METHOD_SUFFIXES = [
-        'mehlich3', 'mehlich-3', 'mehlich_3', 'm3',
-        'olsen',
-        'colwell',
-        'kcl',
-        'bray', 'bray1', 'bray2', 'brayi', 'brayii', 'bray-1', 'bray-2',
-        'ammac', 'nh4oac', 'nh4ac', 'ammonium acetate', 'ammoniumacetate',
-        'hotwater', 'hot water', 'hot-water',
-        'dtpa',
-        'cacl2',
-        'mehlich',
-        'extractable',
-        'available',
-        'total'
-    ];
+    // GH-722: the list lives in `assets/lab-reading-names.json` with the spellings it
+    // strips down to.
+    const EXTRACTION_METHOD_SUFFIXES = (LAB_READING_NAMES && LAB_READING_NAMES.extractionMethodSuffixes) || [];
 
     function _stripExtractionSuffix(headerKey) {
         // Lowercase, strip parentheses content (`P (Olsen)` → `P `), trim,
@@ -1565,29 +1562,9 @@
      * page state, no active-sample pointer. A caller that has no sample gets
      * null, which is not the same as a sample with no readings ({}).
      *
-     * The water map's values are SELECTORS (that is what filling a form needs),
-     * so the reading's name is taken from the selector rather than from a
-     * second table: `[data-ion="Ca"]` is Ca, `.gaip-ecw` is EC, and
-     * `.gaip-water-ph` is pH.
+     * GH-722: the reading's name is the map's own key for the spelling that
+     * answered (`READING_KEY_OF`), not recovered from the form field's selector.
      */
-    const CLASS_READING_KEYS = {
-        '.gaip-ecw': 'EC', '.gaip-water-ph': 'pH',
-        // GH-490: the soil form's four fields that are not `data-mlsn`.
-        '.gaip-soil-ph': 'pH', '.gaip-cec': 'CEC', '.gaip-soil-ec': 'EC', '.gaip-loi': 'OM'
-    };
-
-    function _readingKeyFor(kind, mapped) {
-        if (kind === 'tissue') return mapped;
-        const ion = /\[data-ion="([^"]+)"\]/.exec(mapped);
-        if (ion) return ion[1];
-        // GH-490: soil's nutrients are named by the same attribute the form
-        // marks them with, so the reading's name comes out of the selector
-        // rather than out of a second table.
-        const mlsn = /\[data-mlsn="([^"]+)"\]/.exec(mapped);
-        if (mlsn) return mlsn[1];
-        return CLASS_READING_KEYS[mapped] || null;
-    }
-
     /**
      * GH-490: the readings a kind CAN carry, in map order, derived from the
      * same map `readingsOf` normalises against — so a caller that wants to
@@ -1597,10 +1574,10 @@
      */
     function readingKeysFor(kind) {
         const fieldMap = _fieldMapFor(kind);
-        if (!fieldMap) return null;
+        if (!fieldMap || !LAB_READING_NAMES) return null;
         const keys = [];
         for (const col in fieldMap) {
-            const key = _readingKeyFor(kind, fieldMap[col]);
+            const key = READING_KEY_OF[kind][col];
             if (key && keys.indexOf(key) === -1) keys.push(key);
         }
         return keys;
@@ -1621,12 +1598,12 @@
         const row = sample.rawData || sample.values || null;
         if (!row) return null;
         const fieldMap = _fieldMapFor(kind);
-        if (!fieldMap) return null;
+        if (!fieldMap || !LAB_READING_NAMES) return null;
         const rowKeys = Object.keys(row);
         const idx = _buildColumnIndex(fieldMap, rowKeys);
         const out = {};
         for (const col in fieldMap) {
-            const key = _readingKeyFor(kind, fieldMap[col]);
+            const key = READING_KEY_OF[kind][col];
             if (!key || out[key] !== undefined) continue;
             const actualCol = idx.resolve(col);
             if (actualCol === null) continue;
@@ -1636,6 +1613,36 @@
             if (!isNaN(val)) out[key] = val;
         }
         return out;
+    }
+
+    /**
+     * GH-722 — ONE DECLARED READING OF A KIND, THROUGH THE MAP, WHETHER OR NOT A FORM FIELD TAKES IT.
+     *
+     * `readingsOf` answers for the readings this runner binds to a field; a reading the map
+     * declares and nothing binds (water `SAR` and `TDS`) is not in it, and must not be: its
+     * callers split what they get into EC, pH and ions, and a SAR would land among the ions. The
+     * few places that read such a reading on their own ask for it here by name, with the same
+     * resolution and the same numeric rule as `readingsOf`. Null when the sample does not carry
+     * it, when the kind or reading is not declared, or when the map was not given.
+     */
+    function labReadingOf(kind, sample, key) {
+        if (!LAB_READING_NAMES || !sample) return null;
+        const t = LAB_READING_NAMES.types[kind];
+        const spellings = t && t.readings && t.readings[key];
+        const row = sample.rawData || sample.values || null;
+        if (!spellings || !row) return null;
+        const one = {};
+        spellings.forEach(function(sp) { one[sp] = key; });
+        const idx = _buildColumnIndex(one, Object.keys(row));
+        for (const sp of spellings) {
+            const col = idx.resolve(sp);
+            if (col === null) continue;
+            const raw = row[col];
+            if (raw === undefined || raw === null || raw === '') continue;
+            const v = parseFloat(raw);
+            if (!isNaN(v)) return v;
+        }
+        return null;
     }
 
     function populateTissueFields(row) {
@@ -2612,9 +2619,15 @@
         // the form apply one rule. Pure — the sample it is handed and nothing
         // else.
         readingsOf: readingsOf,
+        // GH-722: one declared reading by name, bound to a form field or not.
+        labReadingOf: labReadingOf,
         // GH-490: the readings a kind can carry, out of the same map, so the
         // export can name the ones a sample does not have.
         readingKeysFor: readingKeysFor,
+        // GH-722: which form field each reading of a kind fills — this file's own
+        // fact, the one it keeps now that the spellings come from the server. A
+        // frozen copy, as data; the census of the lab reading names map reads it.
+        readingFields: JSON.parse(JSON.stringify(READING_FIELDS)),
 
         getSiteList: function() {
             var list = [];

@@ -2060,8 +2060,15 @@ const PythiumModel = {
                 const sd = window.GAIP_Sensor.getIrrigationData?.();
                 if (sd?.soilTemp != null) { soilTemp100mm = sd.soilTemp; soilTempSource = 'sensor'; }
             }
-            if (soilTemp100mm === null && window.GAIP_SOIL_TEMP?.summary?.depths?.['100mm']?.mean != null) {
-                soilTemp100mm = window.GAIP_SOIL_TEMP.summary.depths['100mm'].mean;
+            // GH-734 (queue item 3az, delivery 2): the run's own result, handed out by the orchestrator under its own accessor. This read `GAIP_SOIL_TEMP`, which the rendering panel sets -- a second calculation of the same model on different inputs.
+            var _runPhysics = (function () {
+                try {
+                    var O = (typeof global !== 'undefined' ? global : window).GaipOrchestrator;
+                    return (O && typeof O.getComputed === 'function') ? O.getComputed('soilTempPhysics') : null;
+                } catch (e) { return null; }
+            })();
+            if (soilTemp100mm === null && _runPhysics?.summary?.depths?.['100mm']?.mean != null) {
+                soilTemp100mm = _runPhysics.summary.depths['100mm'].mean;
                 soilTempSource = 'physics_model_100mm';
             }
         }

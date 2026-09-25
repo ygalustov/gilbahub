@@ -436,11 +436,8 @@
                                 <div class="stg-field">
                                     <label for="stg-turf-methodology">Soil test methodology</label>
                                     @php
-                                        $methOptions = [
-                                            'mlsn'             => 'MLSN — Minimum Levels for Sustainable Nutrition',
-                                            'slan'             => 'SLAN — Sufficiency Level of Available Nutrients',
-                                            'ammonium_acetate' => 'Ammonium Acetate (Hill Labs NZ)',
-                                        ];
+                                        // GH-744: the words come from the inputs list, beside the keys.
+                                        $methOptions = \App\Support\CalculationInputs::methodologyChoices();
                                         // GH-520: one owner, one reading. The
                                         // fallback to the column is gone — the
                                         // column is empty on every live site and
@@ -504,9 +501,10 @@
                                         {{-- GH-521: the saved value is named, not hidden and not
                                              swapped. Nothing is written until the form is saved. --}}
                                         <p class="db-field-note" style="color:#b45309;">
-                                            Saved as <strong>{{ strtoupper($methConflict) }}</strong>, which is not
+                                            @php $methConflictName = \App\Support\CalculationInputs::methodologyLabel($methConflict) ?? $methConflict; @endphp
+                                            Saved as <strong>{{ $methConflictName }}</strong>, which is not
                                             offered for a New Zealand site. The site still computes on
-                                            {{ strtoupper($methConflict) }} until you save Ammonium Acetate here.
+                                            {{ $methConflictName }} until you save {{ \App\Support\CalculationInputs::methodologyLabel('ammonium_acetate') }} here.
                                         </p>
                                     @endif
                                     {{-- GH-521: the "saved as MLSN, shown as AA" note is gone with the

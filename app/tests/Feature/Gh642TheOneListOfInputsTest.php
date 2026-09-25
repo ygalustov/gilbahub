@@ -145,8 +145,37 @@ class Gh642TheOneListOfInputsTest extends TestCase
         fwrite(STDOUT, '[gh642] derived, not asked: '.implode(' ', array_keys($derived)).PHP_EOL);
 
         $this->assertGreaterThan(5, count($derived));
+        /**
+         * GH-712, THE REVIEWER'S RETURN APPLIED HERE TOO: AN ADDRESS, NOT A WORD.
+         *
+         * This asked that the reason contain the word `from`, which a guess containing the word
+         * also satisfies -- the same hole he found in the `notInputs` check, in a second place. It
+         * surfaced when a reason stopped containing the word because the measurement said the
+         * entry is NOT derived at all: `purpose` is produced nowhere, read nowhere, and what
+         * exists is an open question about whether the wizard should ask for it. Rewording that to
+         * contain `from` would have been writing prose to satisfy a word check.
+         *
+         * So the rule is the one `gh644` now applies: the reason names a `path` / `anchor` pair,
+         * the file exists, and the anchor is in it.
+         */
         foreach ($derived as $key => $from) {
-            $this->assertStringContainsString('from', $from, $key.' is derived from nothing stated');
+            $pairs = [];
+            preg_match_all('/`([\w.\/-]+\.(?:js|php|json))`\s*\/\s*`([^`]+)`/', (string) $from, $pairs,
+                PREG_SET_ORDER);
+            $this->assertNotEmpty($pairs, $key.' names no `path` / `anchor` pair');
+            foreach ($pairs as $pair) {
+                // The path is written as the repository sees it. Inside the container the
+                // repository root is the parent of `base_path()`, and the Laravel application is
+                // mounted there as `html` rather than as `app`, so a path that begins `app/` is
+                // translated instead of being looked for under a directory that does not exist.
+                $rel = $pair[1];
+                $full = str_starts_with($rel, 'app/')
+                    ? base_path(substr($rel, strlen('app/')))
+                    : base_path('../'.$rel);
+                $this->assertFileExists($full, $key.' names '.$pair[1].', which is not there');
+                $this->assertStringContainsString($pair[2], file_get_contents($full),
+                    $key.': '.$pair[1].' does not contain '.$pair[2]);
+            }
             $this->assertNull(CalculationInputs::entry($key), $key.' is declared both derived and asked for');
         }
     }
@@ -157,9 +186,75 @@ class Gh642TheOneListOfInputsTest extends TestCase
         // nothing can fill it — no column in the lab-name map, no sample carrying
         // it, so 20 stands always. The draft of her table did not have it; the
         // list does.
+        //
+        // GH-757: and `filledIn` no longer names a place that does not take it. The comment above
+        // already said nothing can fill it, while the entry went on promising `data.soil` —
+        // measured, `clay` appears 0 times in data.blade.php and the value is absent on all 14
+        // stand sites. The entry stays, because a read with no entry is the defect this list
+        // exists against; the PROMISE of a writer is what goes.
         $clay = CalculationInputs::entry('soil.clay');
         $this->assertNotNull($clay, 'the clay fraction is missing from the list again');
         $this->assertFalse($clay['required']);
-        $this->assertSame(['data.soil'], $clay['filledIn']);
+        $this->assertSame([], $clay['filledIn'], 'the list promises a writer for the clay fraction again');
+    }
+
+    /**
+     * GH-757 (the reviewer's return) — AN EMPTY `filledIn` IS GUARDED FOR ALL THREE, AND BOTH WAYS.
+     *
+     * Three inputs are read by the run and written by nobody. The list used to promise a writer for
+     * each — `settings.turf` for two of them, `data.soil` for the third — and measured, none of
+     * those surfaces carries the field: the name appears zero times in the Settings form, in its
+     * script, and in the Data page. Only the clay one was guarded, so returning the promise on the
+     * other two passed green.
+     *
+     * BOTH WAYS on purpose. If the promise comes back while no surface writes the field, this
+     * reddens — the list would be lying again. If a surface STARTS writing it, this reddens too,
+     * and that is the right moment to put `filledIn` back rather than leave the list behind the
+     * code. The surfaces are read from disk, so neither half is a sentence about the past.
+     */
+    public function test_an_input_nobody_fills_promises_no_writer_and_the_promise_is_watched_both_ways(): void
+    {
+        $surfaces = [
+            'settings.turf' => [
+                'resources/views/settings.blade.php' => base_path('resources/views/settings.blade.php'),
+                'assets/settings-init.js' => base_path('../assets/settings-init.js'),
+            ],
+            'data.soil' => [
+                'resources/views/data.blade.php' => base_path('resources/views/data.blade.php'),
+            ],
+        ];
+        $cases = [
+            'turf.percentC3Cover' => ['field' => 'percentC3Cover', 'was' => 'settings.turf'],
+            'turf.warmBase' => ['field' => 'warmBase', 'was' => 'settings.turf'],
+            'soil.clay' => ['field' => 'clay', 'was' => 'data.soil'],
+        ];
+        $promised = [];
+        $written = [];
+        foreach ($cases as $key => $case) {
+            $entry = CalculationInputs::entry($key);
+            $this->assertNotNull($entry, $key.' left the list');
+            if (($entry['filledIn'] ?? null) !== []) {
+                $promised[] = $key.' promises '.json_encode($entry['filledIn'] ?? null);
+            }
+            foreach ($surfaces[$case['was']] as $label => $file) {
+                $hits = substr_count(file_get_contents($file), $case['field']);
+                if ($hits > 0) {
+                    $written[] = $key.' <- '.$label.' ('.$hits.' occurrence(s))';
+                }
+            }
+        }
+        fwrite(STDOUT, PHP_EOL.'[gh757] inputs nobody fills: promises found '.json_encode($promised)
+            .' | surfaces that now carry the field: '.json_encode($written).PHP_EOL);
+
+        // Positive control: the three are really in the list, or both claims below pass over nothing.
+        // Stated as the LIST rather than as its length — a count of three would be satisfied by
+        // three other keys, and the census of GH-747 would have to carry this line as one more site.
+        $this->assertSame(
+            ['turf.percentC3Cover', 'turf.warmBase', 'soil.clay'],
+            array_values(array_filter(array_keys($cases), fn ($k) => CalculationInputs::entry($k) !== null)),
+            'one of the three inputs left the list'
+        );
+        $this->assertSame([], $promised, 'the list promises a writer for an input nobody fills');
+        $this->assertSame([], $written, 'a surface now writes this field, so the list must say so again');
     }
 }

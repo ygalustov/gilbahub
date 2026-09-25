@@ -200,11 +200,19 @@ describe('GH-379 the result records the methodology that actually drove it, in o
         expect(Calendar.computeProgram(inputs('MLSN')).meta.methodology).toBe('MLSN');
         expect(Calendar.computeProgram(inputs('MLSN')).soil.methodology).toBe('mlsn');
     });
-    test('no methodology at all still defaults to MLSN, as before', () => {
+    test('no methodology at all is REFUSED, and nothing is stamped MLSN for it', () => {
+        /**
+         * GH-749 TURNED THIS CASE OVER, and its own name said what was wrong: "still defaults to
+         * MLSN, as before" asserted the owner's forbidden fill as correct. The methodology has one
+         * owner, `config.turf.methodology`, and nothing is ever filled with `mlsn` for a site that
+         * has none — so the programme is not built and no stamp is written. The case stays here
+         * rather than moving, because this file is about which methodology the result records.
+         */
         const p = Calendar.computeProgram(inputs(undefined));
-        expect(p.meta.methodology).toBe('MLSN');
-        expect(p.soil.methodology).toBe('mlsn');
-        expect(p.annual_totals_range.K).toEqual({ min: 37, max: 55.5 });
+        expect(p.error).toMatch(/no soil methodology/i);
+        expect(p.meta).toBeUndefined();
+        expect(p.annual_totals_range).toBeUndefined();
+        expect(JSON.stringify(p)).not.toMatch(/mlsn/i);
     });
 });
 

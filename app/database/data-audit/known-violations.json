@@ -1,0 +1,16 @@
+{
+  "$comment": "GH-709 - the recorded list for gilba:audit-data: known JSON references to another site than the row owner, each with the decision it rests on as GH-NNN; and columns where such a reference is legitimate, each with a reason. An entry leaves this list only by an edit with a reason.",
+  "allowedColumns": {},
+  "entries": [
+    {
+      "table": "site_configs", "id": "2", "column": "config", "path": "pgr._savedForSite",
+      "value": "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+      "decision": "GH-709 - Test1 - Sports carries a page snapshot stamped with Russley. Written before 18.09.2026 by the writer GH-439 removed; the section is not read once PGR comes from the spray log. Left as it is: stand data is corrected only by the owner."
+    },
+    {
+      "table": "site_configs", "id": "5", "column": "config", "path": "pgr._savedForSite",
+      "value": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+      "decision": "GH-709 - Test5 - NZ carries a page snapshot stamped with Burns. Same writer, same age, same decision as the entry above."
+    }
+  ]
+}

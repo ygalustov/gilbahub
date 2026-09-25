@@ -150,6 +150,35 @@ describe('GH-669 — the changelog keeps its own order', () => {
         expect({ entriesWithABrokenStart: stragglers }).toEqual({ entriesWithABrokenStart: [] });
     });
 
+    test('the tolerant reading is WIDER than the strict one — a relation between lists, declared', () => {
+        // GH-706 — THE CASE ABOVE LOOKS ONE WAY ONLY, AND IT WAS BLIND IN THE OTHER. It asks
+        // what the tolerant reading finds beyond the strict one. Narrow the tolerant reading
+        // below the strict one and it finds LESS, the list of stragglers shrinks, and every
+        // case stays green: measured, a prefix without `*` left the tolerant reading with 0
+        // entries against 663 and all six cases passed. Earlier the same thing happened by
+        // hand, when a widening inside the expression turned thirteen places into seven with
+        // no decision recorded.
+        //
+        // So "wider" is asserted as what it is, a relation: (a) every line the strict reading
+        // takes is taken by the tolerant one too; (b) the broken starts the tolerant reading
+        // exists for are found by it and not by the strict one, checked on declared samples
+        // because the file holds none of them today.
+        const tolerantAt = new Set(tolerant.map((e) => e.line));
+        const missedByTolerant = strict.filter((e) => !tolerantAt.has(e.line))
+            .map((e) => 'line ' + e.line + ': ' + JSON.stringify(e.text));
+        process.stdout.write('[gh669] proper entries the tolerant reading does not take: '
+            + JSON.stringify(missedByTolerant.slice(0, 5)) + (missedByTolerant.length > 5 ? ' …' : '') + '\n');
+        expect({ strictEntriesTheTolerantReadingMisses: missedByTolerant })
+            .toEqual({ strictEntriesTheTolerantReadingMisses: [] });
+
+        const BROKEN_STARTS = ['H-461** (a lost G)', '# GH-461 (a heading)', '- GH-461 (a list item)'];
+        const readTolerant = (line) => TOLERANT_TOKEN.test(line.replace(TOLERANT_PREFIX, ''));
+        const readStrict = (line) => new RegExp(STRICT.source).test(line);
+        const verdicts = BROKEN_STARTS.map((l) => ({ line: l, tolerant: readTolerant(l), strict: readStrict(l) }));
+        process.stdout.write('[gh669] declared broken starts: ' + JSON.stringify(verdicts) + '\n');
+        expect(verdicts.map((v) => [v.tolerant, v.strict])).toEqual(BROKEN_STARTS.map(() => [true, false]));
+    });
+
     test('the numbers never go backwards', () => {
         const backwards = [];
         for (let i = 1; i < strict.length; i++) {

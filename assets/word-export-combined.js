@@ -1067,7 +1067,8 @@
                                 isOverseed: false,
                                 baseSpecies: _turfCfg ? _turfCfg.species : null,
                                 baseIsC4: _gh408IsC4(_turfCfg ? _turfCfg.species : null),
-                                summerIntent: 'transition'
+                                // GH-741: an unset summer intent stays unset; 'transition' here was a guess that read as an answer.
+                                summerIntent: null
                             },
                             userN:              _userN,
                             siteId:             entry.siteId  // self-check marker

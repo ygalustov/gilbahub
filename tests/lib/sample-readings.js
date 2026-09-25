@@ -45,6 +45,9 @@ function realReadingsOf() {
         body: { appendChild() {}, removeChild() {} },
     };
     sandbox.window = sandbox; sandbox.global = sandbox; sandbox.globalThis = sandbox;
+    // GH-722: the page hands the sample manager its spelling tables; so does this.
+    sandbox.GAIP_LAB_READING_NAMES = JSON.parse(fs.readFileSync(
+        path.join(__dirname, '..', '..', 'assets', 'lab-reading-names.json'), 'utf8'));
 
     const ctx = vm.createContext(sandbox);
     vm.runInContext(src, ctx, { filename: 'sample-manager.js' });

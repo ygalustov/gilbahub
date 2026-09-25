@@ -255,7 +255,9 @@ class Gh526SampleDeleteRouteTest extends TestCase
             ->postJson('/api/samples/sync', [
                 '_token' => 't',
                 'clearSiteData' => true,
-                'allSites' => [$site->id => ['soil' => []]],
+                // GH-722: an import with nothing recognised in it is refused before the clear, so
+                // a clearing import that is meant to happen carries one readable sample.
+                'allSites' => [$site->id => ['soil' => ['gh722' => ['id' => 'gh722', 'label' => 'Green 1', 'rawData' => ['K' => 120]]]]],
             ])
             ->assertOk();
     }
@@ -293,7 +295,9 @@ class Gh526SampleDeleteRouteTest extends TestCase
             ->postJson('/api/samples/sync', [
                 '_token' => 't',
                 'clearSiteData' => true,
-                'allSites' => [$site->id => ['soil' => []]],
+                // GH-722: an import with nothing recognised in it is refused before the clear, so
+                // a clearing import that is meant to happen carries one readable sample.
+                'allSites' => [$site->id => ['soil' => ['gh722' => ['id' => 'gh722', 'label' => 'Green 1', 'rawData' => ['K' => 120]]]]],
             ])
             ->assertOk();
 
@@ -347,7 +351,9 @@ class Gh526SampleDeleteRouteTest extends TestCase
             ->postJson('/api/samples/sync', [
                 '_token' => 't',
                 'clearSiteData' => true,
-                'allSites' => [$site->id => ['soil' => []]],
+                // GH-722: an import with nothing recognised in it is refused before the clear, so
+                // a clearing import that is meant to happen carries one readable sample.
+                'allSites' => [$site->id => ['soil' => ['gh722' => ['id' => 'gh722', 'label' => 'Green 1', 'rawData' => ['K' => 120]]]]],
             ])
             ->assertOk();
 

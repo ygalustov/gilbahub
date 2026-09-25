@@ -31,6 +31,29 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const asset = (f) => fs.readFileSync(path.join(ROOT, 'assets', f), 'utf8');
+
+/**
+ * GH-712 — A FILE THAT DISAPPEARS BETWEEN THE LISTING AND THE READ IS NAMED, NOT A CRASH.
+ *
+ * The universe is a directory listing, which is right, and the gap between listing it and
+ * reading it is real: a full-suite run of this file died with
+ * `ENOENT ... assets/__gh716_probe_delete_me.js` — somebody else's probe file, created and
+ * removed while the scan was walking. The whole suite then failed to run, which is a red with
+ * no subject, and it says nothing about the list or the engines.
+ *
+ * What vanished is recorded and printed by the positive control instead. Nothing is asserted
+ * about it: a file that was never part of the product is not a defect of the product, and a file
+ * the universe actually needed is already caught by `enginesWithNoBodyFound`.
+ */
+const vanished = [];
+const assetIfPresent = (f) => {
+    try {
+        return asset(f);
+    } catch (err) {
+        if (err && err.code === 'ENOENT') { vanished.push(f); return ''; }
+        throw err;
+    }
+};
 const LIST = JSON.parse(asset('calculation-inputs.schema.json'));
 const CASCADE = asset('cascade-orchestrator.js');
 
@@ -76,8 +99,37 @@ function engineBodies() {
         return '';
     };
 
+    /**
+     * GH-712 — a named function's body together with THE NAME ITS OWN SIGNATURE GIVES THE STATE.
+     *
+     * The scan below matched a read only when the receiver was spelled `state`, `inputs` or `s`,
+     * and the engines in `hub-tissue-v3.js` are declared `gaip_firmness_engine(e, t)`. So
+     * `e.turf.drainage` was invisible: the body was IN the universe and the read was not, which
+     * is the failure this file exists to prevent, one level down. The receiver is taken from the
+     * declaration rather than from a list of likely names, so renaming the parameter cannot
+     * quietly empty the scan.
+     */
+    const declaredFunction = (src, name) => {
+        const at = src.search(new RegExp('function\\s+' + name + '\\s*\\('));
+        if (at < 0) return null;
+        const param = (new RegExp('function\\s+' + name + '\\s*\\(\\s*([A-Za-z_$][\\w$]*)')
+            .exec(src) || [])[1] || null;
+
+        return { body: balanced(src, at), param };
+    };
+
     const bodies = {};
     const missing = [];
+    /**
+     * GH-712 — THE SAME ENGINES, READ AT A NARROWER GRAIN, AND THE STATE ASSEMBLY WITH THEM.
+     *
+     * `bodies` holds whole FILES, which is right for the old scan and wrong for a scan that
+     * takes the receiver from a signature: a file carries functions that are not engines at all.
+     * A unit is therefore one declared function — the adapter's wrapper, the delegate it calls,
+     * the assembly that builds the cascade's state — or a file that is an engine entire. Both
+     * scans run and the reads are UNIONED, so this widening cannot subtract.
+     */
+    const units = [];
     ids.forEach((id) => {
         /**
          * GH-681: THE ENGINE'S FILE IS FOUND THROUGH THE ADAPTER'S DELEGATE, not by spelling
@@ -95,8 +147,16 @@ function engineBodies() {
         const delegate = (/(?:global|window)\.(\w+)\s*\(/.exec(body) || [])[1] || null;
         const byDelegate = delegate
             ? files.find((f) => new RegExp('function\\s+' + delegate + '\\s*\\(')
-                .test(fs.readFileSync(path.join(ROOT, 'assets', f), 'utf8')))
+                .test(assetIfPresent(f)))
             : null;
+        units.push({ label: id + ' :: adapter wrapper ' + (executor || '(none declared)'), src: body });
+        if (byDelegate) {
+            const called = declaredFunction(assetIfPresent(byDelegate), delegate);
+            if (called) {
+                units.push({ label: id + ' :: ' + delegate + '(' + called.param + ') in ' + byDelegate,
+                    src: called.body });
+            }
+        }
         const base = id.replace(/-engine$/, '');
         /**
          * BOTH ROADS ARE SCANNED, not the better one chosen — and the union is a repair of my
@@ -108,9 +168,10 @@ function engineBodies() {
          */
         const byName = [id + '.js', id + '-pure.js', base + '-engine.js',
             base + '-engine-pure.js', base + '.js', base + '-model.js'].find((c) => files.includes(c));
+        if (byName) units.push({ label: id + ' :: ' + byName + ', an engine file entire', src: assetIfPresent(byName) });
         const both = [byDelegate, byName].filter(Boolean);
         if (both.length) {
-            bodies[id] = both.map((f) => asset(f)).join('\n');
+            bodies[id] = both.map((f) => assetIfPresent(f)).join('\n');
 
             return;
         }
@@ -127,22 +188,47 @@ function engineBodies() {
             const delegate = /global\.(\w+)\s*\(/.exec(src);
             if (delegate) {
                 for (const f of files) {
-                    const other = asset(f);
+                    const other = assetIfPresent(f);
                     const at2 = other.indexOf('function ' + delegate[1] + '(');
                     if (at2 > -1) { src += '\n' + balanced(other, at2); break; }
                 }
             }
             bodies[id] = src;
+            units.push({ label: id + ' :: inside the adapter', src });
             return;
         }
         missing.push(id);
     });
 
-    return { bodies, missing, ids };
+    /**
+     * GH-712 — THE ORCHESTRATOR'S STATE ASSEMBLY, FOUND BY FOLLOWING THE ARGUMENT.
+     *
+     * What the assembly copies into the cascade's state IS an input of the run, whatever the
+     * engines then do with it, and until now no universe here contained it. It is located
+     * without naming it: the call to `runCascade(` names the variable it is handed, and the
+     * function that built that variable is the assembly. A rename of the assembly moves this
+     * with it; a hand-written name would not.
+     */
+    const assemblies = [];
+    files.forEach((f) => {
+        const src = assetIfPresent(f);
+        const call = /runCascade\(\s*([A-Za-z_$][\w$]*)\s*,/.exec(src);
+        if (!call) return;
+        const built = new RegExp('(?:var|let|const)\\s+' + call[1] + '\\s*=\\s*([A-Za-z_$][\\w$]*)\\s*\\(')
+            .exec(src);
+        if (!built) return;
+        const found = declaredFunction(src, built[1]);
+        if (!found) return;
+        const label = 'state assembly :: ' + built[1] + '(' + found.param + ') in ' + f;
+        assemblies.push(label);
+        units.push({ label, src: found.body });
+    });
+
+    return { bodies, missing, ids, units, assemblies };
 }
 
 /** Every input read inside those bodies, with the engine that reads it. */
-function readsInEngines(bodies) {
+function readsInEngines(bodies, units) {
     const out = new Map();
     Object.entries(bodies).forEach(([id, src]) => {
         for (const m of src.matchAll(/\b(?:state|inputs|s)\s*(?:&&\s*[\w.]+\s*)?\.\s*([a-zA-Z]+)\s*\.\s*([a-zA-Z_]\w*)/g)) {
@@ -151,6 +237,39 @@ function readsInEngines(bodies) {
             if (!out.has(key)) out.set(key, id);
         }
     });
+
+    /**
+     * GH-712 — the second pass, over the declared functions, with each one's OWN receiver.
+     *
+     * It is a union with the pass above and never a replacement. Scanning a delegate's body
+     * alone is sharper about which engine reads what, and it drops three names the whole-file
+     * pass sees outside any delegate (`climate.historical`, `turf.ambientDLISource`,
+     * `turf.turfType`) — measured. A sharper attribution that loses reads is not an
+     * improvement, so both run.
+     */
+    (units || []).forEach((unit) => {
+        for (const fn of unit.src.matchAll(/\bfunction\s+(\w+)?\s*\(\s*([A-Za-z_$][\w$]*)/g)) {
+            const receiver = fn[2].replace(/\$/g, '\\$');
+            const body = (() => {
+                let depth = 0;
+                for (let i = unit.src.indexOf('{', fn.index); i < unit.src.length; i++) {
+                    if (unit.src[i] === '{') depth++;
+                    else if (unit.src[i] === '}') { depth--; if (!depth) return unit.src.slice(fn.index, i + 1); }
+                }
+                return '';
+            })();
+            if (!body) continue;
+            // `?.` is how the engines in hub-tissue-v3.js reach into the state, so the optional
+            // link is part of the read, not noise to be stripped.
+            const re = new RegExp('\\b' + receiver + '\\s*\\??\\.\\s*([a-zA-Z]+)\\s*\\??\\.\\s*([a-zA-Z_]\\w*)', 'g');
+            for (const m of body.matchAll(re)) {
+                if (!SECTIONS.includes(m[1])) continue;
+                const key = m[1] + '.' + m[2];
+                if (!out.has(key)) out.set(key, unit.label.split(' :: ')[0]);
+            }
+        }
+    });
+
     return out;
 }
 
@@ -165,8 +284,8 @@ function knownToTheList() {
 }
 
 describe('GH-644 — the universe is the engines, not the list', () => {
-    const { bodies, missing, ids } = engineBodies();
-    const reads = readsInEngines(bodies);
+    const { bodies, missing, ids, units, assemblies } = engineBodies();
+    const reads = readsInEngines(bodies, units);
 
     test('POSITIVE CONTROL: every declared engine has a body, and the bodies read something', () => {
         // Two ways this comparison could be green over nothing: no bodies found,
@@ -175,8 +294,12 @@ describe('GH-644 — the universe is the engines, not the list', () => {
         reads.forEach((engine) => { perEngine[engine] = (perEngine[engine] || 0) + 1; });
         process.stdout.write('\n[gh644] engines declared: ' + ids.length
             + ' | bodies located: ' + Object.keys(bodies).length
+            + ' | units scanned by signature: ' + units.length
             + ' | distinct input reads: ' + reads.size + '\n'
-            + '[gh644] reads per engine: ' + JSON.stringify(perEngine) + '\n');
+            + '[gh644] reads per engine: ' + JSON.stringify(perEngine) + '\n'
+            + '[gh644] state assemblies located: ' + JSON.stringify(assemblies) + '\n'
+            + '[gh644] files that vanished between the listing and the read: '
+            + JSON.stringify(vanished) + '\n');
 
         /**
          * THE UNIVERSE ITSELF, asserted as a LIST where it can be seen — and the list replaced
@@ -230,6 +353,25 @@ describe('GH-644 — the universe is the engines, not the list', () => {
          */
         expect(reads.size).toBeGreaterThanOrEqual(41);
         expect(Object.keys(perEngine).length).toBeGreaterThan(0);
+
+        /**
+         * GH-712 — WITNESSES FOR THE WIDENING, each naming the road it proves rather than a total.
+         *
+         * The floor above was measured when a read had to be spelled `state.…`; it cannot tell
+         * the widened universe from the old one, so a silent fall back to 42 would pass it. These
+         * three say what the widening was FOR:
+         *
+         *   - `turf.drainage` is read by the firmness engine as `e.turf.drainage`, and the list
+         *     has carried that claim in a comment while nothing could check it;
+         *   - the state assembly was found by following `runCascade`'s argument, not by name;
+         *   - the engines that read something are counted in double figures, where the whole-file
+         *     scan attributed everything to three.
+         */
+        expect(reads.get('turf.drainage')).toBe('firmness-engine');
+        expect(assemblies.length).toBeGreaterThan(0);
+        expect(assemblies.some((a) => a.indexOf('hub-tissue-v3.js') > -1)).toBe(true);
+        expect(Object.keys(perEngine).length).toBeGreaterThanOrEqual(11);
+        expect(reads.size).toBeGreaterThanOrEqual(83);
     });
 
     test('DIRECTION ONE — an input the calculation reads and the list does not carry is named', () => {
@@ -240,7 +382,10 @@ describe('GH-644 — the universe is the engines, not the list', () => {
         const undeclared = [];
         reads.forEach((engine, key) => {
             if (known.has(key) || notInputs.has(key)) return;
-            if (derived.has(key.split('.')[1])) return; // named as worked out, not asked
+            // GH-712: BOTH SPELLINGS. `derived` carries leaves (`climateRegime`) and dotted keys
+            // (`turf.grassType`) alike, and the leaf-only lookup could not see the dotted ones —
+            // harmless while no universe here read them, a false finding the moment one did.
+            if (derived.has(key) || derived.has(key.split('.')[1])) return;
             undeclared.push(key + ' (read by ' + engine + ')');
         });
         undeclared.sort();
@@ -284,11 +429,65 @@ describe('GH-644 — the universe is the engines, not the list', () => {
         // `notInputs` is not a permission list: each name carries what it is, so
         // "a result another engine wrote" cannot be used to excuse a real input.
         const notInputs = LIST.notInputs || {};
-        Object.entries(notInputs).forEach(([key, why]) => {
+
+        /**
+         * GH-712, RETURNED BY THE REVIEWER: A REASON MUST CARRY AN ADDRESS, NOT A WORD.
+         *
+         * This asked only that the reason contain `result` or `derived`. His words: "the method is
+         * right, the entries are unverifiable" — he opened all 18 `notInputs` and 14 `derived` and
+         * found no file, function or line in any of them, and measured five himself to check that
+         * the classification was at least honest. A test satisfied by a word is satisfied by a
+         * guess that contains the word, which is the same shape of hole as a census that counts
+         * instead of listing.
+         *
+         * So every reason now names at least one pair `\`path\` / \`anchor\``, the file must
+         * exist, and the anchor must occur in it. That is checkable against the tree rather than
+         * against my prose, and it is what caught two entries while it was being filled: one key
+         * nothing produces at all, and one that a lab report can supply — which makes the earlier
+         * wording of both wrong rather than merely unverifiable.
+         *
+         * The pairs are printed, because "18 reasons checked" and "the loop never ran" read the
+         * same otherwise.
+         */
+        const checked = [];
+        const faults = [];
+        // GH-712: `derived` carries reasons of exactly the same kind and was under no requirement
+        // at all, which is where the reviewer opened 14 entries and found no address in any of
+        // them. Both maps are held to the same rule, and which map an entry came from is printed,
+        // so a rule that reached only one of them is visible.
+        const withReasons = Object.entries(notInputs).map(([k, v]) => ['notInputs', k, v])
+            .concat(Object.entries(LIST.derived || {}).map(([k, v]) => ['derived', k, v]));
+        withReasons.forEach(([map, key, why]) => {
             if (key === '$comment') return;
-            expect([key, typeof why]).toEqual([key, 'string']);
-            expect([key, /result|derived/.test(why)]).toEqual([key, true]);
+            if (typeof why !== 'string') { faults.push(map + '.' + key + ': the reason is not a string'); return; }
+            const pairs = [...why.matchAll(/`([\w./-]+\.(?:js|php|json))`\s*\/\s*`([^`]+)`/g)];
+            if (!pairs.length) {
+                faults.push(map + '.' + key + ': the reason names no `path` / `anchor` pair');
+
+                return;
+            }
+            pairs.forEach(([, file, anchor]) => {
+                const full = path.join(ROOT, file);
+                if (!fs.existsSync(full)) { faults.push(map + '.' + key + ': ' + file + ' does not exist'); return; }
+                const src = fs.readFileSync(full, 'utf8');
+                if (src.indexOf(anchor) < 0) {
+                    faults.push(map + '.' + key + ': ' + file + ' does not contain ' + JSON.stringify(anchor));
+
+                    return;
+                }
+                checked.push(map + '.' + key + ' -> ' + file + ' :: ' + anchor);
+            });
         });
+        process.stdout.write('[gh644] reasons with an address opened and found (' + checked.length + '):\n');
+        checked.forEach((c) => process.stdout.write('[gh644]   ' + c + '\n'));
+
+        expect({ reasonsWithoutACheckableAddress: faults }).toEqual({ reasonsWithoutACheckableAddress: [] });
+        // The loop ran over every entry, or an empty `faults` would mean nothing.
+        expect(checked.length).toBeGreaterThanOrEqual(
+            withReasons.filter(([, k]) => k !== '$comment').length);
+        // And BOTH maps were reached, or one of them is under no rule again.
+        expect(checked.some((c) => c.indexOf('notInputs.') === 0)).toBe(true);
+        expect(checked.some((c) => c.indexOf('derived.') === 0)).toBe(true);
         /**
          * "AND IT MUST ACTUALLY BE READ" HAS MOVED, and the move is the analyst's plan
          * rather than a concession (59.5 item 7: the graph test rewrites this one).

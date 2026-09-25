@@ -819,6 +819,35 @@ describe('GH-684 — the cultivar list: Generic is offered, and Generic is not t
         expect(list.filter((o) => o.selected).map((o) => o.value)).toEqual(['']);
     });
 
+    test('`null` — the form the server sends for a site with no cultivar — behaves as nothing chosen', () => {
+        /**
+         * GH-687 (the reviewer's return) — THE ABSENT FORM WAS THE ONE THE PRODUCT ACTUALLY SENDS.
+         *
+         * The cases here asked with `''`, with `generic`, with a real cultivar and with an unknown
+         * one. None asked with `null`, and `null` is what the server supplies for a site whose config
+         * has no cultivar at all — two of the fourteen sites on the stand. So the one form that
+         * arrives from the product was the one form nothing held, and a producer that treated `null`
+         * as a value would have shown those two sites a selected cultivar with every case green.
+         *
+         * It is asserted to behave AS NOTHING CHOSEN rather than "not to crash": an empty prompt,
+         * selected, and Generic offered but not selected.
+         */
+        const list = optionsFor('Perennial Ryegrass', null);
+        process.stdout.write('[gh687] null chosen -> ' + JSON.stringify(list) + '\n');
+
+        // The subject is there: the species' cultivars are on the list at all.
+        expect(list.map((o) => o.value)).toContain('colosseum');
+
+        expect(list[0]).toEqual({ value: '', label: '— select —', selected: true });
+        expect(list.find((o) => o.value === 'generic').selected).toBe(false);
+        expect(list.filter((o) => o.selected).map((o) => o.value)).toEqual(['']);
+        // And `null` and `''` are the same question, which is the claim that lets one case stand for
+        // both roads into the screen.
+        expect(list).toEqual(optionsFor('Perennial Ryegrass', ''));
+        // `undefined` arrives the same way when a key is missing rather than null.
+        expect(optionsFor('Perennial Ryegrass', undefined)).toEqual(list);
+    });
+
     test('a site carrying `generic` is shown Generic / Unknown as its choice', () => {
         const list = optionsFor('Perennial Ryegrass', 'generic');
         process.stdout.write('[gh684] generic chosen -> ' + JSON.stringify(list) + '\n');

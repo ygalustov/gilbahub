@@ -132,11 +132,13 @@ describe('GH-407/521 — the wizards offer Ammonium Acetate alone for NZ, and cl
         });
 
         test('the note names the cleared value rather than always saying MLSN', () => {
-            expect(onboarding).toMatch(/_METHOD_LABELS: \{ mlsn: 'MLSN', slan: 'SLAN', ammonium_acetate: 'Ammonium Acetate' \}/);
+            // GH-744: the words come from the server's setup state, not from a table in this file.
+            expect(onboarding).not.toMatch(/_METHOD_LABELS/);
+            expect(onboarding).toMatch(/_methodWords: function \(id\)/);
             const at = onboarding.indexOf('if (this._methodClearedForNZ) {');
             expect(at).toBeGreaterThan(-1);
             const note = onboarding.slice(at, at + 600);
-            expect(note).toMatch(/this\._METHOD_LABELS\[this\._methodClearedForNZ\]/);
+            expect(note).toMatch(/this\._methodWords\(this\._methodClearedForNZ\)\.label/);
             expect(note).toMatch(/is not offered for New Zealand locations/);
             expect(note).toMatch(/has been cleared/);
             expect(onboarding).not.toMatch(/this\._mlsnNormalisedForNZ/);
@@ -183,7 +185,8 @@ describe('GH-407/521 — the wizards offer Ammonium Acetate alone for NZ, and cl
         });
 
         test('MLSN survives for everyone else here too', () => {
-            expect(onboarding).toMatch(/\{ id: 'mlsn',/);
+            // GH-744: offered by id; the words come with the setup state.
+            expect(onboarding).toMatch(/var methods = \[this\._methodWords\('mlsn'\), this\._methodWords\('slan'\)\];/);
         });
     });
 

@@ -91,15 +91,38 @@
             }
         } catch (e) { /* ignore */ }
 
-        // Priority 2: GAIP_SOIL_TEMP (physics model widget)
+        // Priority 2: the run's physics result
+        // GH-734 (queue item 3az, delivery 2): the run's own result, handed out by the orchestrator under its own accessor. This read `GAIP_SOIL_TEMP`, which the rendering panel sets -- a second calculation of the same model on different inputs.
         try {
-            var gst = global.GAIP_SOIL_TEMP;
+            var gst = (function () {
+                try {
+                    var O = (typeof global !== 'undefined' ? global : window).GaipOrchestrator;
+                    return (O && typeof O.getComputed === 'function') ? O.getComputed('soilTempPhysics') : null;
+                } catch (e) { return null; }
+            })();
             if (gst && gst.summary && gst.summary.depths) {
                 var d = gst.summary.depths;
-                // Prefer 50mm depth, fall back to 100mm then surface
-                var t = (d.d50mm && d.d50mm.mean != null) ? d.d50mm.mean :
-                        (d.d100mm && d.d100mm.mean != null) ? d.d100mm.mean :
-                        (d.d10mm && d.d10mm.mean != null) ? d.d10mm.mean : null;
+                /**
+                 * GH-734 (reviewer's return) - THE DEPTHS OF THE RUN'S RESULT ARE SPELLED `'50mm'`.
+                 *
+                 * This read `d50mm`, `d100mm` and `d10mm`, which is how GAIP_CANONICAL_STATE spells
+                 * the same depths -- measured by running the producer, `gaip_soil_temp_summary`
+                 * returns `'20mm' | '50mm' | '100mm' | '200mm'`. So this branch answered `undefined`
+                 * on every run and the reader fell through to the canonical state below: it asked
+                 * the run and took someone else's copy, which is the defect the run's own accessor
+                 * exists to remove. Both spellings are accepted, as `soilTempAt100mm` does in the
+                 * producer, because a caller may hand either shape in. There is no 10mm depth in
+                 * either shape; the shallowest the producer reports is 20mm.
+                 */
+                var meanAt = function (cell) {
+                    if (!cell || typeof cell !== 'object') return null;
+                    return cell.mean != null ? cell.mean : null;
+                };
+                var t = null;
+                var order = [d['50mm'], d.d50mm, d['100mm'], d.d100mm, d['20mm'], d.d10mm];
+                for (var oi = 0; oi < order.length && t === null; oi++) {
+                    t = meanAt(order[oi]);
+                }
                 if (t != null) return { temp: t, source: 'physics_model' };
             }
         } catch (e) { /* ignore */ }

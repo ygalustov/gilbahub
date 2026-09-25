@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\CalculationInputs;
+use App\Support\PageSite;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -51,7 +52,16 @@ class EnsureSiteIsSetUp
             return $next($request);
         }
 
-        $site = $request->user()?->activeSite;
+        /**
+         * GH-708 (item 3bk, part 3) — THE SITE OF THE PAGE, NOT THE POINTER.
+         *
+         * It asked `$request->user()->activeSite`. Pages are drawn for `PageSite::forRequest` — the
+         * run frame is opened as `/hub?rerun…&site=<id>` and is about THAT site, not about whatever
+         * the pointer happens to hold. A lock reading the pointer would wave through a calculation
+         * started for an incomplete site whenever the pointer stood on a complete one, which is the
+         * GH-459 class: judging one object by the state of another.
+         */
+        $site = PageSite::forRequest($request);
         if (! $site) {
             // Nothing to set up; a user with no site at all is another question and another door.
             return $next($request);

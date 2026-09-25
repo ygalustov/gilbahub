@@ -1679,11 +1679,18 @@ var DiseaseForecast = (function() {
         var moistureDaily = climateMetrics.moisture && climateMetrics.moisture.dailyPattern;
         
         // Check if GAIP physics-based soil temps are available
+        // GH-734 (queue item 3az, delivery 2): the run's own result, handed out by the orchestrator under its own accessor. This read `GAIP_SOIL_TEMP`, which the rendering panel sets -- a second calculation of the same model on different inputs.
+        var _runPhysics = (function () {
+            try {
+                var O = (typeof global !== 'undefined' ? global : window).GaipOrchestrator;
+                return (O && typeof O.getComputed === 'function') ? O.getComputed('soilTempPhysics') : null;
+            } catch (e) { return null; }
+        })();
         var useGaipSoilTemp = typeof window !== 'undefined' && 
-                             window.GAIP_SOIL_TEMP?.raw?.T_50mm?.length > 0;
-        var gaipSoilTemp50 = useGaipSoilTemp ? window.GAIP_SOIL_TEMP.raw.T_50mm : null;
-        var gaipSoilTemp100 = useGaipSoilTemp && window.GAIP_SOIL_TEMP.raw.T_100mm ? 
-                             window.GAIP_SOIL_TEMP.raw.T_100mm : null;
+                             _runPhysics?.raw?.T_50mm?.length > 0;
+        var gaipSoilTemp50 = useGaipSoilTemp ? _runPhysics.raw.T_50mm : null;
+        var gaipSoilTemp100 = useGaipSoilTemp && _runPhysics.raw.T_100mm ?
+                             _runPhysics.raw.T_100mm : null;
         
         if (useGaipSoilTemp) {
         }

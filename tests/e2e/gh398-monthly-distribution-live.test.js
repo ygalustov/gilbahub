@@ -386,7 +386,7 @@ describe('GH-398 — one monthly series on both surfaces (' + SITE_NAME + ' / ' 
 
         let __restore = null;
 
-        try { __restore = await restoreConfigs(page); }
+        try { __restore = await restoreConfigs({ sites: [SITE_ID] }); }
 
         catch (e) { __restore = { restored: [], failed: ['the restore threw: ' + (e && e.message)] }; }
         if (page && previousActiveSiteId && previousActiveSiteId !== SITE_ID) {

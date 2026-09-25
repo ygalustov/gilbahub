@@ -165,4 +165,78 @@ class Gh666DoesTheSiteCheckLeakOtherAccountsTest extends TestCase
         $this->assertSame(1, \App\Models\AnalysisResult::query()->count(),
             'only the lawful write should have been filed');
     }
+
+    /**
+     * GH-700 (item 3ar) — THE MEASUREMENT ABOVE BECOMES A CLAIM, BECAUSE THE DECISION WAS MADE.
+     *
+     * The case above was written as a measurement on purpose: it printed what came back and asserted
+     * only that a foreign row is refused, because whether the identifiers should leave was a separate
+     * decision. It has been taken — the owner list does not leave, it is written where only an
+     * administrator sees it — so the same facts are now asserted rather than printed.
+     *
+     * TWO DIFFERENT FAULTS, AND ONLY BOTH TOGETHER CLOSE IT. The analyst said so before it was built:
+     * moving the permission check earlier answers the caller who has no right, and does nothing for
+     * the caller who HAS the right to their own site and sends someone else's key — that caller
+     * passes every check there is. So one case for each.
+     */
+    public function test_no_refusal_carries_the_identifier_of_a_site_the_caller_may_not_see(): void
+    {
+        $w = $this->world();
+
+        // The caller may write SA. They send a key belonging to SB, an account they cannot see.
+        $refused = $this->fileRow($w['u'], $w['sa'], $w['keyB']);
+        $body = $refused->getContent();
+        fwrite(STDOUT, PHP_EOL.'[gh700] a caller WITH the right, sending a foreign key: '
+            .$refused->status().' '.$body.PHP_EOL);
+
+        $refused->assertStatus(422);
+        // The leak, closed: no `belongsTo`, and no identifier of the site that owns the key.
+        $this->assertStringNotContainsString('belongsTo', $body);
+        $this->assertStringNotContainsString($w['sb']->id, $body);
+        // And the diagnosis the caller CAN act on is still there: their own key, and where it was
+        // filed. A refusal that says nothing actionable is the other failure of this pair.
+        $refused->assertJsonPath('error', 'site-mismatch');
+        $this->assertStringContainsString($w['keyB'], $body);
+        $this->assertStringContainsString($w['sa']->id, $body);
+    }
+
+    public function test_a_caller_with_no_right_is_answered_about_themselves_and_told_nothing_else(): void
+    {
+        $w = $this->world();
+
+        // SC belongs to another account: this caller may not write it at all.
+        $refused = $this->fileRow($w['u'], $w['sc'], $w['keyB']);
+        fwrite(STDOUT, '[gh700] a caller with NO right: '.$refused->status().' '.$refused->getContent().PHP_EOL);
+
+        // The answer is about them, not about the body they sent.
+        $refused->assertStatus(403);
+        $this->assertStringNotContainsString('belongsTo', $refused->getContent());
+        $this->assertStringNotContainsString($w['sb']->id, $refused->getContent());
+    }
+
+    public function test_the_owner_list_is_written_where_only_an_administrator_sees_it(): void
+    {
+        /**
+         * The diagnosis is not lost, it is moved. Without this case the repair would be
+         * indistinguishable from deleting the information: the list leaves the response and has to
+         * arrive in the journal, with the `run_id` that ties it to the run.
+         */
+        $w = $this->world();
+        \Illuminate\Support\Facades\Log::spy();
+
+        $this->fileRow($w['u'], $w['sa'], $w['keyB'])->assertStatus(422);
+
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('warning')
+            ->withArgs(function ($message, $context = null) use ($w) {
+                $ok = is_string($message) && str_contains($message, 'computed for another site')
+                    && is_array($context)
+                    && ($context['filed_under'] ?? null) === $w['sa']->id
+                    && str_contains(json_encode($context['foreign_samples'] ?? null), $w['sb']->id);
+                if ($ok) {
+                    fwrite(STDOUT, '[gh700] the journal got: '.json_encode($context).PHP_EOL);
+                }
+
+                return $ok;
+            })->once();
+    }
 }

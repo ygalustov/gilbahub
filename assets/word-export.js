@@ -7613,7 +7613,8 @@
                 isOverseed: !!(_osBaseIsC4 && _siteOverseedSpecies),
                 baseSpecies: _species || null,
                 overseedSpecies: _siteOverseedSpecies,
-                summerIntent: _siteTurf.summerIntent || 'transition',
+                // GH-741: an unset summer intent stays unset; 'transition' here was a guess that read as an answer.
+                summerIntent: _siteTurf.summerIntent || null,
                 baseIsC4: _osBaseIsC4
             };
         } else {
@@ -7641,7 +7642,7 @@
                 isOverseed: false,
                 baseSpecies: _species || null,
                 overseedSpecies: null,
-                summerIntent: 'transition',
+                summerIntent: null,
                 baseIsC4: _defBaseIsC4
             };
         }
@@ -7665,7 +7666,7 @@
                 isOverseed: true,
                 baseSpecies: _baseSp,
                 overseedSpecies: _sampleOverrideOverseed,
-                summerIntent: _overseedConfig.summerIntent || 'transition',
+                summerIntent: _overseedConfig.summerIntent || null,
                 baseIsC4: _baseIsC4
             };
         }
@@ -10996,8 +10997,9 @@
                     Na:          data.soil.Na  || null,
                     CEC:         data.soil.CEC || null,
                     LOI:         data.soil.OM  || null,
-                    construction: (window.GAIP_STATE && window.GAIP_STATE.turf && 
-                                   window.GAIP_STATE.turf.construction) || null
+                    // GH-752: the site's construction, from the export's own inputs (its config), not
+                    // the page's GAIP_STATE (GH-459).
+                    construction: (inputs && inputs.turf && inputs.turf.construction) || null
                 };
                 // Build mlsnResults from state
                 var mlsnRes = (window.GAIP_STATE && window.GAIP_STATE.mlsnResults) || {};

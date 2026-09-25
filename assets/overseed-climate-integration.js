@@ -517,15 +517,24 @@
     }
 
     function p(e, t, a) {
-        if ("undefined" != typeof window && window.GAIP_SOIL_TEMP?.raw?.T_50mm?.length > 0) {
-            var i = window.GAIP_SOIL_TEMP.raw.T_50mm,
+        // GH-734 (queue item 3az, delivery 2): the run's own result, handed out by the orchestrator
+        // under its own accessor. This read `GAIP_SOIL_TEMP`, which the rendering panel sets -- a
+        // second calculation of the same model on different inputs.
+        var _runPhysics = (function () {
+            try {
+                var O = (typeof global !== 'undefined' ? global : window).GaipOrchestrator;
+                return (O && typeof O.getComputed === 'function') ? O.getComputed('soilTempPhysics') : null;
+            } catch (e) { return null; }
+        })();
+        if (_runPhysics?.raw?.T_50mm?.length > 0) {
+            var i = _runPhysics.raw.T_50mm,
                 s = 24 * (a || 0),
                 r = Math.min(s + 24, i.length);
             if (r > s) {
                 for (var n = 0, o = 0, m = s; m < r; m++) void 0 !== i[m] && null !== i[m] && (n += i[m], o++);
                 if (o > 0) return Math.round(n / o * 10) / 10
             }
-            var l = window.GAIP_SOIL_TEMP.summary?.depths?.["50mm"]?.mean;
+            var l = _runPhysics.summary?.depths?.["50mm"]?.mean;
             if (l) return Math.round(10 * l) / 10
         }
         var d = (e + t) / 2,
@@ -547,7 +556,7 @@
                 u = a.temperature_2m_min ? a.temperature_2m_min[m] : null;
             if (null !== c && null !== u) {
                 var g = p(c, u, m),
-                    w = ("undefined" != typeof window && window.GAIP_SOIL_TEMP, l(g, (c + u) / 2, e)),
+                    w = l(g, (c + u) / 2, e),
                     T = s(g, e),
                     y = {
                         date: d,
@@ -1072,7 +1081,15 @@
             calculateTransitionStatus: o,
             assessOverseedWindow: l,
             estimateSoilTemp: function(e) {
-                if ("undefined" != typeof window && window.GAIP_SOIL_TEMP?.summary?.depths?.["50mm"]?.mean) return window.GAIP_SOIL_TEMP.summary.depths["50mm"].mean;
+                // GH-734 (queue item 3az, delivery 2): the run's own result rather than the
+                // rendering panel's global, as in `p` above.
+                var _runPhysics = (function () {
+                    try {
+                        var O = (typeof global !== 'undefined' ? global : window).GaipOrchestrator;
+                        return (O && typeof O.getComputed === 'function') ? O.getComputed('soilTempPhysics') : null;
+                    } catch (e2) { return null; }
+                })();
+                if (_runPhysics?.summary?.depths?.["50mm"]?.mean) return _runPhysics.summary.depths["50mm"].mean;
                 if (!e || 0 === e.length) return null;
                 var t = e.slice(-3),
                     a = t.reduce(function(e, t) {

@@ -1,0 +1,384 @@
+{
+  "$comment": [
+    "GH-746: every place a test compares the length of a list with a number, by file and the assertion text.",
+    "Held both ways by tests/gh746-a-guard-compares-the-list-not-its-length.test.js. A new site is red until it is declared here.",
+    "Kinds: multiplicity - the members are indistinguishable (calls, requests, writes of one kind) and the number is the claim; the reason says why.",
+    "pending-list - the members are distinguishable and the assertion must compare the list; it leaves this file when it is rewritten.",
+    "unclassified - recorded as found on 25.09.2026 and not yet judged; the state is expected to shrink, never to grow.",
+    "GH-747: the fourth shape — a count carried through a variable — joined the census, and these six sites came with it. They were invisible to the first three shapes, which is why the boundary became a remainder with a number.",
+    "GH-747: one entry recorded an example written inside a docblock of gh490, not a site of the product. Dropping prose from the census removed it.",
+    "GH-747 batch 1: twenty-one sites judged — nineteen multiplicity (writes and requests of one kind, where a second one is the defect) and two pending-list, where the members differ and the run already prints the list beside the count.",
+    "GH-747 batch 2: fifteen more judged. The two pending-list ones are the telling pair — `REQUIRED.length).toBe(13)` counts the schema keys, which are the most distinguishable members there are, and `bodies.length).toBe(2)` counts two request bodies that the case goes on to read differently.",
+    "GH-747 batch 3: nine more. The four pending-list ones count members that carry identity — zones grouped by identity rather than by name, and the twelve months of a stored programme, where losing March and gaining a second April keeps the number at twelve.",
+    "GH-747 batch 4: fifteen more. The gh498 sites count what a detector found, and the case beside them already asserts PROPERTIES of the members — so a number equal to one says a site was found, not that it is the planted one. Gh667 counts nutrients and keys, which are named members.",
+    "GH-747 batch 5: thirteen more. Eleven of them count TWELVE MONTHS — a plan, a calendar row, a published series, an exported table — and a month is the most named member in this product: losing March and gaining a second April leaves the number at twelve, on every one of those roads.",
+    "GH-747 batch 6: nine more. The Gh581 three are the useful distinction of this batch — a count of one whose single member is then read by the very next line; there the number completes a list assertion instead of replacing one, which is not the same as a bare count.",
+    "GH-747: the three Gh581 sites were put back to unclassified. They are a THIRD kind — a count of one whose single member the next line reads — and the device declares two. The judgement waits for the device owner; classifying them as either kind now would record a decision nobody made.",
+    "GH-747 batch 7: five judged. The thirteen metric keys appear twice more, on the server side this time — the schema declares them and the stored row holds them, and both say 13 about members that have names. Two gh597 sites are left alone: they are the third kind, awaiting the device owner.",
+    "GH-747 batch 8: nine judged. Seven pending-list, and two of them say so in their own words — the parity case comments that ALL THREE NUTRIENTS must have been read off both surfaces, and the cross-site case prints its slices by header right above the count. Where a run already prints the members, rewriting the assertion to compare them costs nothing.",
+    "GH-747: entries that the guard now INFERS as members-asserted were removed. The kind cannot be declared — a site either has the per-index assertions or it does not — so keeping a record of one would be an excuse the guard no longer needs.",
+    "GH-747: four sites came back when the inference was narrowed to the enclosing case — they had been counted as members-asserted on assertions belonging to a different case in the same file.",
+    "GH-747 batch 9: fifteen more, and every one of them counts TWELVE. Monthly nitrogen, monthly temperatures, a programme, a soil-temperature series, C3 fractions, the form of a result — the same twelve members, named January to December, on fifteen roads. This is now the largest single pattern in the census: the product says `12` about a list whose members are the most named it has.",
+    "GH-747 batch 10: eight sites that claim EMPTY through a length. The guard already excludes `toHaveLength(0)` because jest prints the received array when it is not empty — but `.length).toBe(0)` prints only `Expected 0, Received 3`, which names how many errors there were and not which. Same claim, worse output: rewriting them to compare the list is what the kind is for.",
+    "GH-747 batch 11: six sites counting regular-expression matches. AND A FALSE SITE FOUND, of the same family as the gh490 docblock: `expect(NC.resolveSiteMethodology.length).toBe(1)` is a FUNCTION'S ARITY, not a list's length — the census cannot tell the two apart from text, so it is left unclassified for the device's owner rather than judged as either kind.",
+    "GH-747 batch 12: eight PHP sites judged - two multiplicity (members already filtered down to one kind) and six pending-list, where the count says how many and the case never says which. Five more were read and LEFT unclassified: their members are asserted beside the count by KEY or by a loop over all of them, which is the members-asserted property in a shape the inference does not see.",
+    "GH-747 batch 13: nine sites judged, six of them live measurements. Three multiplicity, where a second member of any identity is the defect. Six pending-list, and two of them are worth naming: gh538 says in words that the remedy's report 'named both rows' and then counts them, and measure-3bd asserts lines[0]..[6] by position and then counts 8 - one index short of asserting its whole list.",
+    "GH-747 batch 14: ten sites judged, nine multiplicity and one pending-list. Eight of the nine count matches of one literal in a source file, the shape batch 11 established. The ninth counts DISTINCT values - the claim being that a curve moved by the same amount in every month - and the single value is named on the next line.",
+    "GH-747: the members-asserted inference now covers KEYS as well as indices, on the analyst's measurement. Gh541 leaves this file because the guard infers it; a ceiling entry that is gone is the ratchet turning.",
+    "GH-747 batch 15: nine sites judged, seven multiplicity and two pending-list. gh546 is a third shape of the 'transform' work rather than of judgement: the line above it already compares the whole list against the stand's own keys, so the count beside it is redundant and the site leaves the census when it is removed, not when it is declared.",
+    "GH-747 batch 16: ten sites, all pending-list, and the run of them is a pattern rather than a coincidence - seven count THE TEN NUTRIENTS, which are named members exactly as the twelve months are. Two of the ten are transform work instead: gh574 and gh589 already compare the whole list a line away, so the count beside it is redundant. gh570 is the telling one: it counts matches of a regular expression like batches 11 and 14, but that expression matches TWO DIFFERENT literals (writer1, writer2), so its members are distinguishable and it is not multiplicity.",
+    "GH-747 batch 17: seven sites judged, two multiplicity and five pending-list. Two more were read and LEFT unclassified - gh679's pair - because they are a FIFTH form of the same property and the only one that needs no measurement: the receiver is a CLOSED LITERAL list put through a filter, so length equal to the literal's own length means every member passed. Nothing can appear from outside, so the count is a list comparison by construction rather than by inference.",
+    "GH-747: two more forms on the analyst's measurement over 79 sites - `loop-key` (a key held by a loop variable, one real site, no false ones) and `joined`, which counts ONLY at n=1 because n substrings against a join of n members never say which member carries which. Negative assertions never count. Gh430 and Gh570TheRuleReadsTheLevel leave this file because the guard now infers them; Gh570WhatThePanelSays has n=2 and stays declared.",
+    "GH-747, THE RATCHET, and it holds BOTH ways: `unclassifiedCeiling` is EQUAL to the sites that are unclassified right now, not a list frozen on some past day. A site outside it cannot be declared unclassified, so a new site has no way in AND a site already judged has no way BACK - measured: with a frozen ceiling, returning a judged site to unclassified passed green. The ceiling narrows as sites are judged and must be narrowed in the same edit, or the guard reddens with the name left behind. When it reaches empty the kind is unreachable, which is the strongest state and not the weakest. ITS BOUNDARY, said rather than left: a name written into BOTH the ceiling and the claims in one edit is not caught - no guard living inside the file it guards can tell that edit from the original state.",
+    "GH-747 batch 18: nine sites judged, seven multiplicity and two pending-list, and the remainder is now ONE - the arity site, whose kind the analyst rejected on three false positives out of four. gh679's pair left the file with the closed-literal form.",
+    "GH-747: the remainder is zero and `unclassifiedCeiling` is EMPTY, which makes the kind `unclassified` unreachable - measured, not assumed: with an empty ceiling every site of that kind reddens by name. The last site was not judged but TRANSFORMED: gh377 compared a function's arity, which shares a property name with a list's length and nothing else.",
+    "GH-761 (queue item 3vd): the ceiling is NOT in this file any more. It lived here beside the claims it limits, and a name written into both halves in one edit was indistinguishable from the file's original state - measured, that edit passed green. It is a constant in the guard now, which changes for a different reason than this file does."
+  ],
+  "kinds": [
+    "multiplicity",
+    "pending-list",
+    "unclassified"
+  ],
+  "claims": {
+    "app/tests/Feature/Gh526SampleDeleteRouteTest.php | assertCount(1, $rows, 'one row, not a duplicate and not a failed insert'); #1": [
+      "multiplicity",
+      "rows carrying one and the same client_uid: there is nothing to tell them apart, and the claim IS that the repeat write left one row rather than a second"
+    ],
+    "app/tests/Feature/Gh536SamplesListMetaTest.php | assertCount(2, $short->json('data'), 'the limit was not applied'); #1": [
+      "multiplicity",
+      "the number IS the subject here: the case asks whether the limit was applied, and its own message says so — two rows because two were asked for, not because of which two."
+    ],
+    "app/tests/Feature/Gh536SamplesListMetaTest.php | assertCount(5, $all->json('data')); #1": "pending-list",
+    "app/tests/Feature/Gh552ServerAcceptsAnIncompleteResultTest.php | assertCount(13, $required); #1": "pending-list",
+    "app/tests/Feature/Gh552ServerAcceptsAnIncompleteResultTest.php | assertCount(13, $row->metrics); #1": "pending-list",
+    "app/tests/Feature/Gh558RecomputeOutcomesTest.php | assertCount(11, $uncomputed); #1": "pending-list",
+    "app/tests/Feature/Gh569RunCompletenessAsAnEventTest.php | assertCount(1, array_filter($row->detail['skipped'], fn ($s) => ($s['module'] ?? null) === 'disease')); #1": [
+      "multiplicity",
+      "skip records already filtered down to one module: they carry nothing to tell one from another, and the claim is that the module was skipped once"
+    ],
+    "app/tests/Feature/Gh570WhatThePanelSaysOnTheLiveRowsTest.php | assertCount(2, $details, 'a record from before the field is being dropped'); #1": "pending-list",
+    "app/tests/Feature/Gh571TheVerdictComesFromTheResultTest.php | assertCount(14, $wear); #1": "pending-list",
+    "app/tests/Feature/Gh588TheThreeSoilStatesTest.php | assertCount(1, $endings, 'the sentence that offers a re-run must END with the offer the decision worded'); #1": "pending-list",
+    "app/tests/Feature/Gh638NumbersRunTest.php | assertCount(1, $p['numbersRun']['assumptions']); #1": "pending-list",
+    "app/tests/Feature/Gh646PanelNeverPrintsAnIdentifierTest.php | assertCount(1, $lines); #1": "pending-list",
+    "app/tests/Feature/Gh651WhatTheScreenSaysOverOldNumbersTest.php | assertCount(2, $p['lastRun']['warnings']); #1": "pending-list",
+    "app/tests/Feature/Gh651WhatTheScreenSaysOverOldNumbersTest.php | assertCount(2, $panel['details']); #1": "pending-list",
+    "app/tests/Feature/Gh667TheSoilSectionIsEmptyWhenItsVerdictSaysSoTest.php | assertCount(10, $empty['nutrients']); #1": "pending-list",
+    "app/tests/Feature/Gh667TheSoilSectionIsEmptyWhenItsVerdictSaysSoTest.php | assertCount(10, $filled['nutrients']); #1": "pending-list",
+    "app/tests/Feature/Gh667TheSoilSectionIsEmptyWhenItsVerdictSaysSoTest.php | assertCount(17, $empty); #1": "pending-list",
+    "app/tests/Feature/Gh675TheClassComesFromTheStartNotFromTheDatabaseNowTest.php | assertCount(1, $set['samples']['water']); #1": "pending-list",
+    "app/tests/Feature/SiteApiTest.php | assertCount(2, $response->json('fired')); #1": "pending-list",
+    "app/tests/Unit/SampleAnalysisControllerNutrientOrderTest.php | assertCount(10, $nutrients); #1": "pending-list",
+    "tests/e2e/gh398-monthly-distribution-live.test.js | expect(docxMonthlyN).toHaveLength(12) #1": "pending-list",
+    "tests/e2e/gh398-monthly-distribution-live.test.js | expect(planGpByMonth).toHaveLength(12) #1": "pending-list",
+    "tests/e2e/gh398-monthly-distribution-live.test.js | expect(planMonthlyN).toHaveLength(12) #1": "pending-list",
+    "tests/e2e/gh424-soil-temp-basis-live.test.js | expect(s.programMonthlyTemps && s.programMonthlyTemps.length).toBe(12) #1": "pending-list",
+    "tests/e2e/gh426-soil-temp-options-live.test.js | expect(s.calendarMonthly.length).toBe(12) #1": "pending-list",
+    "tests/e2e/gh428-outer-soil-temp-live.test.js | expect(nums.length).toBe(12) #1": "pending-list",
+    "tests/e2e/gh428-outer-soil-temp-live.test.js | expect(r.calendarRowTemps && r.calendarRowTemps.length).toBe(12) #1": "pending-list",
+    "tests/e2e/gh428-outer-soil-temp-live.test.js | expect(r.publishedSeries.length).toBe(12) #1": "pending-list",
+    "tests/e2e/gh433-glossary-live.test.js | expect(registrations.length).toBe(1) #1": [
+      "multiplicity",
+      "registrations of one and the same glossary entry: the defect was a second writer, and the case says so itself - the claim stays true even if a copy that agrees is re-added"
+    ],
+    "tests/e2e/gh459-cross-site-inputs-live.test.js | expect(named.filter((id) => !!id).length).toBe(3) #1": "pending-list",
+    "tests/e2e/gh459-cross-site-inputs-live.test.js | expect(savedMonthly.length).toBe(12) #1": "pending-list",
+    "tests/e2e/gh459-cross-site-inputs-live.test.js | expect(slices.length).toBe(2) #1": "pending-list",
+    "tests/e2e/gh459-cross-site-inputs-live.test.js | expect(slices.length).toBe(3) #1": "pending-list",
+    "tests/e2e/gh459-cross-site-inputs-live.test.js | expect(tables.length).toBe(0) #1": [
+      "multiplicity",
+      "none at all: the claim is that this surface publishes no monthly schedule table, and zero of a kind is that claim entire."
+    ],
+    "tests/e2e/gh530-uk-caption-measure-live.test.js | expect(report).toHaveLength(3) #1": "pending-list",
+    "tests/e2e/gh536-samples-read-failure-live.test.js | expect(measured.failed.soil.length).toBe(0) #1": "pending-list",
+    "tests/e2e/gh536-samples-read-failure-live.test.js | expect(measured.stale.soil.length).toBe(0) #1": "pending-list",
+    "tests/e2e/gh537-site-scoped-restore-live.test.js | expect(seen.burns.mySoil.length).toBe(26) #1": [
+      "multiplicity",
+      "the claim is HOW MANY samples the path sees - the live count rather than the row count; which samples they are is not what the case asks"
+    ],
+    "tests/e2e/gh542-rerun-on-a-collapsed-row-live.test.js | expect(posts.length).toBe(1) #1": [
+      "multiplicity",
+      "a re-run on a collapsed row posts once; identical requests, so the count is the claim."
+    ],
+    "tests/e2e/gh655-the-water-sample-list-on-screen-live.test.js | expect(marked.length).toBe(1) #1": [
+      "multiplicity",
+      "marks on the list: a second mark of any row is the defect the case names, since the page would then be telling a person two different things"
+    ],
+    "tests/e2e/measure-3bd-storage-reads-live.test.js | expect(j.lines).toHaveLength(8) #1": "pending-list",
+    "tests/e2e/measure-93-sample-selection-live.test.js | expect(lines.filter((l) => /^── /.test(l)).length).toBe(4) #1": "pending-list",
+    "tests/e2e/ui-vs-export-parity.test.js | expect(exportMonthlyRows().length).toBe(12) #1": "pending-list",
+    "tests/e2e/ui-vs-export-parity.test.js | expect(monthRows.length).toBe(12) #1": "pending-list",
+    "tests/e2e/ui-vs-export-parity.test.js | expect(rows.length).toBe(3) #1": "pending-list",
+    "tests/e2e/ui-vs-export-parity.test.js | expect(rows.length).toBe(3) #2": "pending-list",
+    "tests/e2e/ui-vs-export-parity.test.js | expect(rows.length).toBe(3) #3": "pending-list",
+    "tests/gh251-rerun-waits-for-monthly-normals.test.js | expect((src.match(/'analysis-cache\\/runs'/g) || []).length).toBe(1) #1": [
+      "multiplicity",
+      "a count of regular-expression matches in a source text; matches carry nothing to tell one from another, so how many there are is the whole of the claim."
+    ],
+    "tests/gh251-rerun-waits-for-monthly-normals.test.js | expect(posts.length).toBe(1) #1": [
+      "multiplicity",
+      "the run waited and then posted once; the POSTs carry no members to compare, only their number."
+    ],
+    "tests/gh260-hub-persistence-range-scrape.test.js | expect((PRODUCER.match(/rangeMin:\\s*r\\.rangeMin/g) || []).length).toBe(2) #1": [
+      "multiplicity",
+      "a count of regular-expression matches in a source text; matches carry nothing to tell one from another, so how many there are is the whole of the claim."
+    ],
+    "tests/gh262-sample-fallback-methodology.test.js | expect((code.match(/var _smTexDom\\s*=/g) || []).length).toBe(1) #1": [
+      "multiplicity",
+      "a count of regular-expression matches in a source text; matches carry nothing to tell one from another, so how many there are is the whole of the claim."
+    ],
+    "tests/gh278-monthly-n-distribution-normals-race.test.js | expect(ctx.window.__GAIP_MONTHLY_N__).toHaveLength(12) #1": "pending-list",
+    "tests/gh278-monthly-n-distribution-normals-race.test.js | expect(ctx.window.__GAIP_MONTHLY_N__).toHaveLength(12) #2": "pending-list",
+    "tests/gh280-monthly-n-card-redesign.test.js | expect(emptyMatches).toHaveLength(11) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the whole claim - eleven of the twelve columns carry the empty indicator"
+    ],
+    "tests/gh280-monthly-n-card-redesign.test.js | expect(nowMatches).toHaveLength(1) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the whole claim - exactly one column is marked as now"
+    ],
+    "tests/gh285-input-validator-methodology-typical-ranges.test.js | expect(result.errors.length).toBe(0) #1": "pending-list",
+    "tests/gh285-input-validator-methodology-typical-ranges.test.js | expect(result.warnings.length).toBe(0) #1": "pending-list",
+    "tests/gh288-aa-fallback-ceiling-real-numbers.test.js | expect(result.warnings.length).toBe(0) #1": "pending-list",
+    "tests/gh296-monthly-temps-race-proof-fallback.test.js | expect(ctx.window.__GAIP_MONTHLY_N__).toHaveLength(12) #1": "pending-list",
+    "tests/gh297-soil-values-samplemanager-fallback.test.js | expect(ctx.window.__GAIP_MONTHLY_N__).toHaveLength(12) #1": "pending-list",
+    "tests/gh298-doRerunSync-forces-monthly-n-render.test.js | expect(renders.length).toBe(1) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the whole claim; where the single one sits is asserted on the next line by index"
+    ],
+    "tests/gh327-p-delivery-accuracy-score.test.js | expect(matches.length).toBe(0) #1": "pending-list",
+    "tests/gh330-prebble-hard-exclude-unneeded-p-k.test.js | expect(matches.length).toBe(2) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the whole claim - one in each function, unchanged by the fix"
+    ],
+    "tests/gh349-nz-preemergent-herbicide-rules.test.js | expect(matches.length).toBe(2) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the whole claim - both granular push sites check and warn"
+    ],
+    "tests/gh354-incomplete-monthlytemps-crash.test.js | expect(program.program.monthly).toHaveLength(12) #1": "pending-list",
+    "tests/gh383-input-contract-guard.test.js | expect(applications.length).toBe(1) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the whole claim - the traffic modifier is applied at exactly one point"
+    ],
+    "tests/gh384-plan-page-through-core.test.js | expect(p.program.monthly.length).toBe(12) #1": "pending-list",
+    "tests/gh386-sample-picker-remembers-selection.test.js | expect(matches.length).toBe(2) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the whole claim - the zone selector and the reusable mount both route through the rule"
+    ],
+    "tests/gh391-au-p-supplement-nutrients-counted-in-delivered.test.js | expect(program.monthly).toHaveLength(12) #1": "pending-list",
+    "tests/gh395-nz-methodology-gate.test.js | expect((beforeBranch.match(/\\$curMeth\\s*=\\s*'ammonium_acetate'/g) || []).length).toBe(0) #1": "pending-list",
+    "tests/gh398-monthly-distribution-unified.test.js | expect(Object.keys(result.facility.monthlyC3Fractions)).toHaveLength(12) #1": "pending-list",
+    "tests/gh398-monthly-distribution-unified.test.js | expect(result.monthlyNutrients.K).toHaveLength(12) #1": "pending-list",
+    "tests/gh399-nutrition-delivery-core.test.js | expect(acc.applications.length).toBe(2) #1": "pending-list",
+    "tests/gh400-au-liquid-phosphorus.test.js | expect(names(after).filter((n) => n === 'Country Club IV 18-9-18').length).toBe(2) #1": [
+      "multiplicity",
+      "occurrences of ONE named product, filtered to that name: the members are that same product, and the claim is that it is bought twice"
+    ],
+    "tests/gh410-phosphorus-overshoot-probe.test.js | expect(monthly.length).toBe(12) #1": "pending-list",
+    "tests/gh424-soil-temp-basis.test.js | expect(Array.from(new Set(spread)).length).toBe(1) #1": [
+      "multiplicity",
+      "the count of DISTINCT values is the claim - the curve moved bodily, by the same amount in every month; the single value itself is asserted on the next line"
+    ],
+    "tests/gh425-calc-trace.test.js | expect(good.checks.rows.length).toBe(21) #1": "pending-list",
+    "tests/gh426-soil-temperature-conversion.test.js | expect(crude.length).toBe(12) #1": "pending-list",
+    "tests/gh426-soil-temperature-conversion.test.js | expect(crude.length).toBe(12) #2": "pending-list",
+    "tests/gh426-soil-temperature-conversion.test.js | expect(model.length).toBe(12) #1": "pending-list",
+    "tests/gh428-outer-soil-temp.test.js | expect(p.soilTempSeries.length).toBe(12) #1": "pending-list",
+    "tests/gh451-wizard-gate-is-the-database.test.js | expect(returns.length).toBe(1) #1": [
+      "multiplicity",
+      "lines of one and the same text (`return;`) inside the gate block: they carry nothing to tell one from another, and the claim is that only one early exit is left"
+    ],
+    "tests/gh459-own-temperatures.test.js | expect(store.keys.length).toBe(2) #1": "pending-list",
+    "tests/gh490-soil-readings-are-the-sample.test.js | expect((page.sandbox.__getActiveSampleCalls || []).filter((c) => c.kind === 'soil').length) .toBe(1) #1": [
+      "multiplicity",
+      "calls of one kind, already filtered to it: the claim is that the probe DOES record, so that an empty list above means 'not asked' rather than 'not watching'"
+    ],
+    "tests/gh498-the-announcement-is-not-a-timer.test.js | expect(computedEventNames(decoy).length).toBe(1) #1": "pending-list",
+    "tests/gh498-the-announcement-is-not-a-timer.test.js | expect(decoyChain.links.filter((l) => l.timerBetween).length).toBe(1) #1": "pending-list",
+    "tests/gh498-the-announcement-is-not-a-timer.test.js | expect(eventConstructions(decoy).length).toBe(1) #1": "pending-list",
+    "tests/gh498-the-announcement-is-not-a-timer.test.js | expect(offending.length).toBe(1) #1": "pending-list",
+    "tests/gh498-the-announcement-is-not-a-timer.test.js | expect(passedAsAValue(decoy, 'announceConfigApplied').length).toBe(1) #1": "pending-list",
+    "tests/gh498-the-announcement-is-not-a-timer.test.js | expect(passedAsArgument(decoy, 'restoreConfig').length).toBe(1) #1": "pending-list",
+    "tests/gh498-the-announcement-is-not-a-timer.test.js | expect(timersGivenAString(decoy).length).toBe(1) #1": "pending-list",
+    "tests/gh517-waiting-by-the-clock-census.test.js | expect(subs.length).toBe(1) #1": [
+      "multiplicity",
+      "subscriptions found in a decoy built on the spot with exactly one: the claim is that the parse found it and invented no second"
+    ],
+    "tests/gh517-waiting-by-the-clock-census.test.js | expect(threeHundreds.length).toBe(1) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: how many there are IS the claim - the timer appears once"
+    ],
+    "tests/gh520-methodology-has-one-owner.test.js | expect(line.length).toBe(1) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: one line assigns the methodology, and a second of any wording is the defect"
+    ],
+    "tests/gh536-browser-copy-removed.test.js | expect(seen.length).toBe(1) #1": [
+      "multiplicity",
+      "sends of one and the same record: the claim is HOW MANY times it was sent - once before the retry"
+    ],
+    "tests/gh536-browser-copy-removed.test.js | expect(seen.length).toBe(2) #1": [
+      "multiplicity",
+      "sends of one and the same record: the claim is HOW MANY times it was sent - twice after the retry, which is what nothing did before this stage"
+    ],
+    "tests/gh546-analysis-result-form.test.js | expect(SCHEMA.metrics.required.length).toBe(13) #1": "pending-list",
+    "tests/gh546-analysis-result-form.test.js | expect(present.length).toBe(12) #1": "pending-list",
+    "tests/gh546-mlsn-thresholds-parity.test.js | expect(Object.keys(canonicalFromJs()).length).toBe(10) #1": "pending-list",
+    "tests/gh546-mlsn-thresholds-parity.test.js | expect(Object.keys(serverTable()).length).toBe(10) #1": "pending-list",
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(bodies.length).toBe(2) #1": "pending-list",
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(done(h).length).toBe(1) #1": [
+      "multiplicity",
+      "one completion event, and events of this kind carry nothing to tell apart — a second would mean the run announced twice."
+    ],
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(failed(h).length).toBe(1) #1": [
+      "multiplicity",
+      "one failure event; same kind, and the claim is that the run reported once rather than what it reported."
+    ],
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(failed(h).length).toBe(1) #2": [
+      "multiplicity",
+      "one failure event; same kind, and the claim is that the run reported once rather than what it reported."
+    ],
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(failed(h).length).toBe(1) #3": [
+      "multiplicity",
+      "one failure event; same kind, and the claim is that the run reported once rather than what it reported."
+    ],
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(h.cachePosts().length).toBe(1) #1": [
+      "multiplicity",
+      "the run must write ONCE: the members are POSTs of one kind and indistinguishable, so their number IS the claim — a second identical write is the defect."
+    ],
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(h.cachePosts().length).toBe(1) #2": [
+      "multiplicity",
+      "the run must write ONCE: the members are POSTs of one kind and indistinguishable, so their number IS the claim — a second identical write is the defect."
+    ],
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(h.cachePosts().length).toBe(1) #3": [
+      "multiplicity",
+      "the run must write ONCE: the members are POSTs of one kind and indistinguishable, so their number IS the claim — a second identical write is the defect."
+    ],
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(h.cachePosts().length).toBe(1) #4": [
+      "multiplicity",
+      "the run must write ONCE: the members are POSTs of one kind and indistinguishable, so their number IS the claim — a second identical write is the defect."
+    ],
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(h.runPosts().length).toBe(1) #1": [
+      "multiplicity",
+      "the run must write ONCE: the members are POSTs of one kind and indistinguishable, so their number IS the claim — a second identical write is the defect."
+    ],
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(h.runPosts().length).toBe(1) #2": [
+      "multiplicity",
+      "the run must write ONCE: the members are POSTs of one kind and indistinguishable, so their number IS the claim — a second identical write is the defect."
+    ],
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(h.runPosts().length).toBe(1) #3": [
+      "multiplicity",
+      "the run must write ONCE: the members are POSTs of one kind and indistinguishable, so their number IS the claim — a second identical write is the defect."
+    ],
+    "tests/gh547-runner-writes-once-on-completion.test.js | expect(h.runPosts().length).toBe(1) #4": [
+      "multiplicity",
+      "the run must write ONCE: the members are POSTs of one kind and indistinguishable, so their number IS the claim — a second identical write is the defect."
+    ],
+    "tests/gh549-a-zone-with-no-name.test.js | expect((html.match(/sn-alert-item/g) || []).length).toBe(2) #1": [
+      "multiplicity",
+      "a count of regular-expression matches in a source text; matches carry nothing to tell one from another, so how many there are is the whole of the claim."
+    ],
+    "tests/gh549-a-zone-with-no-name.test.js | expect(zones.length).toBe(2) #1": "pending-list",
+    "tests/gh549-a-zone-with-no-name.test.js | expect(zones.length).toBe(2) #2": "pending-list",
+    "tests/gh549-a-zone-with-no-name.test.js | expect(zones.length).toBe(2) #3": "pending-list",
+    "tests/gh552-where-the-chain-is-broken.test.js | expect(REQUIRED.length).toBe(13) #1": "pending-list",
+    "tests/gh556-a-pass-before-the-weather-is-not-completion.test.js | expect(h.failures().length).toBe(1) #1": [
+      "multiplicity",
+      "one failure recorded by the pass; failures of one kind, and a second would mean it failed twice."
+    ],
+    "tests/gh556-a-pass-before-the-weather-is-not-completion.test.js | expect(h.results().length).toBe(0) #1": [
+      "multiplicity",
+      "no result produced at all — the claim is that the pass wrote nothing, and zero of one kind is that claim."
+    ],
+    "tests/gh556-a-pass-before-the-weather-is-not-completion.test.js | expect(h.results().length).toBe(1) #1": [
+      "multiplicity",
+      "one result from the pass; results of one shape, and a second would mean it ran twice."
+    ],
+    "tests/gh556-a-pass-before-the-weather-is-not-completion.test.js | expect(h.results().length).toBe(1) #2": [
+      "multiplicity",
+      "one result from the pass; results of one shape, and a second would mean it ran twice."
+    ],
+    "tests/gh556-a-pass-before-the-weather-is-not-completion.test.js | expect(h.results().length).toBe(1) #3": [
+      "multiplicity",
+      "one result from the pass; results of one shape, and a second would mean it ran twice."
+    ],
+    "tests/gh559-where-the-soil-temperature-goes.test.js | expect((code.match(/mergeClimateFromHub\\(state\\.climateMetrics\\)/g) || []).length).toBe(2) #1": [
+      "multiplicity",
+      "a count of regular-expression matches in a source text; matches carry nothing to tell one from another, so how many there are is the whole of the claim."
+    ],
+    "tests/gh559-where-the-soil-temperature-goes.test.js | expect(overwrites.length).toBe(0) #1": "pending-list",
+    "tests/gh563-no-name-anywhere.test.js | expect((zk.match(/\\[0-9a-z\\]\\{4,\\}/g) || []).length).toBe(1) #1": [
+      "multiplicity",
+      "one occurrence of the pattern in the text; matches of a regular expression are indistinguishable from one another, so their number is what is being said."
+    ],
+    "tests/gh563-no-name-anywhere.test.js | expect(strings.filter((s) => s === '')).toHaveLength(2) #1": [
+      "multiplicity",
+      "two values equal to '' among the strings; they are identical by construction, so nothing distinguishes them and the number is the claim."
+    ],
+    "tests/gh563-no-name-anywhere.test.js | expect(strings.filter((s) => s === '200')).toHaveLength(2) #1": [
+      "multiplicity",
+      "two values equal to '200' among the strings; they are identical by construction, so nothing distinguishes them and the number is the claim."
+    ],
+    "tests/gh574-cards-come-from-the-engine-not-the-markup.test.js | expect(sn.nutrients).toHaveLength(3) #1": "pending-list",
+    "tests/gh575-the-chain-from-the-sample-to-the-screen.test.js | expect(crossed).toHaveLength(5) #1": "pending-list",
+    "tests/gh575-the-chain-from-the-sample-to-the-screen.test.js | expect(hubComputed.mlsnRows.length).toBe(10) #1": "pending-list",
+    "tests/gh576-no-numbers-no-verdict-about-the-soil.test.js | expect((src.match(/\\.filter\\(function\\(n\\) \\{\\s*\\n\\s*return n && n\\.actual !== '-'/g) || []).length).toBe(2) #1": [
+      "multiplicity",
+      "a count of regular-expression matches in a source text; matches carry nothing to tell one from another, so how many there are is the whole of the claim."
+    ],
+    "tests/gh576-no-numbers-no-verdict-about-the-soil.test.js | expect(sn.nutrients).toHaveLength(10) #1": "pending-list",
+    "tests/gh577-the-soil-comes-from-the-sample.test.js | expect(Object.keys(soil.ppm)).toHaveLength(10) #1": "pending-list",
+    "tests/gh577-the-soil-comes-from-the-sample.test.js | expect(Object.keys(soil.ppm)).toHaveLength(10) #2": "pending-list",
+    "tests/gh589-the-pass-comes-after-the-inputs.test.js | expect(Object.keys(expected)).toHaveLength(10) #1": "pending-list",
+    "tests/gh606-a-page-global-the-row-reads-is-cleared-on-site-switch.test.js | expect(perSite).toHaveLength(5) #1": "pending-list",
+    "tests/gh607-the-growth-result-gives-up-only-its-daily-pattern.test.js | expect(uses).toHaveLength(1) #1": [
+      "multiplicity",
+      "matches of one and the same identifier after its own declaration: they carry nothing to tell one from another, and the claim is that the substituted mean is used once and nowhere else"
+    ],
+    "tests/gh609-the-judge-reads-the-row-at-its-own-precision.test.js | expect(shared).toHaveLength(9) #1": "pending-list",
+    "tests/gh626-the-producer-says-what-it-calls-a-reading.test.js | expect(Object.keys(readings).length).toBe(15) #1": "pending-list",
+    "tests/gh656-each-construction-resolves-into-its-consumers-table.test.js | expect(Object.keys(VALUES).length).toBe(11) #1": "pending-list",
+    "tests/gh678-the-caller-walk-itself.test.js | expect(writes.length).toBe(2) #1": "pending-list",
+    "tests/gh679-does-init-write-the-programme-without-a-press.test.js | expect(calls.length).toBe(2) #1": "pending-list",
+    "tests/gh718-orchestrator-exports-by-the-stack.test.js | expect(callSite.length).toBe(1) #1": "pending-list",
+    "tests/gh741-an-unset-summer-intent-stays-unset.test.js | expect(hits).toHaveLength(2) #1": "pending-list",
+    "tests/hoxton-nutrition-requirement-no-fabricated-gp.test.js | expect(result.facility.monthlyN).toHaveLength(12) #1": "pending-list",
+    "tests/gh273-texture-dom-priority.test.js | expect(occurrences).toBe(1) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: the claim is that the variable is reused rather than redeclared"
+    ],
+    "tests/gh313-nutrient-range-column.test.js | expect(occurrences).toBe(3) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the claim - three branches degrade to a dash"
+    ],
+    "tests/gh342-au-p-carryover-tracking.test.js | expect(occurrences).toBe(2) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the claim - both scoring functions gate on the same branch"
+    ],
+    "tests/gh425-calc-trace.test.js | expect(planRefs).toBe(1) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the claim - the file has exactly one entry point, which is what makes its removal one deletion"
+    ],
+    "tests/gh630-the-wizard-sends-no-key-it-never-asked-for.test.js | expect(callsToClose).toBe(1) #1": [
+      "multiplicity",
+      "calls to one and the same function: there is nothing to tell one call from another, and the claim is that a single exit is left; where it sits is asserted on the next line"
+    ],
+    "tests/gh649-the-note-lives-inside-the-pass.test.js | expect(before).toBe(1) #1": [
+      "multiplicity",
+      "journal entries after exactly one was written by the line above: the claim is that it landed, and which entry it is was fixed by that call rather than by this count"
+    ],
+    "tests/gh552-where-the-chain-is-broken.test.js | expect(posts.length).toBe(1) #1": [
+      "multiplicity",
+      "posts of one run: they carry nothing to tell one from another, and the claim is that the control run wrote once - a second post would be the defect"
+    ],
+    "tests/gh552-where-the-chain-is-broken.test.js | expect(posts.length).toBe(1) #2": [
+      "multiplicity",
+      "posts of one run: they carry nothing to tell one from another, and the claim is that the measured run wrote once, so the body below is that run's own"
+    ],
+    "tests/gh597-an-exhausted-effect-is-an-answer.test.js | expect(notes).toHaveLength(1) #2": "pending-list",
+    "tests/gh597-an-exhausted-effect-is-an-answer.test.js | expect(notes).toHaveLength(1) #3": "pending-list",
+    "tests/gh753-the-restore-stays-inside-its-own-site.test.js | expect(updates).toHaveLength(1) #1": [
+      "multiplicity",
+      "matches of one and the same literal (`UPDATE site_configs`) in a source file: they carry nothing to tell one from another, and the claim is that the module builds that statement in ONE place - which is what makes a set with a stand-in database prove the text the stand runs"
+    ]
+  }
+}

@@ -250,8 +250,21 @@ describe('GH-606 — what the stored row reads off the page, and what a site swi
     test('the runner document is built per press, which is what makes the twelve safe today', () => {
         const ui = fs.readFileSync(asset('dashboard-ui.js'), 'utf8');
 
+        /**
+         * GH-724 — THE CLAIM IS THE FRESH DOCUMENT, NOT THE LINE THAT HAPPENS TO SET ITS ADDRESS.
+         *
+         * This read `iframe.src = '/hub?rerun='` as a literal, so it went red the day the address
+         * stopped being assembled at that spot: both openers ask the server which samples to use
+         * before the frame starts, and the address is built in one place they share. Nothing about
+         * the per-press document changed, which is what the case is for.
+         *
+         * So the address is asserted where it is now BUILT, and the per-press part is asserted as
+         * the sequence it actually is: a frame created, an address given to it, and the frame
+         * removed when the run ends.
+         */
         expect(ui).toContain("var iframe = document.createElement('iframe');");
-        expect(ui).toMatch(/iframe\.src\s*=\s*'\/hub\?rerun='/);
+        expect(ui).toMatch(/return '\/hub\?rerun=' \+ encodeURIComponent\(runId\)/);
+        expect(ui).toMatch(/\.then\(function \(src\) \{\s*\n\s*iframe\.src = src;/);
         expect(ui).toMatch(/document\.body\.removeChild\(iframe\)/);
         expect(ui).toContain('pointer-events:none');
     });

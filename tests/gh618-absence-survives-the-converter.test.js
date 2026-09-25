@@ -37,13 +37,20 @@ const path = require('path');
 const ASSETS = path.join(__dirname, '..', 'assets');
 const SRC = fs.readFileSync(path.join(ASSETS, 'hub-tissue-v3.js'), 'utf8');
 
-/** The converter, executed — the one function this file is about. */
-function transform(domState) {
+/**
+ * The converter, executed — the one function this file is about.
+ *
+ * GH-725: it also takes the config the SERVER delivers to the frame, because one of the values it
+ * assembles comes from there rather than from the state. Passing nothing leaves the config absent,
+ * which is its own case.
+ */
+function transform(domState, gaipConfig) {
     const sandbox = {
         console: { log() {}, warn() {}, error() {} },
         document: { querySelector: () => null, querySelectorAll: () => [] },
         Date, JSON, Math, Object, Array, String, Number, parseFloat, parseInt, isNaN,
     };
+    if (arguments.length > 1) sandbox.GAIP_HUB_CONFIG = { gaipConfig };
     sandbox.window = sandbox;
     sandbox.global = sandbox;
     sandbox.globalThis = sandbox;
@@ -79,6 +86,51 @@ describe('GH-618 — what the engines are handed', () => {
         expect(out.inputs.soil).toBeTruthy();
         process.stdout.write('[gh618] soil handed to the engines: '
             + JSON.stringify({ LOI: out.inputs.soil.LOI, CEC: out.inputs.soil.CEC }) + '\n');
+    });
+
+    /**
+     * GH-725 (queue item 3bo) — TWO MORE SUBSTITUTIONS ON THIS SAME LAYER, AND NEITHER MOVES A
+     * NUMBER TODAY, WHICH IS WHY THEY ARE TRAPS RATHER THAN DEFECTS.
+     *
+     * `water.SAR` came through as `|| 0`, and zero is the safest-looking sodium hazard there is —
+     * the shape of GH-707's manufactured zero ions. Measured on the stand: none of the eight live
+     * water samples carries a SAR, so nothing changes for anyone now; the first report that carries
+     * one would have been reported as zero.
+     *
+     * `turf.pgrActive` came through as `|| false` over a state field NOTHING fills: the person's
+     * answer is the PGR switch, stored as `pgr.enabled` in the site's own config and delivered to
+     * this frame by the server. PGR is off on all twelve configured sites, so again nothing moves;
+     * the first site to switch it on would have been judged as though it had not.
+     */
+    test('GH-725: an absent SAR stays absent, and a supplied one arrives unchanged', () => {
+        const absent = transform({ soil: {}, water: {}, turf: {} }).inputs.water.SAR;
+        const supplied = transform({ soil: {}, water: { SAR: 3.4 }, turf: {} }).inputs.water.SAR;
+        process.stdout.write('[gh725] water.SAR — absent: ' + JSON.stringify(absent)
+            + ' | supplied 3.4: ' + JSON.stringify(supplied) + '\n');
+        expect(absent).toBeNull();
+        expect(supplied).toBe(3.4);
+        // A real zero is a reading, not an absence, and must survive as one.
+        expect(transform({ soil: {}, water: { SAR: 0 }, turf: {} }).inputs.water.SAR).toBe(0);
+    });
+
+    test('GH-725: PGR activity is the answer in the site config, and silence is not `off`', () => {
+        const on = transform({ soil: {}, water: {}, turf: {} }, { pgr: { enabled: true } });
+        const off = transform({ soil: {}, water: {}, turf: {} }, { pgr: { enabled: false } });
+        const silent = transform({ soil: {}, water: {}, turf: {} }, { turf: {} });
+        const noConfig = transform({ soil: {}, water: {}, turf: {} });
+        process.stdout.write('[gh725] turf.pgrActive — config on: ' + JSON.stringify(on.inputs.turf.pgrActive)
+            + ' | off: ' + JSON.stringify(off.inputs.turf.pgrActive)
+            + ' | config silent: ' + JSON.stringify(silent.inputs.turf.pgrActive)
+            + ' | no config at all: ' + JSON.stringify(noConfig.inputs.turf.pgrActive) + '\n');
+        expect(on.inputs.turf.pgrActive).toBe(true);
+        expect(off.inputs.turf.pgrActive).toBe(false);
+        expect(silent.inputs.turf.pgrActive).toBeNull();
+        expect(noConfig.inputs.turf.pgrActive).toBeNull();
+        // And it is NOT taken from the state, which nothing fills: a state claiming otherwise
+        // must not win over the site's own answer.
+        const stateSaysTrue = transform({ soil: {}, water: {}, turf: { pgrActive: true } },
+            { pgr: { enabled: false } });
+        expect(stateSaysTrue.inputs.turf.pgrActive).toBe(false);
     });
 
     test('a measured reading arrives unchanged', () => {
@@ -154,6 +206,124 @@ describe('GH-618 — what the engines are handed', () => {
             ions: { Na: 31 }, SAR: 1.5, adjSAR: 1.8,
         },
     };
+
+    /**
+     * GH-619 (queue item 3x, the reviewer's return) — AND THE SAME UNIVERSE, FED NOTHING.
+     *
+     * The case below sends every field WITH a value, so it says that a reading arrives as itself and
+     * nothing at all about an absence; absence was checked by the hand-written list two cases above.
+     * A guard that fills its own list cannot find the field nobody added to it — which is how
+     * `adjSAR` kept `|| 0` while its neighbour `SAR` was repaired one line above it.
+     *
+     * So the universe is the converter's own keys again, and the state sent is EMPTY. Every field
+     * must arrive `null`, with the exceptions declared here rather than discovered:
+     *   - `bulkDensity` — its default is the owner's open decision, recorded in the defects document;
+     *   - `ppm`, `meq`, `ions` — containers, and an empty container is not a manufactured value.
+     * A field that starts substituting reddens by itself, naming itself and what it invented.
+     */
+    const ABSENCE_EXCEPTIONS = {
+        'soil.bulkDensity': 'the default is the owner\'s open decision, not this layer\'s to remove',
+        'soil.ppm': 'a container; an empty one invents no value',
+        'soil.meq': 'a container; an empty one invents no value',
+        'water.ions': 'a container; an empty one invents no value',
+    };
+
+    test('and fed NOTHING, every field the converter builds arrives as an absence', () => {
+        const out = transform({ soil: {}, water: {}, turf: {} });
+        const rows = [];
+        ['soil', 'water'].forEach((half) => {
+            Object.keys((out.inputs && out.inputs[half]) || {}).forEach((k) => {
+                const at = half + '.' + k;
+                rows.push({ at, got: out.inputs[half][k], excepted: at in ABSENCE_EXCEPTIONS });
+            });
+        });
+        process.stdout.write('[gh619] fed nothing, the converter builds ' + rows.length + ' fields:\n'
+            + rows.map((r) => '[gh619]   ' + r.at.padEnd(20) + ' -> ' + JSON.stringify(r.got)
+                + (r.excepted ? '   (declared exception: ' + ABSENCE_EXCEPTIONS[r.at] + ')' : '')).join('\n') + '\n');
+
+        // The universe is real, and it is the same one the case below walks.
+        expect(rows.length).toBeGreaterThan(12);
+        const invented = rows.filter((r) => !r.excepted && r.got !== null)
+            .map((r) => r.at + ' invented ' + JSON.stringify(r.got));
+        // Both directions: an exception that no longer invents anything has to go, or the list
+        // becomes an excuse for code that has already been repaired.
+        const idleExceptions = Object.keys(ABSENCE_EXCEPTIONS).filter((at) => {
+            const row = rows.find((r) => r.at === at);
+
+            return !row || row.got === null;
+        });
+        expect({ invented, idleExceptions }).toEqual({ invented: [], idleExceptions: [] });
+    });
+
+    /**
+     * GH-619 (queue item 3x, the reviewer's SECOND return) — ONE FIELD AT A TIME, WITH THE REST FULL.
+     *
+     * Her words about the case above, and they are right: from an empty state there is nothing to
+     * substitute WITH, so a field that takes its value from ANOTHER field passes it. Her mutation —
+     * a site with no water takes the water `pH` from the soil one — stayed green on all eleven.
+     *
+     * So each field is removed on its own while every other field is present, and what arrives in its
+     * place has to be an absence. A substitution that borrows from a neighbour is then red, because
+     * the neighbour is there to borrow from.
+     *
+     * ONE BORROWING IS DELIBERATE AND DECLARED: `EC` falls back to `ecw`, the same reading under
+     * another name, and the chain is stated in the converter's own comment. It is named here rather
+     * than left to be discovered, which is the difference between a chain and a substitution.
+     */
+    /**
+     * GH-619 (queue item 3x, the reviewer's THIRD return) — A DECLARED BORROWING NAMES WHAT IT BORROWS.
+     *
+     * The first version of this allowance asserted only that something arrived where `EC` had been
+     * removed, which is less than it promised: `EC` could have taken a reading from anywhere, or a
+     * substituted constant, and the case would have nodded. `GH-673` caught this very file for the
+     * same shape — six named in prose, five asserted — and the cure is the same: the allowance carries
+     * the field it borrows FROM, and the value that arrives has to be that field's own.
+     */
+    const BORROWING_ALLOWED = {
+        'water.EC': {
+            from: 'water.ecw',
+            why: 'declared chain: `EC ?? ecw`, the same reading under the name the older payloads use',
+        },
+    };
+
+    test('and with every other field present, a field removed on its own still arrives as an absence', () => {
+        const rows = [];
+        ['soil', 'water'].forEach((half) => {
+            Object.keys(ALL_READINGS[half]).forEach((missing) => {
+                const at = half + '.' + missing;
+                if (at in ABSENCE_EXCEPTIONS) return;
+                const sent = { soil: { ...ALL_READINGS.soil }, water: { ...ALL_READINGS.water }, turf: {} };
+                delete sent[half][missing];
+                const got = transform(sent).inputs[half][missing];
+                const allowance = BORROWING_ALLOWED[at] || null;
+                const owed = allowance
+                    ? ALL_READINGS[allowance.from.split('.')[0]][allowance.from.split('.')[1]]
+                    : undefined;
+                rows.push({ at, got, allowed: !!allowance, from: allowance && allowance.from, owed });
+            });
+        });
+        process.stdout.write('[gh619] each field removed on its own, the rest full:\n'
+            + rows.map((r) => '[gh619]   without ' + r.at.padEnd(20) + ' -> ' + JSON.stringify(r.got)
+                + (r.allowed ? '   (borrows ' + r.from + ', which holds ' + JSON.stringify(r.owed) + ')' : '')).join('\n') + '\n');
+
+        // The universe is the same one the other two cases walk, minus what they declare.
+        expect(rows.length).toBeGreaterThan(8);
+        const borrowed = rows.filter((r) => !r.allowed && r.got !== null)
+            .map((r) => r.at + ' arrived as ' + JSON.stringify(r.got) + ' with the field removed');
+        const idleBorrowings = Object.keys(BORROWING_ALLOWED).filter((at) => {
+            const row = rows.find((r) => r.at === at);
+
+            return !row || row.got === null;
+        });
+        // And a borrowing arrives with the value of the field it declares it borrows from — not
+        // merely with something. The third return: less was asserted than the allowance promised.
+        const borrowedFromElsewhere = rows.filter((r) => r.allowed)
+            .filter((r) => JSON.stringify(r.got) !== JSON.stringify(r.owed))
+            .map((r) => r.at + ' says it borrows ' + r.from + ' (' + JSON.stringify(r.owed)
+                + ') and arrived as ' + JSON.stringify(r.got));
+        expect({ borrowed, idleBorrowings, borrowedFromElsewhere })
+            .toEqual({ borrowed: [], idleBorrowings: [], borrowedFromElsewhere: [] });
+    });
 
     test('every field the converter builds is sent, and arrives as itself', () => {
         const out = transform({ soil: ALL_READINGS.soil, water: ALL_READINGS.water, turf: {} });

@@ -28,36 +28,59 @@
 
 const fs = require('fs');
 const path = require('path');
+const { loadManager } = require('./lib/sample-form-bench');
 
+/**
+ * GH-722: the spellings moved out of `sample-manager.js` into
+ * `assets/lab-reading-names.json`, and the soil table is built from that map and
+ * the manager's own `READING_FIELDS`. The property this file holds is unchanged —
+ * no sample column is ever written into `.gaip-soil-texture` — so it is asserted on
+ * the two sources the table is built from, and on what loading a sample does.
+ */
 describe('GH-274 — SOIL_FIELD_MAP no longer writes sample data into .gaip-soil-texture', () => {
+    let map;
     let src;
     beforeAll(() => {
+        map = JSON.parse(fs.readFileSync(path.join(__dirname, '../assets/lab-reading-names.json'), 'utf8'));
         src = fs.readFileSync(path.join(__dirname, '../assets/sample-manager.js'), 'utf8');
     });
 
-    function extractSoilFieldMap() {
-        const start = src.indexOf('const SOIL_FIELD_MAP = {');
-        const end = src.indexOf('\n    };', start);
-        return src.slice(start, end);
+    function soilSpellings() {
+        const t = map.types.soil;
+        const all = [];
+        [t.readings, t.attributes || {}].forEach((g) => Object.keys(g).forEach((k) => g[k].forEach((s) => all.push(s))));
+        return all;
     }
 
-    test('Texture/texture/Soil_Texture keys are gone from SOIL_FIELD_MAP', () => {
-        const block = extractSoilFieldMap();
-        expect(block).not.toMatch(/'Texture':\s*'\.gaip-soil-texture'/);
-        expect(block).not.toMatch(/'texture':\s*'\.gaip-soil-texture'/);
-        expect(block).not.toMatch(/'Soil_Texture':\s*'\.gaip-soil-texture'/);
+    test('Texture/texture/Soil_Texture are not soil spellings in the map', () => {
+        const lower = soilSpellings().map((s) => s.toLowerCase());
+        expect(lower).not.toContain('texture');
+        expect(lower).not.toContain('soil_texture');
     });
 
-    test('no SOIL_FIELD_MAP entry maps to .gaip-soil-texture at all', () => {
-        const block = extractSoilFieldMap();
-        expect(block).not.toMatch(/:\s*'\.gaip-soil-texture'/);
+    test('no soil reading or attribute fills .gaip-soil-texture', () => {
+        const { sm } = loadManager(map);
+        const fields = Object.values(sm.readingFields.soil);
+        expect(fields.length).toBeGreaterThan(0);
+        expect(fields).not.toContain('.gaip-soil-texture');
     });
 
-    test('adjacent pH/EC/CEC mappings are untouched (scoped removal only)', () => {
-        const block = extractSoilFieldMap();
-        expect(block).toMatch(/'pH_Water':\s*'\.gaip-soil-ph'/);
-        expect(block).toMatch(/'EC_1_5':\s*'\.gaip-soil-ec'/);
-        expect(block).toMatch(/'CEC_meq100g':\s*'\.gaip-cec'/);
+    test('loading a sample that carries a texture column leaves the texture field alone', () => {
+        const { sm, fields } = loadManager(map);
+        sm.addSample('soil', { id: 'gh274', label: 'gh274', values: { Texture: 'sand', texture: 'sand', Soil_Texture: 'sand', pH_Water: 6.5 } });
+        sm.loadSample('soil', 'gh274');
+        // Positive control: the load reached the form at all.
+        expect(fields.get('.gaip-soil-ph').value).toBe(6.5);
+        expect(fields.has('.gaip-soil-texture') ? fields.get('.gaip-soil-texture').value : '').toBe('');
+    });
+
+    test('adjacent pH/EC/CEC spellings still fill their fields (scoped removal only)', () => {
+        const { sm } = loadManager(map);
+        const bind = sm.readingFields.soil;
+        expect(map.types.soil.readings.pH).toContain('pH_Water');
+        expect(map.types.soil.readings.EC).toContain('EC_1_5');
+        expect(map.types.soil.readings.CEC).toContain('CEC_meq100g');
+        expect([bind.pH, bind.EC, bind.CEC]).toEqual(['.gaip-soil-ph', '.gaip-soil-ec', '.gaip-cec']);
     });
 
     test('file has no syntax errors after the removal', () => {

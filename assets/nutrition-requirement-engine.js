@@ -383,7 +383,8 @@
         const overseedConfig = inputs.overseedConfig || {
             isOverseed: false,
             baseIsC4: isC4Species(turf.species),
-            summerIntent: 'transition'
+            // GH-741: an unset summer intent stays unset; 'transition' here was a guess that read as an answer.
+            summerIntent: null
         };
 
         // GH-381 (D31, N-basis divergence): resolved ONCE, before the

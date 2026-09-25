@@ -66,13 +66,12 @@ class Gh541AccountMethodologyColumnTest extends TestCase
         // This reads that select's list out of the blade and asserts the column
         // has a label for every key it offers — so a fourth methodology added
         // there and forgotten here goes red instead of printing its raw key.
+        // GH-744: Settings takes its choices from the inputs list now, so that is where the offered
+        // keys are read -- the same call the chooser makes.
         $blade = file_get_contents(resource_path('views/settings.blade.php'));
-        $this->assertMatchesRegularExpression('/\$methOptions\s*=\s*\[/', $blade, 'the Settings option list has moved');
+        $this->assertStringContainsString('CalculationInputs::methodologyChoices()', $blade, 'the Settings option list has moved');
 
-        preg_match('/\$methOptions\s*=\s*\[(.*?)\];/s', $blade, $m);
-        preg_match_all("/'([a-z_]+)'\s*=>/", $m[1] ?? '', $keys);
-
-        $offered = $keys[1] ?? [];
+        $offered = array_keys(\App\Support\CalculationInputs::methodologyChoices());
         $this->assertNotEmpty($offered, 'no methodology keys were read out of the Settings form');
         $this->assertContains('mlsn', $offered);
         $this->assertContains('ammonium_acetate', $offered);

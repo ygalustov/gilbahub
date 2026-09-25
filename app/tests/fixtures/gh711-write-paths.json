@@ -1,0 +1,210 @@
+{
+  "$comment": [
+    "GH-711 - every write route of the framework registry, with where its site comes from as read off the handler's source (not measured by behaviour).",
+    "Proved equal to the registry, both ways, by app/tests/Feature/Gh711WritePathsTest.php; read by tests/gh711-page-write-calls.test.js for the page half.",
+    "The sign it was measured under travels with it: a changed sign is announced with a new version and the list is re-measured."
+  ],
+  "sign": {
+    "version": 1,
+    "methods": [
+      "DELETE",
+      "PATCH",
+      "POST",
+      "PUT"
+    ]
+  },
+  "routes": {
+    "DELETE api/invitations/{invitation}": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\InvitationController@destroy"
+    },
+    "DELETE api/samples/{sample}": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\SampleController@destroy"
+    },
+    "DELETE api/sites/{site}": {
+      "siteFrom": "url+pointer",
+      "handler": "App\\Http\\Controllers\\SiteController@destroy"
+    },
+    "DELETE api/spray-log/{logId}": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\SprayLogController@destroy"
+    },
+    "DELETE api/users/{user}": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\UsersController@destroy"
+    },
+    "DELETE api/users/{user}/site/{site}": {
+      "siteFrom": "url+pointer",
+      "handler": "App\\Http\\Controllers\\UsersController@removeSite"
+    },
+    "DELETE|PATCH|POST|PUT /": {
+      "siteFrom": "none",
+      "handler": "\\Illuminate\\Routing\\RedirectController@__invoke"
+    },
+    "DELETE|PATCH|POST|PUT favicon.ico": {
+      "siteFrom": "none",
+      "handler": "\\Illuminate\\Routing\\RedirectController@__invoke"
+    },
+    "DELETE|PATCH|POST|PUT reports": {
+      "siteFrom": "none",
+      "handler": "\\Illuminate\\Routing\\RedirectController@__invoke"
+    },
+    "PATCH api/active-site": {
+      "siteFrom": "body+pointer",
+      "handler": "App\\Http\\Controllers\\SiteController@setActive"
+    },
+    "PATCH api/profile": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\ProfileController@update"
+    },
+    "PATCH api/profile/password-prompt": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\ProfileController@dismissPasswordPrompt"
+    },
+    "PATCH api/samples/{sample}": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\SampleController@update"
+    },
+    "PATCH api/sites/{site}": {
+      "siteFrom": "url",
+      "handler": "App\\Http\\Controllers\\SiteController@update"
+    },
+    "PATCH api/sites/{site}/config/gaip": {
+      "siteFrom": "url",
+      "handler": "App\\Http\\Controllers\\SiteController@patchConfig"
+    },
+    "PATCH api/users/{user}/approve": {
+      "siteFrom": "pointer",
+      "handler": "App\\Http\\Controllers\\UsersController@approve"
+    },
+    "PATCH api/users/{user}/role": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\UsersController@updateRole"
+    },
+    "POST api/alerts/check": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\AlertController@check"
+    },
+    "POST api/alerts/test": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\AlertController@test"
+    },
+    "POST api/analysis-cache": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\AnalysisCacheController@store"
+    },
+    "POST api/analysis-cache/runs": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\AnalysisCacheController@storeRun"
+    },
+    "POST api/field-log/entries": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\FieldLogEntryController@store"
+    },
+    "POST api/interpretations/soil": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\InterpretationController@soil"
+    },
+    "POST api/interpretations/synthesis": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\InterpretationController@synthesis"
+    },
+    "POST api/interpretations/water": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\InterpretationController@water"
+    },
+    "POST api/invitations": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\InvitationController@store"
+    },
+    "POST api/lab-reports/parse": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\LabReportParseController@store"
+    },
+    "POST api/media": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\MediaUploadController@store"
+    },
+    "POST api/outcomes": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\PredictionController@storeOutcome"
+    },
+    "POST api/predictions": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\PredictionController@store"
+    },
+    "POST api/profile/password": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\ProfileController@setPassword"
+    },
+    "POST api/samples": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\SampleController@store"
+    },
+    "POST api/samples/sync": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\SampleController@sync"
+    },
+    "POST api/sensors/hydrosight/proxy": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\SensorProxyController@hydrosight"
+    },
+    "POST api/sensors/specconnect/proxy": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\SensorProxyController@specconnect"
+    },
+    "POST api/sites": {
+      "siteFrom": "pointer",
+      "handler": "App\\Http\\Controllers\\SiteController@store"
+    },
+    "POST api/spray-log": {
+      "siteFrom": "body",
+      "handler": "App\\Http\\Controllers\\SprayLogController@store"
+    },
+    "POST api/stadium/rig-calculate": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\StadiumAnalysisController@rigCalculate"
+    },
+    "POST api/stadium/seasonal-plan": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\StadiumAnalysisController@seasonalPlan"
+    },
+    "POST api/stadium/shade-render": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\StadiumAnalysisController@shadeRender"
+    },
+    "POST login": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\AuthController@login"
+    },
+    "POST login/magic": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\MagicLinkController@send"
+    },
+    "POST logout": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\AuthController@logout"
+    },
+    "POST register": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\AuthController@register"
+    },
+    "PUT api/sites/{site}/config/{namespace?}": {
+      "siteFrom": "url+body",
+      "handler": "App\\Http\\Controllers\\SiteController@updateConfig"
+    },
+    "PUT api/spray-log/{logId}": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\SprayLogController@update"
+    },
+    "PUT api/stadium/venue-profiles/{venueId}": {
+      "siteFrom": "none",
+      "handler": "App\\Http\\Controllers\\StadiumVenueProfileController@upsert"
+    },
+    "PUT storage/{path}": {
+      "siteFrom": "none",
+      "handler": "closure"
+    }
+  }
+}

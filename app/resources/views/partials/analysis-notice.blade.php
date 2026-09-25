@@ -36,8 +36,11 @@
     <span id="db-analysis-notice-text">{{ $anNotice['text'] ?? '' }}</span>
     {{-- GH-557: everything the run said while it ran. Seven explanations per run
          used to reach a console nobody had open; they belong under the sentence
-         that says something is missing, folded away until asked for. --}}
-    @if(!empty($anNotice['details']))
+         that says something is missing, folded away until asked for.
+         GH-743: for an administrator only, the owner's decision. The run's own records are for
+         diagnosis; a client gets the sentence above and not the lines, which are not rendered
+         for them at all. The admin type in this product is `users.is_admin`. --}}
+    @if(!empty($anNotice['details']) && auth()->user()?->is_admin)
         <details id="db-analysis-notice-details" style="margin-left:12px;font-size:12px">
             <summary style="cursor:pointer;opacity:.8">Details ({{ count($anNotice['details']) }})</summary>
             <ul style="margin:6px 0 0;padding-left:18px;line-height:1.5">

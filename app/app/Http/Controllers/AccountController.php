@@ -197,10 +197,10 @@ class AccountController extends Controller
             return null;
         }
 
-        return [
-            'mlsn'             => 'MLSN',
-            'slan'             => 'SLAN',
-            'ammonium_acetate' => 'Ammonium Acetate',
-        ][$key] ?? $key;
+        // GH-742 (queue item 3ad): the words were a copy of a vocabulary that now has an owner -
+        // the `values` of `turf.methodology` in the inputs list, read by `CalculationInputs`. The
+        // three texts are identical, so nothing on this page changes; what goes is the second copy.
+        // A key the list does not carry comes back as itself, as it did here.
+        return \App\Support\CalculationInputs::methodologyLabel($key) ?? $key;
     }
 }

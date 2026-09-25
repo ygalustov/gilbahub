@@ -398,7 +398,8 @@
     const t = e.turf?.grassSpecies || "couch",
       r = e.turf?.coolOverseed || e.turf?.overseedSpecies || "",
       i = e.turf?.percentC3Cover || (e.turf?.c3Fraction ? e.turf.c3Fraction * 100 : 0),
-      summerIntent = e.turf?.summerIntent || "transition";
+      // GH-741: an unset summer intent stays unset; 'transition' here was a guess that read as an answer.
+      summerIntent = e.turf?.summerIntent || null;
     
     return {
       baseSpecies: t,

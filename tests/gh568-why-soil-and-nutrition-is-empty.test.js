@@ -260,14 +260,74 @@ describe('GH-568 — question 2: a journal that holds successes cannot drive a w
         // engine produced a warning and no `skipped` entry, because only the
         // three steps GH-557 touched record one. The specimen: warnings 2,
         // skipped 0.
+        /**
+         * GH-734: THE CLAIM IS WHICH STEPS RECORD A SKIP, NOT HOW MANY.
+         *
+         * This counted the call sites and pinned the count at three, because three steps recorded
+         * one when GH-557 built the two lists. Item 3az legitimately added a fourth subject -- the
+         * soil-temperature physics refuses with `setting-missing` or `soil-moisture-unavailable`
+         * instead of computing on a substituted profile and a substituted moisture -- and the count
+         * went to five while nothing this case is about had changed.
+         *
+         * A count is a fact about the batch. What this case is about is that `skipped` DISTINGUISHES
+         * an obstruction from a receipt, and that the wear step -- the specimen's own blocked engine
+         * -- records no skip, which is why the specimen has warnings 2 and skipped 0. So the SET of
+         * subjects is asserted by name, in both directions: a step that starts recording one and a
+         * step that stops are each red, and neither is mistaken for the other.
+         */
         const orch = fs.readFileSync(path.join(__dirname, '..', 'assets', 'hub-orchestrator.js'), 'utf8');
-        const noted = orch.match(/noteSkipped\("[a-z]+"/gi) || [];
-        process.stdout.write('[q31] steps that record a skip: ' + JSON.stringify(noted) + '\n');
-        expect(noted.length).toBe(3);
+        const noted = [...orch.matchAll(/noteSkipped\("([a-z-]+)", "([a-z-]+)"/gi)]
+            .map((m) => m[1] + '/' + m[2]);
+        const subjects = [...new Set(noted)].sort();
+        process.stdout.write('[q31] steps that record a skip: ' + JSON.stringify(subjects) + '\n');
+        expect(subjects).toEqual(['disease/disease', 'forecast/forecast',
+            'soil-temp-physics/soil-temp-physics', 'stress/stress']);
+        /**
+         * GH-734: AND THE TWO WORDS OF A PAIR ARE ONE WORD, which is a claim about every pair
+         * rather than about the one that broke it. A recorded cause is found by the step it is
+         * filed under (`AnalysisNotice::entryStep` reads `step` first), while the section of a
+         * result key asks for the step the graph names for that key. Filed under the step it runs
+         * INSIDE -- `climate` for the soil temperature -- the reason reached no section, and the
+         * panel printed nothing about numbers it was missing. Asserted over the list, not over its
+         * length, so the next pair written apart is red and named.
+         */
+        const apart = subjects.filter((s) => s.split('/')[0] !== s.split('/')[1]);
+        process.stdout.write('[gh734] pairs whose step and module differ: ' + JSON.stringify(apart) + '\n');
+        expect(apart).toEqual([]);
         expect(orch.slice(orch.indexOf('Step 7: Wear/recovery analysis'),
                           orch.indexOf('Step 7: Wear/recovery analysis') + 900)).not.toMatch(/noteSkipped/);
     });
 });
+
+/**
+ * GH-737: the pass door's `soilNutrition` object, key by key -- the first
+ * `cache.computed.soilNutrition = {` in the producer, cut at its own closing brace, comments
+ * dropped, split on its top-level commas. Asserted to hold the four keys before anything is
+ * said about them, so a missed cut cannot pass over nothing.
+ */
+function passDoorEntries(producer) {
+    const at = producer.indexOf('cache.computed.soilNutrition = {');
+    expect(at).toBeGreaterThan(-1);
+    const open = producer.indexOf('{', at);
+    let depth = 0, end = -1;
+    for (let j = open; j < producer.length; j++) {
+        if (producer[j] === '{') depth++;
+        else if (producer[j] === '}') { depth--; if (!depth) { end = j; break; } }
+    }
+    const body = producer.slice(open + 1, end).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    const parts = [];
+    let d = 0, cur = '';
+    for (const ch of body) {
+        if ('({['.includes(ch)) d++;
+        if (')}]'.includes(ch)) d--;
+        if (ch === ',' && d === 0) { parts.push(cur); cur = ''; } else cur += ch;
+    }
+    parts.push(cur);
+    const out = {};
+    parts.forEach((p) => { const m = /^\s*(\w+)\s*:([\s\S]*)$/.exec(p); if (m) out[m[1]] = m[2].trim(); });
+    ['pH', 'ECe', 'soilNa', 'CEC'].forEach((k) => expect(Object.keys(out)).toContain(k));
+    return out;
+}
 
 describe('GH-568 — question 3: CEC and soilNa', () => {
     test('MEASUREMENT: CEC was a silent emptiness and soilNa was not', () => {
@@ -297,14 +357,20 @@ describe('GH-568 — question 3: CEC and soilNa', () => {
         expect(SAMPLE_AS_STORED.CEC).toBe('5.9');
         expect(SAMPLE_AS_STORED.Na).toBeUndefined();
 
+        // GH-737: the four are held by WHAT THEY READ, not by their text. The claim is one
+        // road: each of the four reads the pass's soil (`_si`), and none of them reaches into the
+        // sample store a second time. The text of a line is not the claim -- GH-737 changed how
+        // `soilNa` treats a measured zero and this case went red on a regex while the road stood.
+        // Written this way it survives a repair of any one line (CEC's included) and reddens
+        // only when a second road comes back. The object is cut at its own closing brace.
         const producer = fs.readFileSync(path.join(__dirname, '..', 'assets', 'hub-persistence.js'), 'utf8');
-        const block = producer.slice(producer.indexOf('cache.computed.soilNutrition = {'),
-                                     producer.indexOf('cache.computed.soilNutrition = {') + 700);
-        expect(block).toMatch(/pH:\s+_si\.pH_water \|\| _si\.pH_cacl2 \|\| _si\.ph \|\| null/);
-        expect(block).toMatch(/ECe:\s+_si\.ECe \|\| null/);
-        expect(block).toMatch(/soilNa:\s+\(_si\.ppm && _si\.ppm\.Na\) \|\| _si\.Na_ppm \|\| null/);
-        expect(block).toMatch(/CEC:\s+_si\.CEC \|\| _si\.cec \|\| null/);
+        const entries = passDoorEntries(producer);
+        const FOUR = ['pH', 'ECe', 'soilNa', 'CEC'];
+        process.stdout.write('[gh568] pass door, what the four read: ' + JSON.stringify(FOUR.map((k) =>
+            [k, (String(entries[k] || '').match(/\b_si\.\w+|_soilSmp\w*|GAIP_SampleManager|_sm\w+/g) || [])])) + '\n');
+        FOUR.forEach((k) => expect({ [k]: /\b_si\./.test(entries[k] || '') }).toEqual({ [k]: true }));
         // and not one of them reaches past the pass into the store a second time
-        expect(block).not.toMatch(/_soilSmp/);
+        const secondRoad = FOUR.filter((k) => /_soilSmp|GAIP_SampleManager|getAllSamples|getSamples|_sm[A-Z]/.test(entries[k] || ''));
+        expect({ secondRoad }).toEqual({ secondRoad: [] });
     });
 });

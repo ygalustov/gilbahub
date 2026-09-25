@@ -82,6 +82,9 @@ class ReportsExportSoilTextureTest extends TestCase
         $user = User::factory()->create();
         $site = $this->createSiteForUser($user, ['soil_texture_override' => 'sand']);
         $user->forceFill(['last_active_site_id' => $site->id])->save();
+        // GH-708: the wizard lock redirects a page whose site has not answered what the
+        // calculation needs. This fixture's subject is the page, not the answers.
+        $this->giveTheSiteWhatTheLockNeeds($site);
 
         $this->actingAs($user)
             ->get('/reports/export')
@@ -97,6 +100,9 @@ class ReportsExportSoilTextureTest extends TestCase
             '_account_soil_texture' => 'loam',
         ]);
         $user->forceFill(['last_active_site_id' => $site->id])->save();
+        // GH-708: the wizard lock redirects a page whose site has not answered what the
+        // calculation needs. This fixture's subject is the page, not the answers.
+        $this->giveTheSiteWhatTheLockNeeds($site);
 
         $this->actingAs($user)
             ->get('/reports/export')
@@ -117,6 +123,9 @@ class ReportsExportSoilTextureTest extends TestCase
             '_account_soil_texture' => '',
         ]);
         $user->forceFill(['last_active_site_id' => $site->id])->save();
+        // GH-708: the wizard lock redirects a page whose site has not answered what the
+        // calculation needs. This fixture's subject is the page, not the answers.
+        $this->giveTheSiteWhatTheLockNeeds($site);
 
         $this->actingAs($user)
             ->get('/reports/export')
@@ -129,6 +138,9 @@ class ReportsExportSoilTextureTest extends TestCase
         $user = User::factory()->create();
         $site = $this->createSiteForUser($user, ['soil_texture_override' => 'sand']);
         $user->forceFill(['last_active_site_id' => $site->id])->save();
+        // GH-708: the wizard lock redirects a page whose site has not answered what the
+        // calculation needs. This fixture's subject is the page, not the answers.
+        $this->giveTheSiteWhatTheLockNeeds($site);
 
         $response = $this->actingAs($user)->get('/reports/export');
         $response->assertOk();

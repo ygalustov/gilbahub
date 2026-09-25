@@ -99,6 +99,10 @@ const GRAPH_KEY = {
     // written. The node's output was misnamed; it declares `computed.forecast`, which
     // is what `runComputePass` writes, so the module resolves directly.
 
+    // GH-734: the module the run warns under is `soil-temp-physics`, the engine's own
+    // id, while the key it writes is `soilTempPhysics`. A fourth spelling difference
+    // of the same kind as the three below.
+    'soil-temp-physics': 'soilTempPhysics',
     'pre-emergent': 'preEmergent',
     'stress-trajectory': 'stressTrajectory',
     'tissue-corrective': 'tissue',

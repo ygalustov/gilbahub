@@ -213,7 +213,13 @@ class Gh546AnalysisResultsOwnerTest extends TestCase
         // and a sentence about why a section is empty has to come from the row
         // the section's numbers came from.
         $this->assertSame(
-            ['metrics', 'computed', 'analyzedAt', 'lastRun', 'status', 'numbersFrom', 'numbersRun'],
+        // GH-742 (queue item 3ad) added `methodology`: the panel names the soil part of the analysis
+        // by a fixed word today, and the owner's decision is that it must name the methodology the
+        // site is SET to. The key travels here because this is the one place a reader of the panel is
+        // handed facts about the site, and it is read from `config.turf.methodology` and from nowhere
+        // else -- not from the coordinates, not from a sample's stamp, not from a field on a page.
+            ['metrics', 'computed', 'analyzedAt', 'lastRun', 'status', 'numbersFrom', 'numbersRun',
+                'methodology'],
             array_keys($p)
         );
         $this->assertSame(0.8, $p['metrics']['growthPotential']);

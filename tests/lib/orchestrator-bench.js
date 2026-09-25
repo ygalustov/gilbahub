@@ -120,6 +120,10 @@ function makeSandbox() {
      */
     s.GAIP_DEPENDENCY_GRAPH = JSON.parse(require('fs').readFileSync(
         require('path').join(__dirname, '..', '..', 'assets', 'dependency-graph.json'), 'utf8'));
+    // GH-722: and the lab reading names, for the same reason — the sample manager builds its
+    // spelling tables from what the page is handed, and given nothing it reads no sample.
+    s.GAIP_LAB_READING_NAMES = JSON.parse(require('fs').readFileSync(
+        require('path').join(__dirname, '..', '..', 'assets', 'lab-reading-names.json'), 'utf8'));
     s.location = { href: 'http://localhost/hub', search: '', origin: 'http://localhost', hostname: 'localhost' };
     return s;
 }

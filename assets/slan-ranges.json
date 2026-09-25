@@ -1,0 +1,49 @@
+{
+  "$comment": [
+    "GH-752 - THE SLAN SUFFICIENCY RANGES, ONE FILE, ONE READER.",
+    "",
+    "Moved, not edited, from the literal in mlsnEngine (assets/hub-tissue-v3.js, the SLAN branch): the",
+    "ranges by soil type, and the pH adjustment of Fe and Mn. Read by the server alone",
+    "(App\\Support\\SlanRanges), which judges a SLAN sample with them and hands them to the pages in the",
+    "layout, as analysis-result.schema.json is handed. There is no JavaScript copy.",
+    "",
+    "bySoilType: `sands` and `others`, each nutrient with `lo` and `hi` in ppm. Which one a site uses",
+    "comes from its construction, resolved by the construction dictionary in calculation-inputs.schema.json.",
+    "",
+    "phAdjusted: for each nutrient, lo = base + span * f * loFactor and hi = base + span * f * hiFactor,",
+    "where f = (pH clamped to [phFrom, phTo] - phFrom) / (phTo - phFrom)."
+  ],
+  "version": 1,
+  "bySoilType": {
+    "sands": {
+      "P": { "lo": 12, "hi": 28 },
+      "K": { "lo": 50, "hi": 116 },
+      "Ca": { "lo": 500, "hi": 750 },
+      "Mg": { "lo": 60, "hi": 120 },
+      "S": { "lo": 15, "hi": 40 },
+      "B": { "lo": 0.4, "hi": 1.5 },
+      "Cu": { "lo": 0.6, "hi": 2 },
+      "Zn": { "lo": 1.3, "hi": 3.5 }
+    },
+    "others": {
+      "P": { "lo": 12, "hi": 28 },
+      "K": { "lo": 75, "hi": 176 },
+      "Ca": { "lo": 500, "hi": 750 },
+      "Mg": { "lo": 70, "hi": 140 },
+      "S": { "lo": 15, "hi": 40 },
+      "B": { "lo": 0.4, "hi": 1.5 },
+      "Cu": { "lo": 0.6, "hi": 2 },
+      "Zn": { "lo": 1.3, "hi": 3.5 }
+    }
+  },
+  "phAdjusted": {
+    "phFrom": 6,
+    "phTo": 8.5,
+    "loFactor": 0.8,
+    "hiFactor": 1.2,
+    "nutrients": {
+      "Fe": { "base": 80, "span": 30 },
+      "Mn": { "base": 27, "span": 10 }
+    }
+  }
+}

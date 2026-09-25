@@ -57,6 +57,23 @@ const ORDINARY = {
     rawData: { _label: 'Bore', EC: '0.5', Ca: '3', Mg: '5', Na: '2', pH: '7.1', HCO3: '2', B: '0.4', Fe: '0' },
 };
 
+/**
+ * GH-731 (queue items 3g and 3am) — the same rule, on the CONDUCTIVITY and on a reported SAR.
+ *
+ * The boron above proved the rule for a trace ion. These two are the places it had not reached:
+ * a conductivity of zero was thrown away by a `> 0` gate and by a `||` chain, and a lab that
+ * reports SAR 0 was treated as a lab that reported nothing.
+ */
+const EC_MEASURED_ZERO = {
+    id: 'sample_w4',
+    rawData: { _label: 'Rainwater tank', EC: '0', Ca: '3', Mg: '5', Na: '2', pH: '7.1', HCO3: '2', B: '0.4', Fe: '1' },
+};
+/** The other half: no EC key at all, which must stay silent rather than become a zero. */
+const EC_NOT_MEASURED = {
+    id: 'sample_w5',
+    rawData: { _label: 'Bore', Ca: '3', Mg: '5', Na: '2', pH: '7.1', HCO3: '2', B: '0.4', Fe: '1' },
+};
+
 function produce(sample) {
     const exportLine = 'global.GilbaPersistence = GilbaPersistence;';
     expect(SRC).toContain(exportLine);
@@ -141,6 +158,23 @@ describe('GH-608 — the row keeps a measured zero and stays silent about an abs
         expect(produce(ORDINARY).Fe).toBe(0);
         expect(produce(MEASURED_ZERO).Fe).toBe(1.3);
         expect(produce(NOT_MEASURED).Fe).toBe(0.33);
+    });
+
+    test('GH-731: a conductivity measured as zero reaches the row as zero', () => {
+        const wb = produce(EC_MEASURED_ZERO);
+        process.stdout.write('[gh731] EC measured as 0 -> ecw ' + JSON.stringify(wb && wb.ecw)
+            + ' | the block was reached: ' + !!(wb && wb.ions) + '\n');
+        // The block must be reached at all: the old gate skipped it entirely on a zero, so a
+        // silent row and a zero row were the same thing.
+        expect(wb).toBeTruthy();
+        expect(wb.ecw).toBe(0);
+        expect(wb.ecw).not.toBeNull();
+    });
+
+    test('GH-731: and an absent conductivity stays silent, which is the half not to over-catch', () => {
+        const wb = produce(EC_NOT_MEASURED);
+        process.stdout.write('[gh731] EC absent -> ecw ' + JSON.stringify(wb && wb.ecw) + '\n');
+        expect(wb === null || wb.ecw === null).toBe(true);
     });
 
     test('an ordinary non-zero reading is untouched', () => {

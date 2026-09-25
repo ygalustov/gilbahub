@@ -1164,8 +1164,47 @@
             : null;
       if (global.gaip_enhanced_soil_temp && hourlyForPhysics) {
         try {
-          const profileType = GAIP_CANONICAL_STATE.turf.construction || GAIP_CANONICAL_STATE.turf.profileType || "usga";
-          const soilMoisture = climateMetrics?.moisture?.soilMoisture?.mean || 0.25;
+          /**
+           * GH-734 (queue item 3az, analyst's device 24.2, points 1-3) — ONE CALCULATION PER RUN,
+           * ON THIS RUN'S OWN INPUTS, AND AN ABSENCE IS AN OUTCOME.
+           *
+           * Two things stood here and both are the shape the project has been removing all day.
+           *
+           * THE PROFILE was `construction || profileType || "usga"`: a site whose construction the
+           * server could not resolve was computed as a USGA sand profile, which is a thermal answer
+           * nobody gave. It comes from the RESOLVED construction the server delivers with this
+           * site's config (GH-664: `{value, resolves, known}`), and when there is none the model is
+           * not called at all.
+           *
+           * THE MOISTURE was `climateMetrics?.moisture?.soilMoisture?.mean || 0.25`. The wrapper has
+           * two writers and one of them gives no key, so the `0.25` was the value that actually
+           * travelled -- the analyst's outcome B. It is the mean of the non-empty
+           * `soil_moisture_0_to_7cm` of THE SAME hourly series the air temperatures come from, which
+           * is what the rendering panel already uses (`climate-module-v2-ui.js`), and it is why the
+           * two calculations of one model disagreed.
+           *
+           * THE MODEL IS NOT CALLED WITHOUT MOISTURE, deliberately: it carries a third substitution
+           * of its own (`soilConfig.theta || soilConfig.moisture || soilParams.theta_fc || 0.20`),
+           * which would fire on a null. That code is not touched -- the scenarios call it too -- the
+           * run simply does not reach it.
+           */
+          const _resolvedConstruction = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.construction) || null;
+          const profileType = (_resolvedConstruction && _resolvedConstruction.resolves
+            && _resolvedConstruction.resolves.thermalProfile) || null;
+
+          const soilMoisture = soilMoistureMeanOf(hourlyForPhysics.soil_moisture_0_to_7cm);
+
+          if (!profileType) {
+            // GH-734: the STEP is this module's own word, not the step it runs inside. A recorded
+            // cause is found by the step it is filed under, and the section of `soilTempPhysics`
+            // asks for the step the graph names for that key -- filed under `climate` the reason
+            // reached no section at all, and the panel said nothing about the missing numbers.
+            noteSkipped("soil-temp-physics", "soil-temp-physics", "setting-missing", "soilTempPhysics");
+            log("canonical", "Soil temp physics not computed: no construction for this site");
+          } else if (soilMoisture === null) {
+            noteSkipped("soil-temp-physics", "soil-temp-physics", "soil-moisture-unavailable", "soilTempPhysics");
+            log("canonical", "Soil temp physics not computed: the hourly series carries no soil moisture");
+          } else {
 
           const rawPhysics = global.gaip_enhanced_soil_temp(
             hourlyForPhysics.temperature_2m,
@@ -1196,6 +1235,36 @@
             soilTempSource = "physics_model";
             soilTempReliability = 75;
             log("canonical", "Soil temp from physics model", soilTempDepths);
+          }
+
+          /**
+           * GH-734, point 1 and point 4 — THE RESULT OF THIS RUN, WITH THE INPUTS IT WAS COMPUTED
+           * ON, so that "which moisture was it computed on" is answered by the stored row rather
+           * than by re-running: a row that cannot say which input it used is a row nobody can
+           * check, which is why the inputs travel with the result (GH-734).
+           *
+           * `raw` stays here for the readers inside the run; the row carries the summary, the
+           * profile and the inputs, which is what it carries today.
+           */
+          _hubState.computed = _hubState.computed || {};
+          _hubState.computed.soilTempPhysics = {
+            raw: rawPhysics || null,
+            summary: (physicsResult && physicsResult.depths) ? physicsResult : null,
+            profileType: profileType,
+            inputs: {
+              moisture: soilMoisture,
+              profile: profileType,
+              cec: (GAIP_CANONICAL_STATE.soil && GAIP_CANONICAL_STATE.soil.CEC != null)
+                ? GAIP_CANONICAL_STATE.soil.CEC : null,
+              om: (GAIP_CANONICAL_STATE.soil
+                && (GAIP_CANONICAL_STATE.soil.OM_pct != null ? GAIP_CANONICAL_STATE.soil.OM_pct
+                  : GAIP_CANONICAL_STATE.soil.LOI))
+                ?? null,
+              hourlySource: climateMetrics?.hourlyData?.temperature_2m ? 'climateMetrics.hourlyData'
+                : climateMetrics?.hourly?.temperature_2m ? 'climateMetrics.hourly'
+                  : 'rawWeatherData.hourly',
+            },
+          };
           }
         } catch (e) {
           warn("canonical", "Physics soil temp calculation failed", e);
@@ -1550,6 +1619,31 @@
     } catch (e) {
       // as above
     }
+  }
+
+  /**
+   * GH-734 (queue item 3az) — THE MEAN OF WHAT THE SERIES ACTUALLY MEASURED, OR NOTHING.
+   *
+   * Kept as a function of its argument so it can be measured apart from the wiring: the gate that
+   * refuses and the rule that computes fail in different ways, and one expression inline hides which
+   * one did. A series that is absent, empty, or carries nothing parsable returns `null`, and `null`
+   * is what stops the model being called at all -- it carries a substitution of its own that would
+   * fire on a missing value.
+   *
+   * An entry of zero is a measurement and is kept: soil moisture of zero is dry, not unknown.
+   */
+  function soilMoistureMeanOf(series) {
+    if (!Array.isArray(series)) return null;
+    const readings = [];
+    for (let i = 0; i < series.length; i++) {
+      const v = series[i];
+      if (v === null || v === undefined || v === '') continue;
+      const n = parseFloat(v);
+      if (!isNaN(n)) readings.push(n);
+    }
+    if (!readings.length) return null;
+
+    return readings.reduce((a, v) => a + v, 0) / readings.length;
   }
 
   function noteSkipped(step, module, reason, resultKey) {
@@ -3657,337 +3751,7 @@
   // v1.7.0: BUILD PGR INPUTS — assembles pure state for gaip_pgr_calculate_pure
   // =========================================================================
 
-  // =========================================================================
-  // v1.11.0: SYNC PGR FORM ENTRY → SPRAY LOG
-  //
-  // When the PGR engine runs successfully with a valid applicationDate,
-  // write that application to the spray log so it becomes the canonical
-  // record. The spray log is then the single source of truth for PGR
-  // history across sessions.
-  //
-  // Deduplication: skip if a PGR entry for the same site + date + product
-  // already exists (prevents multiple "Run" clicks creating duplicate entries).
-  //
-  // This is fire-and-forget (async, no await at call site) so it never
-  // blocks the PGR render or UI update.
-  // =========================================================================
 
-  async function syncPGRToSprayLog(pgrInput, pgrResult) {
-    try {
-      if (!global.GAIP_SprayLog) return;
-      if (!pgrInput?.applicationDate || !pgrInput?.productType) return;
-
-      const siteId =
-        (global.GAIP_SiteContext ? global.GAIP_SiteContext.getSiteId() : (global.GAIP_SampleManager && global.GAIP_SampleManager.getActiveSiteId ? global.GAIP_SampleManager.getActiveSiteId() : null));
-      if (!siteId) return;
-
-      const zone = _hubState.inputs.turf?.zone || _hubState.inputs.turf?.turfType || "greens";
-
-      // ── Deduplication check ──────────────────────────────────────────
-      // Query last 7 days of PGR entries for this site.
-      // If one already exists for the same date + product, skip.
-      const existing = await GAIP_SprayLog.list({
-        site_id: siteId,
-        category: "pgr",
-        date_from: pgrInput.applicationDate,
-        date_to: pgrInput.applicationDate,
-        limit: 10,
-      });
-
-      if (existing.success && existing.entries && existing.entries.length > 0) {
-        const duplicate = existing.entries.find(
-          (e) =>
-            e.application_date === pgrInput.applicationDate &&
-            (e.product_key === pgrInput.productType || e.active_ingredient === pgrResult?.product?.activeIngredient),
-        );
-        if (duplicate) {
-          log("pgr", "Spray log sync: duplicate found, skipping", {
-            date: pgrInput.applicationDate,
-            product: pgrInput.productType,
-          });
-          return;
-        }
-      }
-
-      // ── Build entry ──────────────────────────────────────────────────
-      // Map product code to display name and active ingredient
-      const PRODUCT_MAP = {
-        TE250: { name: "Primo 250EC (Trinexapac-ethyl)", ai: "trinexapac-ethyl", defaultUnit: "L/ha" },
-        TE175: { name: "Primo Maxx 1EC (Trinexapac-ethyl)", ai: "trinexapac-ethyl", defaultUnit: "L/ha" },
-        TE120: { name: "Primo Maxx (Trinexapac-ethyl)", ai: "trinexapac-ethyl", defaultUnit: "L/ha" },
-        PBZ200: { name: "Paclobutrazol 200SC", ai: "paclobutrazol", defaultUnit: "L/ha" },
-        PB: { name: "Paclobutrazol", ai: "paclobutrazol", defaultUnit: "L/ha" },
-        FP: { name: "Flurprimidol", ai: "flurprimidol", defaultUnit: "L/ha" },
-        ANUEW: { name: "Anuew (Prohexadione-calcium)", ai: "prohexadione-calcium", defaultUnit: "g/ha" },
-        ETH: { name: "Ethephon", ai: "ethephon", defaultUnit: "L/ha" },
-      };
-
-      const product = PRODUCT_MAP[pgrInput.productType] || {
-        name: pgrResult?.product?.name || pgrInput.productType,
-        ai: pgrResult?.product?.activeIngredient || "unknown",
-        defaultUnit: "L/ha",
-      };
-
-      const entry = {
-        site_id: siteId,
-        application_date: pgrInput.applicationDate,
-        product_name: product.name,
-        product_key: pgrInput.productType,
-        product_category: "pgr",
-        active_ingredient: product.ai,
-        rate: pgrInput.rateLPerHa || pgrInput.rate || null,
-        rate_unit: pgrInput.rateUnit || product.defaultUnit,
-        zone: zone,
-        source: "hub_pgr_form",
-        notes: pgrResult?.product?.name
-          ? `Auto-logged from PGR form. GDD at run: ${pgrResult.gdd?.accumulated?.toFixed(0) || "n/a"}.`
-          : "Auto-logged from PGR form.",
-      };
-
-      const result = await GAIP_SprayLog.create(entry);
-      if (result.success || result.count > 0) {
-        log("pgr", "Spray log sync: PGR application recorded", {
-          date: entry.application_date,
-          product: entry.product_name,
-          site: siteId,
-        });
-        // v1.11.1: Notify spray log UI to reload — was missing, causing
-        // the PGR entry to write to DB but never appear in the log table.
-        document.dispatchEvent(
-          new CustomEvent("gaip:spray-log-updated", {
-            detail: { source: "pgr_sync", product: entry.product_key, date: entry.application_date },
-          }),
-        );
-      } else {
-        warn("pgr", "Spray log sync: write failed", result.error || result);
-      }
-    } catch (err) {
-      // Never let spray log sync break the PGR render
-      warn("pgr", "Spray log sync: exception (non-fatal)", err.message || err);
-    }
-  }
-
-  // =========================================================================
-  // syncDMIToSprayLog
-  // v1.11.1: New function — writes a confirmed DMI application to the spray
-  // log as category 'fungicide' so:
-  //   1. The entry persists across page reloads (was previously in-memory only).
-  //   2. The UV photolysis engine picks it up via lastFungicide on next cascade,
-  //      enabling residual decay calculations for DMI fungicides.
-  // Fire-and-forget — never blocks PGR/DMI render.
-  // =========================================================================
-  async function syncDMIToSprayLog(dmiInput, dmiStatus) {
-    try {
-      if (!global.GAIP_SprayLog) return;
-      if (!dmiInput?.applicationDate || !dmiInput?.product) return;
-
-      const siteId =
-        (global.GAIP_SiteContext ? global.GAIP_SiteContext.getSiteId() : (global.GAIP_SampleManager && global.GAIP_SampleManager.getActiveSiteId ? global.GAIP_SampleManager.getActiveSiteId() : null));
-      if (!siteId) return;
-
-      const zone = _hubState.inputs.turf?.zone || _hubState.inputs.turf?.turfType || "greens";
-
-      // ── Deduplication check ──────────────────────────────────────────
-      const existing = await GAIP_SprayLog.list({
-        site_id: siteId,
-        category: "fungicide",
-        date_from: dmiInput.applicationDate,
-        date_to: dmiInput.applicationDate,
-        limit: 10,
-      });
-
-      if (existing.success && existing.entries?.length > 0) {
-        const duplicate = existing.entries.find(
-          (e) =>
-            e.application_date === dmiInput.applicationDate &&
-            (e.product_key === dmiInput.product || e.active_ingredient === dmiStatus?.product?.activeIngredient),
-        );
-        if (duplicate) {
-          log("dmi", "Spray log sync: DMI duplicate found, skipping", {
-            date: dmiInput.applicationDate,
-            product: dmiInput.product,
-          });
-          return;
-        }
-      }
-
-      // ── Build entry ──────────────────────────────────────────────────
-      // category MUST be 'fungicide' (not 'dmi') so spray-log-cascade.js
-      // finds it as lastFungicide and passes it to the UV residual engine.
-      const entry = {
-        site_id: siteId,
-        application_date: dmiInput.applicationDate,
-        product_name: dmiStatus?.product?.name || dmiInput.product,
-        product_key: dmiInput.product,
-        product_category: "fungicide",
-        active_ingredient: dmiStatus?.product?.activeIngredient || "unknown",
-        rate: dmiInput.rateLperHa || null,
-        rate_unit: "L/ha",
-        zone: zone,
-        source: "hub_dmi_form",
-        notes: `Auto-logged from DMI form. Risk category: ${dmiStatus?.risk?.category || "n/a"}. Combined suppression warning: ${dmiStatus?.combinedRisk?.warningLevel || "none"}.`,
-      };
-
-      const result = await GAIP_SprayLog.create(entry);
-      if (result.success || result.count > 0) {
-        log("dmi", "Spray log sync: DMI application recorded", {
-          date: entry.application_date,
-          product: entry.product_name,
-          site: siteId,
-        });
-        document.dispatchEvent(
-          new CustomEvent("gaip:spray-log-updated", {
-            detail: { source: "dmi_sync", product: entry.product_key, date: entry.application_date },
-          }),
-        );
-      } else {
-        warn("dmi", "Spray log sync: DMI write failed", result.error || result);
-      }
-    } catch (err) {
-      // Never let DMI sync break the PGR/DMI render
-      warn("dmi", "Spray log sync: DMI exception (non-fatal)", err.message || err);
-    }
-  }
-
-  /**
-   * Build the complete state object for the PGR pure function.
-   * Assembles weatherData (merged historical+forecast), soilTempData,
-   * and all context from _hubState so the PGR engine has zero global reads.
-   */
-  function buildPGRInputs() {
-    const climate = getAuthoritativeClimate();
-    const turf = _hubState.inputs.turf;
-    const pgr = _hubState.inputs.pgr;
-    const shade = _hubState.computed.shade;
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. Assemble weatherData — merge historical + forecast into dailyData
-    // ─────────────────────────────────────────────────────────────────────
-    let weatherData = null;
-
-    // Priority 1: GAIP_PGR_WEATHER_CACHE (pre-fetched historical merge)
-    if (global.GAIP_PGR_WEATHER_CACHE && global.GAIP_PGR_WEATHER_CACHE.dailyData) {
-      weatherData = {
-        dailyData: global.GAIP_PGR_WEATHER_CACHE.dailyData,
-        source: "cached_historical",
-      };
-      log("pgr", "Using GAIP_PGR_WEATHER_CACHE:", global.GAIP_PGR_WEATHER_CACHE.dailyData.length, "days");
-    }
-    // Priority 2: rawWeatherData with historical daily (from climate engine)
-    else if (global.rawWeatherData && global.rawWeatherData.historical && global.rawWeatherData.historical.daily) {
-      weatherData = {
-        historical: global.rawWeatherData.historical,
-        forecast: global.rawWeatherData.forecast || null,
-        source: "raw_weather_historical",
-      };
-      log("pgr", "Using rawWeatherData.historical");
-    }
-    // Priority 3: rawWeatherData with forecast hourly
-    else if (
-      global.rawWeatherData &&
-      (global.rawWeatherData.hourly || (global.rawWeatherData.forecast && global.rawWeatherData.forecast.hourly))
-    ) {
-      weatherData = {
-        hourly: global.rawWeatherData.hourly || null,
-        forecast: global.rawWeatherData.forecast || null,
-        source: "raw_weather_forecast",
-      };
-      log("pgr", "Using rawWeatherData.hourly/forecast");
-    }
-    // Priority 4: rawWeatherData with daily
-    else if (global.rawWeatherData && global.rawWeatherData.daily) {
-      weatherData = {
-        daily: global.rawWeatherData.daily,
-        source: "raw_weather_daily",
-      };
-      log("pgr", "Using rawWeatherData.daily");
-    }
-    // Priority 5: Fallback to climate metrics average temp
-    else if (climate && climate.temperature) {
-      weatherData = {
-        avgTemp: climate.temperature.mean || 20,
-        source: "climate_mean_estimate",
-      };
-      log("pgr", "Fallback: using climate mean temp for GDD estimation");
-    } else {
-      warn("pgr", "No weather data available for PGR calculation");
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. Assemble soilTempData from sensor or climate
-    // ─────────────────────────────────────────────────────────────────────
-    let soilTempData = { soilTemp: null, source: null, depth: null };
-
-    // Priority 1: Sensor data
-    if (global.GAIP_Sensor && typeof global.GAIP_Sensor.hasData === "function" && global.GAIP_Sensor.hasData()) {
-      try {
-        const sensorData = global.GAIP_Sensor.getIrrigationData();
-        if (sensorData && sensorData.soilTemp != null) {
-          soilTempData = {
-            soilTemp: sensorData.soilTemp,
-            source: "sensor:" + (sensorData.source || "TDR"),
-            depth: sensorData.measurementDepth || null,
-          };
-        }
-      } catch (err) {
-        warn("pgr", "Error reading sensor soil temp:", err);
-      }
-    }
-    // Priority 2: Climate metrics soil temp
-    if (soilTempData.soilTemp == null && global.climateMetrics?.temperature?.soil?.mean != null) {
-      soilTempData = {
-        soilTemp: global.climateMetrics.temperature.soil.mean,
-        source: "climate:" + (global.climateMetrics.temperature.soil.source || "api"),
-        depth: null,
-      };
-    }
-    // Priority 3: Computed climate soil temp
-    if (soilTempData.soilTemp == null && climate?.temperature?.soil?.mean != null) {
-      soilTempData = {
-        soilTemp: climate.temperature.soil.mean,
-        source: "canonical_climate",
-        depth: null,
-      };
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. Assemble the complete state object for w_pure()
-    // ─────────────────────────────────────────────────────────────────────
-    const pgrState = {
-      turf: turf || {},
-      pgr: pgr || {},
-      shade: shade
-        ? {
-            ambientDLI: shade.dli || shade.ambientDLI || null,
-            dli: shade.dli || null,
-            stressFactor: shade.stressFactor || 0,
-          }
-        : {},
-      weatherData: weatherData,
-      soilTempData: soilTempData,
-    };
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. Extract options (applicationDate, productType, etc.)
-    // ─────────────────────────────────────────────────────────────────────
-    const pgrOptions = {
-      applicationDate: pgr?.applicationDate || null,
-      productType: pgr?.productType || null,
-      gddThreshold: pgr?.gddThreshold || null,
-      mowingHeightMM: pgr?.mowingHeightMM || turf?.hoc || null,
-    };
-
-    log("pgr", "buildPGRInputs assembled", {
-      hasWeatherData: !!weatherData,
-      weatherSource: weatherData?.source || "none",
-      hasSoilTemp: soilTempData.soilTemp != null,
-      species: turf?.grassSpecies || "default",
-      product: pgrOptions.productType || "TE250",
-      appDate: pgrOptions.applicationDate || "today",
-    });
-
-    return { state: pgrState, options: pgrOptions };
-  }
 
   // =========================================================================
   // v1.9.0: BUILD SALINITY INPUTS — assembles state for SalinityEnginePure
@@ -4076,210 +3840,20 @@
   // v1.8.0: BUILD IRRIGATION INPUTS — assembles state for schedule_pure
   // =========================================================================
 
-  /**
-   * Build the complete state + weatherData for the irrigation scheduler pure function.
-   * Assembles turf, soil, water, irrigation config, sensor VWC, location,
-   * and weather forecast into the shape schedule_pure() expects.
-   */
-  function buildIrrigationInputs() {
-    const climate = getAuthoritativeClimate();
-    const turf = _hubState.inputs.turf || {};
-    const soil = _hubState.inputs.soil || {};
-    const water = _hubState.inputs.water || {};
-    const schedule = _hubState.inputs.schedule || {};
-    const site = _hubState.inputs.site || {};
-    const salinity = _hubState.computed.salinity;
+  // =========================================================================
+  // GH-755 (queue item 3bz) - THE TWO INPUT BUILDERS GO WITH THE PATH THAT CALLED THEM.
+  //
+  // `buildIrrigationInputs` (199 lines) and `buildPGRInputs` (134 lines) were called from
+  // `executeEngine` and from nowhere else - measured on the bench: zero call sites once that export
+  // was removed, zero entries in 6987. Nothing died with them in turn: they called only
+  // `getAuthoritativeClimate`, `log` and `warn`, each with many other callers.
+  //
+  // THEIR NODES REMAIN in `dependency-graph.json` as declarations of an output, with `runner: null`,
+  // `handle: null` and the reason written there: `computed.irrigation` and `computed.pgr` are in the
+  // stored row - the producer takes them from the page's globals - and both forecast nodes name
+  // these two in `after`. Whether either should run inside the pass is queue item 3vl.
+  // =========================================================================
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. Build irrigation config from schedule/turf/site inputs
-    // ─────────────────────────────────────────────────────────────────────
-
-    // v1.8.1: Derive soil type from construction when soil data is null/empty
-    let soilType = soil.soilTexture || soil.type || site.soilType || null;
-    if (!soilType) {
-      const constructionMap = {
-        sand_profile: "sandProfile",
-        sandProfile: "sandProfile",
-        usga: "usga",
-        sand_carpet: "sand",
-        sandCarpet: "sand",
-        push_up: "loam",
-        pushUp: "loam",
-        native: "sandyLoam",
-        california: "sandProfile",
-      };
-      const construction = turf.construction || site.construction || "";
-      soilType = constructionMap[construction] || "sandyLoam";
-      log("irrigation", "Derived soilType from construction:", construction, "->", soilType);
-    }
-
-    const irrigationConfig = {
-      strategy: schedule.irrigationStrategy || schedule.strategy || "moderate",
-      precipRate: schedule.precipRate || schedule.sprinklerPrecipRate || null,
-      uniformity: schedule.uniformity || null,
-      efficiency: schedule.efficiency || null,
-      rootDepth: turf.rootDepth || schedule.rootDepth || null,
-      daysSinceIrrigation: schedule.daysSinceIrrigation || null,
-      soilVWC: null, // populated below from sensor
-      soil: {
-        type: soilType,
-        LOI: soil.LOI || soil.OM_pct || 0,
-        OM_pct: soil.OM_pct || soil.LOI || 0,
-        moisture: null, // populated below from sensor
-      },
-    };
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. Sensor VWC if available
-    // ─────────────────────────────────────────────────────────────────────
-    if (global.GAIP_Sensor && typeof global.GAIP_Sensor.hasData === "function" && global.GAIP_Sensor.hasData()) {
-      try {
-        const sensorData = global.GAIP_Sensor.getIrrigationData();
-        if (sensorData) {
-          // getIrrigationData() returns .vwc, not .soilMoisture
-          const sensorVWC = sensorData.vwc;
-          if (sensorVWC != null) {
-            irrigationConfig.soilVWC = sensorVWC;
-            irrigationConfig.soil.moisture = sensorVWC;
-          }
-        }
-      } catch (err) {
-        warn("irrigation", "Error reading sensor VWC:", err);
-      }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. Build the state object for schedule_pure()
-    // ─────────────────────────────────────────────────────────────────────
-
-    // v1.8.1: Determine real overseed species.
-    // TurfProfile sets coolOverseed = base species for pure C3 stands.
-    // Only treat coolOverseed as overseed if warmBase exists (true overseed scenario).
-    const baseSpecies = turf.grassSpecies || turf.species || "generic";
-    let overseedSpecies = turf.overseedSpecies || null;
-    if (!overseedSpecies && turf.warmBase && turf.coolOverseed) {
-      // Real overseed: C4 warm base with C3 cool-season overseed
-      overseedSpecies = turf.coolOverseed;
-    }
-    // If coolOverseed equals the base species, it's not a real overseed
-    if (overseedSpecies && overseedSpecies === baseSpecies) {
-      overseedSpecies = null;
-    }
-
-    const state = {
-      turf: {
-        grassSpecies: baseSpecies,
-        variety: turf.variety || turf.cultivar || null,
-        overseedSpecies: overseedSpecies,
-        overseedVariety: overseedSpecies ? turf.overseedVariety || null : null,
-        summerIntent: turf.overseedSummerIntent || turf.summerIntent || "transition",
-        c3Fraction: turf.speciesFractions?.c3Fraction ?? turf.c3Fraction,
-        percentC3Cover: turf.percentC3Cover,
-        poaPercent: turf.poaPercent || 0,
-        rootDepth: turf.rootDepth || null,
-        turfType: turf.turfType || null,
-        subCategory: turf.subCategory || null,
-      },
-      soil: {
-        type: irrigationConfig.soil.type,
-        LOI: irrigationConfig.soil.LOI,
-        OM_pct: irrigationConfig.soil.OM_pct,
-        ECe: soil.ECe || soil.ece || 0,
-        moisture: irrigationConfig.soil.moisture,
-      },
-      water: {
-        ecw: water.ecw || water.ECw || 0,
-        ions: water.ions || {},
-        recycledWater: !!(water.recycledWater),
-      },
-      irrigation: irrigationConfig,
-      location: {
-        lat:
-          GAIP_CANONICAL_STATE?.climate?.lat || global.GAIP_STATE?.climate?.lat || global.GAIP_STATE?.turf?.lat || -33,
-      },
-    };
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. Build weatherData for the forecast
-    // ─────────────────────────────────────────────────────────────────────
-    let weatherData = null;
-
-    // Priority 1: rawWeatherData with forecast daily (Open-Meteo shape)
-    if (global.rawWeatherData?.forecast?.daily) {
-      weatherData = {
-        forecast: { daily: global.rawWeatherData.forecast.daily },
-        source: "raw_weather_forecast",
-      };
-      log("irrigation", "Using rawWeatherData.forecast.daily");
-    }
-    // Priority 2: rawWeatherData.daily (flat shape)
-    else if (global.rawWeatherData?.daily) {
-      weatherData = {
-        daily: global.rawWeatherData.daily,
-        source: "raw_weather_daily",
-      };
-      log("irrigation", "Using rawWeatherData.daily");
-    }
-    // Priority 3: Transform from climate engine hourly data
-    else if (global.rawWeatherData?.forecast?.hourly || global.rawWeatherData?.hourly) {
-      const hourly = global.rawWeatherData?.forecast?.hourly || global.rawWeatherData?.hourly;
-      if (hourly && hourly.time && hourly.time.length > 0) {
-        try {
-          const hrsPerDay = 24;
-          const numDays = Math.ceil(hourly.time.length / hrsPerDay);
-          const dailyForecast = [];
-          for (let j = 0; j < numDays; j++) {
-            const start = j * hrsPerDay;
-            const end = Math.min(start + hrsPerDay, hourly.time.length);
-            const dateStr = hourly.time[start].split("T")[0];
-            const temps = hourly.temperature_2m ? hourly.temperature_2m.slice(start, end) : [];
-            const precipSlice = hourly.precipitation ? hourly.precipitation.slice(start, end) : [];
-            const etSlice = hourly.et0_fao_evapotranspiration
-              ? hourly.et0_fao_evapotranspiration.slice(start, end)
-              : [];
-
-            dailyForecast.push({
-              date: dateStr,
-              time: dateStr,
-              tempMax: temps.length > 0 ? Math.max(...temps) : null,
-              tempMin: temps.length > 0 ? Math.min(...temps) : null,
-              precipitation: precipSlice.reduce((a, b) => a + (b || 0), 0),
-              et0_fao_evapotranspiration: etSlice.reduce((a, b) => a + (b || 0), 0) || null,
-              et0: etSlice.reduce((a, b) => a + (b || 0), 0) || null,
-            });
-          }
-          weatherData = {
-            forecast: { daily: dailyForecast },
-            daily: dailyForecast,
-            source: "hourly_aggregated",
-          };
-          log("irrigation", "Aggregated hourly to daily:", dailyForecast.length, "days");
-        } catch (err) {
-          warn("irrigation", "Error aggregating hourly data:", err);
-        }
-      }
-    }
-    // Priority 4: Climate engine computed metrics (fallback ET0 only)
-    else if (climate && climate.temperature) {
-      log("irrigation", "No forecast data available for irrigation schedule");
-    }
-
-    if (!weatherData) {
-      warn("irrigation", "No weather data available for irrigation scheduling");
-    }
-
-    log("irrigation", "buildIrrigationInputs assembled", {
-      species: state.turf.grassSpecies,
-      soilType: state.soil.type,
-      strategy: state.irrigation.strategy,
-      hasWeather: !!weatherData,
-      weatherSource: weatherData?.source || "none",
-      hasSensorVWC: state.irrigation.soilVWC != null,
-      ecw: state.water.ecw,
-    });
-
-    return { state, weatherData };
-  }
 
   // =========================================================================
   // MAIN ORCHESTRATION FUNCTION
@@ -5518,72 +5092,6 @@
     })(20);
   }
 
-  // =========================================================================
-  // SELECTIVE RECOMPUTATION (Dependency Graph Integration)
-  // =========================================================================
-
-  /**
-   * Compute only the engines affected by specific input changes
-   * Uses the dependency graph to determine what needs recomputation
-   * @param {string[]} changedInputPaths - Array of input paths that changed (e.g., ['water.ecw', 'turf.species'])
-   * @param {object} newInputValues - Optional new values to apply before recomputation
-   * @returns {object} Updated hub state
-   */
-  async function computeSelective(changedInputPaths, newInputValues = null) {
-    if (!global.GilbaDependencyGraph) {
-      warn("selective", "Dependency graph not loaded, falling back to computeAll");
-      return computeAll(newInputValues);
-    }
-
-    const startTime = Date.now();
-    log("selective", "Starting selective recomputation", { changedInputPaths });
-
-    // Apply new input values if provided
-    if (newInputValues) {
-      for (const [path, value] of Object.entries(newInputValues)) {
-        applyInputChange(path, value);
-      }
-    }
-
-    // Get affected engines in execution order
-    const allAffected = new Set();
-    for (const inputPath of changedInputPaths) {
-      const affected = global.GilbaDependencyGraph.getAffectedEngines(inputPath);
-      affected.forEach((e) => allAffected.add(e));
-    }
-
-    const executionOrder = global.GilbaDependencyGraph.topologicalSort(Array.from(allAffected));
-    log("selective", "Engines to recompute", { count: executionOrder.length, engines: executionOrder });
-
-    // Execute each affected engine
-    for (const engineId of executionOrder) {
-      await executeEngine(engineId);
-    }
-
-    // Update timestamps
-    _hubState.lastComputed = new Date().toISOString();
-    _hubState.computeSequence++;
-
-    const duration = Date.now() - startTime;
-    log("selective", `Selective recomputation complete in ${duration}ms`, {
-      enginesRecomputed: executionOrder.length,
-      totalEngines: Object.keys(ORCHESTRATOR_CONFIG.engineIdMap).length,
-    });
-
-    // Dispatch event
-    document.dispatchEvent(
-      new CustomEvent("gaip:selective-compute-complete", {
-        detail: {
-          state: _hubState,
-          changedInputs: changedInputPaths,
-          recomputedEngines: executionOrder,
-          duration,
-        },
-      }),
-    );
-
-    return _hubState;
-  }
 
   /**
    * Apply an input change to the hub state
@@ -5606,457 +5114,22 @@
     log("selective", `Applied input change: ${path}`, { value });
   }
 
-  /**
-   * Execute a single engine by its full ID
-   * @param {string} engineId - Full engine ID (e.g., 'disease-engine')
-   */
-  async function executeEngine(engineId) {
-    log("engine", `Executing: ${engineId}`);
+  // =========================================================================
+  // GH-755 (queue item 3bz) - THE SELECTIVE-RECOMPUTE PATH IS GONE, WITH ITS BODY.
+  //
+  // `executeEngine` was exported and never called: measured by the execution walk of GH-718 over
+  // 6987 entries with no load failure - zero call sites, zero entries. Its two spray-log helpers,
+  // `syncPGRToSprayLog` and `syncDMIToSprayLog`, were reached from inside it and from nowhere else
+  // (four call sites, all within these 391 lines), so they went with it: 557 lines in all.
+  //
+  // The two exports the item also named, `computeSelective` and `computeIsolated`, had already gone
+  // under GH-718 - the item's claim was stale about them, measured before any edit here.
+  //
+  // WHAT A PERSON LOSES: nothing that was reachable. The recompute of a single engine happened
+  // through this path on paper only; every real run goes through the full pass.
+  // =========================================================================
 
-    try {
-      switch (engineId) {
-        case "climate-engine":
-          _hubState.computed.climate = getAuthoritativeClimate();
-          break;
 
-        case "dew-prediction-engine":
-          // v2.0.0: Uses buildDewInputs() — no inline assembly
-          if (global.gaip_dew_prediction) {
-            const { state: dwState, weather: dwWeather } = buildDewInputs();
-            const dewResult = global.gaip_dew_prediction(dwState, dwWeather);
-            if (dewResult && dewResult.applicable) {
-              _hubState.computed.dew = {
-                leafWetness: dewResult.leafWetness,
-                forecast: dewResult.forecast,
-                summary: dewResult.summary,
-                matchForecast: dewResult.matchForecast,
-                timestamp: dewResult.timestamp,
-              };
-              global.GAIP_DEW_RESULT = dewResult;
-            }
-          }
-          break;
-
-        case "shade-engine":
-          // v1.9.0: Uses buildShadeInputs() to inject all state
-          if (global.gaip_shade_engine && _hubState.inputs.turf) {
-            const { state: shState, weather: shWeather } = buildShadeInputs();
-            _hubState.computed.shade = global.gaip_shade_engine(shState, shWeather);
-          }
-          break;
-
-        case "salinity-penalty-engine":
-          // v1.9.0: Use pure function path with assembled state
-          if (global.SalinityEnginePure && _hubState.inputs.water?.ecw) {
-            const salInputs = buildSalinityInputs();
-            if (salInputs.ecw > 0) {
-              const salResult = global.SalinityEnginePure.analyse(salInputs);
-              if (salResult && !salResult.error) {
-                _hubState.computed.salinity = salResult;
-                global.GAIP_SALINITY_RESULT = salResult;
-                log("salinity", "SalinityEnginePure complete", {
-                  ecw: salResult.ecwInput,
-                  penalty: salResult.growthPenaltyPct + "%",
-                  yield: salResult.relativeYieldPct + "%",
-                  status: salResult.status,
-                  climateEnhanced: salResult.climateEnhanced,
-                  compoundSeverity: salResult.compoundStress?.severity || "n/a",
-                });
-              } else {
-                warn("salinity", "SalinityEnginePure returned error:", salResult?.message);
-              }
-            }
-          }
-          // Fallback to legacy
-          else if (global.gaip_salinity_penalty && _hubState.inputs.water?.ecw) {
-            log("salinity", "Falling back to legacy gaip_salinity_penalty");
-            const salinitySpecies =
-              GAIP_CANONICAL_STATE.turf?.effectiveSpeciesKey ||
-              GAIP_CANONICAL_STATE.turf?.speciesKey ||
-              "perennialRyegrass";
-            _hubState.computed.salinity = global.gaip_salinity_penalty(_hubState.inputs.water.ecw, salinitySpecies);
-            if (_hubState.computed.salinity) {
-              global.GAIP_SALINITY_RESULT = _hubState.computed.salinity;
-            }
-          }
-          break;
-
-        case "stress-aggregator":
-          calculateStressAggregates();
-          break;
-
-        case "tissue-engine":
-          // Tissue engine typically runs as part of MLSN flow
-          if (global.gaip_tissue_engine && _hubState.inputs.tissue) {
-            _hubState.computed.tissue = global.gaip_tissue_engine(_hubState.inputs.tissue, _hubState.inputs.turf);
-          }
-          break;
-
-        case "disease-engine":
-          if (global.DiseaseEngine || (global.GILBA_USE_PURE_DISEASE && global.DiseaseEnginePure)) {
-            const diseaseInputs = buildDiseaseInputs();
-            let recomputedDisease = runDiseaseAnalysis(diseaseInputs);
-            // v1.1.0: Apply stress/climate coupling
-            if (global.GAIP_DiseaseStressCoupling && _hubState.computed.stress) {
-              recomputedDisease = global.GAIP_DiseaseStressCoupling.apply(
-                recomputedDisease,
-                _hubState.computed.stress,
-                getAuthoritativeClimate(),
-                { species: diseaseInputs.species },
-              );
-            }
-            _hubState.computed.disease = recomputedDisease;
-            // Update global for UI
-            if (_hubState.computed.disease) {
-              _hubState.computed.disease._writtenAt = Date.now(); // recency stamp
-              // b35fix365 — writer-source tag. This is the SECOND writer
-              // (cascade case). Previously silent — no log emission.
-              // When the cascade fires this case AND the main disease block
-              // (line ~3822) ran earlier in the same computeAll, the result
-              // here overwrites that one. Whichever writer fires LAST
-              // determines what the dashboard renders. Tagging both writers
-              // and emitting a log line on each lets a single production log
-              // localise the overwrite.
-              _hubState.computed.disease._writerTag = "b35fix365:writer2-cascadeCase";
-              global.GAIP_DISEASE_RESULT = _hubState.computed.disease;
-              note(
-                "disease",
-                `[b35fix365 writer2-cascadeCase] GAIP_DISEASE_RESULT written, species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)} diseaseInputs.species: "${diseaseInputs.species || "none"}"`,
-              );
-            }
-          }
-          break;
-
-        case "wear-recovery-engine":
-          if (global.gaip_wear_recovery_engine) {
-            const { state, weather, shadeData } = buildWearRecoveryInputs();
-            const baseWearResult = global.gaip_wear_recovery_engine(
-              state, // pure engine: first arg is full state
-              weather,
-              shadeData,
-            );
-            if (baseWearResult && baseWearResult.recoveryCapacity) {
-              baseWearResult.adjustedRecovery = calculateAdjustedRecovery(baseWearResult.recoveryCapacity);
-            }
-            _hubState.computed.wear = baseWearResult;
-          }
-          break;
-
-        case "irrigation-scheduler":
-          // v1.8.0: Use pure function path with assembled state + weather
-          if (global.gaip_irrigation_schedule_pure) {
-            const irrInputs = buildIrrigationInputs();
-            _hubState.computed.irrigation = global.gaip_irrigation_schedule_pure(
-              irrInputs.state,
-              irrInputs.weatherData,
-              { currentDate: new Date() },
-            );
-            if (_hubState.computed.irrigation) {
-              global.GAIP_IRRIGATION_RESULT = _hubState.computed.irrigation;
-              if (_hubState.computed.irrigation.error) {
-                warn("irrigation", "Irrigation schedule partial:", _hubState.computed.irrigation.error);
-              } else {
-                log("irrigation", "Irrigation schedule complete", {
-                  events: _hubState.computed.irrigation.summary?.irrigationEvents,
-                  totalET: _hubState.computed.irrigation.summary?.totalET,
-                  status: _hubState.computed.irrigation.waterBalance?.status,
-                  species: _hubState.computed.irrigation.species?.effective,
-                });
-              }
-            }
-          }
-          // Fallback to legacy if pure not available
-          else if (global.gaip_irrigation_scheduler) {
-            log("irrigation", "Falling back to legacy gaip_irrigation_scheduler");
-            _hubState.computed.irrigation = global.gaip_irrigation_scheduler(_hubState.inputs.turf);
-            if (_hubState.computed.irrigation) {
-              global.GAIP_IRRIGATION_RESULT = _hubState.computed.irrigation;
-            }
-          }
-          break;
-
-        case "pgr-module":
-          // v1.7.1: Skip if no PGR product or application date configured
-          const pgrInput = _hubState.inputs.pgr;
-          if (!pgrInput || !pgrInput.productType || !pgrInput.applicationDate) {
-            log("pgr", "No PGR configured, skipping");
-            break;
-          }
-          // v1.7.0: Use pure function path with assembled state
-          // b35fix218d: GSSH pages export gssh_pgr_calculate_pure; resolve whichever is present.
-          var _pgr_pure_fn = global.gaip_pgr_calculate_pure || global.gssh_pgr_calculate_pure || null;
-          if (_pgr_pure_fn) {
-            const pgrInputs = buildPGRInputs();
-            _hubState.computed.pgr = _pgr_pure_fn(pgrInputs.state, pgrInputs.options);
-            if (_hubState.computed.pgr && _hubState.computed.pgr.success) {
-              global.GAIP_PGR_RESULT = _hubState.computed.pgr;
-              log("pgr", "PGR pure calculation complete", {
-                gdd: _hubState.computed.pgr.gdd?.accumulated,
-                threshold: _hubState.computed.pgr.gdd?.threshold,
-                phase: _hubState.computed.pgr.effect?.phase,
-                product: _hubState.computed.pgr.product?.name,
-              });
-
-              // v1.11.0: Sync PGR form entry to spray log (fire-and-forget)
-              syncPGRToSprayLog(pgrInput, _hubState.computed.pgr);
-              // Mirrors the hub-tissue-v3.js legacy path but for the pure-function
-              // orchestrator route. Sets window.GAIP_DMI_RESULT and
-              // window.GAIP_COMBINED_SUPPRESSION so word-export.js picks them up
-              // regardless of which execution path ran PGR.
-              // Research basis: Kahiu et al. 2025 (species-conditional phytotoxicity);
-              // Mitkowski & Chaves 2013 (minimal DMI-alone clipping effect);
-              // Kreuser/GreenKeeper (70%+ combined suppression risk).
-              const dmiInput = _hubState.inputs.dmi;
-              if (global.GAIP_DMI && dmiInput?.product && dmiInput?.applicationDate) {
-                try {
-                  const dmiStatus = global.GAIP_DMI.track(
-                    {
-                      product: dmiInput.product,
-                      applicationDate: dmiInput.applicationDate,
-                      rateLperHa: dmiInput.rateLperHa || 0,
-                      species:
-                        _hubState.inputs.turf?.grassSpecies || _hubState.inputs.turf?.species || "Perennial Ryegrass",
-                    },
-                    _hubState,
-                  );
-
-                  global.GAIP_DMI_RESULT = dmiStatus;
-
-                  if (!dmiStatus.error) {
-                    const pgrSuppression = _hubState.computed.pgr.effect?.suppression || 0;
-                    const combinedRisk = global.GAIP_DMI.assessCombinedRisk(pgrSuppression, dmiStatus);
-                    global.GAIP_COMBINED_SUPPRESSION = combinedRisk;
-
-                    // Compute adjusted suppression incorporating DMI interaction.
-                    // Adds adjustedSuppression to effect so pgr-ui.js can display
-                    // the combined value alongside the PGR-only baseline.
-                    // Source: Kreuser/GreenKeeper (70%+ danger), Kahiu 2025, Mitkowski 2013.
-                    const adjSupp = global.GAIP_DMI.calcAdjustedSuppression
-                      ? global.GAIP_DMI.calcAdjustedSuppression(pgrSuppression, combinedRisk)
-                      : null;
-                    if (adjSupp && adjSupp.addedPct > 0 && _hubState.computed.pgr.effect) {
-                      _hubState.computed.pgr.effect.adjustedSuppression = adjSupp;
-                      global.GAIP_PGR_RESULT.effect.adjustedSuppression = adjSupp;
-                    }
-
-                    // Attach to pgr result so daily-dashboard and any other
-                    // consumer can read without touching globals
-                    _hubState.computed.pgr.dmi = {
-                      status: dmiStatus,
-                      combinedRisk: combinedRisk,
-                    };
-                    global.GAIP_PGR_RESULT.dmi = _hubState.computed.pgr.dmi;
-
-                    log("dmi", "DMI risk assessed", {
-                      product: dmiStatus.product?.name,
-                      warningLevel: combinedRisk.warningLevel,
-                      pgrSuppression: Math.round(pgrSuppression * 100) + "%",
-                      adjustedSuppressionPct: adjSupp?.adjustedPct,
-                      isActive: dmiStatus.hasActiveApplication,
-                    });
-                    // v1.11.1: Persist DMI to spray log so it survives page reload
-                    // and is visible to UV photolysis engine as lastFungicide.
-                    syncDMIToSprayLog(dmiInput, dmiStatus);
-                  }
-                } catch (dmiErr) {
-                  warn("dmi", "DMI risk assessment failed", dmiErr.message);
-                }
-              }
-            } else {
-              warn("pgr", "PGR calculation returned failure", _hubState.computed.pgr?.error);
-            }
-          }
-          // Fallback to legacy if pure not available
-          else if (global.gaip_pgr_module) {
-            log("pgr", "Falling back to legacy gaip_pgr_module");
-            const legacyState = {
-              turf: _hubState.inputs.turf,
-              pgr: _hubState.inputs.pgr,
-              shade: _hubState.computed.shade,
-            };
-            _hubState.computed.pgr = global.gaip_pgr_module(legacyState, {});
-            if (_hubState.computed.pgr) {
-              global.GAIP_PGR_RESULT = _hubState.computed.pgr;
-
-              // v1.11.0: Sync PGR form entry to spray log (fire-and-forget)
-              syncPGRToSprayLog(pgrInput, _hubState.computed.pgr);
-
-              // v1.10.0: DMI wiring — legacy PGR path
-              const dmiInput = _hubState.inputs.dmi;
-              if (global.GAIP_DMI && dmiInput?.product && dmiInput?.applicationDate) {
-                try {
-                  const dmiStatus = global.GAIP_DMI.track(
-                    {
-                      product: dmiInput.product,
-                      applicationDate: dmiInput.applicationDate,
-                      rateLperHa: dmiInput.rateLperHa || 0,
-                      species:
-                        _hubState.inputs.turf?.grassSpecies || _hubState.inputs.turf?.species || "Perennial Ryegrass",
-                    },
-                    _hubState,
-                  );
-
-                  global.GAIP_DMI_RESULT = dmiStatus;
-
-                  if (!dmiStatus.error) {
-                    const pgrSuppression = _hubState.computed.pgr?.effect?.suppression || 0;
-                    const combinedRisk = global.GAIP_DMI.assessCombinedRisk(pgrSuppression, dmiStatus);
-                    global.GAIP_COMBINED_SUPPRESSION = combinedRisk;
-
-                    // Adjusted suppression (legacy path)
-                    const adjSuppLegacy = global.GAIP_DMI.calcAdjustedSuppression
-                      ? global.GAIP_DMI.calcAdjustedSuppression(pgrSuppression, combinedRisk)
-                      : null;
-                    if (adjSuppLegacy && adjSuppLegacy.addedPct > 0 && _hubState.computed.pgr.effect) {
-                      _hubState.computed.pgr.effect.adjustedSuppression = adjSuppLegacy;
-                      global.GAIP_PGR_RESULT.effect.adjustedSuppression = adjSuppLegacy;
-                    }
-
-                    _hubState.computed.pgr.dmi = {
-                      status: dmiStatus,
-                      combinedRisk: combinedRisk,
-                    };
-                    global.GAIP_PGR_RESULT.dmi = _hubState.computed.pgr.dmi;
-
-                    log("dmi", "DMI risk assessed (legacy path)", {
-                      product: dmiStatus.product?.name,
-                      warningLevel: combinedRisk.warningLevel,
-                      adjustedSuppressionPct: adjSuppLegacy?.adjustedPct,
-                    });
-                    // v1.11.1: Persist DMI to spray log (legacy path)
-                    syncDMIToSprayLog(dmiInput, dmiStatus);
-                  }
-                } catch (dmiErr) {
-                  warn("dmi", "DMI risk assessment failed (legacy path)", dmiErr.message);
-                }
-              }
-            }
-          }
-          break;
-
-        case "tissue-corrective-engine":
-          // v1.9.0: Wire TissueCorrective into orchestrator.
-          //
-          // Context: TissueCorrectiveEngine_Pure has 207 passing tests and a clean
-          // pure function interface, but until now ran only via a legacy document event
-          // path (gaip:nutrition-calendar-generated -> setTimeout -> run()).
-          //
-          // The orchestrator call here covers the case where tissue data is present
-          // but no calendar generation event has fired (e.g. direct API calls,
-          // automated runs, future server-side rendering).
-          //
-          // The legacy event path in tissue-corrective-engine.js is NOT removed —
-          // it handles the user-facing UI flow where the calendar DOM must be
-          // rendered before corrections are overlaid. The two paths are complementary:
-          //   - Orchestrator: populates computed.tissueCorrections for downstream engines
-          //   - Legacy event: updates the UI overlay after calendar DOM renders
-          if (global.TissueCorrectiveEngine_Pure && typeof global.TissueCorrectiveEngine_Pure.diagnose === "function") {
-            const tissueData = _hubState.inputs.tissue;
-            const calendarProgram =
-              _hubState.computed.nutritionCalendar || global.GilbaNutritionCalendar?.program || null;
-
-            if (tissueData && Object.keys(tissueData).length > 0 && calendarProgram) {
-              try {
-                const tcResult = global.TissueCorrectiveEngine_Pure.diagnose(
-                  tissueData,
-                  _hubState.inputs.soil,
-                  _hubState.inputs.water,
-                  calendarProgram,
-                  { sampleDate: tissueData.sampleDate || new Date().toISOString() },
-                );
-                _hubState.computed.tissueCorrections = tcResult;
-                global.GAIP_TISSUE_CORRECTIVE_RESULT = tcResult;
-                log("tissue-corrective", "Pure engine complete", {
-                  corrections: tcResult.corrections?.length ?? 0,
-                  confidence: tcResult._meta?.confidence,
-                });
-                // Emit so UI can react without waiting for calendar event
-                if (typeof document !== "undefined") {
-                  document.dispatchEvent(
-                    new CustomEvent("gaip:tissue-corrective-complete", {
-                      detail: tcResult,
-                    }),
-                  );
-                }
-              } catch (tcErr) {
-                warn("tissue-corrective", "Pure engine threw", tcErr);
-              }
-            } else {
-              log("tissue-corrective", "Skipping, no tissue data or no calendar program");
-            }
-          } else {
-            log("tissue-corrective", "TissueCorrectiveEngine_Pure not loaded, relying on legacy event path");
-          }
-          break;
-
-        // PATCH v1.6.1: Removed dead 'stress-trajectory-engine' case.
-        // Stress trajectory runs via integration path (MutationObserver),
-        // not through computeAll(). The alias gaip_stress_trajectory pointed
-        // to a non-existent .calculate method and never executed.
-
-        default:
-          log("engine", `No handler for engine: ${engineId}`);
-      }
-    } catch (e) {
-      warn("engine", `Error executing ${engineId}`, e);
-    }
-  }
-
-  /**
-   * Compute a scenario in isolation without affecting global state
-   * Returns a complete state snapshot for the modified inputs
-   * @param {object} inputOverrides - Input values to override
-   * @returns {object} Complete state snapshot with computed values
-   */
-  async function computeIsolated(inputOverrides) {
-    if (!global.GilbaDependencyGraph) {
-      warn("isolated", "Dependency graph not loaded");
-      return null;
-    }
-
-    log("isolated", "Starting isolated computation", { overrides: Object.keys(inputOverrides) });
-
-    // Deep clone current state
-    const isolatedState = JSON.parse(JSON.stringify(_hubState));
-
-    // Apply overrides
-    for (const [path, value] of Object.entries(inputOverrides)) {
-      const parts = path.split(".");
-      let target = isolatedState.inputs;
-      for (let i = 0; i < parts.length - 1; i++) {
-        if (!(parts[i] in target)) target[parts[i]] = {};
-        target = target[parts[i]];
-      }
-      target[parts[parts.length - 1]] = value;
-    }
-
-    // Determine which engines need recomputation
-    const changedPaths = Object.keys(inputOverrides);
-    const allAffected = new Set();
-    for (const path of changedPaths) {
-      const affected = global.GilbaDependencyGraph.getAffectedEngines(path);
-      affected.forEach((e) => allAffected.add(e));
-    }
-    const executionOrder = global.GilbaDependencyGraph.topologicalSort(Array.from(allAffected));
-
-    // Store original state reference
-    const originalState = _hubState;
-
-    // Temporarily swap to isolated state for engine execution
-    _hubState = isolatedState;
-
-    try {
-      // Execute affected engines
-      for (const engineId of executionOrder) {
-        await executeEngine(engineId);
-      }
-    } finally {
-      // Restore original state
-      const result = JSON.parse(JSON.stringify(_hubState));
-      _hubState = originalState;
-      return result;
-    }
-  }
 
   /**
    * Get the dependency graph information for debugging/visualization
@@ -6082,16 +5155,32 @@
   // =========================================================================
 
   // Main orchestrator
+  /**
+   * GH-704 (queue item 3as) — THE ONE PRODUCED PREDICATE, AND THIS FILE IS WHERE IT LIVES.
+   *
+   * It existed in three copies: here, in `cascade-orchestrator.js`, and on the server. The two in the
+   * browser were measured and agreed on every input of the one table — which is exactly why a repair
+   * of one of them would have moved nothing any run could see, and the two would have drifted in
+   * silence. This file defines it and hands it over; the cascade takes it from here, because every
+   * view that loads the cascade loads this file first, and a case holds that.
+   *
+   * The server keeps its own, in its own language, and asks one thing more: the result form's
+   * `emptyWhen` marker, which is about the REASON a section is empty. That is not consolidated here
+   * and the plan for this item says so — the difference is deliberate and a case names it.
+   */
+  global.GAIP_producedSomething = producedSomething;
+
   global.GaipOrchestrator = {
     version: ORCHESTRATOR_CONFIG.version,
 
     // Main computation
     computeAll: computeAll,
 
-    // Selective/isolated computation (dependency graph integration)
-    computeSelective: computeSelective,
-    computeIsolated: computeIsolated,
-    executeEngine: executeEngine,
+    // GH-718 / GH-755: `computeSelective`, `computeIsolated` and `executeEngine` are all gone now.
+    // Nothing called any of them -- the one call site naming `computeSelective`, in
+    // climate-engine-v2.js, runs on GilbaHub.orchestrator from gilba-hub-v2.js, which the stack of
+    // execution shows, and `executeEngine` was measured with zero call sites and zero entries before
+    // it was removed with its body (GH-755, queue item 3bz).
 
     /**
      * GH-575 — WHERE THE CASCADE'S RESULTS GO.
