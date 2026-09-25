@@ -19,7 +19,9 @@
  * getRangesPpm()) doesn't cover a specific nutrient, fall back to
  * AmmoniumAcetateMethodology.getSufficiencyRange(nutrient, soilTypeKey) --
  * the SAME generic sands/others SSOT hub-tissue-v3.js's texture-only
- * aaRanges and SampleAnalysisController.php's AA_RANGES already use -- and
+ * aaRanges already uses, and which the server now reads from
+ * assets/aa-ranges.json through App\Support\AaRanges (GH-768, the
+ * controller's own AA_RANGES constant is gone) -- and
  * apply the same >= ceiling->0 rule. rangeSource (GH-304) intentionally
  * stays 'texture-fallback' for these: the ceiling now fires, but the
  * "Generic" label still applies, since it's still not a certificate value.

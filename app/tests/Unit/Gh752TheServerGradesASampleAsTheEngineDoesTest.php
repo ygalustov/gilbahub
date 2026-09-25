@@ -54,8 +54,9 @@ class Gh752TheServerGradesASampleAsTheEngineDoesTest extends TestCase
         $grades = [];
         $thresholds = [];
         foreach ($grid['cells'] as $cell) {
-            [$soilType, $server] = $this->serverRows($grid['input'], $cell);
-            $at = $cell['construction'].' / '.$cell['methodology'];
+            $input = $grid['inputs'][$cell['input']];
+            [$soilType, $server] = $this->serverRows($input, $cell);
+            $at = $input['name'].' / '.$cell['construction'].' / '.$cell['methodology'];
             fwrite(STDOUT, PHP_EOL.'[gh752c] server '.$at.' (soil type resolved: '.json_encode($soilType).'): K '
                 .json_encode($server['K']['threshold'] ?? null));
             foreach ($cell['rows'] as $nut => $engine) {
@@ -73,15 +74,12 @@ class Gh752TheServerGradesASampleAsTheEngineDoesTest extends TestCase
                     ? ['lo' => round($engine['threshold']['lo'], 1) + 0, 'hi' => round($engine['threshold']['hi'], 1) + 0]
                     : $engine['threshold'];
                 if ($s['threshold'] != $e) {
-                    $line = $at.' '.$nut.': engine '.json_encode($e).', server '.json_encode($s['threshold']);
-                    // AA micronutrients: the server's AA table carries P, K, Ca, Mg and S only, so Fe, Mn,
-                    // Zn, Cu and B fall through to MLSN's thresholds. A finding of this work, put to the
-                    // coordinator with its size; printed, not asserted, until it is decided.
-                    if ($cell['methodology'] === 'ammonium_acetate' && isset($s['threshold']['single'])) {
-                        fwrite(STDOUT, PHP_EOL.'[gh752c]   AA judged by an MLSN threshold on the server, not asserted: '.$line);
-                    } else {
-                        $thresholds[] = $line;
-                    }
+                    // GH-768 (queue item 3vm): THE EXEMPTION IS GONE. AA micronutrients were printed
+                    // and not asserted here, because the server's AA table carried P, K, Ca, Mg and S
+                    // only and Fe, Mn, Zn, Cu and B fell through to MLSN's thresholds. The server now
+                    // takes all ten from the same ranges the engine uses, so this is asserted like
+                    // every other cell.
+                    $thresholds[] = $at.' '.$nut.': engine '.json_encode($e).', server '.json_encode($s['threshold']);
                 }
             }
         }
@@ -100,7 +98,7 @@ class Gh752TheServerGradesASampleAsTheEngineDoesTest extends TestCase
     public function test_a_slan_sample_with_no_ph_names_the_absence_for_fe_and_mn(): void
     {
         $grid = $this->grid();
-        $payload = $grid['input']['ppm'];
+        $payload = $grid['inputs'][0]['ppm'];
         $m = new \ReflectionMethod(SampleAnalysisController::class, 'computeNutrients');
         $m->setAccessible(true);
         $rows = $m->invoke(new SampleAnalysisController(), $payload, 'slan', 'loam', null, 'sands');
@@ -124,7 +122,7 @@ class Gh752TheServerGradesASampleAsTheEngineDoesTest extends TestCase
         $grid = $this->grid();
         $m = new \ReflectionMethod(SampleAnalysisController::class, 'computeNutrients');
         $m->setAccessible(true);
-        $rows = $m->invoke(new SampleAnalysisController(), array_merge($grid['input']['ppm'], ['pH' => 7.4]),
+        $rows = $m->invoke(new SampleAnalysisController(), array_merge($grid['inputs'][0]['ppm'], ['pH' => 7.4]),
             'slan', 'loam', null, null);
         $statuses = array_values(array_unique(array_column($rows, 'status')));
         fwrite(STDOUT, PHP_EOL.'[gh752c] SLAN with no soil type: '.json_encode($statuses).PHP_EOL);

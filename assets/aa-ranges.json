@@ -1,0 +1,50 @@
+{
+  "$comment": [
+    "GH-768 - THE AMMONIUM ACETATE SUFFICIENCY RANGES, ONE FILE, ONE READER.",
+    "",
+    "Moved, not edited, from the literal `aaRanges` in mlsnEngine (assets/hub-tissue-v3.js, the",
+    "`methodology === \"ammonium_acetate\"` branch): both soil types, all ten nutrients. Read by the",
+    "server alone (App\\Support\\AaRanges), which judges an AA sample with them. There is no JavaScript",
+    "copy: the engine still holds its literal, and tests/gh768-the-aa-ranges-have-one-file.test.js",
+    "holds the two equal until the engine is moved onto the file, which is a separate decision.",
+    "",
+    "bySoilType: `sands` and `others`, each nutrient with `lo` and `hi` in ppm (Olsen P in mg/L, which",
+    "is equivalent). Which one a site uses comes from its construction, resolved by the construction",
+    "dictionary in calculation-inputs.schema.json.",
+    "",
+    "The micronutrients are the same for both soil types in the engine, and are copied as they stand",
+    "rather than folded into one place: the file says what the engine says.",
+    "",
+    "certificateOverridable: the five the Hill Labs certificate may override, as the engine's own list",
+    "does (`[\"P\", \"K\", \"Ca\", \"Mg\", \"S\"].forEach`). A certificate carrying Fe would otherwise reach",
+    "the server and not the engine, and the two would part without anyone touching this file."
+  ],
+  "version": 1,
+  "bySoilType": {
+    "sands": {
+      "P": { "lo": 12, "hi": 28 },
+      "K": { "lo": 75, "hi": 175 },
+      "Ca": { "lo": 500, "hi": 750 },
+      "Mg": { "lo": 100, "hi": 200 },
+      "S": { "lo": 30, "hi": 60 },
+      "Fe": { "lo": 40, "hi": 100 },
+      "Mn": { "lo": 10, "hi": 50 },
+      "Cu": { "lo": 0.5, "hi": 3 },
+      "Zn": { "lo": 1, "hi": 5 },
+      "B": { "lo": 0.4, "hi": 1.5 }
+    },
+    "others": {
+      "P": { "lo": 12, "hi": 28 },
+      "K": { "lo": 100, "hi": 235 },
+      "Ca": { "lo": 500, "hi": 750 },
+      "Mg": { "lo": 140, "hi": 250 },
+      "S": { "lo": 30, "hi": 60 },
+      "Fe": { "lo": 40, "hi": 100 },
+      "Mn": { "lo": 10, "hi": 50 },
+      "Cu": { "lo": 0.5, "hi": 3 },
+      "Zn": { "lo": 1, "hi": 5 },
+      "B": { "lo": 0.4, "hi": 1.5 }
+    }
+  },
+  "certificateOverridable": ["P", "K", "Ca", "Mg", "S"]
+}

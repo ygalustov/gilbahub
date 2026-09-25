@@ -1,196 +1,199 @@
 {
-  "$comment": [
-    "GH-703 - the inventory of stand-site identities that live tests under tests/e2e name today.",
-    "A file may name only what it is listed with; the census in tests/gh703-live-tests-name-stand-sites-only-where-listed.test.js must equal this, both ways.",
-    "An entry leaves this list when its test is moved onto a site it builds itself; it never grows."
+ "$comment": [
+  "GH-703 - the inventory of stand-site identities that live tests under tests/e2e name today.",
+  "A file may name only what it is listed with; the census in tests/gh703-live-tests-name-stand-sites-only-where-listed.test.js must equal this, both ways.",
+  "An entry leaves this list when its test is moved onto a site it builds itself; it never grows."
+ ],
+ "files": {
+  "tests/e2e/gh394-traffic-live.test.js": [
+   "Burns",
+   "Test1 - Sports"
   ],
-  "files": {
-    "tests/e2e/gh394-traffic-live.test.js": [
-      "Burns",
-      "Test1 - Sports"
-    ],
-    "tests/e2e/gh395-nz-methodology-gate-live.test.js": [
-      "019e96f3-9294-72be-a13c-7fa7427afd5a",
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh400-au-liquid-phosphorus-live.test.js": [
-      "019e96d7-36aa-707a-9879-68ab28726e12",
-      "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
-      "019f7d28-50ed-71e2-b817-c252b0160460",
-      "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
-      "Burns",
-      "Federal Golf",
-      "New test - location",
-      "Westview"
-    ],
-    "tests/e2e/gh401-delivery-volumes-live.test.js": [
-      "019e96d7-36aa-707a-9879-68ab28726e12",
-      "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
-      "019e96f3-9294-72be-a13c-7fa7427afd5a",
-      "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
-      "Burns",
-      "Federal Golf",
-      "New test - location",
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh404-settings-location-required-live.test.js": [
-      "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
-      "Burns"
-    ],
-    "tests/e2e/gh409-product-table-units-live.test.js": [
-      "01a08ae6-8a43-7004-99a6-8cddfc69b9cb",
-      "01a08b0b-4d6a-736d-a184-2fa1e04394b6"
-    ],
-    "tests/e2e/gh415-prebble-input-parity-live.test.js": [
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh422-soil-cec-live.test.js": [
-      "019e96f3-9294-72be-a13c-7fa7427afd5a",
-      "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
-      "01a08ae6-8a43-7004-99a6-8cddfc69b9cb",
-      "01a08b0b-4d6a-736d-a184-2fa1e04394b6",
-      "Russley",
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh423-nz-divergence-live.test.js": [
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh424-soil-temp-basis-live.test.js": [
-      "Russley",
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh425-calc-trace-live.test.js": [
-      "019e96d7-36aa-707a-9879-68ab28726e12",
-      "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
-      "019f7d28-50ed-71e2-b817-c252b0160460",
-      "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
-      "Burns",
-      "Federal Golf",
-      "New test - location",
-      "Westview"
-    ],
-    "tests/e2e/gh426-soil-temp-options-live.test.js": [
-      "Russley",
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh428-calc-trace-provenance-live.test.js": [
-      "Burns",
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh428-outer-soil-temp-live.test.js": [
-      "Russley",
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh439-config-reset-live.test.js": [
-      "019e0000-0000-7000-8000-0000004390ff"
-    ],
-    "tests/e2e/gh459-cross-site-inputs-live.test.js": [
-      "019e96f3-9294-72be-a13c-7fa7427afd5a",
-      "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
-      "019f457d-987c-7013-9dfe-e9d2bc1d972d",
-      "019f7d28-50ed-71e2-b817-c252b0160460",
-      "Canberra",
-      "Westview"
-    ],
-    "tests/e2e/gh492-anr-whose-numbers-live.test.js": [
-      "019e96f3-9294-72be-a13c-7fa7427afd5a",
-      "019f35f0-d912-73e5-82bd-3de0bfd4f6ce"
-    ],
-    "tests/e2e/gh505-the-press-answers-live.test.js": [
-      "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
-      "Russley"
-    ],
-    "tests/e2e/gh521-burns-document-live.test.js": [
-      "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
-      "Burns"
-    ],
-    "tests/e2e/gh521-methodology-per-layer-live.test.js": [
-      "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
-      "019e96f3-9294-72be-a13c-7fa7427afd5a",
-      "019f7d28-50ed-71e2-b817-c252b0160460",
-      "Burns",
-      "Canberra",
-      "Test1 - Sports",
-      "Test5 - NZ",
-      "Test6 - UK",
-      "Westview"
-    ],
-    "tests/e2e/gh522-stand-guard-witness-live.test.js": [
-      "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
-      "Burns"
-    ],
-    "tests/e2e/gh523-climate-consumer-live.test.js": [
-      "019e96f3-9294-72be-a13c-7fa7427afd5a",
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh526-stage1-routes-live.test.js": [
-      "019e971b-ec9d-7076-a34d-601bfcc7cb81",
-      "Test6 - UK"
-    ],
-    "tests/e2e/gh530-uk-caption-measure-live.test.js": [
-      "019e971b-ec9d-7076-a34d-601bfcc7cb81",
-      "Test6 - UK"
-    ],
-    "tests/e2e/gh533-per-record-writes-live.test.js": [
-      "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
-      "Burns",
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh536-samples-read-failure-live.test.js": [
-      "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
-      "Burns"
-    ],
-    "tests/e2e/gh537-site-scoped-restore-live.test.js": [
-      "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
-      "019f7d28-50ed-71e2-b817-c252b0160460",
-      "Burns",
-      "Westview"
-    ],
-    "tests/e2e/gh537-westview-export-offers-its-sample-live.test.js": [
-      "019f7d28-50ed-71e2-b817-c252b0160460",
-      "Westview"
-    ],
-    "tests/e2e/gh538-stand-restore-round-trip-live.test.js": [
-      "01a08ae6-8a43-7004-99a6-8cddfc69b9cb",
-      "01a08b0b-4d6a-736d-a184-2fa1e04394b6"
-    ],
-    "tests/e2e/gh539-empty-analysis-cache-write-live.test.js": [
-      "01a08b0b-4d6a-736d-a184-2fa1e04394b6"
-    ],
-    "tests/e2e/gh540-reports-pages-analysis-cache-write-live.test.js": [
-      "01a08b0b-4d6a-736d-a184-2fa1e04394b6"
-    ],
-    "tests/e2e/gh541-account-methodology-column-live.test.js": [
-      "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
-      "Burns",
-      "Federal Golf"
-    ],
-    "tests/e2e/gh542-rerun-on-a-collapsed-row-live.test.js": [
-      "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
-      "Russley"
-    ],
-    "tests/e2e/gh591-restore-a-row-live.test.js": [
-      "Test5 - NZ"
-    ],
-    "tests/e2e/gh611-the-ion-table-on-screen-live.test.js": [
-      "Burns"
-    ],
-    "tests/e2e/gh655-the-water-sample-list-on-screen-live.test.js": [
-      "Russley"
-    ],
-    "tests/e2e/gh660-does-the-frame-compute-the-pointers-site-live.test.js": [
-      "Burns",
-      "Russley",
-      "Test5 - NZ",
-      "Test6 - UK"
-    ],
-    "tests/e2e/gh661-the-held-write-names-its-site-live.test.js": [
-      "Burns",
-      "Russley",
-      "Test1 - Sports",
-      "Test5 - NZ",
-      "Test6 - UK",
-      "Westview"
-    ]
-  }
+  "tests/e2e/gh395-nz-methodology-gate-live.test.js": [
+   "019e96f3-9294-72be-a13c-7fa7427afd5a",
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh400-au-liquid-phosphorus-live.test.js": [
+   "019e96d7-36aa-707a-9879-68ab28726e12",
+   "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "019f7d28-50ed-71e2-b817-c252b0160460",
+   "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "Burns",
+   "Federal Golf",
+   "New test - location",
+   "Westview"
+  ],
+  "tests/e2e/gh401-delivery-volumes-live.test.js": [
+   "019e96d7-36aa-707a-9879-68ab28726e12",
+   "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "019e96f3-9294-72be-a13c-7fa7427afd5a",
+   "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "Burns",
+   "Federal Golf",
+   "New test - location",
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh404-settings-location-required-live.test.js": [
+   "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "Burns"
+  ],
+  "tests/e2e/gh409-product-table-units-live.test.js": [
+   "01a08ae6-8a43-7004-99a6-8cddfc69b9cb",
+   "01a08b0b-4d6a-736d-a184-2fa1e04394b6"
+  ],
+  "tests/e2e/gh415-prebble-input-parity-live.test.js": [
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh422-soil-cec-live.test.js": [
+   "019e96f3-9294-72be-a13c-7fa7427afd5a",
+   "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "01a08ae6-8a43-7004-99a6-8cddfc69b9cb",
+   "01a08b0b-4d6a-736d-a184-2fa1e04394b6",
+   "Russley",
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh423-nz-divergence-live.test.js": [
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh424-soil-temp-basis-live.test.js": [
+   "Russley",
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh425-calc-trace-live.test.js": [
+   "019e96d7-36aa-707a-9879-68ab28726e12",
+   "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "019f7d28-50ed-71e2-b817-c252b0160460",
+   "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "Burns",
+   "Federal Golf",
+   "New test - location",
+   "Westview"
+  ],
+  "tests/e2e/gh426-soil-temp-options-live.test.js": [
+   "Russley",
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh428-calc-trace-provenance-live.test.js": [
+   "Burns",
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh428-outer-soil-temp-live.test.js": [
+   "Russley",
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh439-config-reset-live.test.js": [
+   "019e0000-0000-7000-8000-0000004390ff"
+  ],
+  "tests/e2e/gh459-cross-site-inputs-live.test.js": [
+   "019e96f3-9294-72be-a13c-7fa7427afd5a",
+   "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "019f457d-987c-7013-9dfe-e9d2bc1d972d",
+   "019f7d28-50ed-71e2-b817-c252b0160460",
+   "Canberra",
+   "Westview"
+  ],
+  "tests/e2e/gh492-anr-whose-numbers-live.test.js": [
+   "019e96f3-9294-72be-a13c-7fa7427afd5a",
+   "019f35f0-d912-73e5-82bd-3de0bfd4f6ce"
+  ],
+  "tests/e2e/gh505-the-press-answers-live.test.js": [
+   "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "Russley"
+  ],
+  "tests/e2e/gh521-burns-document-live.test.js": [
+   "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "Burns"
+  ],
+  "tests/e2e/gh521-methodology-per-layer-live.test.js": [
+   "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "019e96f3-9294-72be-a13c-7fa7427afd5a",
+   "019f7d28-50ed-71e2-b817-c252b0160460",
+   "Burns",
+   "Canberra",
+   "Test1 - Sports",
+   "Test5 - NZ",
+   "Test6 - UK",
+   "Westview"
+  ],
+  "tests/e2e/gh522-stand-guard-witness-live.test.js": [
+   "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "Burns"
+  ],
+  "tests/e2e/gh523-climate-consumer-live.test.js": [
+   "019e96f3-9294-72be-a13c-7fa7427afd5a",
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh526-stage1-routes-live.test.js": [
+   "019e971b-ec9d-7076-a34d-601bfcc7cb81",
+   "Test6 - UK"
+  ],
+  "tests/e2e/gh530-uk-caption-measure-live.test.js": [
+   "019e971b-ec9d-7076-a34d-601bfcc7cb81",
+   "Test6 - UK"
+  ],
+  "tests/e2e/gh533-per-record-writes-live.test.js": [
+   "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "Burns",
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh536-samples-read-failure-live.test.js": [
+   "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "Burns"
+  ],
+  "tests/e2e/gh537-site-scoped-restore-live.test.js": [
+   "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "019f7d28-50ed-71e2-b817-c252b0160460",
+   "Burns",
+   "Westview"
+  ],
+  "tests/e2e/gh537-westview-export-offers-its-sample-live.test.js": [
+   "019f7d28-50ed-71e2-b817-c252b0160460",
+   "Westview"
+  ],
+  "tests/e2e/gh538-stand-restore-round-trip-live.test.js": [
+   "01a08ae6-8a43-7004-99a6-8cddfc69b9cb",
+   "01a08b0b-4d6a-736d-a184-2fa1e04394b6"
+  ],
+  "tests/e2e/gh539-empty-analysis-cache-write-live.test.js": [
+   "01a08b0b-4d6a-736d-a184-2fa1e04394b6"
+  ],
+  "tests/e2e/gh540-reports-pages-analysis-cache-write-live.test.js": [
+   "01a08b0b-4d6a-736d-a184-2fa1e04394b6"
+  ],
+  "tests/e2e/gh541-account-methodology-column-live.test.js": [
+   "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "Burns",
+   "Federal Golf"
+  ],
+  "tests/e2e/gh542-rerun-on-a-collapsed-row-live.test.js": [
+   "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "Russley"
+  ],
+  "tests/e2e/gh591-restore-a-row-live.test.js": [
+   "Test5 - NZ"
+  ],
+  "tests/e2e/gh611-the-ion-table-on-screen-live.test.js": [
+   "Burns"
+  ],
+  "tests/e2e/gh655-the-water-sample-list-on-screen-live.test.js": [
+   "Russley"
+  ],
+  "tests/e2e/gh660-does-the-frame-compute-the-pointers-site-live.test.js": [
+   "Burns",
+   "Russley",
+   "Test5 - NZ",
+   "Test6 - UK"
+  ],
+  "tests/e2e/gh661-the-held-write-names-its-site-live.test.js": [
+   "Burns",
+   "Russley",
+   "Test1 - Sports",
+   "Test5 - NZ",
+   "Test6 - UK",
+   "Westview"
+  ],
+  "tests/e2e/gh768-aa-micronutrients-on-screen-live.test.js": [
+   "Test5 - NZ"
+  ]
+ }
 }

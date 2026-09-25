@@ -3,26 +3,106 @@
     "GH-752 - the grade grid, recorded from mlsnEngine by tests/gh752-the-server-grades-a-sample-as-the-engine-does.test.js (GH752_RECORD=1).",
     "The engine test holds the engine equal to it; Gh752TheServerGradesASampleAsTheEngineDoesTest holds the server equal to it."
   ],
-  "input": {
-    "ppm": {
-      "P": 10,
-      "K": 60,
-      "Ca": 600,
-      "Mg": 150,
-      "S": 20,
-      "Fe": 70,
-      "Mn": 40,
-      "Zn": 4,
-      "Cu": 1,
-      "B": 0.2
+  "inputs": [
+    {
+      "name": "inside both judgements",
+      "ppm": {
+        "P": 10,
+        "K": 60,
+        "Ca": 600,
+        "Mg": 150,
+        "S": 20,
+        "Fe": 70,
+        "Mn": 40,
+        "Zn": 4,
+        "Cu": 1,
+        "B": 0.2
+      },
+      "pH": 7.4,
+      "soilTexture": "loam",
+      "species": "perennialRyegrass",
+      "CEC": 15
     },
-    "pH": 7.4,
-    "soilTexture": "loam",
-    "species": "perennialRyegrass",
-    "CEC": 15
-  },
+    {
+      "name": "micronutrients outside the AA range",
+      "ppm": {
+        "P": 10,
+        "K": 60,
+        "Ca": 600,
+        "Mg": 150,
+        "S": 20,
+        "Fe": 168,
+        "Mn": 60,
+        "Zn": 5.7,
+        "Cu": 4,
+        "B": 0.3
+      },
+      "pH": 7.4,
+      "soilTexture": "loam",
+      "species": "perennialRyegrass",
+      "CEC": 15
+    },
+    {
+      "name": "each micronutrient exactly on its AA upper bound",
+      "ppm": {
+        "P": 10,
+        "K": 60,
+        "Ca": 600,
+        "Mg": 150,
+        "S": 20,
+        "Fe": 100,
+        "Mn": 50,
+        "Zn": 5,
+        "Cu": 3,
+        "B": 1.5
+      },
+      "pH": 7.4,
+      "soilTexture": "loam",
+      "species": "perennialRyegrass",
+      "CEC": 15
+    },
+    {
+      "name": "each micronutrient exactly on its AA lower bound",
+      "ppm": {
+        "P": 10,
+        "K": 60,
+        "Ca": 600,
+        "Mg": 150,
+        "S": 20,
+        "Fe": 40,
+        "Mn": 10,
+        "Zn": 1,
+        "Cu": 0.5,
+        "B": 0.4
+      },
+      "pH": 7.4,
+      "soilTexture": "loam",
+      "species": "perennialRyegrass",
+      "CEC": 15
+    },
+    {
+      "name": "a sandy rootzone with no certificate, where the AA bucket is sands",
+      "ppm": {
+        "P": 10,
+        "K": 60,
+        "Ca": 600,
+        "Mg": 150,
+        "S": 20,
+        "Fe": 70,
+        "Mn": 40,
+        "Zn": 4,
+        "Cu": 1,
+        "B": 0.2
+      },
+      "pH": 7.4,
+      "soilTexture": "sand",
+      "species": "kentuckyBluegrass",
+      "CEC": 15
+    }
+  ],
   "cells": [
     {
+      "input": 0,
       "construction": "sand_profile",
       "methodology": "slan",
       "rows": {
@@ -99,6 +179,7 @@
       }
     },
     {
+      "input": 0,
       "construction": "sand_profile",
       "methodology": "ammonium_acetate",
       "rows": {
@@ -175,6 +256,7 @@
       }
     },
     {
+      "input": 0,
       "construction": "sand_profile",
       "methodology": "mlsn",
       "rows": {
@@ -241,6 +323,7 @@
       }
     },
     {
+      "input": 0,
       "construction": "soil",
       "methodology": "slan",
       "rows": {
@@ -317,6 +400,7 @@
       }
     },
     {
+      "input": 0,
       "construction": "soil",
       "methodology": "ammonium_acetate",
       "rows": {
@@ -393,6 +477,1775 @@
       }
     },
     {
+      "input": 0,
+      "construction": "soil",
+      "methodology": "mlsn",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "single": 21
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 37
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 331
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "single": 47
+          }
+        },
+        "S": {
+          "grade": "high",
+          "threshold": {
+            "single": 7
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "single": 2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "single": 0.3
+          }
+        },
+        "B": {
+          "grade": "deficient",
+          "threshold": {
+            "single": 0.3
+          }
+        }
+      }
+    },
+    {
+      "input": 1,
+      "construction": "sand_profile",
+      "methodology": "slan",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 50,
+            "hi": 116
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "lo": 60,
+            "hi": 120
+          }
+        },
+        "S": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 15,
+            "hi": 40
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "lo": 93.4,
+            "hi": 100.2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 31.5,
+            "hi": 33.7
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 1.3,
+            "hi": 3.5
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "lo": 0.6,
+            "hi": 2
+          }
+        },
+        "B": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 1,
+      "construction": "sand_profile",
+      "methodology": "ammonium_acetate",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 100,
+            "hi": 235
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 140,
+            "hi": 250
+          }
+        },
+        "S": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 30,
+            "hi": 60
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "lo": 40,
+            "hi": 100
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 10,
+            "hi": 50
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 1,
+            "hi": 5
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "lo": 0.5,
+            "hi": 3
+          }
+        },
+        "B": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 1,
+      "construction": "sand_profile",
+      "methodology": "mlsn",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "single": 21
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 37
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 331
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "single": 47
+          }
+        },
+        "S": {
+          "grade": "high",
+          "threshold": {
+            "single": 7
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "single": 2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "single": 0.3
+          }
+        },
+        "B": {
+          "grade": "borderline",
+          "threshold": {
+            "single": 0.3
+          }
+        }
+      }
+    },
+    {
+      "input": 1,
+      "construction": "soil",
+      "methodology": "slan",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 75,
+            "hi": 176
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "lo": 70,
+            "hi": 140
+          }
+        },
+        "S": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 15,
+            "hi": 40
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "lo": 93.4,
+            "hi": 100.2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 31.5,
+            "hi": 33.7
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 1.3,
+            "hi": 3.5
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "lo": 0.6,
+            "hi": 2
+          }
+        },
+        "B": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 1,
+      "construction": "soil",
+      "methodology": "ammonium_acetate",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 100,
+            "hi": 235
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 140,
+            "hi": 250
+          }
+        },
+        "S": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 30,
+            "hi": 60
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "lo": 40,
+            "hi": 100
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 10,
+            "hi": 50
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 1,
+            "hi": 5
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "lo": 0.5,
+            "hi": 3
+          }
+        },
+        "B": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 1,
+      "construction": "soil",
+      "methodology": "mlsn",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "single": 21
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 37
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 331
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "single": 47
+          }
+        },
+        "S": {
+          "grade": "high",
+          "threshold": {
+            "single": 7
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "single": 2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "single": 0.3
+          }
+        },
+        "B": {
+          "grade": "borderline",
+          "threshold": {
+            "single": 0.3
+          }
+        }
+      }
+    },
+    {
+      "input": 2,
+      "construction": "sand_profile",
+      "methodology": "slan",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 50,
+            "hi": 116
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "lo": 60,
+            "hi": 120
+          }
+        },
+        "S": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 15,
+            "hi": 40
+          }
+        },
+        "Fe": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 93.4,
+            "hi": 100.2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 31.5,
+            "hi": 33.7
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 1.3,
+            "hi": 3.5
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "lo": 0.6,
+            "hi": 2
+          }
+        },
+        "B": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 2,
+      "construction": "sand_profile",
+      "methodology": "ammonium_acetate",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 100,
+            "hi": 235
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 140,
+            "hi": 250
+          }
+        },
+        "S": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 30,
+            "hi": 60
+          }
+        },
+        "Fe": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 40,
+            "hi": 100
+          }
+        },
+        "Mn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 10,
+            "hi": 50
+          }
+        },
+        "Zn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 1,
+            "hi": 5
+          }
+        },
+        "Cu": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.5,
+            "hi": 3
+          }
+        },
+        "B": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 2,
+      "construction": "sand_profile",
+      "methodology": "mlsn",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "single": 21
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 37
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 331
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "single": 47
+          }
+        },
+        "S": {
+          "grade": "high",
+          "threshold": {
+            "single": 7
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "single": 2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "single": 0.3
+          }
+        },
+        "B": {
+          "grade": "high",
+          "threshold": {
+            "single": 0.3
+          }
+        }
+      }
+    },
+    {
+      "input": 2,
+      "construction": "soil",
+      "methodology": "slan",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 75,
+            "hi": 176
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "lo": 70,
+            "hi": 140
+          }
+        },
+        "S": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 15,
+            "hi": 40
+          }
+        },
+        "Fe": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 93.4,
+            "hi": 100.2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 31.5,
+            "hi": 33.7
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 1.3,
+            "hi": 3.5
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "lo": 0.6,
+            "hi": 2
+          }
+        },
+        "B": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 2,
+      "construction": "soil",
+      "methodology": "ammonium_acetate",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 100,
+            "hi": 235
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 140,
+            "hi": 250
+          }
+        },
+        "S": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 30,
+            "hi": 60
+          }
+        },
+        "Fe": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 40,
+            "hi": 100
+          }
+        },
+        "Mn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 10,
+            "hi": 50
+          }
+        },
+        "Zn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 1,
+            "hi": 5
+          }
+        },
+        "Cu": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.5,
+            "hi": 3
+          }
+        },
+        "B": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 2,
+      "construction": "soil",
+      "methodology": "mlsn",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "single": 21
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 37
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 331
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "single": 47
+          }
+        },
+        "S": {
+          "grade": "high",
+          "threshold": {
+            "single": 7
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "single": 2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "single": 0.3
+          }
+        },
+        "B": {
+          "grade": "high",
+          "threshold": {
+            "single": 0.3
+          }
+        }
+      }
+    },
+    {
+      "input": 3,
+      "construction": "sand_profile",
+      "methodology": "slan",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 50,
+            "hi": 116
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "lo": 60,
+            "hi": 120
+          }
+        },
+        "S": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 15,
+            "hi": 40
+          }
+        },
+        "Fe": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 93.4,
+            "hi": 100.2
+          }
+        },
+        "Mn": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 31.5,
+            "hi": 33.7
+          }
+        },
+        "Zn": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 1.3,
+            "hi": 3.5
+          }
+        },
+        "Cu": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 0.6,
+            "hi": 2
+          }
+        },
+        "B": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 3,
+      "construction": "sand_profile",
+      "methodology": "ammonium_acetate",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 100,
+            "hi": 235
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 140,
+            "hi": 250
+          }
+        },
+        "S": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 30,
+            "hi": 60
+          }
+        },
+        "Fe": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 40,
+            "hi": 100
+          }
+        },
+        "Mn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 10,
+            "hi": 50
+          }
+        },
+        "Zn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 1,
+            "hi": 5
+          }
+        },
+        "Cu": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.5,
+            "hi": 3
+          }
+        },
+        "B": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 3,
+      "construction": "sand_profile",
+      "methodology": "mlsn",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "single": 21
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 37
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 331
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "single": 47
+          }
+        },
+        "S": {
+          "grade": "high",
+          "threshold": {
+            "single": 7
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "single": 2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Zn": {
+          "grade": "borderline",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Cu": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 0.3
+          }
+        },
+        "B": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 0.3
+          }
+        }
+      }
+    },
+    {
+      "input": 3,
+      "construction": "soil",
+      "methodology": "slan",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 75,
+            "hi": 176
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "lo": 70,
+            "hi": 140
+          }
+        },
+        "S": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 15,
+            "hi": 40
+          }
+        },
+        "Fe": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 93.4,
+            "hi": 100.2
+          }
+        },
+        "Mn": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 31.5,
+            "hi": 33.7
+          }
+        },
+        "Zn": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 1.3,
+            "hi": 3.5
+          }
+        },
+        "Cu": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 0.6,
+            "hi": 2
+          }
+        },
+        "B": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 3,
+      "construction": "soil",
+      "methodology": "ammonium_acetate",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 100,
+            "hi": 235
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 140,
+            "hi": 250
+          }
+        },
+        "S": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 30,
+            "hi": 60
+          }
+        },
+        "Fe": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 40,
+            "hi": 100
+          }
+        },
+        "Mn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 10,
+            "hi": 50
+          }
+        },
+        "Zn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 1,
+            "hi": 5
+          }
+        },
+        "Cu": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.5,
+            "hi": 3
+          }
+        },
+        "B": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 3,
+      "construction": "soil",
+      "methodology": "mlsn",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "single": 21
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 37
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 331
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "single": 47
+          }
+        },
+        "S": {
+          "grade": "high",
+          "threshold": {
+            "single": 7
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "single": 2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Zn": {
+          "grade": "borderline",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Cu": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 0.3
+          }
+        },
+        "B": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 0.3
+          }
+        }
+      }
+    },
+    {
+      "input": 4,
+      "construction": "sand_profile",
+      "methodology": "slan",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 50,
+            "hi": 116
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "lo": 60,
+            "hi": 120
+          }
+        },
+        "S": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 15,
+            "hi": 40
+          }
+        },
+        "Fe": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 93.4,
+            "hi": 100.2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 31.5,
+            "hi": 33.7
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 1.3,
+            "hi": 3.5
+          }
+        },
+        "Cu": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.6,
+            "hi": 2
+          }
+        },
+        "B": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 4,
+      "construction": "sand_profile",
+      "methodology": "ammonium_acetate",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 75,
+            "hi": 175
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 100,
+            "hi": 200
+          }
+        },
+        "S": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 30,
+            "hi": 60
+          }
+        },
+        "Fe": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 40,
+            "hi": 100
+          }
+        },
+        "Mn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 10,
+            "hi": 50
+          }
+        },
+        "Zn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 1,
+            "hi": 5
+          }
+        },
+        "Cu": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.5,
+            "hi": 3
+          }
+        },
+        "B": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 4,
+      "construction": "sand_profile",
+      "methodology": "mlsn",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "single": 21
+          }
+        },
+        "K": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 37
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "single": 331
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "single": 47
+          }
+        },
+        "S": {
+          "grade": "high",
+          "threshold": {
+            "single": 7
+          }
+        },
+        "Fe": {
+          "grade": "high",
+          "threshold": {
+            "single": 2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "single": 1
+          }
+        },
+        "Cu": {
+          "grade": "high",
+          "threshold": {
+            "single": 0.3
+          }
+        },
+        "B": {
+          "grade": "deficient",
+          "threshold": {
+            "single": 0.3
+          }
+        }
+      }
+    },
+    {
+      "input": 4,
+      "construction": "soil",
+      "methodology": "slan",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 75,
+            "hi": 176
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "high",
+          "threshold": {
+            "lo": 70,
+            "hi": 140
+          }
+        },
+        "S": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 15,
+            "hi": 40
+          }
+        },
+        "Fe": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 93.4,
+            "hi": 100.2
+          }
+        },
+        "Mn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 31.5,
+            "hi": 33.7
+          }
+        },
+        "Zn": {
+          "grade": "high",
+          "threshold": {
+            "lo": 1.3,
+            "hi": 3.5
+          }
+        },
+        "Cu": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.6,
+            "hi": 2
+          }
+        },
+        "B": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 4,
+      "construction": "soil",
+      "methodology": "ammonium_acetate",
+      "rows": {
+        "P": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 12,
+            "hi": 28
+          }
+        },
+        "K": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 75,
+            "hi": 175
+          }
+        },
+        "Ca": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 500,
+            "hi": 750
+          }
+        },
+        "Mg": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 100,
+            "hi": 200
+          }
+        },
+        "S": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 30,
+            "hi": 60
+          }
+        },
+        "Fe": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 40,
+            "hi": 100
+          }
+        },
+        "Mn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 10,
+            "hi": 50
+          }
+        },
+        "Zn": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 1,
+            "hi": 5
+          }
+        },
+        "Cu": {
+          "grade": "adequate",
+          "threshold": {
+            "lo": 0.5,
+            "hi": 3
+          }
+        },
+        "B": {
+          "grade": "deficient",
+          "threshold": {
+            "lo": 0.4,
+            "hi": 1.5
+          }
+        }
+      }
+    },
+    {
+      "input": 4,
       "construction": "soil",
       "methodology": "mlsn",
       "rows": {

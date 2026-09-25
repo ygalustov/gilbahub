@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Support\LabReadingNames;
 use App\Support\CalculationInputs;
 use App\Support\ClassificationConstants;
+use App\Support\AaRanges;
 use App\Support\SlanRanges;
 use App\Models\Sample;
 use App\Models\SiteConfig;
@@ -26,19 +27,11 @@ class SampleAnalysisController extends Controller
      */
     private const MLSN_DEFAULTS = ClassificationConstants::MLSN_THRESHOLDS;
 
-    // GH-268 (D07 item 4): texture-only fallback for AA — used when
-    // HillLabsSampleTypesService::deriveCode() can't resolve a certificate-
-    // backed sample-type code (species not covered, or texture not sand-ish
-    // for the two sand-only codes). Same numbers this constant already had;
-    // this class no longer treats them as the primary source, only the
-    // graceful-degradation floor, matching mlsnEngine()'s AA branch (GH-260).
-    private const AA_RANGES = [
-        'P'  => ['sands' => [12, 28],   'others' => [12, 28]],
-        'K'  => ['sands' => [75, 175],  'others' => [100, 235]],
-        'Ca' => ['sands' => [500, 750], 'others' => [500, 750]],
-        'Mg' => ['sands' => [100, 200], 'others' => [140, 250]],
-        'S'  => ['sands' => [30, 60],   'others' => [30, 60]],
-    ];
+    // GH-768 (queue item 3vm): the AA table that used to stand here carried five nutrients of ten,
+    // so Fe, Mn, Zn, Cu and B on an AA site fell through to MLSN's thresholds below -- a different
+    // methodology, and nothing said so. All ten now come from `assets/aa-ranges.json` through
+    // App\Support\AaRanges, the same shape SlanRanges established in GH-752. The numbers are the
+    // engine's own; tests/gh768-the-aa-ranges-have-one-file.test.js holds the file equal to them.
 
     private const UNUSUAL_RANGES = [
         'K'  => [5,   800],  'P'  => [1,   200],  'Ca' => [50,  4000],
@@ -190,9 +183,10 @@ class SampleAnalysisController extends Controller
         // the same way mlsnEngine() does (GH-260/258) — deriveCode() handles
         // both canonical species keys and common raw labels internally. When
         // it resolves, per-nutrient certificate ranges (getRangesPpm) overlay
-        // the AA_RANGES texture-only fallback below; when it doesn't (species
-        // not covered, or not sand-ish for the two sand-only codes), AA_RANGES
-        // stays exactly as before — this endpoint no longer disagrees with
+        // the texture-only ranges below -- for the five nutrients the engine
+        // lets a certificate override (GH-768); when it doesn't (species not
+        // covered, or not sand-ish for the two sand-only codes), those ranges
+        // stay exactly as before — this endpoint no longer disagrees with
         // mlsnEngine()'s output for the same sample, closing the dual-path
         // gap GH-262 traced back to this controller.
         $sampleTypeCode = $isAA ? HillLabsSampleTypesService::deriveCode($species, $soilTexture) : null;
@@ -255,8 +249,10 @@ class SampleAnalysisController extends Controller
                 }
 
                 // AA methodology: use Hill Labs sufficiency ranges
-                if ($isAA && isset(self::AA_RANGES[$nut])) {
-                    [$lowCeil, $medCeil] = self::AA_RANGES[$nut][$texKey];
+                $aaRanges = $isAA ? AaRanges::forSoilType($texKey) : null;
+                if ($isAA && isset($aaRanges[$nut])) {
+                    $lowCeil = $aaRanges[$nut]['lo'];
+                    $medCeil = $aaRanges[$nut]['hi'];
                     $rangeLabel = $lowCeil.'-'.$medCeil; // "12-28" format, matches old hub
                     // GH-304 (D07 item 7): mirrors hub-tissue-v3.js's aaRangeSource
                     // tagging (GH-260) -- defaults to the texture-only fallback,
@@ -266,7 +262,11 @@ class SampleAnalysisController extends Controller
                     // 'texture-fallback' even when $sampleTypeCode resolves).
                     $rangeSource = 'texture-fallback';
 
-                    if ($sampleTypeCode) {
+                    // GH-768: the certificate overrides the five the engine lets it override, by the
+                    // list the file carries, and not everything `getRangesPpm` happens to answer for.
+                    // Today the certificate data holds no micronutrient range, so this changes
+                    // nothing; it means the two sides cannot part the day one appears.
+                    if ($sampleTypeCode && in_array($nut, AaRanges::certificateOverridable(), true)) {
                         $certRange = HillLabsSampleTypesService::getRangesPpm($sampleTypeCode, $nut, $cec);
                         if ($certRange) {
                             $lowCeil = $certRange['min'];
