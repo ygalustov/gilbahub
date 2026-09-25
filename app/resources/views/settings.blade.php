@@ -376,13 +376,30 @@
                                     <label for="stg-turf-construction">Construction type <span aria-hidden="true">*</span></label>
                                     <select id="stg-turf-construction" name="construction" required>
                                         <option value="">— select —</option>
-                                        @foreach([
-                                            'sand_carpet'  => 'Sand carpet',
-                                            'sand_profile' => 'Sand profile (USGA-style)',
-                                            'pipe_drained' => 'Pipe drained + slit drained',
-                                            'soil'         => 'Soil field',
-                                            'hybrid'       => 'Hybrid reinforced',
-                                        ] as $v => $l)
+                                        {{--
+                                            GH-769: A STORED CONSTRUCTION IS SHOWN, NOT SILENTLY BLANKED.
+                                            This form offers five; a site may hold one of the others,
+                                            because the setup wizard offers the whole declared list.
+                                            Measured: a site whose stored value was `push_up` rendered
+                                            an empty field with "— select —", which reads as "the
+                                            wizard did not save it" when the database holds it. The
+                                            label comes from the declared list, so no second list of
+                                            labels is created here; the offered five are unchanged.
+                                            Same shape as the cultivar a few fields above.
+                                        --}}
+                                        @php
+                                            // GH-769: the five come from the inputs list, beside the keys, as the
+                                            // methodologies do a few fields below. The hard-coded array and the
+                                            // literal labels that used to stand here were the second place the
+                                            // same five identifiers lived, and the wizard read the other one.
+                                            $constructionChoices = \App\Support\CalculationInputs::constructionChoices();
+                                            $constructionStored = $turfVal('construction');
+                                            $constructionLabels = \App\Support\CalculationInputs::entry('turf.construction')['values'] ?? [];
+                                        @endphp
+                                        @if($constructionStored && !array_key_exists($constructionStored, $constructionChoices))
+                                        <option value="{{ $constructionStored }}" selected>{{ $constructionLabels[$constructionStored]['label'] ?? $constructionStored }}</option>
+                                        @endif
+                                        @foreach($constructionChoices as $v => $l)
                                         <option value="{{ $v }}" {{ $turfVal('construction') === $v ? 'selected' : '' }}>{{ $l }}</option>
                                         @endforeach
                                     </select>

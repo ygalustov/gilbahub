@@ -116,12 +116,14 @@ class DashboardController extends Controller
             'answers' => $activeSite
                 ? EnsureSiteIsSetUp::answersFor($activeSite, CalculationInputs::requiredFor(is_string($setupTurfType) ? $setupTurfType : ''))
                 : [],
-            // The constructions a person may choose, from the list's own value dictionary rather
-            // than a second table in the wizard. `offeredFor` is null and the owner has not yet
-            // decided which constructions suit which turf type, so every one of them is offered;
-            // narrowing them here would be answering that question on her behalf.
-            'constructionValues' => collect(CalculationInputs::entry('turf.construction')['values'] ?? [])
-                ->map(fn ($v, $id) => ['id' => $id, 'label' => is_array($v) ? ($v['label'] ?? $id) : $id])
+            // GH-769 (queue item 3vs, position 2): the constructions a person may choose, which is
+            // the `offered` mark on the declared values and nothing else. This offered all eleven
+            // while the Settings form offered five of its own, so a person could choose here what
+            // Settings could not show -- and a stored value it did not offer rendered as an empty
+            // field, which reads as "the wizard did not save it". The owner's decision is the five
+            // Settings already had; both surfaces now read them from the same place.
+            'constructionValues' => collect(CalculationInputs::constructionChoices())
+                ->map(fn ($label, $id) => ['id' => $id, 'label' => $label])
                 ->values()->all(),
             // GH-744: each methodology's name and explaining sentence, from the same list.
             'methodologyValues' => CalculationInputs::methodologyValuesForWizard(),

@@ -334,6 +334,32 @@ class CalculationInputs
         return $out;
     }
 
+    /**
+     * GH-769 (queue item 3vs, position 2) - THE CONSTRUCTIONS A PERSON IS OFFERED, WHICH IS A
+     * PROPERTY OF THE DECLARED VALUE AND NOT A LIST OF ITS OWN.
+     *
+     * The setup wizard offered all eleven declared constructions and the Settings form offered five
+     * of its own, so a person could choose in the wizard what Settings could not show. A separate
+     * list of the five would repeat the identifiers and could drift from, or reach past, the declared
+     * values; the mark lives on the value instead, and this is the only reader of it. Both surfaces
+     * take the result, as both take the methodology through `methodologyChoices()`.
+     *
+     * All eleven stay declared: their `resolves` answer for configs already saved.
+     *
+     * @return array<string,string> value => label, in the order the list declares them
+     */
+    public static function constructionChoices(): array
+    {
+        $out = [];
+        foreach (self::all()['inputs']['turf.construction']['values'] ?? [] as $id => $v) {
+            if (($v['offered'] ?? false) === true) {
+                $out[$id] = $v['label'] ?? $id;
+            }
+        }
+
+        return $out;
+    }
+
     public static function resolveConstruction(?array $config): ?array
     {
         $value = $config['turf']['construction'] ?? null;

@@ -49,6 +49,17 @@ const REMEDIES = ['guardStand', 'captureConfigsOnce', 'restoreConfigs', 'fillOwn
  * backlog, not an argument that they are safe.
  */
 const EXEMPT = {
+    'gh769-the-wizard-saves-the-construction-live.test.js': {
+        why: 'ITS SUBJECT IS THE WRITE, and the write is the setup wizard saving a construction. The '
+            + 'report it answers is that the value chosen in the wizard was not in the database '
+            + 'afterwards, so holding the save would hold the very thing under measurement -- the '
+            + 'same reason the wizard test beside it is exempt. It CREATES ITS OWN SITE through the '
+            + 'product\'s Add site form and walks the wizard on that site alone; it edits no site it '
+            + 'did not create, and the protected sites are not touched. What it found is recorded '
+            + 'rather than left in the run: the wizard does save the construction, and Settings '
+            + 'rendered the stored value as an empty field because its own list does not offer it.',
+        until: '2026-10-15',
+    },
     'gh671-the-wizard-saves-a-sports-site-live.test.js': {
         why: 'ITS PURPOSE IS THE WRITE, and the write is a client setting up a site. The item it '
             + 'closes is about a person walking the onboarding wizard and the site not being '

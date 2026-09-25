@@ -146,6 +146,7 @@
       "offeredForDecision": "owner: which constructions are offered to which turf type",
       "values": {
         "sand_carpet": {
+          "offered": true,
           "label": "Sand carpet",
           "resolves": {
             "surfaceKey": "sandCap",
@@ -158,6 +159,7 @@
           }
         },
         "sand_profile": {
+          "offered": true,
           "label": "Sand profile (USGA-style)",
           "resolves": {
             "surfaceKey": "sandProfile",
@@ -170,6 +172,7 @@
           }
         },
         "pipe_drained": {
+          "offered": true,
           "label": "Pipe drained + slit drained",
           "resolves": {
             "surfaceKey": "nativeSoil",
@@ -182,6 +185,7 @@
           }
         },
         "soil": {
+          "offered": true,
           "label": "Soil field",
           "resolves": {
             "surfaceKey": null,
@@ -194,6 +198,7 @@
           }
         },
         "hybrid": {
+          "offered": true,
           "label": "Hybrid reinforced",
           "resolves": {
             "surfaceKey": "hybrid",
