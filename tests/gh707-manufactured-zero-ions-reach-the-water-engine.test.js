@@ -57,10 +57,31 @@ describe('GH-707 — the ten zeros of `water.ions`, and whether the engine answe
         const built = engine.buildState(siteWithNoWaterSample());
         process.stdout.write('[gh707] water after buildState: ' + JSON.stringify(built.water) + '\n');
 
-        // The subject, printed rather than argued about: the ions are present and they are zeros.
-        expect(built.water.ions).toEqual({
-            Ca: 0, Mg: 0, Na: 0, K: 0, Cl: 0, SO4: 0, HCO3: 0, CO3: 0, B: 0, Fe: 0,
-        });
+        /**
+         * TURNED OVER BY THE REPAIR, GH-707. This case recorded the defect as the state of things: a
+         * site that sent no ions was handed ten zeros, and the assertion held them in place. They are
+         * gone now, together with the `|| 0` and `|| 7` inside the engine that made the same zeros
+         * again -- which is why removing the literals alone changed nothing and this file measured
+         * exactly that. What is asserted instead is the rule the owner set: what never arrived stays
+         * absent, so there is nothing to judge and no judgement is printed.
+         */
+        expect(built.water.ions).toEqual({});
+        expect(built.water.ecw).toBeNull();
+        expect(built.water.pH).toBeNull();
+
+        const answer = engine.runWaterQualityEngine(built);
+        process.stdout.write('[gh707] and the verdict on it: ' + JSON.stringify({
+            qualityClass: answer.qualityClass, sar: answer.sar, sarAdj: answer.sarAdj,
+            riskScore: answer.riskScore, concerns: answer.concerns,
+        }) + '\n');
+        // Four manufactured positives stood here before the repair: `Excellent`, 0, 0 and no
+        // concerns. A fifth was found by this guard during it -- `null < 6.0` raised a toxicity
+        // concern out of an absent pH.
+        expect(answer.qualityClass).toBeNull();
+        expect(answer.sar).toBeNull();
+        expect(answer.sarAdj).toBeNull();
+        expect(answer.riskScore).toBeNull();
+        expect(answer.concerns).toEqual([]);
     });
 
     test('the engine ON THE ZEROS against the engine with the ions ABSENT', () => {

@@ -2894,7 +2894,22 @@
                     : _SAR;
             }
             // RSC = (HCO3 + CO3) - (Ca + Mg)
-            if (_Ca >= 0 || _Mg >= 0) {
+            /**
+             * GH-707: the gate was `_Ca >= 0 || _Mg >= 0`, and `_meq` answers 0 for an ion nobody
+             * measured, so it was always true: a site with no water sample at all got RSC 0, which
+             * the water page printed as `Residual Sodium Carbonate | 0.00 | Safe`. Found while
+             * measuring the scenario engine's zeros, the same class and the same rule -- a value this
+             * code produced is not a reading. At least one of the four quantities the formula needs
+             * has to have arrived.
+             *
+             * THE BOUNDARY, named rather than closed: when some of the four arrived and others did
+             * not, the missing ones still enter as zero. That is a narrower case of the same class and
+             * is not this work's subject.
+             */
+            var _rscArrived = ['HCO3', 'CO3', 'Ca', 'Mg'].some(function (ion) {
+                return _readingOf(_ions[ion]) !== null;
+            });
+            if (_rscArrived) {
                 _RSC = Math.round((_HCO3 + _CO3 - _Ca - _Mg) * 100) / 100;
             }
             // Na% = Na / (Na + Ca + Mg + K) × 100

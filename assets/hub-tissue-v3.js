@@ -1775,7 +1775,14 @@ function gaip_build_state(e) {
                     // reading there; from then on it would have given a site whose water was never
                     // tested a leaching fraction. A measured zero is still a zero.
                     ecw: _gaipWaterSample ? _gaipWaterSample.ecw : null,
-                    pH: _gaipWaterSample && _gaipWaterSample.pH !== null ? _gaipWaterSample.pH : 7,
+                    // GH-735: no water sample is no pH either. The seven that stood here was a
+                    // placeholder and it travelled: measured on the stand, 50 of 86 stored rows carry
+                    // `waterBalance.pH = 7`, and in 46 of them the conductivity beside it is null --
+                    // the zero was removed in GH-736 and the seven was not. The water page then built
+                    // its own diagnostics from the row and printed `pH 7.0 | Suitable | No adjustment
+                    // required` for a site whose water nobody had tested. A reading that arrived is
+                    // printed; a key that never arrived says nothing.
+                    pH: _gaipWaterSample && _gaipWaterSample.pH !== null ? _gaipWaterSample.pH : null,
                     recycledWater: !!(e.querySelector(".gaip-recycled-water-flag")?.checked),
                 };
             })(),

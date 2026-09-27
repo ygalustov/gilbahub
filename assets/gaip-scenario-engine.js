@@ -343,9 +343,11 @@
         
         // Water quality
         water: {
-            ecw: 0,
-            pH: 7,
-            ions: { Ca: 0, Mg: 0, Na: 0, K: 0, Cl: 0, SO4: 0, HCO3: 0, CO3: 0, B: 0, Fe: 0 }
+            // GH-707: ten zeros and a pH of seven stood here as the water a scenario starts from,
+            // and nothing distinguished them from a lab's readings. Absence is absence.
+            ecw: null,
+            pH: null,
+            ions: {}
         },
         
         // Turf profile
@@ -515,8 +517,20 @@
     function runWaterQualityEngine(state) {
         const water = state.water || {};
         const ions = water.ions || {};
-        const ecw = water.ecw || 0;
-        const pH = water.pH || 7;
+        /**
+         * GH-707 — THE ZEROS THIS FUNCTION MADE ITSELF.
+         *
+         * `|| 0` and `|| 7` turned a site whose water was never tested into a site measured at zero,
+         * and the classification below then called it `Excellent` with no concerns and a risk score
+         * of nought. Measured before the repair: the answer on ten literal zeros and the answer on
+         * absent ions agreed byte for byte, so the literals were not the source -- these lines were.
+         * What never arrived stays absent, and every judgement below asks whether it has anything to
+         * judge.
+         */
+        const ecw = water.ecw != null ? water.ecw : null;
+        const pH = water.pH != null ? water.pH : null;
+        const measured = (name) => (ions && ions[name] != null ? ions[name] : null);
+        const haveSarIons = measured('Ca') !== null && measured('Mg') !== null && measured('Na') !== null;
         
         // Assess data quality
         const dataQuality = assessDataQuality(state, 'water');
@@ -543,11 +557,13 @@
         
         // SAR calculation
         const denom = Math.sqrt((Ca_meq + Mg_meq) / 2);
-        const sar = denom > 0 ? Na_meq / denom : 0;
+        // GH-707: a sodium adsorption ratio needs calcium, magnesium and sodium. Without them this
+        // was 0, which reads as "no sodium hazard" rather than "nobody measured it".
+        const sar = haveSarIons && denom > 0 ? Na_meq / denom : null;
         
         // Adjusted SAR
         const pHc = 2.5;
-        const sarAdj = sar * (1 + (8.4 - pHc) * 0.1);
+        const sarAdj = sar === null ? null : sar * (1 + (8.4 - pHc) * 0.1);
         
         // Salinity penalty
         let salinityPenalty = { recoveryPenalty: 0, growthPenalty: 0, severity: 'none' };
@@ -564,19 +580,34 @@
         }
         
         // Classification
-        let qualityClass = 'Excellent';
+        /**
+         * GH-707: `Excellent` was where this started, so a site with nothing measured kept it. The
+         * verdict now begins as absent and is only reached by a reading: a class is what the water
+         * was found to be, not what it is called when nothing was found. What a person is shown in
+         * place of it is the owner's decision and is not settled here.
+         */
+        const anythingMeasured = ecw !== null || pH !== null || sar !== null
+            || Object.keys(ions || {}).some((k) => ions[k] != null);
+        let qualityClass = anythingMeasured ? 'Excellent' : null;
         let concerns = [];
         
         if (ecw > 3.0) { qualityClass = 'Severe'; concerns.push('Very high salinity'); }
         else if (ecw > 1.5) { qualityClass = 'Moderate'; concerns.push('Elevated salinity'); }
         else if (ecw > 0.7) { qualityClass = 'Slight'; concerns.push('Slight salinity'); }
         
-        if (sar > 9) { concerns.push('High sodicity risk'); qualityClass = 'Severe'; }
-        else if (sar > 6) { concerns.push('Moderate sodicity risk'); }
-        else if (sar > 3) { concerns.push('Low sodicity risk'); }
+        if (sar !== null) {
+            if (sar > 9) { concerns.push('High sodicity risk'); qualityClass = 'Severe'; }
+            else if (sar > 6) { concerns.push('Moderate sodicity risk'); }
+            else if (sar > 3) { concerns.push('Low sodicity risk'); }
+        }
         
-        if (pH > 8.5) concerns.push('High pH - nutrient availability issues');
-        if (pH < 6.0) concerns.push('Low pH - potential toxicity');
+        // GH-707: `null < 6.0` is true, so an absent pH raised a toxicity concern -- a manufactured
+        // WARNING, which is the same fault as the manufactured reassurance and was caught by the
+        // guard that measures this function's answer on absent ions.
+        if (pH !== null) {
+            if (pH > 8.5) concerns.push('High pH - nutrient availability issues');
+            if (pH < 6.0) concerns.push('Low pH - potential toxicity');
+        }
         if ((ions.HCO3 || 0) > 150) concerns.push('High bicarbonates');
         if ((ions.Cl || 0) > 350) concerns.push('High chlorides');
         if ((ions.B || 0) > 1.0) concerns.push('Boron toxicity risk');
@@ -594,15 +625,20 @@
         }
         
         const result = {
-            sar: Math.round(sar * 100) / 100,
-            sarAdj: Math.round(sarAdj * 100) / 100,
+            // GH-707: rounding an absence gives zero -- `Math.round(null * 100) / 100` is 0, and the
+            // answer read as "no sodium hazard" while the gate above had already said "not measured".
+            sar: sar === null ? null : Math.round(sar * 100) / 100,
+            sarAdj: sarAdj === null ? null : Math.round(sarAdj * 100) / 100,
             ecw,
             pH,
             qualityClass,
             concerns,
             salinityPenalty,
             meq: { Ca: Ca_meq, Mg: Mg_meq, Na: Na_meq, HCO3: HCO3_meq, Cl: Cl_meq },
-            riskScore: Math.min(100, (ecw * 15) + (sar * 5) + (concerns.length * 10)),
+            // GH-707: a score of nought is a verdict too. Without a reading there is nothing to score.
+            riskScore: anythingMeasured
+                ? Math.min(100, ((ecw || 0) * 15) + ((sar || 0) * 5) + (concerns.length * 10))
+                : null,
             source: 'scenario-engine'
         };
 

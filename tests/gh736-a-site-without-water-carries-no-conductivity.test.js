@@ -98,7 +98,9 @@ function rowWater(water, sample) {
     vm.runInContext(src, vm.createContext(sandbox), { filename: 'hub-persistence.js' });
     const wb = sandbox.__test_cacheAnalysisResults().computed.waterBalance;
 
-    return { ecw: wb.ecw, leachingFraction: wb.leachingFraction };
+    // GH-707 reads `RSC` through the same bench: it is derived from four ions and was produced as a
+    // zero for a site that carries none of them.
+    return { ecw: wb.ecw, leachingFraction: wb.leachingFraction, RSC: wb.RSC };
 }
 
 function run(sample) {
@@ -114,13 +116,30 @@ describe('GH-736 — no water sample, no conductivity: the assembly carries abse
     test('a site with no water sample: the assembly hands over no conductivity, and the row derives nothing from one', () => {
         const { water, row } = run(null);
         expect(water.ecw).toBeNull();
-        expect(row).toEqual({ ecw: null, leachingFraction: null });
+        expect(row).toEqual({ ecw: null, leachingFraction: null, RSC: null });
+    });
+
+    /**
+     * GH-707 — AND NO RESIDUAL SODIUM CARBONATE EITHER, WHICH THIS BENCH WAS ALREADY WATCHING.
+     *
+     * The producer's gate was `_Ca >= 0 || _Mg >= 0`, and the converter answers 0 for an ion nobody
+     * measured, so the gate was always open: a site with no water sample was given `RSC 0`, and the
+     * water page printed `Residual Sodium Carbonate | 0.00 | Safe | Monitor Ca/Mg availability`.
+     * Found while measuring the scenario engine's manufactured zeros, the same rule and the same
+     * class. A sample that carries the ions still gets its figure, which is the half not to
+     * over-catch.
+     */
+    test('a site with no water sample is given no residual sodium carbonate, and one with ions still is', () => {
+        expect(run(null).row.RSC).toBeNull();
+
+        const withIons = run({ _label: 'Bore', EC: '0.5', Ca: '46', Mg: '14.6', HCO3: '150', CO3: '0' });
+        expect(typeof withIons.row.RSC).toBe('number');
     });
 
     test('a sample with a conductivity arrives as measured, with the leaching fraction it earns', () => {
         const { water, row } = run({ _label: 'Bore', EC: '0.72', Na: '20' });
         expect(water.ecw).toBe(0.72);
-        expect(row).toEqual({ ecw: 0.72, leachingFraction: 12 });
+        expect(row).toEqual({ ecw: 0.72, leachingFraction: 12, RSC: null });
     });
 
     test('a sample that measured zero keeps its zero — GH-731\'s meaning is not undone', () => {
