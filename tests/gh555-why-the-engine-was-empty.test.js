@@ -31,10 +31,22 @@
 
 const fs = require('fs');
 const path = require('path');
-const { load, computeAll, hubScripts } = require('./lib/orchestrator-bench');
+const { load, computeAll, hubScripts, withSiteRow } = require('./lib/orchestrator-bench');
 
 const FIXTURE = JSON.parse(fs.readFileSync(
     path.join(__dirname, 'fixtures', 'q31-federal-golf-climate.json'), 'utf8'));
+
+/**
+ * GH-727 — THE RUNS BELOW ARE GIVEN THE SITE'S OWN ROW.
+ *
+ * Nothing about this file's scenario changed: these passes are still given no climate, and the parts
+ * they name as missing are still climate, disease and forecast. What changed is that the pre-emergent
+ * step now asks the site by id for the place its weeds germinate in, and the bench's `getSite` answers
+ * null without a row — so a bench with no row added a fourth gap that belonged to the bench and not to
+ * the pass. Federal Golf's own coordinates, the site this specimen is about.
+ */
+const FEDERAL_GOLF_SITE = { id: 'federal-golf-site', latitude: -35.3317, longitude: 149.11 };
+const benchWithItsSiteRow = () => withSiteRow(load(), FEDERAL_GOLF_SITE);
 
 const FEDERAL_GOLF = {
     turf: { species: 'Creeping Bentgrass (Greens)', methodology: 'slan', surface: 'greens' },
@@ -117,7 +129,7 @@ describe('GH-555 — the shape of the specimen row is the shape of a run that di
 
 describe('GH-555 — the engine works; the run did not reach it', () => {
     test('with the site’s own climate, the disease step RUNS and produces diseases', async () => {
-        const bench = load();
+        const bench = benchWithItsSiteRow();
         const out = await computeAll(bench, Object.assign({ climateMetrics: FIXTURE.climate }, FEDERAL_GOLF));
 
         process.stdout.write('[q31] with climate — disease is null: '
@@ -143,7 +155,7 @@ describe('GH-555 — the engine works; the run did not reach it', () => {
     });
 
     test('with the climate not yet through, the step is SKIPPED and the row comes out as the specimen', async () => {
-        const bench = load();
+        const bench = benchWithItsSiteRow();
         const out = await computeAll(bench, FEDERAL_GOLF); // no climateMetrics — the state at step 6 on the stand
 
         const said = out.said.join('\n');
@@ -191,7 +203,7 @@ describe('GH-555 — the half that was open: the run now explains itself', () =>
      * place, rather than two tests quietly rewritten.
      */
     test('a run that skipped an engine says so, and the saying is kept', async () => {
-        const bench = load();
+        const bench = benchWithItsSiteRow();
         const out = await computeAll(bench, FEDERAL_GOLF);
 
         process.stdout.write('[q31] console lines: ' + out.said.length
@@ -209,7 +221,7 @@ describe('GH-555 — the half that was open: the run now explains itself', () =>
     });
 
     test('and the missing parts are named as facts, not left to be inferred from gaps', async () => {
-        const bench = load();
+        const bench = benchWithItsSiteRow();
         const out = await computeAll(bench, FEDERAL_GOLF);
 
         const skipped = out.state.computed.skipped || [];
@@ -238,7 +250,7 @@ describe('GH-555 — the half that was open: the run now explains itself', () =>
         // The control for the two above: a journal that is never empty says
         // nothing, and "the run explains itself" would be satisfied by a run
         // that complains constantly.
-        const bench = load();
+        const bench = benchWithItsSiteRow();
         const out = await computeAll(bench, Object.assign({ climateMetrics: FIXTURE.climate }, FEDERAL_GOLF));
 
         const skipped = out.state.computed.skipped || [];
@@ -250,7 +262,7 @@ describe('GH-555 — the half that was open: the run now explains itself', () =>
         // Which is the whole reason the orchestrator re-runs after the weather:
         // if the second pass inherited the first's skips, the result would
         // announce a gap it had just closed.
-        const bench = load();
+        const bench = benchWithItsSiteRow();
         await computeAll(bench, FEDERAL_GOLF);                                    // pass 1: no climate
         const first = (bench.ctx.GaipOrchestrator.getState().computed.skipped || []).length;
         expect(first).toBeGreaterThan(0);
@@ -262,7 +274,7 @@ describe('GH-555 — the half that was open: the run now explains itself', () =>
     test('the completion event carries both lists and when the pass began', async () => {
         // The runner cannot read the state; it reads the event. This is the
         // link that makes the journal reach a body at all.
-        const bench = load();
+        const bench = benchWithItsSiteRow();
         const heard = [];
         bench.ctx.document.addEventListener('gaip:orchestrator-complete', (e) => heard.push(e.detail));
         await computeAll(bench, FEDERAL_GOLF);

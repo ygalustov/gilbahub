@@ -1,0 +1,23 @@
+# gh661-live — 2026-09-24T00:08:52.575Z
+the pointer stands on: Westview (019f7d28-50ed-71e2-b817-c252b0160460), coordinates {"name":"Westview","lat":"-34.0666148","lon":"150.8195571"}
+`?site=` will name:    Burns (019e96d8-97b7-714c-9bd6-d65b16ec7f2e), coordinates {"name":"Burns","lat":"-35.2285452","lon":"149.0022925"}
+rows in analysis_results before the press: 74
+THE PRESS: /hub?rerun=gh661-1790208535191&site=019e96d8-97b7-714c-9bd6-d65b16ec7f2e
+non-GET requests held: 3
+   HELD POST /api/predictions (7643 bytes)
+   HELD POST /api/predictions (7643 bytes)
+   HELD POST /api/analysis-cache (86905 bytes)
+rows in analysis_results after the press: 74
+rows before 74 -> after 74
+the analysis-cache write was attempted: true
+ADDRESS: site_id = 019e96d8-97b7-714c-9bd6-d65b16ec7f2e = Burns
+   the press named:   Burns
+   the pointer named: Westview
+CONTENTS:
+   the body mentions the POINTER's latitude (-34.0666148): false
+   the body mentions the PRESSED site's latitude (-35.2285452): false
+   sample keys in inputs: ["soil","water","tissue"]
+   sample ids in inputs:  ["sample_118",null,null]
+   metrics: {"timestamp":"2026-09-24T00:08:57.872Z","growthPotential":34,"soilTemp":18.5,"weatherSource":"live","diseaseRisk":34,"topDisease":"Large Patch","forecastPeak":34,"peakDay":0,"forecastDisease":"Large Patch","stressIndex":20,"trendDirection":"improving","irrigationNeed":6.3,"irrigationDeficit":1.5}
+   computed.climate location fields: {}
+   computed.soilNutrition sample label: {"label":null,"date":"2026-07-27"}

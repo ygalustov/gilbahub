@@ -53,6 +53,18 @@
     // depth: soil measurement depth in mm (spec uses 2–3 cm for most, 5 cm for engine inputs).
     // Notes: L-rated species never trigger RED alerts.
 
+    /**
+     * GH-727 (queue item 3bt) — THE REGION TAGS BELOW ARE THE OWNER'S OWN IDENTIFIERS.
+     *
+     * They used to be four short codes of this file's own — `au`, `nz`, `uk`, `eu` — while every caller
+     * hands over an id out of `REGIONS` in `regional-profiles.js`. A species joins a set on an exact
+     * match or on `all`, so no caller's region matched anything and every site was served the seven
+     * `all` species: six weeds missing in Australia, five in New Zealand, two in the UK.
+     *
+     * There is no translation table between the two spellings, on purpose: a second dictionary has to be
+     * kept in step with the first. These tags are data about weeds that refer to the one list of
+     * regions, and `tests/gh727-…` checks each tag against that list as it is declared there.
+     */
     var SPECIES_DB = {
         // ── Warm-season grassy weeds (rising temperature trigger) ─────────────
         digitaria_sanguinalis: {
@@ -108,7 +120,7 @@
             confidenceScore: 88,
             depthMm: 20,   // surface measurement
             notes: 'Teuton et al. (2004). Primary species in subtropical AU/NZ.',
-            regions: ['au', 'nz'],
+            regions: ['australia_temperate', 'australia_mediterranean', 'australia', 'new_zealand'],
             springOnly: true
         },
         eleusine_indica: {
@@ -145,7 +157,7 @@
             confidenceScore: 42,
             depthMm: 25,
             notes: 'Limited primary data. Industry extension only. Informational note only, no hard alerts.',
-            regions: ['au'],
+            regions: ['australia_temperate', 'australia_mediterranean', 'australia'],
             springOnly: true
         },
 
@@ -208,7 +220,7 @@
             confidenceScore: 65,
             depthMm: 25,
             notes: 'Clemson HGIC; NC State Extension. Apply before nights drop to 13°C. Key pest in AU lawns.',
-            regions: ['au', 'nz'],
+            regions: ['australia_temperate', 'australia_mediterranean', 'australia', 'new_zealand'],
             reversedLogic: true,
             broadleafNote: 'Isoxaben or oxadiazon needed for effective control. Standard dinitroanilines have limited broadleaf activity.'
         },
@@ -246,7 +258,11 @@
             confidenceScore: 60,
             depthMm: 25,
             notes: 'Wide germination range (10–30°C). AU autumn flush dominant. Threshold 20°C declining based on practitioner observation; limited primary AU data.',
-            regions: ['au', 'nz', 'uk', 'eu', 'scandinavia'],
+            regions: [
+                'australia_temperate', 'australia_mediterranean', 'australia',
+                'new_zealand', 'uk_ireland',
+                'continental_europe', 'germany', 'mediterranean', 'scandinavia'
+            ],
             reversedLogic: true,
             perennialWarning: 'Perennial/annual. Pre-emergent timing less reliable due to broad germination range. Post-emergent preferred for established plants.'
         },
@@ -270,7 +286,11 @@
             notes: 'Sharifiamina et al. (2019) HTT model: Td = 18.3°C (thermoinhibition), Tb = 3.22°C. ' +
                    'Baxter et al. (2019): optimal germination 10.9–17.2°C. AU/NZ primary flush: March–May. ' +
                    'Secondary flush July–September. Wide range (5–28°C lab) reduces pre-emergent reliability.',
-            regions: ['au', 'nz', 'uk', 'eu', 'scandinavia'],
+            regions: [
+                'australia_temperate', 'australia_mediterranean', 'australia',
+                'new_zealand', 'uk_ireland',
+                'continental_europe', 'germany', 'mediterranean', 'scandinavia'
+            ],
             reversedLogic: true,
             perennialWarning: 'Perennial stoloniferous weed. Pre-emergent suppresses seedling recruitment only, ' +
                               'established patches are unaffected. Post-emergent (dicamba, clopyralid, fluroxypyr) ' +
@@ -314,7 +334,7 @@
             confidenceScore: 38,
             depthMm: 25,
             notes: 'Limited primary AU data. Threshold 20°C declining based on practitioner observation. Informational only, no RED alerts.',
-            regions: ['au', 'nz'],
+            regions: ['australia_temperate', 'australia_mediterranean', 'australia', 'new_zealand'],
             reversedLogic: true,
             perennialWarning: 'Perennial. Post-emergent preferred. Pre-emergent efficacy data limited.'
         }
@@ -406,7 +426,10 @@
             confidenceScore: 72,
             depthMm: 25,
             notes: 'Chauhan & Johnson (2008) Weed Biol. Manag. 8:32–39. Minimum ~17°C. Compaction-associated, extremely common on high-traffic tropical courses. Dinitroaniline resistance emerging in SE Asia.',
-            regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical', 'au'],
+            regions: [
+                'southeast_asia', 'australia_tropical', 'australia_subtropical',
+                'australia_temperate', 'australia_mediterranean', 'australia'
+            ],
             resistanceWarning: 'Dinitroaniline resistance (prodiamine, pendimethalin, oryzalin) documented in SE Asia. Rotate MOA if repeated pre-emergent failures are observed.',
             tropicalNote: 'Associated with soil compaction, cultural control (aeration) is as important as chemical. Pre-emergent timing at wet-season onset.',
             springOnly: false
@@ -447,7 +470,10 @@
             confidenceScore: 60,
             depthMm: 25,
             notes: 'Patterson (1985) Weed Sci. 33:316–323. Germination range 15–35°C. Perennial, spreads vegetatively via rhizomes/stolons. Pre-emergent suppresses seedlings only; vegetative spread continues.',
-            regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical', 'au'],
+            regions: [
+                'southeast_asia', 'australia_tropical', 'australia_subtropical',
+                'australia_temperate', 'australia_mediterranean', 'australia'
+            ],
             perennialWarning: 'Perennial with rhizomatous spread. Pre-emergent controls seedling establishment only, not effective against established stands. Post-emergent + renovation programme required for couch greens invasion.',
             tropicalNote: 'Wet conditions accelerate spread. Drainage management is the primary cultural control.',
             springOnly: false
@@ -552,7 +578,10 @@
             confidenceScore: 90,
             depthMm: 25,
             notes: 'Chauhan (2013) Crop Prot. 46:93–102. Tuber sprouting minimum ~20°C, optimal 30–35°C. Pre-emergent herbicides are NOT effective against tuber-driven spread, this is a post-emergent + cultural programme only.',
-            regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical', 'au'],
+            regions: [
+                'southeast_asia', 'australia_tropical', 'australia_subtropical',
+                'australia_temperate', 'australia_mediterranean', 'australia'
+            ],
             preEmergentIneffective: true,  // Engine flag: pre-emergent NOT recommended
             sedgeNote: 'Halosulfuron, imazosulfuron, and MSMA (where registered) are post-emergent options. Repeat applications required. No pre-emergent provides reliable tuber suppression, do not rely on dinitroanilines for this species.',
             perennialWarning: 'Spreads almost entirely by tubers. Pre-emergent herbicide will NOT provide meaningful control. Post-emergent strategy only.',
@@ -575,7 +604,10 @@
             confidenceScore: 85,
             depthMm: 25,
             notes: 'Manh et al. (2012); Chauhan (2013). Slightly less aggressive than C. rotundus but same control logic applies. Tuber-spread dominant.',
-            regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical', 'au'],
+            regions: [
+                'southeast_asia', 'australia_tropical', 'australia_subtropical',
+                'australia_temperate', 'australia_mediterranean', 'australia'
+            ],
             preEmergentIneffective: true,
             sedgeNote: 'Same chemistry as C. rotundus. Halosulfuron post-emergent preferred.',
             perennialWarning: 'Pre-emergent herbicide NOT recommended for tuber-spreading Cyperus. Post-emergent strategy only.',
@@ -681,7 +713,10 @@
             confidenceScore: 60,
             depthMm: 25,
             notes: 'Wide germination range (10–30°C). Included in both temperate and tropical suites. AU tropical/subtropical sites have year-round germination pressure.',
-            regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical', 'au', 'nz'],
+            regions: [
+                'southeast_asia', 'australia_tropical', 'australia_subtropical',
+                'australia_temperate', 'australia_mediterranean', 'australia', 'new_zealand'
+            ],
             perennialWarning: 'Perennial/annual. Year-round germination in tropical zones. Pre-emergent timing less reliable due to broad germination range, programme-based application recommended.',
             springOnly: false
         }
@@ -997,7 +1032,9 @@
      *   @param {number}   inputs.moistureFlag        — recent rainfall/irrigation mm (optional)
      *   @param {number[]} inputs.soilTempForecast14d — 14-day daily forecast soil temps (optional)
      *   @param {string[]} inputs.selectedSpecies     — array of species keys from SPECIES_DB
-     *   @param {string}   inputs.region              — 'au', 'nz', or 'all' (default 'all')
+     *   @param {string}   inputs.region              — a region id from `REGIONS`
+     *                                                (`regional-profiles.js`), required:
+     *                                                no region, no answer
      *   @param {string}   inputs.hemisphere          — 'southern' or 'northern' (default 'southern')
      * @returns {object} engine result
      */
@@ -1012,15 +1049,32 @@
             };
         }
 
+        /**
+         * GH-727 (queue item 3bt) — WITHOUT A REGION THERE IS NO ANSWER, the same way there is none
+         * without a soil temperature.
+         *
+         * `inputs.region || 'all'` answered for a site whose place was unknown with the seven species
+         * that grow everywhere, and the caller could not tell that set from a real one. `listSpecies`
+         * keeps its default: there `all` means the whole catalogue, which is not a claim about a site.
+         */
+        if (!inputs.region) {
+            return {
+                success: false,
+                error: 'region is required',
+                results: [],
+                aggregateStatus: 'UNKNOWN'
+            };
+        }
+
         var soilTemp = inputs.soilTemp5cm;
         var history = inputs.soilTempHistory || [soilTemp];
         var moisture = inputs.moistureFlag != null ? inputs.moistureFlag : null;
         var forecast = inputs.soilTempForecast14d || null;
-        var region = inputs.region || 'all';
+        var region = inputs.region;
         var selectedKeys = inputs.selectedSpecies;
 
         // ── Build active species DB for this region ───────────────────────────
-        // Tropical regions: merge temperate 'all'/'au' species that also appear
+        // Tropical regions: merge temperate species tagged with this region (or 'all') that also appear
         // in TROPICAL_SPECIES_DB (deduplicated by key) with tropical-only species.
         // Non-tropical regions: use SPECIES_DB only.
         var isTropical = TROPICAL_REGIONS.indexOf(region) !== -1;

@@ -1,0 +1,30 @@
+# T1 — одно объявленное нажатие Re-run по `Test6 - UK`, 24.09.2026 07:03
+#
+# Замер аналитика, `PLAN-calculation-inputs-RU.md`, раздел 17. Исходы А/Б/В названы ею до нажатия.
+# Нажал разработчик; второго нажатия не было. Вывод ниже — дословно, без сокращений.
+#
+# Строка базы, созданная этим прогоном (замер после нажатия, только чтение):
+#   id 70 | outcome complete | detail.skipped 0 | detail.warnings 1
+#   computed.soilNutrition — 17 ключей, verdict NO DATA
+#
+# Исход: А. Причина `no-soil-sample` в строке не записана, прогон полный.
+# Плюс находка, которой в трёх исходах нет: `section('soilNutrition')` вернул null —
+# сервер считает раздел произведённым, а экран в тот же момент показывает NO DATA.
+#
+# probe — 2026-09-23T21:03:42.914Z
+logged in as yuryg@gethydrosight.com.au
+page opened on site 019f35f0-d912-73e5-82bd-3de0bfd4f6ce — "Russley"
+switching to "Test6 - UK" through the site switcher
+switcher: clicked
+standing on site 019e971b-ec9d-7076-a34d-601bfcc7cb81 — "Test6 - UK"
+Re-run button before: {"text":"Re-run","disabled":false}
+pressed at 2026-09-23T21:03:55.238Z
+console: 📦 Cascade state prepared (run-button): [climate, turf, soil, water, schedule, site, pgr, dmi, siteHistory, irrigation, fertility, tissue, variety]
+console: [Orchestrator:cascade] results this pass already had, kept as computed here: shade, wear, tissue, climate
+console: ✅ Cascade completed in 12ms
+after the press: {"filed":null,"stillRunning":false,"noticeText":null,"pill":"Analysis: Sep 23 22:03"}
+the analysis page now serves: {"fromTheRow":{"P":"-","K":"-","Ca":"-","Mg":"-","S":"-","Fe":"-","Mn":"-","Zn":"-","Cu":"-","B":"-"},"scalars":{"pH":null,"CEC":null,"ECe":null,"soilNa":null,"depthCm":10,"mulders":null,"sampleDate":null,"bulkDensity":1.4,"sampleLabel":null},"verdict":"NO DATA","pH":null,"CEC":null,"label":null,"notMeasuredOnScreen":0}
+[t1] the run row, as the page has it: {"status":"complete","lastRun":{"runId":"run-1790197435278-e8l6nf","outcome":"complete","completedAt":"2026-09-23T21:03:57.000000Z","assumptions":[]},"numbersRun":{"outcome":"complete","skipped":[],"notApplicable":[],"notes":[],"assumptions":[]}}
+[t1] the composer on the soil section: null
+[t1] the panel, whole: null | detail: []
+the server has no soil sample for this site — nothing to judge the row against

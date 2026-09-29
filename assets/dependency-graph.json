@@ -948,11 +948,7 @@
           "site.preEmergentSpecies"
         ],
         "why": "Read here with a substitution, and NO surface fills them -- not a form, not the wizard, not the API (measured 24.09.2026 over `app/resources/views`, `assets` and `app`). So the substitution is always the value. They are left UNDECLARED on purpose: where an input with no place belongs in the list is the analyst's decision, and until it is made declaring them here would either break the list's own guards or claim a place that does not exist. `fertility.monthlyN` is the measured cost of the question: 37 of 37 stored rows carry the nitrogen engine's skipped stub because nothing fills it."
-      },
-      "readsTheListExcuses": [
-        "site.country",
-        "site.region"
-      ]
+      }
     }
   }
 }

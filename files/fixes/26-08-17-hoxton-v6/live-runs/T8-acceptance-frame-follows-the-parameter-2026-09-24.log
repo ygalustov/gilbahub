@@ -1,0 +1,29 @@
+# gh661-live — 2026-09-24T00:39:23.597Z
+the pointer stands on: Westview (019f7d28-50ed-71e2-b817-c252b0160460), coordinates {"name":"Westview","lat":"-34.0666148","lon":"150.8195571"}
+`?site=` will name:    Burns (019e96d8-97b7-714c-9bd6-d65b16ec7f2e), coordinates {"name":"Burns","lat":"-35.2285452","lon":"149.0022925"}
+rows in analysis_results before the press: 74
+THE PRESS: /hub?rerun=gh661-1790210366591&site=019e96d8-97b7-714c-9bd6-d65b16ec7f2e
+non-GET requests held: 3
+   HELD POST /api/predictions (7710 bytes)
+   HELD POST /api/predictions (7710 bytes)
+   HELD POST /api/analysis-cache (192761 bytes)
+rows in analysis_results after the press: 74
+rows before 74 -> after 74
+the analysis-cache write was attempted: true
+ADDRESS: site_id = 019e96d8-97b7-714c-9bd6-d65b16ec7f2e = Burns
+   the press named:   Burns
+   the pointer named: Westview
+CONTENTS:
+   the body mentions the POINTER's latitude (-34.0666148): false
+   the body mentions the PRESSED site's latitude (-35.2285452): false
+   sample keys in inputs: ["soil","water","tissue"]
+   sample ids in inputs:  ["Soil_26_zo0t","Water_1_de5s","sample_121"]
+   metrics: {"timestamp":"2026-09-24T00:39:29.289Z","growthPotential":46,"soilTemp":14.9,"weatherSource":"live","diseaseRisk":63,"topDisease":"Anthracnose","forecastPeak":100,"peakDay":1,"forecastDisease":"Anthracnose","stressIndex":10,"trendDirection":"stable","irrigationNeed":20.4,"irrigationDeficit":19.1}
+   computed.climate location fields: {}
+   computed.soilNutrition sample label: {"label":null,"date":"2025-07-31"}
+   sample 26 -> Test1 - Sports
+   sample 27 -> Test1 - Sports
+   sample 53 -> Burns
+   sample 54 -> Burns
+ACCEPTANCE: the address must be the pressed site, and so must the data
+   the soil sample in the body belongs to: Test1 - Sports

@@ -1,0 +1,47 @@
+# T3 — одно объявленное нажатие Re-run по `Burns`, 24.09.2026 09:19
+#
+# Предмет: доезжает ли заметка PGR до строки — первая живая проверка GH-649.
+# Исходы A/B/C названы до нажатия. Нажал разработчик; второго нажатия не было.
+#
+# ИСХОД B. Заметки в строке нет: `numbersRun.notes: []`, строка id 72, `warnings` 1 и это `disease`.
+# Причина названа замером, а не догадкой:
+#   — в конфиге `Burns` PGR есть: {"enabled": false, "productType": "TE250", "applicationDate": "2026-06-16"};
+#   — состояние прогона собирает `pgr` из ПОЛЕЙ ФОРМЫ старого хаба и глобала `GAIP_LAST_PGR`
+#     (`hub-tissue-v3.js`, якорь `pgr: (function() {`), а не из конфига площадки;
+#   — восстановление формы заполняет дату только при `pgr.enabled` (`hub-persistence.js`, `if (pgr.enabled)`),
+#     а в конфиге `enabled: false`.
+# То есть заметка не стёрлась — вход до прохода не доехал. Починка GH-649 этим не опровергнута
+# и не подтверждена на клиенте: предмет до неё не дошёл.
+#
+# ПРАВИЛО GH-650 ПРОВЕРЕНО НА ЖИВОМ ПУТИ: прогон упал на `["OM"]`, и все три ответа
+# напечатаны ДО падения — строки `[screen]`, `[names]`, `[renamed]` ниже.
+#
+# probe — 2026-09-23T21:19:28.620Z
+logged in as yuryg@gethydrosight.com.au
+page opened on site 01a08b0b-4d6a-736d-a184-2fa1e04394b6 — "Test - GC - NZ - delivery"
+switching to "Burns" through the site switcher
+switcher: clicked
+standing on site 019e96d8-97b7-714c-9bd6-d65b16ec7f2e — "Burns"
+Re-run button before: {"text":"Re-run","disabled":false}
+pressed at 2026-09-23T21:19:40.841Z
+console: [SiteSelector] Auto-loaded most recent soil sample: Soil_26_zo0t (date: 2025-07-31)
+console: 📦 Cascade state prepared (run-button): [climate, turf, soil, water, schedule, site, pgr, dmi, siteHistory, irrigation, fertility, tissue, variety]
+console: [Orchestrator:cascade] results this pass already had, kept as computed here: shade, wear, tissue, climate
+console: ✅ Cascade completed in 17ms
+after the press: {"filed":null,"stillRunning":false,"noticeText":null,"pill":"Analysis: Sep 24 07:19"}
+the analysis page now serves: {"fromTheRow":{"P":"-","K":"7.6","Ca":"51.9","Mg":"18.3","S":"-","Fe":"-","Mn":"-","Zn":"-","Cu":"-","B":"-"},"scalars":{"pH":6,"CEC":6.1,"ECe":null,"soilNa":0.2,"depthCm":10,"mulders":null,"bulkDensity":1.4,"sampleLabel":null},"verdict":"HIGH_RISK","pH":6,"CEC":6.1,"label":null,"notMeasuredOnScreen":0}
+[t1] the run row, as the page has it: {"status":"complete","lastRun":{"runId":"run-1790198380875-u2bl0p","outcome":"complete","completedAt":"2026-09-23T21:19:43.000000Z","assumptions":[]},"numbersRun":{"outcome":"complete","skipped":[],"notApplicable":[],"notes":[],"assumptions":[]}}
+[t1] the composer on the soil section: null
+[t1] the panel, whole: null | detail: []
+the sample the server named: 53 — readings it carries: {"pH":6,"CEC":6.1,"OM":2.9,"K":7.6,"Ca":51.9,"Mg":18.3,"Na":0.2}
+[name-map] measured 15 declared readings in 16 chain runs, 857 ms: pH->pH/same EC->ECe/derived CEC->CEC/same OM->absent/absent K->K/same P->P/same Ca->Ca/same Mg->Mg/same S->S/same Fe->Fe/same Mn->Mn/same Cu->Cu/same Zn->Zn/same B->B/same Na->soilNa/same
+the producer names these (15 declared readings, 16 offline chain runs, 857 ms): {"pH":{"field":"pH","kind":"same","delta":10,"moved":10},"EC":{"field":"ECe","kind":"derived","delta":0.5,"moved":3.5},"CEC":{"field":"CEC","kind":"same","delta":10,"moved":10},"OM":{"field":null,"kind":"absent","delta":10,"moved":0},"K":{"field":"K","kind":"same","delta":10,"moved":10},"P":{"field":"P","kind":"same","delta":10,"moved":10},"Ca":{"field":"Ca","kind":"same","delta":10,"moved":10},"Mg":{"field":"Mg","kind":"same","delta":10,"moved":10},"S":{"field":"S","kind":"same","delta":10,"moved":10},"Fe":{"field":"Fe","kind":"same","delta":10,"moved":10},"Mn":{"field":"Mn","kind":"same","delta":10,"moved":9.999999999999996},"Cu":{"field":"Cu","kind":"same","delta":10,"moved":10},"Zn":{"field":"Zn","kind":"same","delta":10,"moved":10},"B":{"field":"B","kind":"same","delta":0.5,"moved":0.49999999999999994},"Na":{"field":"soilNa","kind":"same","delta":10,"moved":10}}
+[screen] the row surface carries 18 keys: ["B","CEC","Ca","Cu","ECe","Fe","K","Mg","Mn","P","S","Zn","bulkDensity","depthCm","mulders","pH","sampleLabel","soilNa"]
+[screen] `ECe` present on the screen: true | value: null | derivedMissing says: []
+[names] without the map: dropped=["Na","OM"] disagreed=[]
+[names] with the map:    dropped=["OM"] disagreed=[]
+[names] the map changes the verdict on this site: true — OUTCOME A: the map changes the answer on real data.
+[renamed] readings the producer renames: ["Na->soilNa/same"]
+[renamed] readings the screen states under their OWN name: ["pH","CEC","K","Ca","Mg"]
+[renamed] readings the screen states under the PRODUCER's name: ["pH","CEC","K","Ca","Mg","Na"]
+[renamed] readings the screen states under NEITHER: ["OM"]

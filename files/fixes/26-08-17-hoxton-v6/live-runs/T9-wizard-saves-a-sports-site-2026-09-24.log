@@ -1,0 +1,19 @@
+# gh671-live — 2026-09-24T02:24:08.976Z
+logged in as yuryg@gethydrosight.com.au
+creating a site named "GH-671 wizard press 022408", type sports
+the site the form created: {"id":"01a0d13a-4f6e-7231-834a-f014c016a321","type":"sports","lat":"","provisional":"1"}
+site switcher: clicked
+the wizard on screen: {"overlayPresent":true,"bodyLocked":true,"stepIndicator":"Step 1 of 5","buttons":["Set up site","Run your first analysis","Skip Setup","Next →"]}
+   step: welcome -> pressed "Next →"
+   step: location -> pressed "Next →"
+   turf type chosen: sports
+   step: turf type -> pressed "Next →"
+   species chosen: "Perennial Ryegrass"
+   step: species and methodology -> pressed "Next →"
+   step: finish -> pressed "Saving…"
+the screen afterwards: {"url":"/dashboard?setup=1","wizardStillOpen":false,"visibleError":null}
+native dialogs seen: []
+non-GET requests: ["POST /login","POST /api/sites","PATCH /api/active-site","PATCH /api/sites/01a0d13a-4f6e-7231-834a-f014c016a321","PATCH /api/sites/01a0d13a-4f6e-7231-834a-f014c016a321/config/gaip"]
+what the database holds for that site: {"configRow":true,"turfType":"\"sports\"","species":"\"Perennial Ryegrass\"","wizardComplete":"true","subCategory":"(absent)","site":"-37.8136000|144.9631000|1"}
+steps walked: ["welcome -> Next →","location -> Next →","turf type -> Next →","species and methodology -> Next →","finish -> Saving…"]
+ANSWER — config row written: true | turfType: "sports" | species: "Perennial Ryegrass" | wizard.complete: true | subCategory: (absent)

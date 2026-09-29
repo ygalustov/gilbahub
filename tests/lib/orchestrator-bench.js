@@ -204,4 +204,27 @@ async function computeAll(bench, inputs) {
     return { state: ctx.GaipOrchestrator.getState(), threw, said: bench.said };
 }
 
-module.exports = { load, computeAll, hubScripts, makeSandbox };
+/**
+ * GH-727: GIVE THE BENCH THE SITE'S ROW, the way the page has one.
+ *
+ * `GAIP_SiteConfig` fills its rows from the server, and nothing here reaches the network, so `getSite`
+ * answers null for every id. That did not matter while the region of a pass came off the page's
+ * coordinate fields with `"au"` behind them. It does now: the pre-emergent builder asks
+ * `detectRegionForSite(activeSiteId())`, and a site with no row has no place, which the pass declares
+ * as a gap. A bench without a row therefore measures its own missing setup — so the callers that need
+ * a site to exist say so with this, and the row's coordinates are visible in the test that sets them.
+ *
+ * @param {object} bench  the loaded bench
+ * @param {{id: string, latitude: number, longitude: number}} row  the site row the server would send
+ */
+function withSiteRow(bench, row) {
+    const { ctx } = bench;
+    if (!row || !row.id) throw new Error('withSiteRow needs a row with an id — a bench site without one answers for nobody');
+    if (ctx.GAIP_SiteConfig) ctx.GAIP_SiteConfig.getSite = (id) => (id === row.id ? row : null);
+    ctx.GAIP_HUB_CONFIG = Object.assign({}, ctx.GAIP_HUB_CONFIG, { activeSiteId: row.id });
+    if (ctx.GAIP_SampleManager) ctx.GAIP_SampleManager.getActiveSiteId = () => row.id;
+
+    return bench;
+}
+
+module.exports = { load, computeAll, hubScripts, makeSandbox, withSiteRow };

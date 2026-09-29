@@ -1,0 +1,92 @@
+run valid — the tree did not move
+pointer restored: 01a0d13a-4f6e-7231-834a-f014c016a321 -> 01a0d13a-4f6e-7231-834a-f014c016a321
+tree at start: 524 files, map hash 29f825affbd471143067c093f9d2cb74 | rough cut (changed-paths list) 9f5609abf8e24a09b692fe80c27b07fe
+pointer before: 01a0d13a-4f6e-7231-834a-f014c016a321
+PATCH /api/active-site -> New test - location (01a00d5b-c67a-7281-8f0f-2d8de6676a0f): {"status":200,"body":"{\"active_site_id\":\"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\",\"data\":{\"id\":\"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\",\"account_id\":1,\"precinct_group_id\":null,\"parent_site_id\":null,\"name\":\"New test - location\","}
+── water balance — soil — /analysis#water-balance
+tab water-balance: true
+LIST FOUND — rows in the picker: 13 | server has 13 soil sample(s) | active before: {"idx":"0","text":"Green 22024-10-03"}
+row 1 clicked: true
+chosen row: 1 | active after: {"idx":"1","text":"Green 112024-10-03"}
+frames before/after: 1 / 1 | /hub?rerun frames: []
+requests (3):
+   GET /api/samples/125/analyse
+   GET /api/samples?site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f&sample_type=soil&limit=100
+   GET /api/samples?site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f&sample_type=water&limit=100
+screen lines gone (1): ["Green 2"]
+screen lines came (1): ["Green 11"]
+browser storage changes: ["local + gilba_wb_active_soil = 125"]
+tab water-balance: true
+after reload, active: {"idx":"1","text":"Green 112024-10-03"}
+tab water-balance: true
+fresh browser context, active: {"idx":"0","text":"Green 22024-10-03"}
+── water balance — water — /analysis#water-balance
+tab water-balance: true
+LIST FOUND — rows in the picker: 5 | server has 5 water sample(s) | active before: {"idx":"0","text":"Water_2_l5q62025-09-01"}
+row 1 clicked: true
+chosen row: 1 | active after: {"idx":"1","text":"Water_1_l5q52025-09-01"}
+frames before/after: 1 / 1 | /hub?rerun frames: []
+requests (26):
+   GET /api/samples?sample_type=soil&site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f&limit=1
+   GET /hub?rerun=run-1790236729130-trld3r&site=01a00d5b-c67a-7281-8f0f-2d8de6676a0f&water=136&soil=125
+   GET /legacy-assets/hub.css?v=1777444935
+   GET /legacy-assets/hub-tissue-v3.js?v=1790231540
+   GET /legacy-assets/hub-integration-patch.js?v=1778581468
+   GET /legacy-assets/hub-orchestrator.js?v=1790218271
+   GET /legacy-assets/hub-persistence.js?v=1790220603
+   GET /legacy-assets/hub-header-bar.js?v=1777444935
+   GET /api/temporal/climatology/point?parameters=T2M&community=AG&longitude=150.8994&latitude=-34.437&format=JSON
+   GET /api/sites
+   GET /api/sites
+   GET /api/samples?limit=200
+   GET /api/sites
+   GET /api/spray-log/context?site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f&zone=greens&days=90
+   GET /api/spray-log?days=365&limit=200&site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f
+   GET /api/spray-log?days=365&limit=200&site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f
+   GET /api/spray-log/context?site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f&zone=greens&days=90
+   GET /api/spray-log/context?site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f&zone=greens&days=90
+   GET /api/predictions/pending/01a00d5b-c67a-7281-8f0f-2d8de6676a0f
+   GET /api/sites
+   GET /api/samples?site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f&sample_type=soil&limit=100
+   GET /api/samples?site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f&sample_type=water&limit=100
+   GET /api/samples/125/analyse
+   GET /api/samples?limit=200&site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f
+   GET /api/samples?site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f&sample_type=soil&limit=100
+   GET /api/samples?site_id=01a00d5b-c67a-7281-8f0f-2d8de6676a0f&sample_type=water&limit=100
+screen lines gone (1): ["Water_2_l5q6"]
+screen lines came (1): ["Water_1_l5q5"]
+browser storage changes: ["local + gilba_turf_profiles_last = __site__01a00d5b-c67a-7281-8f0f-2d8de6676a0f","local + gilba_disease_cache_purged_v1 = 1","local + gaip_weather_cache_-34.44_150.9 = {\"locationKey\":\"-34.44_150.9\",\"data\":{\"forecast\":{\"latitude\":-34.411247,\"longitu","local + gilba_wb_active_water = 136","local + gaip-active-tab = today","local + gilba_soil_temp_log_migrated_v1 = 1","local + gilba_turf_profiles = {\"__site__01a00d5b-c67a-7281-8f0f-2d8de6676a0f\":{\"turfType\":\"golf\",\"subCategory\""]
+tab water-balance: true
+after reload, active: {"idx":"1","text":"Water_1_l5q52025-09-01"}
+tab water-balance: true
+fresh browser context, active: {"idx":"0","text":"Water_2_l5q62025-09-01"}
+── soil & nutrition — soil — /analysis#soil-nutrition
+tab soil-nutrition: true
+LIST FOUND — rows in the picker: 13 | server has 13 soil sample(s) | active before: {"idx":"0","text":"Green 2—wollongong_golf_club_gilba_2026-03-163 Oct 2024"}
+row 1 clicked: true
+chosen row: 1 | active after: {"idx":"1","text":"Green 11—wollongong_golf_club_gilba_2026-03-163 Oct 2024"}
+frames before/after: 1 / 1 | /hub?rerun frames: []
+requests (1):
+   GET /api/samples/125/analyse
+screen lines gone (25): ["721 days ago","UNUSUAL VALUES DETECTED","×","Phosphorus (19.57 ppm) is outside typical range (27–54 ppm)","Potassium (18.84 ppm) is outside typical range (75–176 ppm)","Calcium (240.8 ppm) is outside typical range (500–750 ppm)","Magnesium (39.38 ppm) is outside typical range (70–140 ppm)","Sulphur (13.95 ppm) is outside typical range (15–40 ppm)","+5 more unusual values","Verify these values before relying on recommendations.","50 (MLSN)","19.6 ppm (27.4 kg/ha)","MLSN: 12.0-28.0 ppm (16.8 kg/ha)","✓ SUFFICIENT","18.8 ppm (26.3 kg/ha)","MLSN: 50.0-116.0 ppm (70.0 kg/ha)","▼ LOW","240.8 ppm (337.1 kg/ha)","MLSN: 500.0-750.0 ppm (700.0 kg/ha)","▼ LOW","39.4 ppm (55.2 kg/ha)","MLSN: 60.0-120.0 ppm (84.0 kg/ha)","▼ LOW","13.9 ppm (19.5 kg/ha)","MLSN: 15.0-40.0 ppm (21.0 kg/ha)"]
+screen lines came (25): ["721 days ago · Soil_3_3cbp","37 (MLSN)","19.57 ppm (27.4 kg/ha)","MLSN: 21 ppm (29.4 kg/ha)","▼ Deficient","18.84 ppm (26.4 kg/ha)","MLSN: 37 ppm (51.8 kg/ha)","▼ Deficient","240.77 ppm (337.1 kg/ha)","MLSN: 331 ppm (463.4 kg/ha)","▼ Deficient","39.38 ppm (55.1 kg/ha)","MLSN: 47 ppm (65.8 kg/ha)","▼ Deficient","13.95 ppm (19.5 kg/ha)","MLSN: 7 ppm (9.8 kg/ha)","✓ Adequate","115.71 ppm (162.0 kg/ha)","MLSN: 2 ppm (2.8 kg/ha)","✓ Adequate","30.35 ppm (42.5 kg/ha)","MLSN: 1 ppm (1.4 kg/ha)","✓ Adequate","7.18 ppm (10.1 kg/ha)","MLSN: 1 ppm (1.4 kg/ha)"]
+browser storage changes: ["local + gilba_sn_sample_01a00d5b-c67a-7281-8f0f-2d8de6676a0f = 125"]
+tab soil-nutrition: true
+after reload, active: {"idx":"1","text":"Green 11—wollongong_golf_club_gilba_2026-03-163 Oct 2024"}
+tab soil-nutrition: true
+fresh browser context, active: {"idx":"0","text":"Green 2—wollongong_golf_club_gilba_2026-03-163 Oct 2024"}
+── plan — soil sample — /plan
+LIST FOUND — rows in the picker: 13 | server has 13 soil sample(s) | active before: {"idx":"0","text":"Green 2—wollongong_golf_club_gilba_2026-03-163 Oct 2024"}
+row 1 clicked: true
+chosen row: 1 | active after: {"idx":"0","text":"Green 2—wollongong_golf_club_gilba_2026-03-163 Oct 2024"}
+frames before/after: 1 / 1 | /hub?rerun frames: []
+requests (1):
+   GET /api/temporal/climatology/point?parameters=T2M&community=AG&longitude=150.8994&latitude=-34.437&format=JSON
+screen lines gone (0): []
+screen lines came (0): []
+browser storage changes: ["local + gilba_plan_nutrition_sample_01a00d5b-c67a-7281-8f0f-2d8de6676a0f = 125"]
+after reload, active: {"idx":"1","text":"Green 11—wollongong_golf_club_gilba_2026-03-163 Oct 2024"}
+fresh browser context, active: {"idx":"0","text":"Green 2—wollongong_golf_club_gilba_2026-03-163 Oct 2024"}
+PATCH /api/active-site -> back to 01a0d13a-4f6e-7231-834a-f014c016a321: {"status":200,"body":"{\"active_site_id\":\"01a0d13a-4f6e-7231-834a-f014c016a321\",\"data\":{\"id\":\"01a0d13a-4f6e-7231-834a-f014c016a321\",\"account_id\":1,\"precinct_group_id\":null,\"parent_site_id\":null,\"name\":\"GH-671 wizard press 0"}
+tree at end: 524 files, map hash 29f825affbd471143067c093f9d2cb74 | rough cut 9f5609abf8e24a09b692fe80c27b07fe
+pointer: before 01a0d13a-4f6e-7231-834a-f014c016a321 | after restore 01a0d13a-4f6e-7231-834a-f014c016a321

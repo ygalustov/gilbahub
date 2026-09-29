@@ -32,7 +32,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { load, computeAll } = require('./lib/orchestrator-bench');
+const { load, computeAll, withSiteRow } = require('./lib/orchestrator-bench');
 
 const FIXTURE = JSON.parse(fs.readFileSync(
     path.join(__dirname, 'fixtures', 'q31-federal-golf-climate.json'), 'utf8'));
@@ -44,11 +44,27 @@ const FEDERAL_GOLF = {
 
 jest.setTimeout(60000);
 
+/**
+ * GH-727 — THE BENCH IS GIVEN THE SITE'S ROW, because the page has one.
+ *
+ * `GAIP_SiteConfig` fills its rows from the server and the bench has no network, so `getSite` answered
+ * null for every id. That did not matter while the pre-emergent builder took its region off the page
+ * with `"au"` behind it; it does now, because the builder asks the site by id and a site with no
+ * coordinates is a declared gap. Without this stub the control below — "a pass where everything
+ * produced names nothing" — would be measuring the bench's missing site row, and its green would have
+ * meant the bench, not the pass.
+ */
+const FEDERAL_GOLF_SITE_ID = 'federal-golf-site';
+
+function benchWithItsSiteRow() {
+    return withSiteRow(load(), { id: FEDERAL_GOLF_SITE_ID, latitude: -35.3317, longitude: 149.11 });
+}
+
 describe('GH-573 — the account a pass gives of itself', () => {
     let withClimate;
 
     beforeAll(async () => {
-        const bench = load();
+        const bench = benchWithItsSiteRow();
         withClimate = await computeAll(bench, Object.assign({ climateMetrics: FIXTURE.climate }, FEDERAL_GOLF));
     });
 
@@ -111,7 +127,7 @@ describe('GH-573 — the account a pass gives of itself', () => {
         // `getAuthoritativeClimate()` has nothing to answer with, the climate
         // step writes no result, and the run says so instead of leaving it to be
         // inferred from a gap.
-        const bench = load();
+        const bench = benchWithItsSiteRow();
         const out = await computeAll(bench, FEDERAL_GOLF);
         const skipped = out.state.computed.skipped || [];
         process.stdout.write('[q31] skipped, no climate: '

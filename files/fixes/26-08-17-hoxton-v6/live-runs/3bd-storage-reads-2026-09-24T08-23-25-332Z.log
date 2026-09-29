@@ -1,0 +1,272 @@
+run valid — the tree did not move
+pointer restored: 01a0d13a-4f6e-7231-834a-f014c016a321 -> 01a0d13a-4f6e-7231-834a-f014c016a321
+tree at start: 527 files, map hash 99796c64dcf18af28216849b92748e06
+sign version 1
+census: 235 files, 103 read sites
+   site auto-refresh.js:116  literal  key="gilba_hub_state"  via localStorage
+   site bipolaris-curvularia-models.js:1856  literal  key="gilba_disease_outcomes"  via _ls
+   site bipolaris-curvularia-models.js:1878  literal  key="gilba_disease_outcomes"  via _ls
+   site daily-dashboard.js:2433  literal  key="gilba_dashboard_expanded"  via localStorage  MEMBER-CHECKED
+   site dashboard-init.js:328  prefix  key="gaip_weather_cache_"  via localStorage
+   site dashboard-init.js:955  prefix  key="gaip_hydrosight_readings_cache_"  via _ls
+   site dashboard-init.js:1022  prefix  key="gaip_hydrosight_readings_cache_"  via _ls
+   site dashboard-init.js:1024  literal  key="gilba_sensor_last_fetch"  via _ls
+   site dashboard-init.js:1537  prefix  key="gaip_hydrosight_readings_cache_"  via _ls
+   site dashboard-init.js:1738  prefix  key="gaip_hydrosight_config_"  via localStorage
+   site dashboard-init.js:1739  prefix  key="gaip_specconnect_config_"  via localStorage
+   site dashboard-init.js:1740  prefix  key="gaip_tdr_session_"  via localStorage
+   site dashboard-init.js:1783  dynamic  key=null  via localStorage
+   site dashboard-init.js:1784  dynamic  key=null  via sessionStorage
+   site disease-integration.js:109  literal  key="gaip_active_site"  via _ls
+   site gaip-decision-engine.js:94  dynamic  key=null  via sa
+   site gaip-decision-engine.js:648  dynamic  key=null  via sa
+   site gaip-field-log-analysis.js:118  prefix  key="gilba_disease_cache_"  via _ls
+   site gaip-field-log-analysis.js:149  literal  key="gaip_active_site"  via _ls
+   site gaip-field-log-analysis.js:220  literal  key="gilba_disease_cache_purged_v1"  via _ls
+   site gaip-field-log-analysis.js:221  enumerate  key=null  via localStorage
+   site gaip-field-log-analysis.js:225  dynamic  key=null  via _ls
+   site gaip-field-log-analysis.js:677  prefix  key="gilba_disease_cache_"  via _ls
+   site gaip-morning-briefing.js:58  dynamic  key=null  via localStorage
+   site gaip-morning-briefing.js:192  wrapper:safeGet:dynamic  key=null  via safeGet
+   site gaip-morning-briefing.js:216  wrapper:safeGet:dynamic  key=null  via safeGet
+   site gaip-morning-briefing.js:645  wrapper:safeGet:prefix  key="gilba_hub_cache"  via safeGet
+   site gaip-morning-briefing.js:646  wrapper:safeGet:literal  key="gilba_hub_cache_1"  via safeGet
+   site gaip-morning-briefing.js:647  wrapper:safeGet:literal  key="gilba_hub_cache"  via safeGet
+   site gilba-storage-migrate.js:66  dynamic  key=null  via _ls
+   site gilba-storage-migrate.js:82  dynamic  key=null  via localStorage  MEMBER-CHECKED
+   site gilba-storage-migrate.js:87  dynamic  key=null  via localStorage
+   site gilba-storage-migrate.js:105  enumerate  key=null  via localStorage
+   site gilba-storage-migrate.js:116  enumerate  key=null  via localStorage
+   site gilba-storage-migrate.js:153  dynamic  key=null  via _ls2
+   site gilba-storage-migrate.js:169  dynamic  key=null  via localStorage  MEMBER-CHECKED
+   site gilba-storage-migrate.js:172  dynamic  key=null  via localStorage
+   site gilba-storage-migrate.js:180  enumerate  key=null  via localStorage
+   site gilba-storage-migrate.js:187  dynamic  key=null  via localStorage  MEMBER-CHECKED
+   site gilba-storage-migrate.js:190  dynamic  key=null  via localStorage
+   site gilba-storage-ns.js:23  dynamic  key=null  via localStorage
+   site gilba-storage-ns.js:32  enumerate  key=null  via localStorage
+   site hub-header-bar.js:611  dynamic  key=null  via localStorage  MEMBER-CHECKED
+   site hub-persistence.js:1055  dynamic  key=null  via localStorage
+   site hub-persistence.js:3333  wrapper:storageGet:dynamic  key=null  via storageGet
+   site hub-persistence.js:3342  wrapper:storageGet:dynamic  key=null  via storageGet
+   site hub-persistence.js:3349  wrapper:storageGet:dynamic  key=null  via storageGet
+   site hub-persistence.js:3390  literal  key="gilba_import_active_site"  via sessionStorage  MEMBER-CHECKED
+   site hub-persistence.js:3505  wrapper:storageGet:dynamic  key=null  via storageGet
+   site hub-persistence.js:3512  wrapper:storageGet:dynamic  key=null  via storageGet
+   site nutrition-calendar.js:473  dynamic  key=null  via localStorage
+   site nz-fine-fescue-integration.js:657  dynamic  key=null  via localStorage
+   site nz-fine-fescue-integration.js:659  dynamic  key=null  via localStorage
+   site pgr-irrigation-analysis.js:576  dynamic  key=null  via localStorage
+   site pgr-irrigation-analysis.js:653  dynamic  key=null  via localStorage
+   site plan-ui.js:529  prefix  key="gilba_traffic_state_"  via localStorage
+   site sensor-api-hydrosight.js:80  dynamic  key=null  via _ls
+   site sensor-api-hydrosight.js:104  dynamic  key=null  via _ls
+   site sensor-api-hydrosight.js:164  dynamic  key=null  via _ls
+   site sensor-api-hydrosight.js:190  dynamic  key=null  via _ls
+   site sensor-api-hydrosight.js:488  literal  key="gilba_sensor_mappings"  via _ls
+   site sensor-api-hydrosight.js:552  literal  key="gilba_sensor_mappings"  via _lsAM
+   site sensor-api-specconnect.js:86  dynamic  key=null  via localStorage
+   site sensor-api-specconnect.js:103  dynamic  key=null  via localStorage
+   site sensor-import.js:958  dynamic  key=null  via _ls
+   site sensor-import.js:961  literal  key="gaip_sensor_data"  via _ls
+   site sensor-import.js:1040  dynamic  key=null  via _ls
+   site sensor-import.js:1041  literal  key="gaip_sensor_data"  via _ls
+   site sensor-integration-manager.js:217  dynamic  key=null  via _ls
+   site sensor-integration-manager.js:254  dynamic  key=null  via _ls
+   site settings-init.js:1064  dynamic  key=null  via localStorage
+   site settings-init.js:1067  wrapper:lsGet:dynamic  key=null  via lsGet
+   site settings-init.js:1833  dynamic  key=null  via localStorage
+   site settings-init.js:1952  literal  key="gilba_sensor_mappings"  via localStorage
+   site site-config-persistence.js:659  dynamic  key=null  via _ls
+   site site-config-persistence.js:715  dynamic  key=null  via _ls
+   site site-config-persistence.js:717  dynamic  key=null  via _ls
+   site site-config-persistence.js:795  prefix  key="gilba_traffic_state_"  via localStorage
+   site site-config-persistence.js:946  dynamic  key=null  via _ls
+   site site-data-transfer.js:135  dynamic  key=null  via _ls
+   site site-data-transfer.js:136  dynamic  key=null  via _ls
+   site site-data-transfer.js:157  literal  key="gilba_sensor_mappings"  via _ls
+   site site-data-transfer.js:322  dynamic  key=null  via _ls
+   site site-data-transfer.js:334  literal  key="gilba_sensor_mappings"  via _ls
+   site site-profile-bridge.js:64  dynamic  key=null  via localStorage
+   site site-profile-bridge.js:114  dynamic  key=null  via localStorage
+   site soil-nutrition-analysis.js:519  literal  key="sn_val_dismissed"  via sessionStorage
+   site soil-nutrition-analysis.js:1724  dynamic  key=null  via localStorage
+   site soil-temp-logger.js:38  dynamic  key=null  via localStorage
+   site soil-temp-logger.js:273  dynamic  key=null  via localStorage
+   site spray-log-cascade.js:1245  prefix  key="gilba_last_pgr_"  via _ls
+   site spray-log-cascade.js:1259  dynamic  key=null  via _ls
+   site tab-navigation.js:487  dynamic  key=null  via localStorage
+   site turf-profile-controller.js:1086  dynamic  key=null  via localStorage
+   site turf-profile-controller.js:1336  dynamic  key=null  via localStorage
+   site water-balance-analysis.js:21  prefix  key="gilba_wb_active_"  via localStorage
+   site weather-resilience.js:103  dynamic  key=null  via localStorage
+   site weather-resilience.js:134  enumerate  key=null  via localStorage
+   site word-export-scenario-patch.js:126  dynamic  key=null  via localStorage  MEMBER-CHECKED
+   site word-export.js:15683  dynamic  key=null  via localStorage
+   site word-export.js:15730  dynamic  key=null  via localStorage
+   site word-export.js:15752  dynamic  key=null  via localStorage
+   site word-export.js:15841  dynamic  key=null  via localStorage
+layer-1 plants found: ["dynamic:null","wrapper:rd:literal:probe_wrapper_key","bracket:literal:probe_bracket_key","literal:probe_ns_key"]
+pointer before: 01a0d13a-4f6e-7231-834a-f014c016a321
+ids for member-checked keys: {"site":"019e96d8-97b7-714c-9bd6-d65b16ec7f2e","soil":null,"water":null,"tissue":null,"loi":null}
+member-checked prefixes: []
+member-checked keys: ["gilba_dashboard_expanded","gilba_import_active_site"]
+bracket keys pre-seeded: []
+views loading a census file: ["analysis","dashboard","hub","plan","reports/export","reports/forensic","reports/scenarios","settings","stadium"]
+visited analysis (/analysis): 3 reads
+visited dashboard (/dashboard?setup=0): 8 reads
+view not visited (no route known here): hub
+visited plan (/plan): 4 reads
+visited reports/export (/reports/export): 85 reads
+visited reports/forensic (/reports/forensic): 91 reads
+visited reports/scenarios (/reports/scenarios): 89 reads
+visited settings (/settings): 4 reads
+visited stadium (/stadium): 6 reads
+re-run pressed: true
+   marker M1 (gaip_weather_cache_-37.8136_144.9631) -> request-body@POST /api/probe-3bd, request-body@POST /api/probe-3bd
+   marker M2 (gaip_weather_cache_-37.8136_144.9631) -> field@analysis, request-body@POST /api/probe-3bd
+   marker M3 (gaip_weather_cache_-37.8136_144.9631) -> request-body@POST /api/probe-3bd, field@settings
+   marker M4 (gaip_weather_cache_-37.8136_144.9631) -> field@dashboard
+   marker M5 (gaip_weather_cache_-37.8136_144.9631) -> field@dashboard, request-body@POST /api/probe-3bd
+   marker M6 (gaip_weather_cache_-37.8136_144.9631) -> field@stadium
+   marker M7 (gaip_weather_cache_-37.8136_144.9631) -> field@stadium
+   marker M8 (gaip_weather_cache_-37.8136_144.9631) -> field@reports/export, field@reports/forensic, field@reports/scenarios
+   marker M12 (gaip_weather_cache_-37.8136_144.9631) -> request-body@POST /api/probe-3bd, request-body@POST /api/probe-3bd, request-body@POST /api/probe-3bd, request-body@POST /api/probe-3bd
+   marker M13 (gaip_weather_cache_-37.8136_144.9631) -> field@reports/export, field@reports/forensic, field@reports/scenarios
+   marker M14 (gaip_weather_cache_-37.8136_144.9631) -> field@reports/export, field@reports/forensic, field@reports/scenarios
+   marker M19 (gilba_gs_dismissed_01a0d13a-4f6e-7231-834a-f014c016a321) -> request-body@POST /api/probe-3bd
+   marker M20 (probe_wrapper_key) -> field@plan, request-body@POST /api/probe-3bd
+   marker M21 (probe_bracket_key) -> field@frame /dashboard?setup=0
+   marker ID:019e96d8-97b7-714c-9bd6-d65b16ec7f2e (gilba_import_active_site) -> request-url@GET /api/spray-log, request-body@PATCH /api/active-site, request-url@GET /api/spray-log/context, field@reports/export
+keys by class:
+   inert         gaip-active-tab
+   inert         gaip_turf_profiles
+   writeback     gaip_weather_cache_-37.8136_144.9631
+   inert         gilba_dashboard_expanded
+   writeback     gilba_gs_dismissed_01a0d13a-4f6e-7231-834a-f014c016a321
+   inert         gilba_hub_deleted_profiles
+   inert         gilba_hub_prefs_1
+   inert         gilba_hub_state_1
+   writeback     gilba_import_active_site
+   inert         gilba_last_pgr_019e96d8-97b7-714c-9bd6-d65b16ec7f2e
+   inert         gilba_last_pgr_01a0d13a-4f6e-7231-834a-f014c016a321
+   inert         gilba_pgr_bleed_cleanup_b35fix259
+   inert         gilba_traffic_state_01a0d13a-4f6e-7231-834a-f014c016a321
+   inert         gilba_turf_profiles
+   inert         gilba_turf_profiles_last
+   decides-input probe_bracket_key
+   inert         probe_ns_key
+   writeback     probe_wrapper_key
+census sites by outcome:
+   NOT EXECUTED  auto-refresh.js:116  key="gilba_hub_state"
+   NOT EXECUTED  bipolaris-curvularia-models.js:1856  key="gilba_disease_outcomes"
+   NOT EXECUTED  bipolaris-curvularia-models.js:1878  key="gilba_disease_outcomes"
+   EXECUTED      daily-dashboard.js:2433  keys=["gilba_dashboard_expanded"]  class=["inert"]
+   EXECUTED      dashboard-init.js:328  keys=["gaip_weather_cache_-37.8136_144.9631"]  class=["writeback"]
+   EXECUTED      dashboard-init.js:955  keys=["gaip_hydrosight_readings_cache_01a0d13a-4f6e-7231-834a-f014c016a321"]  class=["excluded"]
+   EXECUTED      dashboard-init.js:1022  keys=["gaip_hydrosight_readings_cache_01a0d13a-4f6e-7231-834a-f014c016a321"]  class=["excluded"]
+   NOT EXECUTED  dashboard-init.js:1024  key="gilba_sensor_last_fetch"
+   NOT EXECUTED  dashboard-init.js:1537  key="gaip_hydrosight_readings_cache_"
+   NOT EXECUTED  dashboard-init.js:1738  key="gaip_hydrosight_config_"
+   NOT EXECUTED  dashboard-init.js:1739  key="gaip_specconnect_config_"
+   NOT EXECUTED  dashboard-init.js:1740  key="gaip_tdr_session_"
+   NOT FOUND     dashboard-init.js:1783  (dynamic key via localStorage)
+   NOT FOUND     dashboard-init.js:1784  (dynamic key via sessionStorage)
+   NOT EXECUTED  disease-integration.js:109  key="gaip_active_site"
+   NOT FOUND     gaip-decision-engine.js:94  (dynamic key via sa)
+   NOT FOUND     gaip-decision-engine.js:648  (dynamic key via sa)
+   NOT EXECUTED  gaip-field-log-analysis.js:118  key="gilba_disease_cache_"
+   NOT EXECUTED  gaip-field-log-analysis.js:149  key="gaip_active_site"
+   EXECUTED      gaip-field-log-analysis.js:220  keys=["gilba_disease_cache_purged_v1"]  class=["inert"]
+   NOT EXECUTED  gaip-field-log-analysis.js:221  key=null
+   NOT FOUND     gaip-field-log-analysis.js:225  (dynamic key via _ls)
+   NOT EXECUTED  gaip-field-log-analysis.js:677  key="gilba_disease_cache_"
+   NOT FOUND     gaip-morning-briefing.js:58  (dynamic key via localStorage)
+   NOT EXECUTED  gaip-morning-briefing.js:192  key=null
+   NOT EXECUTED  gaip-morning-briefing.js:216  key=null
+   NOT EXECUTED  gaip-morning-briefing.js:645  key="gilba_hub_cache"
+   NOT EXECUTED  gaip-morning-briefing.js:646  key="gilba_hub_cache_1"
+   NOT EXECUTED  gaip-morning-briefing.js:647  key="gilba_hub_cache"
+   NOT FOUND     gilba-storage-migrate.js:66  (dynamic key via _ls)
+   NOT FOUND     gilba-storage-migrate.js:82  (dynamic key via localStorage)
+   NOT FOUND     gilba-storage-migrate.js:87  (dynamic key via localStorage)
+   NOT EXECUTED  gilba-storage-migrate.js:105  key=null
+   NOT EXECUTED  gilba-storage-migrate.js:116  key=null
+   NOT FOUND     gilba-storage-migrate.js:153  (dynamic key via _ls2)
+   NOT FOUND     gilba-storage-migrate.js:169  (dynamic key via localStorage)
+   NOT FOUND     gilba-storage-migrate.js:172  (dynamic key via localStorage)
+   NOT EXECUTED  gilba-storage-migrate.js:180  key=null
+   NOT FOUND     gilba-storage-migrate.js:187  (dynamic key via localStorage)
+   NOT FOUND     gilba-storage-migrate.js:190  (dynamic key via localStorage)
+   NOT FOUND     gilba-storage-ns.js:23  (dynamic key via localStorage)
+   NOT EXECUTED  gilba-storage-ns.js:32  key=null
+   NOT FOUND     hub-header-bar.js:611  (dynamic key via localStorage)
+   NOT FOUND     hub-persistence.js:1055  (dynamic key via localStorage)
+   EXECUTED      hub-persistence.js:3333  keys=["gilba_hub_state_1"]  class=["inert"]
+   EXECUTED      hub-persistence.js:3342  keys=["gilba_hub_prefs_1"]  class=["inert"]
+   EXECUTED      hub-persistence.js:3349  keys=["gilba_hub_state_1"]  class=["inert"]
+   EXECUTED      hub-persistence.js:3390  keys=["gilba_import_active_site"]  class=["writeback"]
+   NOT EXECUTED  hub-persistence.js:3505  key=null
+   EXECUTED      hub-persistence.js:3512  keys=["gilba_hub_state_1"]  class=["inert"]
+   NOT FOUND     nutrition-calendar.js:473  (dynamic key via localStorage)
+   NOT FOUND     nz-fine-fescue-integration.js:657  (dynamic key via localStorage)
+   NOT FOUND     nz-fine-fescue-integration.js:659  (dynamic key via localStorage)
+   NOT FOUND     pgr-irrigation-analysis.js:576  (dynamic key via localStorage)
+   NOT FOUND     pgr-irrigation-analysis.js:653  (dynamic key via localStorage)
+   NOT EXECUTED  plan-ui.js:529  key="gilba_traffic_state_"
+   NOT FOUND     sensor-api-hydrosight.js:80  (dynamic key via _ls)
+   NOT FOUND     sensor-api-hydrosight.js:104  (dynamic key via _ls)
+   NOT FOUND     sensor-api-hydrosight.js:164  (dynamic key via _ls)
+   NOT FOUND     sensor-api-hydrosight.js:190  (dynamic key via _ls)
+   NOT EXECUTED  sensor-api-hydrosight.js:488  key="gilba_sensor_mappings"
+   NOT EXECUTED  sensor-api-hydrosight.js:552  key="gilba_sensor_mappings"
+   NOT FOUND     sensor-api-specconnect.js:86  (dynamic key via localStorage)
+   NOT FOUND     sensor-api-specconnect.js:103  (dynamic key via localStorage)
+   NOT FOUND     sensor-import.js:958  (dynamic key via _ls)
+   EXECUTED      sensor-import.js:961  keys=["gaip_sensor_data"]  class=["excluded"]
+   NOT FOUND     sensor-import.js:1040  (dynamic key via _ls)
+   EXECUTED      sensor-import.js:1041  keys=["gaip_sensor_data"]  class=["excluded"]
+   NOT FOUND     sensor-integration-manager.js:217  (dynamic key via _ls)
+   NOT FOUND     sensor-integration-manager.js:254  (dynamic key via _ls)
+   NOT FOUND     settings-init.js:1064  (dynamic key via localStorage)
+   EXECUTED      settings-init.js:1067  keys=["gaip_hydrosight_config_01a0d13a-4f6e-7231-834a-f014c016a321","gilba_specconnect_config"]  class=["excluded"]
+   NOT FOUND     settings-init.js:1833  (dynamic key via localStorage)
+   NOT EXECUTED  settings-init.js:1952  key="gilba_sensor_mappings"
+   NOT FOUND     site-config-persistence.js:659  (dynamic key via _ls)
+   NOT FOUND     site-config-persistence.js:715  (dynamic key via _ls)
+   NOT FOUND     site-config-persistence.js:717  (dynamic key via _ls)
+   EXECUTED      site-config-persistence.js:795  keys=["gilba_traffic_state_01a0d13a-4f6e-7231-834a-f014c016a321"]  class=["inert"]
+   NOT FOUND     site-config-persistence.js:946  (dynamic key via _ls)
+   NOT FOUND     site-data-transfer.js:135  (dynamic key via _ls)
+   NOT FOUND     site-data-transfer.js:136  (dynamic key via _ls)
+   NOT EXECUTED  site-data-transfer.js:157  key="gilba_sensor_mappings"
+   NOT FOUND     site-data-transfer.js:322  (dynamic key via _ls)
+   NOT EXECUTED  site-data-transfer.js:334  key="gilba_sensor_mappings"
+   NOT FOUND     site-profile-bridge.js:64  (dynamic key via localStorage)
+   NOT FOUND     site-profile-bridge.js:114  (dynamic key via localStorage)
+   NOT EXECUTED  soil-nutrition-analysis.js:519  key="sn_val_dismissed"
+   NOT FOUND     soil-nutrition-analysis.js:1724  (dynamic key via localStorage)
+   NOT FOUND     soil-temp-logger.js:38  (dynamic key via localStorage)
+   NOT FOUND     soil-temp-logger.js:273  (dynamic key via localStorage)
+   EXECUTED      spray-log-cascade.js:1245  keys=["gilba_last_pgr_01a0d13a-4f6e-7231-834a-f014c016a321","gilba_last_pgr_019e96d8-97b7-714c-9bd6-d65b16ec7f2e"]  class=["inert"]
+   NOT FOUND     spray-log-cascade.js:1259  (dynamic key via _ls)
+   NOT FOUND     tab-navigation.js:487  (dynamic key via localStorage)
+   NOT FOUND     turf-profile-controller.js:1086  (dynamic key via localStorage)
+   NOT FOUND     turf-profile-controller.js:1336  (dynamic key via localStorage)
+   NOT EXECUTED  water-balance-analysis.js:21  key="gilba_wb_active_"
+   NOT FOUND     weather-resilience.js:103  (dynamic key via localStorage)
+   NOT EXECUTED  weather-resilience.js:134  key=null
+   NOT FOUND     word-export-scenario-patch.js:126  (dynamic key via localStorage)
+   NOT FOUND     word-export.js:15683  (dynamic key via localStorage)
+   NOT FOUND     word-export.js:15730  (dynamic key via localStorage)
+   NOT FOUND     word-export.js:15752  (dynamic key via localStorage)
+   NOT FOUND     word-export.js:15841  (dynamic key via localStorage)
+control gilba_import_active_site (expect writeback): ["gilba_import_active_site=writeback"]
+control gilba_hub_state (expect decides-input): ["gilba_hub_state_1=inert"]
+control gaip_active_site (expect inert): []
+plant probe_wrapper_key (expect writeback): ["probe_wrapper_key=writeback"]
+plant probe_bracket_key (expect decides-input): ["probe_bracket_key=decides-input"]
+plant probe_ns_key (expect found through the namespaced key): ["probe_ns_key"]
+question 84.3 — gilba_turf_profiles / _last: ["gilba_turf_profiles_last=inert","gilba_turf_profiles=inert"]
+tree at end: 527 files, map hash 99796c64dcf18af28216849b92748e06
+pointer: before 01a0d13a-4f6e-7231-834a-f014c016a321 | after 01a0d13a-4f6e-7231-834a-f014c016a321

@@ -49,6 +49,18 @@ const REMEDIES = ['guardStand', 'captureConfigsOnce', 'restoreConfigs', 'fillOwn
  * backlog, not an argument that they are safe.
  */
 const EXEMPT = {
+    'gh727-the-weed-set-on-the-stand-live.test.js': {
+        why: 'ITS SUBJECT IS THE WRITE, and the write is a stored row. `/plan` draws the row, so '
+            + 'whether a client still sees the old set of weeds after the repair can only be answered '
+            + 'by a run whose row lands -- `guardStand` holds every POST to `/api/analysis-cache`, '
+            + 'which is the one thing under measurement here. It presses Re-run ONLY on the sites '
+            + 'handed in through `GILBA_E2E_GH727_SITES`, so a run reaches no site the window was not '
+            + 'opened for, and it carries its own protection instead of the remedy: its last case '
+            + 'reads the last row id of EVERY site with a stored row and reddens if one outside that '
+            + 'list moved. Measured that way on 29.09.2026 -- eight sites named, seven rows written, '
+            + 'and the snapshot of the rest identical before and after.',
+        until: '2026-10-15',
+    },
     'gh769-the-wizard-saves-the-construction-live.test.js': {
         why: 'ITS SUBJECT IS THE WRITE, and the write is the setup wizard saving a construction. The '
             + 'report it answers is that the value chosen in the wizard was not in the database '

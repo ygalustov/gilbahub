@@ -3504,18 +3504,31 @@
     const selectedSpecies = schedule.preEmergentSpecies || site.preEmergentSpecies || null;
 
     // ── Region ────────────────────────────────────────────────────────────
-    // Region: use gaip_detectRegion (same fn used by TurfProfile) for proper SE Asia / tropical support
-    let region = "au";
+    /**
+     * GH-727 (queue item 3bt) — THE PLACE IS THE SITE'S, AND IT IS ASKED FOR BY ID.
+     *
+     * This read `.gaip-lat` / `.gaip-lon` off the page, and those fields hold whatever site the hidden
+     * runner restored last — so a pass for one site could be given another site's place. Measured in
+     * `analysis_results`, not reasoned about: four Australian sites hold `new_zealand` in their last
+     * stored row, ten rows in all, and `/plan` prints it under the site's own name. Same class as
+     * GH-459.
+     *
+     * `detectRegionForSite` (GH-476) is the one function that answers this, eight other files already
+     * ask it, and it is asked rather than `gaip_detectRegion(lat, lon)` because that one still answers
+     * `uk_ireland` for coordinates it cannot read.
+     *
+     * The two branches on `site.country` / `site.region` went with the page fields: nothing fills
+     * either field, so in practice they only ever confirmed the hardwired `"au"`. A site whose
+     * coordinates are unknown gets `null`, and step 8b says so rather than computing for Australia.
+     */
+    let region = null;
     try {
-      const lat = parseFloat(document.querySelector(".gaip-lat")?.value);
-      const lon = parseFloat(document.querySelector(".gaip-lon")?.value);
-      if (!isNaN(lat) && !isNaN(lon) && typeof global.gaip_detectRegion === "function") {
-        region = global.gaip_detectRegion(lat, lon);
-      } else if (site.country === "NZ" || site.region === "nz") {
-        region = "nz";
+      const RP = global.GAIP_RegionalProfiles;
+      if (RP && typeof RP.detectRegionForSite === "function" && typeof RP.activeSiteId === "function") {
+        region = RP.detectRegionForSite(RP.activeSiteId());
       }
     } catch (e) {
-      if (site.country === "NZ" || site.region === "nz") region = "nz";
+      /* an unanswerable region stays null */
     }
 
     // Null guard: on site-switch the sensor bridge clears before Hydrosight re-fetches
@@ -4468,6 +4481,22 @@
             preEmInputs.moistureFlag,
           );
 
+          /**
+           * GH-727 (queue item 3bt) — NO PLACE, NO PROGRAMME.
+           *
+           * `buildPreEmergentInputs` answers `null` for a site whose row carries no coordinates. The
+           * engine refuses such a call too, but the refusal is declared here so the run names the gap
+           * by its own name: `attempting` without a result becomes a skip in the end-of-pass sweep
+           * (GH-573), and the incomplete-run panel says which module is missing. Before the race guard,
+           * because a held-over prior result would be another site's.
+           */
+          if (preEmInputs.region == null) {
+            attempting("pre-emergent", "preEmergent");
+            note("pre-emergent",
+              "Pre-emergent timing needs the site's coordinates to know which weeds germinate here, " +
+              "and this site has none stored");
+          } else {
+
           // b35fix225: Pre-emergent site-switch race guard.
           // On a site-switch, the orchestrator runs before Hydrosight has fetched
           // sensor data for the new site. buildPreEmergentInputs() falls through
@@ -4513,6 +4542,7 @@
             totalSpecies: preEmResult.summary?.totalSpecies,
           });
           } // end race guard else
+          } // end region gate else
         } else {
           log("pre-emergent", "Skipped, soilTemp5cm not available");
         }

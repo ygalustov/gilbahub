@@ -1,0 +1,19 @@
+# gh660-live — 2026-09-23T23:58:57.998Z
+the pointer stands on: Westview (019f7d28-50ed-71e2-b817-c252b0160460)
+`?site=` will name: Burns (019e96d8-97b7-714c-9bd6-d65b16ec7f2e)
+what the page reports: {
+ "urlSite": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+ "hubConfigActiveSiteId": "019f7d28-50ed-71e2-b817-c252b0160460",
+ "sampleManagerActiveSiteId": "019f7d28-50ed-71e2-b817-c252b0160460",
+ "latOnThePage": "-34.0666148",
+ "lonOnThePage": "150.8195571",
+ "speciesOnThePage": "Buffalograss",
+ "constructionOnThePage": "Native soilImported topsoilSandy loam blend",
+ "savedLocation": null
+}
+GH-519 stand guard — held back 2 write(s) ["predictions"]; 13 request(s) reached the server (GET)
+HELD WRITE: {"method":"POST","path":"/api/predictions","table":"predictions","bytes":7646,"keys":["predictions"]}
+HELD WRITE: {"method":"POST","path":"/api/predictions","table":"predictions","bytes":7646,"keys":["predictions"]}
+ANSWER: `?site=` named Burns; the frame reports 019f7d28-50ed-71e2-b817-c252b0160460 — follows the parameter: false | follows the pointer: true
+HELD: {"method":"POST","path":"/api/predictions","table":"predictions","bytes":7646,"keys":["predictions"]}
+HELD: {"method":"POST","path":"/api/predictions","table":"predictions","bytes":7646,"keys":["predictions"]}

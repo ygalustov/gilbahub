@@ -1,0 +1,25 @@
+# gh660-live — 2026-09-24T00:22:48.296Z
+the pointer stands on: Westview (019f7d28-50ed-71e2-b817-c252b0160460)
+rows in `predictions` before: 1700
+`?site=` will name: Burns (019e96d8-97b7-714c-9bd6-d65b16ec7f2e)
+what the page reports: {
+ "urlSite": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+ "hubConfigActiveSiteId": "019f7d28-50ed-71e2-b817-c252b0160460",
+ "sampleManagerActiveSiteId": "019f7d28-50ed-71e2-b817-c252b0160460",
+ "latOnThePage": "-34.0666148",
+ "lonOnThePage": "150.8195571",
+ "speciesOnThePage": "Buffalograss",
+ "constructionOnThePage": "Native soilImported topsoilSandy loam blend",
+ "savedLocation": null
+}
+GH-519 stand guard — held back 0 write(s) []; 13 request(s) reached the server (GET)
+rows in `predictions` after: 1700
+ANSWER: `?site=` named Burns; the frame reports 019f7d28-50ed-71e2-b817-c252b0160460 — follows the parameter: false | follows the pointer: true
+rows in `predictions`: 1700 -> 1700
+predictions writes held: 2
+   write 1: 9 prediction(s) | site_identifier values: ["019f7d28-50ed-71e2-b817-c252b0160460 = Westview"] | modules: ["disease"] | labels: ["Large Patch risk: 34% (moderate)","Take-all Patch risk: 18% (low)","Dollar Spot risk: 15% (low)","Spring Dead Spot risk: 10% (low)","Helminthosporium Leaf Spot risk: 7% (low)","Brown Patch risk: 1% (low)"] | items carrying NO site: 0 of 9
+      addressed to Westview — the pointer: true | the `?site=` parameter: false
+   write 2: 9 prediction(s) | site_identifier values: ["019f7d28-50ed-71e2-b817-c252b0160460 = Westview"] | modules: ["disease"] | labels: ["Large Patch risk: 34% (moderate)","Take-all Patch risk: 18% (low)","Dollar Spot risk: 15% (low)","Spring Dead Spot risk: 10% (low)","Helminthosporium Leaf Spot risk: 7% (low)","Brown Patch risk: 1% (low)"] | items carrying NO site: 0 of 9
+      addressed to Westview — the pointer: true | the `?site=` parameter: false
+/reports/export — non-GET requests held: 0
+/reports/export — rows in `predictions`: 1700 -> 1700
