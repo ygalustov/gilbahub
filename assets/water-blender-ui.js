@@ -308,7 +308,9 @@
             B: 'Boron',
             Fe: 'Iron',
             NO3: 'Nitrate',
-            PO4: 'Phosphate'
+            // GH-774: phosphorus, not phosphate. The key stays `PO4`, which is what the blender sums
+            // and what the stored samples carry.
+            PO4: 'Phosphorus (P)'
         },
         sourceLabels: ['Primary Source', 'Secondary Source', 'Tertiary Source'],
         sourceColors: ['#2563eb', '#059669', '#d97706']

@@ -145,7 +145,8 @@ function passFor(daysAgo) {
     // it is measured where it lives.
     const { historical } = decideFor(daysAgo);
 
-    return { notes, skipped, historical, daysAgo, clearedBeforeTheNote };
+    return { notes, skipped, historical, daysAgo, clearedBeforeTheNote,
+        appliedDate: applied.toISOString().slice(0, 10) };
 }
 
 describe('GH-597 — the window is named, and what it cannot reach is said', () => {
@@ -176,7 +177,7 @@ describe('GH-597 — the window is named, and what it cannot reach is said', () 
         // the pass that clears the journal, instead of the handler that ran
         // before it.
         const w = windowDays();
-        const { notes, historical, daysAgo } = passFor(w + 9);
+        const { notes, historical, daysAgo, appliedDate } = passFor(w + 9);
 
         // The handler still caps the window it asks history for; that half did
         // not move.
@@ -190,8 +191,16 @@ describe('GH-597 — the window is named, and what it cannot reach is said', () 
         expect(notes).toHaveLength(1);
         expect(notes[0].module).toBe('pgr');
         expect(notes[0].level).toBe('info');
+        /**
+         * GH-772: the note carries two more figures now, and they are not decoration. The sentence a
+         * person reads about this state names the product and the date, and the stored row has no
+         * `inputs.pgr` to look them up in -- measured, none of the 86 rows on the stand carries that
+         * key -- so they travel with the note itself. They are asserted here by the same reading as
+         * the two that were already here: what the pass recorded, not what it could have recorded.
+         */
         expect(notes[0].data).toEqual({
             reason: 'pgr-window-exhausted', daysSinceApplication: daysAgo, windowDays: w,
+            productType: null, applicationDate: appliedDate,
         });
         expect(notes[0].message).toContain(String(daysAgo));
         expect(notes[0].message).toContain(String(w));

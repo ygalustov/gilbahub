@@ -1198,7 +1198,10 @@
             N: 'Nitrogen (%)', P: 'Phosphorus', K: 'Potassium', Ca: 'Calcium', Mg: 'Magnesium',
             S: 'Sulphur', Fe: 'Iron', Mn: 'Manganese', Cu: 'Copper', Zn: 'Zinc', B: 'Boron',
             Na: 'Sodium', Mo: 'Molybdenum', Cl: 'Chloride', HCO3: 'Bicarbonate', CO3: 'Carbonate',
-            SO4: 'Sulphate', NO3: 'Nitrate', PO4: 'Phosphate'
+            // GH-774: the owner's decision of 29.09.2026 -- this reading is phosphorus, which is
+            // what the form field has always called it, and phosphate is a different quantity. The
+            // KEY is unchanged: six of the nine water samples on the stand hold it under `PO4`.
+            SO4: 'Sulphate', NO3: 'Nitrate', PO4: 'Phosphorus (P)'
         };
         return labels[param] || param;
     }

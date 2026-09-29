@@ -486,11 +486,16 @@ class SampleController extends Controller
                 // GH-526 (stage 1, item 3): one zone rule on this path too.
                 // GH-574: the third write path, and the only one that does not
                 // go through saveSampleRecord().
-                $sample->payload = $this->normaliseMeasurements($this->applyZoneMeta(
-                    $data['payload'],
-                    $data['payload']['_label'] ?? null,
-                    $data['payload']['_zone'] ?? ($data['payload']['zoneType'] ?? null)
-                ));
+                // GH-773: the third path takes the same layout by canonical name as the other two.
+                $sample->payload = LabReadingNames::canonicaliseRow(
+                    (string) $sample->sample_type,
+                    $this->normaliseMeasurements($this->applyZoneMeta(
+                        $data['payload'],
+                        $data['payload']['_label'] ?? null,
+                        $data['payload']['_zone'] ?? ($data['payload']['zoneType'] ?? null)
+                    )),
+                    self::DESCRIPTIVE_KEYS
+                );
 
                 // GH-526 (stage 1, item 3, decision D-6): renaming a sample here
                 // registers the name on its site, as store() and sync() already
@@ -713,6 +718,11 @@ class SampleController extends Controller
         // GH-574: the one door store() and the import both come through, so a
         // measurement cannot be stored as text by either of them.
         $payload = $this->normaliseMeasurements($payload);
+        // GH-773: and under the names the map declares, whichever laboratory's spelling arrived. The
+        // recognition was already here and only decided whether to take the sample; the names it
+        // resolved were thrown away and the page's own were stored. What stays under its own name, and
+        // why, is written where the function is -- no rule about names is repeated in this controller.
+        $payload = LabReadingNames::canonicaliseRow($sampleType, $payload, self::DESCRIPTIVE_KEYS);
 
         if ($clientUid !== null && $clientUid !== '') {
             $attributes = [

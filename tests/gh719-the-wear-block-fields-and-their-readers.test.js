@@ -178,7 +178,11 @@ describe('GH-719 — the wear block as a whole, and who reads it', () => {
         // Both roads of the derivation reached something: an input's `value` and a select's
         // `selected` option are different reads, and only one of them failing is invisible in a
         // count of fields.
-        expect(fields['gaip-matches-week'].markupDefault).toBe('2');
+        // GH-776 took the default off the four fields of a week of traffic, `gaip-matches-week` among
+        // them, so this control moved to a field that still carries one. What it proves is unchanged:
+        // that the `value` road of the derivation reaches something. `gaip-rest-days` is an input with
+        // a default and is not part of that repair.
+        expect(fields['gaip-rest-days'].markupDefault).toBe('2');
         expect(fields['gaip-training-type'].markupDefault).toBe('training_drills');
         // And the census found readers at all, or every comparison below is between two empties.
         expect(readers['gaip-matches-week'].length).toBeGreaterThan(1);
@@ -244,8 +248,12 @@ describe('GH-719 — the wear block as a whole, and who reads it', () => {
          * is not that two homes are correct — it is that BOTH are seen, so the repair cannot leave
          * one standing.
          */
-        const both = declarations['gaip-matches-week'];
-        process.stdout.write('[gh719] `gaip-matches-week` is declared with a default in: '
+        // GH-776: `gaip-matches-week` carried a default in both homes and was the field this control
+        // was written on; it carries none now. `gaip-root-depth` is declared with its default in both
+        // homes and stays there by the owner's separate decision, so the control keeps its subject --
+        // that BOTH homes are seen -- on a field that still has one.
+        const both = declarations['gaip-root-depth'];
+        process.stdout.write('[gh719] `gaip-root-depth` is declared with a default in: '
             + JSON.stringify(both) + '\n');
         expect(both.some((d) => d.indexOf('legacy-hub-markup.blade.php') > -1)).toBe(true);
         expect(both.some((d) => d.indexOf('assets/wear-recovery-integration.js') > -1)).toBe(true);

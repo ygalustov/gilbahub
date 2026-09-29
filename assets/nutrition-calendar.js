@@ -1344,7 +1344,15 @@
                 // sample carries them — same precedence rule (sample first,
                 // DOM-derived fallback below).
                 if (src.methodology) soilState.methodology = src.methodology;
+                // GH-773: and the canonical name too. A sample stores its readings under the names
+                // the map declares (`pH`), and this was the ONE reader that knew only the old
+                // spelling -- the census of direct reads names it and nothing else
+                // (`tests/fixtures/gh722-direct-sample-reads.json`). It is translated BEFORE the
+                // writing side changes, so no sample is ever stored under a name this file cannot
+                // read. The old spelling still comes first: a sample carrying both was meant to be
+                // read by its water pH, and that precedence is GH-382's rather than this work's.
                 if (src.pH_water != null) soilState.pH_water = parseFloat(src.pH_water);
+                else if (src.pH != null) soilState.pH_water = parseFloat(src.pH);
                 if (src.pH_cacl2 != null) soilState.pH_cacl2 = parseFloat(src.pH_cacl2);
                 if (rd.OM != null) soilState.OM = rd.OM;
                 if (src.CEC != null) soilState.CEC = parseFloat(src.CEC);

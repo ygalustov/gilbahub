@@ -715,16 +715,11 @@
         // b35fix212: expose lastPGR globally so hub-tissue-v3 can read it
         // as a fallback when the DOM product input is empty (cleared by
         // site-config-persistence before the cascade has run).
+        // GH-771: the server's answer, and no copy of it. The application used to be written to
+        // `localStorage` under `gilba_last_pgr_<siteId>` and restored from there on the next load, so
+        // the run could be given a figure nobody had asked the server for. The answer is the source.
         if (context.lastPGR) {
             global.GAIP_LAST_PGR = context.lastPGR;
-            // b35fix216/217: persist to localStorage for synchronous page-load restore.
-            // b35fix259: Write site-specific key only — _latest removed as cross-site bleed vector.
-            try {
-                var _siteId = getSiteId() || null;
-                var _payload = Object.assign({}, context.lastPGR, { _siteId: _siteId });
-                var _json = JSON.stringify(_payload);
-                if (_siteId) _ls.setItem('gilba_last_pgr_' + _siteId, _json);
-            } catch(e) { /* ignore quota/security errors */ }
         }
     }
 
@@ -1228,28 +1223,9 @@
             }
         });
 
-        // b35fix216: synchronously restore GAIP_LAST_PGR from localStorage
-        // before any REST call. This guarantees hub-tissue-v3 can read the
-        // correct PGR product on the very first auto-run, even before the
-        // async loadSprayContext() completes.
-        (function _restoreLastPGRFromStorage() {
-            try {
-                var _siteId = getSiteId() || null;
-                if (!_siteId) return;
-                // b35fix259: Do NOT fall back to _latest if no site-specific key exists.
-                // The _latest key stores the most recently written PGR across ALL sites
-                // and is the primary cross-site bleed vector — a PGR entry for
-                // marvel_stadium writes to _latest, which then bleeds into brentford_fc
-                // on first load (when no site-specific key exists yet).
-                // If this site has no saved PGR, leave GAIP_LAST_PGR null.
-                var _stored = _ls.getItem('gilba_last_pgr_' + _siteId);
-                if (!_stored) return;
-                var _lastPGR = JSON.parse(_stored);
-                if (!_lastPGR || !_lastPGR.product_key) return;
-                global.GAIP_LAST_PGR = _lastPGR;
-                log('Restored GAIP_LAST_PGR from localStorage: ' + _lastPGR.product_key + ' ' + _lastPGR.application_date);
-            } catch(e) { /* ignore parse errors */ }
-        })();
+        // GH-771: the synchronous restore from `localStorage` is gone with the write above. It
+        // existed so the first auto-run would have an application before the request came back; what
+        // it actually did was hand the run a copy, which outlived the answer it came from.
 
         // b35fix259: one-time cleanup — remove _latest and any site keys that
         // were poisoned by cross-site bleed before this fix was deployed.

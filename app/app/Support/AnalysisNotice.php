@@ -346,7 +346,7 @@ final class AnalysisNotice
              */
             'module' => $step === null ? null : self::stepName($step, $projection),
             'retry'  => $code === null ? false : self::retryCanHelp($code),
-            'text'   => self::sectionText($code),
+            'text'   => self::sectionText($code, $step, $projection['numbersRun'] ?? null),
         ];
     }
 
@@ -547,6 +547,53 @@ final class AnalysisNotice
         return null;
     }
 
+    /**
+     * The sentence for an application whose effect has ended, approved by the owner on 28.09.2026.
+     *
+     * The product, the date and the number of days are read out of the journal entry the run wrote;
+     * nothing here is a literal but the wording itself. Without the entry's own figures there is no
+     * sentence, and the page keeps the one it had -- an absence is not filled in with a guess.
+     */
+    private static function pgrWindowExhaustedText(?string $step, ?array $numbersRun): ?string
+    {
+        if ($step === null || ! is_array($numbersRun)) {
+            return null;
+        }
+
+        foreach (($numbersRun['notes'] ?? []) as $note) {
+            if (! is_array($note) || self::entryStep($note) !== $step) {
+                continue;
+            }
+            $data = $note['data'] ?? null;
+            if (is_string($data) && $data !== '') {
+                $decoded = json_decode($data, true);
+                $data = is_array($decoded) ? $decoded : null;
+            }
+            if (! is_array($data) || ($data['reason'] ?? null) !== 'pgr-window-exhausted') {
+                continue;
+            }
+
+            $product = $data['productType'] ?? null;
+            $applied = $data['applicationDate'] ?? null;
+            $windowDays = $data['windowDays'] ?? null;
+            if (! is_string($product) || $product === '' || ! is_string($applied) || $applied === ''
+                || ! is_numeric($windowDays)) {
+                return null;
+            }
+
+            $when = strtotime($applied);
+            if ($when === false) {
+                return null;
+            }
+
+            return 'Last PGR application: '.$product.' on '.date('j M Y', $when)
+                .', more than '.(int) $windowDays.' days ago. Its growth-regulation effect has ended'
+                .' and is not included in this analysis.';
+        }
+
+        return null;
+    }
+
     /** The reason code of a journal entry, whichever shape its `data` has. */
     private static function reasonOfEntry(array $entry): ?string
     {
@@ -606,7 +653,7 @@ final class AnalysisNotice
 
     private const UNWORDED_ALLOWED = ['none', 'interim', 'legacy'];
 
-    private static function sectionText(?string $code): ?string
+    private static function sectionText(?string $code, ?string $step = null, ?array $numbersRun = null): ?string
     {
         if ($code === null) {
             return null;
@@ -615,6 +662,20 @@ final class AnalysisNotice
         $text = self::REASONS[$code]['text'] ?? null;
         if ($text !== null) {
             return $text;
+        }
+
+        /**
+         * GH-772 - THE ONE CAUSE WHOSE SENTENCE IS COMPOSED PER RUN.
+         *
+         * Every other cause has a fixed sentence in the table above, because it says the same thing
+         * whenever it happens. This one names the product, the date and the length of the window, and
+         * all three are data: the first two come from the spray log through the server (GH-771) and
+         * the third from the engine's own `GAIP_PGR_HISTORY_WINDOW_DAYS`, carried in the journal
+         * entry. A fixed string could not hold them, and the owner's condition was that a window of
+         * another length must change the sentence by itself.
+         */
+        if ($code === 'pgr-window-exhausted') {
+            return self::pgrWindowExhaustedText($step, $numbersRun);
         }
 
         // No words yet: the section carries its class and the page keeps its own

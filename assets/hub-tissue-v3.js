@@ -1851,24 +1851,36 @@ function gaip_build_state(e) {
                 daysBelow5C: null,
             },
             pgr: (function() {
-                // b35fix233: Read from GAIP_LAST_PGR (spray-log-cascade SSOT) and
-                // Programmes card inputs. No DOM writeback — inputs are the source,
-                // not a cache. Priority: Programmes card inputs > GAIP_LAST_PGR > GAIP_STATE.pgr
-                var _cardProduct = e.querySelector(".gaip-pgr-product")?.value || "";
-                var _cardDate    = e.querySelector(".gaip-pgr-date")?.value || null;
-                var _cardRate    = safeNum(e.querySelector(".gaip-pgr-rate")?.value, 0);
-                var _cardGdd     = safeNum(e.querySelector(".gaip-pgr-gdd")?.value, null);
-                var _lastPGR     = window.GAIP_LAST_PGR;
-                // If Programmes card has a product selected, use it (user is trialling rates)
-                // Otherwise fall through to GAIP_LAST_PGR from spray log
-                var productType     = _cardProduct || (_lastPGR && _lastPGR.product_key) || "";
-                var applicationDate = _cardDate    || (_lastPGR && _lastPGR.application_date) || null;
-                var rateLperHa      = _cardRate    || (_lastPGR && _lastPGR.rate) || 0;
+                /**
+                 * GH-771 (queue item 3azh) — THE APPLICATION COMES FROM THE SPRAY LOG, THROUGH THE
+                 * SERVER, AND FROM NOWHERE ELSE.
+                 *
+                 * The owner's decision: "we simply take it from the log". Three sources stood here and
+                 * the log was the last of them -- the Programmes card's own fields, then
+                 * `GAIP_LAST_PGR`, then `GAIP_STATE.pgr` from the saved config. The card's fields are
+                 * a form the new hub does not have; the config's section is never read as a setting
+                 * (`pgr.enabled` is false on 12 sites and absent on 9, so the date stored beside it on
+                 * 12 of them reached no calculation); and `GAIP_LAST_PGR` was restored out of
+                 * `localStorage`, which is a copy of the answer rather than the answer.
+                 *
+                 * What is left is the server's own reply, `GET /api/spray-log/context` -> `lastPGR`,
+                 * and it is used only when it belongs to THIS run's site: the reply carries its
+                 * `site_id`, and a page that switched sites a moment ago must not lend its
+                 * application to another (GH-459).
+                 *
+                 * The window is not applied here. An application older than
+                 * `GAIP_PGR_HISTORY_WINDOW_DAYS` arrives and the engine records that its effect is
+                 * spent, which is a different thing from no application at all.
+                 */
+                var _lastPGR  = window.GAIP_LAST_PGR;
+                var _runSite  = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId) || null;
+                var _isThisSite = !!_lastPGR && (!_lastPGR.site_id || !_runSite || _lastPGR.site_id === _runSite);
+                var _fromLog  = _isThisSite ? _lastPGR : null;
                 return {
-                    productType:     productType,
-                    applicationDate: applicationDate,
-                    rateLperHa:      rateLperHa,
-                    gddThreshold:    _cardGdd,
+                    productType:     (_fromLog && _fromLog.product_key) || "",
+                    applicationDate: (_fromLog && _fromLog.application_date) || null,
+                    rateLperHa:      (_fromLog && _fromLog.rate) || 0,
+                    gddThreshold:    safeNum(e.querySelector(".gaip-pgr-gdd")?.value, null),
                     baseTemp:        null,
                 };
             })(),

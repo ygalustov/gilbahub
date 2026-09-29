@@ -209,7 +209,24 @@ class SprayLogController extends Controller
         $entries = $rows->map(fn (object $row): array => $this->mapEntry($row))->values();
         $fungicides = $entries->filter(fn (array $entry): bool => $entry['product_category'] === 'fungicide')->values();
 
-        $lastPgrEntry = $entries->first(fn (array $entry): bool => $entry['product_category'] === 'pgr');
+        /**
+         * GH-771 (queue item 3azh) — THE LAST PGR IS ASKED FOR ON ITS OWN, WITHOUT THE WINDOW.
+         *
+         * It used to be picked out of `$entries`, which is cut twice: to the last `days` (90 by
+         * default) and to 200 rows. So an application older than the window was answered as `null`,
+         * indistinguishable from a site that never had one -- measured on the stand: `Test5 - NZ`
+         * applied a PGR 103 days ago and this endpoint said `lastPGR: null`, byte for byte the same
+         * answer as `Federal Golf`, whose log carries no PGR at all. The 90-day window belongs to the
+         * engine, which has it as `GAIP_PGR_HISTORY_WINDOW_DAYS`, and applying it here as well meant
+         * the engine could never reach its own "the effect is spent" state.
+         *
+         * The window of every other field of the context is untouched.
+         */
+        $lastPgrRow = $this->buildFilteredQuery($site->id, [
+            'zone' => $data['zone'] ?? null,
+            'category' => 'pgr',
+        ])->limit(1)->first();
+        $lastPgrEntry = $lastPgrRow !== null ? $this->mapEntry($lastPgrRow) : null;
         $lastPgr = $lastPgrEntry !== null
             ? array_merge($lastPgrEntry, ['product_key' => $this->pgrProductKey((string) ($lastPgrEntry['product_name'] ?? ''))])
             : null;

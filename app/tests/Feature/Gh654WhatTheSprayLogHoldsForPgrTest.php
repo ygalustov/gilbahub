@@ -52,13 +52,20 @@ class Gh654WhatTheSprayLogHoldsForPgrTest extends TestCase
         $this->assertSame(2, $whole->json('totalApplications'));
     }
 
-    public function test_an_application_older_than_the_window_comes_back_as_NO_APPLICATION(): void
+    public function test_an_application_older_than_the_window_is_named_whatever_the_window_asked_for(): void
     {
-        // The plan's point 4, measured: with only an old entry in the log, the
-        // default window answers `lastPGR: null` — which the run reads as "no
-        // application recorded", not as "an application whose effect is spent".
-        // That is why the state the exhausted-window note describes can never
-        // arise while the server cuts at 90 days.
+        /**
+         * TURNED OVER BY THE REPAIR, GH-771. This case recorded the defect as the state of things:
+         * with only an old entry in the log, the default window answered `lastPGR: null`, which the
+         * run read as "no application recorded" rather than "an application whose effect is spent" --
+         * and its own message said what it was waiting for, "the window no longer hides the older
+         * application".
+         *
+         * It does not hide it now. The last PGR is asked for on its own, without the window and
+         * without the 200-row limit, and the 90 days are applied once, in the engine, where
+         * `GAIP_PGR_HISTORY_WINDOW_DAYS` lives. What `days` asks for still governs every other field
+         * of the context, which is why both answers are read below and the totals are left alone.
+         */
         [$user, $site] = $this->siteFor();
         $this->logEntry($site, $user, 99, 'TE250');
 
@@ -69,8 +76,12 @@ class Gh654WhatTheSprayLogHoldsForPgrTest extends TestCase
             .json_encode($within->json('lastPGR')).' | without it: '
             .json_encode($whole->json('lastPGR.application_date')).PHP_EOL);
 
-        $this->assertNull($within->json('lastPGR'), 'the window no longer hides the older application');
+        // The application is named in both, because the window is no longer asked about it.
+        $this->assertSame(now()->subDays(99)->toDateString(), $within->json('lastPGR.application_date'));
         $this->assertSame(now()->subDays(99)->toDateString(), $whole->json('lastPGR.application_date'));
+        // And the entry is still outside the window for everything that does ask: the count of
+        // applications within 90 days does not include it.
+        $this->assertSame(0, $within->json('totalApplications'));
     }
 
     private function context(User $user, Site $site, array $params)

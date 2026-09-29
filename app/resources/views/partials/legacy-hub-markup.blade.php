@@ -932,14 +932,14 @@
                         </div>
                         <div>
                             <label>Matches/Week</label>
-                            <input type="number" class="gaip-matches-week" value="2" min="0" max="14" step="1">
+                            <input type="number" class="gaip-matches-week" min="0" max="14" step="1">
                         </div>
                     </div>
                     
                     <div class="gaip-form-row-grid">
                         <div>
                             <label>Match Duration (hrs)</label>
-                            <input type="number" class="gaip-match-duration" value="1.5" min="0.5" max="3" step="0.5">
+                            <input type="number" class="gaip-match-duration" min="0.5" max="3" step="0.5">
                         </div>
                         <div>
                             <label>Player Age Group</label>
@@ -977,14 +977,14 @@
                         </div>
                         <div>
                             <label>Sessions/Week</label>
-                            <input type="number" class="gaip-sessions-week" value="3" min="0" max="14" step="1">
+                            <input type="number" class="gaip-sessions-week" min="0" max="14" step="1">
                         </div>
                     </div>
                     
                     <div class="gaip-form-row-grid">
                         <div>
                             <label>Session Duration (hrs)</label>
-                            <input type="number" class="gaip-session-duration" value="1.5" min="0.5" max="3" step="0.5">
+                            <input type="number" class="gaip-session-duration" min="0.5" max="3" step="0.5">
                         </div>
                         <div>
                             <label>Training Area Used (%)</label>

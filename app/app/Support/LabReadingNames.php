@@ -168,6 +168,163 @@ class LabReadingNames
     }
 
     /**
+     * GH-773 — A ROW LAID OUT UNDER THE NAMES THE MAP DECLARES.
+     *
+     * The owner's direction: "the data must be written under, for example, CEC. It is CEC. It does not
+     * matter which laboratory we loaded it from -- there must be recognition, not taking whatever name
+     * came from that lab." Recognition was already here; it only decided whether to accept a sample,
+     * and the column names a page had sent were stored as they came. So one reading sat in the
+     * database under five spellings -- `pH_Water`, `OM_Percent`, `CEC_meq100g`, `EC1_5` and the
+     * canonical ones -- and every reader had to know all of them.
+     *
+     * WHAT IS RENAMED IS ONLY WHAT IS UNAMBIGUOUS. Three kinds of column keep the name they arrived
+     * with, and each has a reason that is not tidiness:
+     *
+     *   1. A column recognised ONLY after a method suffix was peeled (`pH_CaCl2` answering for `pH`).
+     *      That is a different measurement of the same quantity, and which of the two a calculation
+     *      should take is an open question of the owner's. Renaming it would answer it.
+     *   2. ANSWERED BY THE OWNER ON 29.09.2026 AND NO LONGER AN EXCEPTION -- see the ordering rule
+     *      below. Two columns answering for one reading used to be left under their own names while
+     *      nobody had said which to believe.
+     *   3. The phosphorus of a water sample. The map holds `P` and `P_mgL` as spellings of `PO4`, but
+     *      phosphorus and phosphate are not the same quantity and the factor between them is not in
+     *      the code. A rename here would silently declare them equal.
+     *
+     * Each of those is read through this map by the calculation already, so no number on a screen
+     * changes by leaving them alone.
+     *
+     * WHAT IS NOT STORED: a numeric column the map does not know as a reading of this kind, by the
+     * owner's decision of 24.09 that only what is recognised is saved. Measured before the change, so
+     * that this drops nothing that exists: every numeric key of all 64 samples on the stand is
+     * declared for its own kind. Columns that are not numbers, the service keys (`_label`, `_source`,
+     * `_zone`, `zone`) and the attributes the map declares separately are left exactly as they are --
+     * they are not readings and this function does not judge them.
+     *
+     * WHOSE KNOWLEDGE IS WHOSE. This class knows the names of readings and nothing else. Which keys of
+     * a payload hold WORDS is the caller's own fact -- its `notes`, `label`, `lab_ref` and the rest --
+     * and it passes them in. The first draft of this function did not ask, and dropped a `notes` of
+     * "7": the number test reads a leading numeric prefix as a number, which is right for a reading
+     * and wrong for a sentence that begins with a figure. The guard that had been standing since
+     * GH-574 caught it.
+     *
+     * @param  array<string,mixed>  $row
+     * @param  array<int,string>  $leaveAlone  keys the caller stores words in, lower-cased
+     * @return array<string,mixed>  the row under canonical names; untouched for a kind the map does
+     *                              not declare, because then nothing here knows better
+     */
+    public static function canonicaliseRow(string $kind, array $row, array $leaveAlone = []): array
+    {
+        $spared = [];
+        foreach ($leaveAlone as $key) {
+            $spared[mb_strtolower((string) $key)] = true;
+        }
+
+        $readings = self::readings($kind);
+        if ($readings === null || $readings === []) {
+            return $row;
+        }
+
+        $attributes = [];
+        $type = self::all()['types'][$kind] ?? [];
+        foreach ((array) ($type['attributes'] ?? []) as $spellings) {
+            foreach ((array) $spellings as $spelling) {
+                $attributes[mb_strtolower((string) $spelling)] = true;
+            }
+        }
+
+        // Every column that answers for each reading, and whether it answered without the suffix
+        // being peeled. `recognise` stops at the first spelling, which cannot see a second column.
+        $answers = [];
+        foreach ($readings as $key => $spellings) {
+            foreach ($row as $col => $value) {
+                $col = (string) $col;
+                if ($col === '' || str_starts_with($col, '_') || isset($spared[mb_strtolower($col)])
+                    || ! self::isNumber($value)) {
+                    continue;
+                }
+                $whole = null;
+                $rank = null;
+                foreach (array_values((array) $spellings) as $i => $spelling) {
+                    $spelling = (string) $spelling;
+                    if ($col === $spelling || mb_strtolower($col) === mb_strtolower($spelling)) {
+                        $whole = true;
+                        $rank = $i;
+                        break;
+                    }
+                    if (self::strip($col) !== '' && self::strip($col) === self::strip($spelling)) {
+                        $whole = false;
+                        $rank = $rank ?? $i;
+                    }
+                }
+                if ($whole !== null) {
+                    $answers[$key][] = ['column' => $col, 'whole' => $whole, 'value' => $value, 'rank' => $rank];
+                }
+            }
+        }
+
+        /**
+         * GH-775 — TWO SPELLINGS OF ONE READING: THE DECLARED ORDER DECIDES, AND THE OTHER IS DROPPED.
+         *
+         * The owner's decision of 29.09.2026, and it is the old hub's rule rather than a new one:
+         * `normalizeValues` in `sample-manager.js` fills each reading from the first column that
+         * answers and skips the rest -- its own comment says "prefer specific column names like K_ppm
+         * over K" -- so `pH_Water`, declared before `pH`, is what a run has always computed from. The
+         * stand has one row where the two disagree, `Burns` soil 51: `pH_Water` 5.5 beside `pH` 6.6,
+         * and 5.5 is the figure the calculation uses. It stays 5.5.
+         *
+         * The loser is not stored and nothing is said about it in the upload's answer: her words, "we
+         * will not write that something was not saved". A sample carries what the laboratory reported
+         * for the reading, by the spelling the product has always preferred.
+         */
+        $renameTo = [];
+        $dropped = [];
+        foreach ($answers as $key => $candidates) {
+            $whole = array_values(array_filter($candidates, static fn (array $c): bool => $c['whole']));
+            if ($whole === []) {
+                continue;                           // only a suffix answered: reason 1, left as it is
+            }
+            usort($whole, static fn (array $a, array $b) => $a['rank'] <=> $b['rank']);
+            $winner = $whole[0];
+            if ($kind === 'water' && $key === 'PO4' && $winner['column'] !== 'PO4') {
+                continue;                           // reason 3
+            }
+            $renameTo[$winner['column']] = $key;
+            foreach (array_slice($whole, 1) as $loser) {
+                if ($loser['column'] !== $winner['column']) {
+                    $dropped[$loser['column']] = true;
+                }
+            }
+        }
+
+        $recognised = [];
+        foreach ($answers as $candidates) {
+            foreach ($candidates as $candidate) {
+                $recognised[$candidate['column']] = true;
+            }
+        }
+
+        $out = [];
+        foreach ($row as $col => $value) {
+            $col = (string) $col;
+            if (isset($dropped[$col]) && ! isset($renameTo[$col])) {
+                continue;                           // GH-775: a second spelling of a reading already taken
+            }
+            if (isset($renameTo[$col])) {
+                $out[$renameTo[$col]] = $value;
+                continue;
+            }
+            if (isset($recognised[$col]) || str_starts_with($col, '_') || ! self::isNumber($value)
+                || isset($spared[mb_strtolower($col)]) || isset($attributes[mb_strtolower($col)])) {
+                $out[$col] = $value;
+                continue;
+            }
+            // Recognised by nothing and holding a number: not stored (the owner's 24.09 decision).
+        }
+
+        return $out;
+    }
+
+    /**
      * What the page is given: the map as data, with nothing added.
      *
      * @return array<string,mixed>

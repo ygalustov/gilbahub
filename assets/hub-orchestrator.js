@@ -1515,7 +1515,20 @@
       note("pgr",
         "plant-growth-regulator applied " + days + " days ago, beyond the "
         + windowDays + "-day history window: no effect left to compute",
-        { reason: "pgr-window-exhausted", daysSinceApplication: days, windowDays: windowDays });
+        {
+          reason: "pgr-window-exhausted",
+          daysSinceApplication: days,
+          windowDays: windowDays,
+          /**
+           * GH-772: the product and the date travel with the note, because the sentence a person
+           * reads names them and the stored row carries no `inputs.pgr` to look them up in --
+           * measured: none of the 86 rows on the stand has that key. Both come from the spray log
+           * through the server (GH-771), so the sentence says what the log holds and not what a form
+           * once held.
+           */
+          productType: pgr.productType || null,
+          applicationDate: applied,
+        });
     } catch (e) {
       /* bookkeeping must not stop a run */
     }
@@ -3526,15 +3539,29 @@
     const turf = _hubState.inputs.turf;
     const soil = _hubState.inputs.soil;
     const site = _hubState.inputs.site;
-    // b35fix296: Fall back to DOM-read traffic if schedule is null.
-    // gaip_read_wear_state (from wear-recovery-integration.js) reads
-    // .gaip-matches-week, .gaip-sessions-week etc. directly from the form.
+    /**
+     * GH-776 (queue item 3vt) — A SITE WITH NO SCHEDULE CARRIES NO TRAFFIC.
+     *
+     * `b35fix296` fell back to the hidden form when the schedule was null, and that form's markup
+     * hard-codes two matches of an hour and a half and three training sessions of the same -- so a
+     * golf course was given a soccer week. Measured on the stand before this change: ten sites of
+     * thirteen carried `wearRecovery.effectiveLoad.totalEffectiveHours` 5.25 with "Soccer (matches)"
+     * first in the breakdown, seven of them golf and one a lawn, and the 5.25 is exactly those
+     * defaults: 2 x 1.5 plus 3 x 1.5 at half weight.
+     *
+     * The owner's decision of 29.09.2026: this becomes correct, "football should not be on golf". And
+     * absence is not another number -- only `Test5 - NZ` has a schedule on the server at all, with
+     * nought matches and no sessions, so the other nine get no load rather than a smaller one. The
+     * engine already answers that way for an absent schedule (`wear-recovery-engine-pure.js`, nought
+     * matches and nought sessions), which is why the substitution is removed and nothing replaces it.
+     *
+     * The root depth is NOT part of this: its default of 100 lives in the same form and stays, by her
+     * separate decision of the same day, and nothing below reads it. Its field is not named here on
+     * purpose -- the block's census counts a file that spells a class as one of its readers, so naming
+     * it in prose would make this file look like one.
+     */
     let schedule = _hubState.inputs.schedule;
-    let trafficData = schedule?.traffic || schedule;
-    if (!trafficData && typeof global.gaip_read_wear_state === "function") {
-      const domState = global.gaip_read_wear_state(document.getElementById("gaip-hub"));
-      trafficData = domState?.traffic || null;
-    }
+    let trafficData = schedule?.traffic || schedule || null;
 
     // Get construction - turf.construction is the primary source from the form
     const construction = turf?.construction || site?.construction || "native";

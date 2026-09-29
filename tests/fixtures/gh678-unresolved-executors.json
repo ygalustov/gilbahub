@@ -8141,16 +8141,6 @@
       "confirmed": false,
       "whyNotConfirmed": "a call on a property of a property is not resolved at all, so a function reached only that way would appear here wrongly. Nothing is deleted on the strength of this list until that is closed."
     },
-    "assets/spray-log-cascade.js : <top level> : _restoreLastPGRFromStorage #1": {
-      "ticket": "GH-678",
-      "line": null,
-      "why": "no-caller",
-      "establishedBy": "bindings-parse over the fixpoint",
-      "coversAlias": true,
-      "coversMemberOnAProperty": false,
-      "confirmed": false,
-      "whyNotConfirmed": "a call on a property of a property is not resolved at all, so a function reached only that way would appear here wrongly. Nothing is deleted on the strength of this list until that is closed."
-    },
     "assets/spray-log-cascade.js : <top level> : _cleanupPGRBleed #1": {
       "ticket": "GH-678",
       "line": null,

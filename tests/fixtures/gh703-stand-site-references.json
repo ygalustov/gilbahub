@@ -194,6 +194,11 @@
   ],
   "tests/e2e/gh768-aa-micronutrients-on-screen-live.test.js": [
    "Test5 - NZ"
+  ],
+  "tests/e2e/gh771-the-pgr-the-run-is-given-live.test.js": [
+   "Burns",
+   "Russley",
+   "Test5 - NZ"
   ]
  }
 }

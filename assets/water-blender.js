@@ -1095,7 +1095,7 @@
         html += '<div class="gaip-supply-row"><span>Boron (B)</span><strong>' + b.B.toFixed(2) + ' mg/L</strong></div>';
         html += '<div class="gaip-supply-row"><span>Iron (Fe)</span><strong>' + b.Fe.toFixed(2) + ' mg/L</strong></div>';
         html += '<div class="gaip-supply-row"><span>Nitrate (NO₃)</span><strong>' + b.NO3.toFixed(1) + ' mg/L</strong></div>';
-        html += '<div class="gaip-supply-row"><span>Phosphate (PO₄)</span><strong>' + b.PO4.toFixed(1) + ' mg/L</strong></div>';
+        html += '<div class="gaip-supply-row"><span>Phosphorus (P)</span><strong>' + b.PO4.toFixed(1) + ' mg/L</strong></div>';
         html += '</div>';
         
         html += '</div></div></div>';

@@ -1231,8 +1231,15 @@
             // Shade settings
             shade: collectShadeSettings(),
             
-            // PGR settings
-            pgr: collectPgrSettings(),
+            /**
+             * GH-771 (queue item 3azh): the PGR section is no longer collected from the old hub's
+             * form. The owner's decision is that the application comes from the spray log, and the
+             * section this used to write was never read as a setting anyway -- `pgr.enabled` is
+             * `false` on 12 sites of the stand and absent on 9, so the date stored beside it on 12 of
+             * them reached no calculation. Writing it kept a form's contents in the site's config,
+             * which is the shape this project removed everywhere else: send the change, not the state.
+             * The section already in the database stays where it is, unread.
+             */
             
             // Irrigation settings
             irrigation: collectIrrigationSettings()
@@ -1401,17 +1408,8 @@
         };
     }
 
-    function collectPgrSettings() {
-        var enabled = isChecked('.gaip-enable-pgr');
-        return {
-            enabled: enabled,
-            productType: getSelectValue('.gaip-pgr-product'),
-            // Only persist date/rate when PGR is actively enabled — prevents stale
-            // dates coming back after the user disables or clears PGR.
-            applicationDate: enabled ? getInputValue('.gaip-pgr-date') : null,
-            rateLperHa: enabled ? getInputValue('.gaip-pgr-rate') : null
-        };
-    }
+    // GH-771: `collectPgrSettings` stood here and had no caller left once the config's PGR
+    // section stopped being written. The application comes from the spray log.
 
     function collectIrrigationSettings() {
         return {
@@ -1501,10 +1499,9 @@
             restoreShadeSettings(state.shade);
         }
         
-        // Restore PGR settings
-        if (state.pgr) {
-            restorePgrSettings(state.pgr);
-        }
+        // GH-771: the PGR section is not restored into the form either. It cleared the date field
+        // whenever the stored flag was false, which is every site on the stand -- so a date the log
+        // had supplied could be wiped by a config nobody had set.
         
         // Restore irrigation settings
         if (state.irrigation) {
@@ -1579,22 +1576,8 @@
         setInputValue('.gaip-led-hours', shade.ledHours);
     }
 
-    function restorePgrSettings(pgr) {
-        setCheckbox('.gaip-enable-pgr', pgr.enabled);
-        setSelectValue('.gaip-pgr-product', pgr.productType || pgr.product);
-        // Only restore date/rate if PGR was enabled when saved — prevents ghost dates returning
-        if (pgr.enabled) {
-            setInputValue('.gaip-pgr-date', pgr.applicationDate || pgr.lastAppDate);
-            setInputValue('.gaip-pgr-rate', pgr.rateLperHa || pgr.rate);
-        } else {
-            // Explicitly clear date field in case DOM has a stale value
-            var dateEl = document.querySelector('.gaip-pgr-date');
-            if (dateEl && dateEl.value) {
-                dateEl.value = '';
-                dateEl.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }
-    }
+    // GH-771: `restorePgrSettings` stood here and had no caller left once the config's PGR
+    // section stopped being restored into the form.
 
     function restoreIrrigationSettings(irrigation) {
         setCheckbox('.gaip-enable-irrigation', irrigation.enabled);

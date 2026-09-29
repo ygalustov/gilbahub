@@ -60,8 +60,8 @@
    "pH waits for the owner; CEC held with the other CEC readers"
   ],
   "assets/nutrition-calendar.js | syncSoilFromDOM | src": [
-   "soil from the active sample: CEC, pH_water, pH_cacl2 by name; nutrients and OM come through the map since part 2",
-   "pH waits for the owner; CEC held with the other CEC readers"
+   "soil from the active sample: CEC, pH_water, pH_cacl2 and, since GH-773, the canonical pH by name; nutrients and OM come through the map since part 2",
+   "pH waits for the owner; CEC held with the other CEC readers. GH-773: this was the one reader that knew only the old spelling, so it was taught the canonical name BEFORE samples began to be stored under it"
   ],
   "assets/word-export.js | collectData | _soilRow": [
    "ESP read from the soil row",
@@ -137,6 +137,7 @@
   "assets/nutrition-calendar.js | syncSoilFromDOM | src | bulkDensity": "not-a-reading",
   "assets/nutrition-calendar.js | syncSoilFromDOM | src | methodology": "not-a-reading",
   "assets/nutrition-calendar.js | syncSoilFromDOM | src | pH_cacl2": "ph-rule-open",
+  "assets/nutrition-calendar.js | syncSoilFromDOM | src | pH": "ph-rule-open",
   "assets/nutrition-calendar.js | syncSoilFromDOM | src | pH_water": "ph-rule-open",
   "assets/nutrition-summary-integration.js | <anonymous> | raw | <computed>": "computed-name",
   "assets/nutrition-uk-fertiliser-integration.js | <anonymous> | normData | <computed>": "computed-name",
