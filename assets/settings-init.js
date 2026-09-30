@@ -213,11 +213,33 @@
      * efficiency, any weather override, elevation) is stated as `clear`,
      * because the route refuses null rather than guessing what it meant.
      */
-    // The fields a site cannot work without. A form that submits one of them
-    // empty is a form whose control had nothing in it, not a person erasing
-    // the site's species — the server refuses to empty these at all, so they
-    // are left out of the request entirely and keep their stored value.
-    var GAIP_IDENTITY_FIELDS = ['turf.species', 'turf.methodology', 'turf.turfType', 'location.lat', 'location.lon'];
+    /**
+     * GH-789 (queue item 7): GAIP_IDENTITY_FIELDS stood here -- five fields named in this file that a form
+     * would never send empty, so a person who cleared their species read "Saved." while the server kept
+     * the old value. It was one of four hand-written answers to "which inputs are required"; the list is
+     * the only one now, and it is read on the server. An empty required field travels as a `clear` and the
+     * server refuses it, naming the field -- which is what the person needed to be told in the first place.
+     */
+
+    /**
+     * GH-789: the refusal a form shows when the server names fields.
+     *
+     * The marking and the sentence come from `GilbaRequiredFields` in `dashboard-ui.js`, which the setup
+     * wizard uses as well: one behaviour for a required field wherever it is asked for, which is the
+     * owner's decision of 29.09.2026. Anything that is not about a field keeps the server's own words.
+     */
+    function showRefusal(formId, msgEl, err) {
+        var form = document.getElementById(formId);
+        var marker = window.GilbaRequiredFields;
+        var missing = err && err.body && err.body.missing;
+        if (form && marker && missing && missing.length) {
+            setMsg(msgEl, marker.mark(form, missing), 'err');
+
+            return;
+        }
+        if (form && marker) marker.clear(form);
+        setMsg(msgEl, (err && err.message) || 'Save failed.', 'err');
+    }
 
     /**
      * GH-637 (queue item 17, stage 3a of `PLAN-config-patch-race-RU.md`) — A
@@ -257,7 +279,12 @@
      * THE SAFE FALLBACK, named: if the page has no server config at all, every
      * field reads as changed and the behaviour is today's.
      */
-    function patchGaipConfig(sections) {
+    /**
+     * GH-789 (queue item 7): `place` says WHICH TAB is saving -- a key the list itself declares in
+     * `places`. The server judges that tab by the inputs that place collects and by nothing else, so
+     * saving Site settings is not refused over an empty cultivar on the Turf tab.
+     */
+    function patchGaipConfig(sections, place) {
         var patch = {};
         var clear = [];
         var saved = (D.gaipConfig && typeof D.gaipConfig === 'object') ? D.gaipConfig : {};
@@ -304,7 +331,10 @@
                         section[field] = value[field];
                         return;
                     }
-                    if (GAIP_IDENTITY_FIELDS.indexOf(path) !== -1) return;
+                    // GH-789: an empty field is stated, whatever field it is. It used to be held back
+                    // for the five names above, and the form then reported "Saved." about a value the
+                    // server had kept -- the person was told the opposite of what happened.
+                    //
                     // Nothing stored, nothing to empty: the control was empty
                     // when the page arrived and is empty now, and the person
                     // never touched it.
@@ -324,6 +354,7 @@
         var body = {};
         if (Object.keys(patch).length) body.patch = patch;
         if (clear.length) body.clear = clear;
+        if (place) body.place = place;
 
         // Nothing changed: nothing is sent. The route refuses a body with
         // neither half, and a request that says "I changed nothing" is not a
@@ -354,49 +385,34 @@
 
             var name = siteForm.querySelector('#stg-name').value.trim();
             if (!name) {
-                setMsg(siteMsg, 'Site name is required.', 'err');
+                // GH-789: the page's check, because the name is not a calculation input and the list has
+                // no words for it -- but it LOOKS like every other required field: red frame, "Required",
+                // and one sentence under the button, drawn by the shared marker.
+                var nameMarker = window.GilbaRequiredFields;
+                setMsg(siteMsg, nameMarker
+                    ? nameMarker.mark(siteForm, [{ input: 'site.name', label: 'the site name' }])
+                    : 'Site name is required.', 'err');
+
                 return;
             }
 
-            // GH-404: coordinates are not optional, and until now nothing said
-            // so. `sites.latitude` is a nullable column, both store() and
-            // update() validate it as `nullable`, and syncRegistry() creates a
-            // site without touching it at all -- so a site could be saved, and
-            // used, with no location.
-            //
-            // Nothing downstream then fails: climate-module-v2.js, disease-
-            // integration.js, hub-orchestrator.js, irrigation-scheduler.js and
-            // hub-tissue-v3.js each substitute a hardcoded Sydney latitude
-            // (-33.87 / -35 / -33) when they cannot resolve one, so the site
-            // gets a full, confident report -- climate, disease risk, growth
-            // potential, irrigation -- computed for somewhere it is not. For a
-            // UK or NZ site that is the wrong hemisphere and the wrong season,
-            // with nothing in the document to say so.
-            //
-            // Removing those fallbacks is its own work and is not attempted
-            // here. This is the gate that stops a site reaching them without a
-            // location in the first place, in the one place a user sets one.
-            //
-            // The gate is on the coordinates because they are what the rest of
-            // the product reads, but the message points at Location: choosing a
-            // location from the search is how the two coordinate fields get
-            // filled (see the picker below, which writes #stg-latitude and
-            // #stg-longitude), and asking someone to type a latitude by hand is
-            // asking for the wrong number. The fields stay editable for the case
-            // where a search result is close but not exact.
-            var _locName = siteForm.querySelector('#stg-location-name').value.trim();
-            var _lat = siteForm.querySelector('#stg-latitude').value.trim();
-            var _lon = siteForm.querySelector('#stg-longitude').value.trim();
-            if (_lat === '' || _lon === '' || !isFinite(parseFloat(_lat)) || !isFinite(parseFloat(_lon))) {
-                setMsg(siteMsg, _locName === ''
-                    ? 'Location is required. Search for the site in the Location field ' +
-                      'and pick a result — that fills in the coordinates, which the climate, ' +
-                      'growth potential and disease calculations are all based on.'
-                    : 'This location has no coordinates yet. Pick a result from the Location ' +
-                      'search to fill them in — the climate, growth potential and disease ' +
-                      'calculations are all based on them.', 'err');
-                return;
-            }
+            /**
+             * GH-789 (queue item 7) — THE COORDINATES ARE JUDGED BY THE SERVER, from the list.
+             *
+             * GH-404's gate stood here: two paragraphs of the page's own words, refusing the save before
+             * it left the browser. It was the fourth hand-written answer to "which inputs are required",
+             * and it refused without marking the field. `location.lat` and `location.lon` are required
+             * inputs of the list and this tab is their place, so the server refuses the save and names
+             * them, the same way it refuses an empty cultivar on the Turf tab.
+             *
+             * WHAT GH-404 WAS ABOUT IS UNCHANGED: a site cannot be saved with no coordinates. Five
+             * engines substitute a hardcoded Sydney latitude when they cannot resolve one, so a site with
+             * none gets a full, confident report computed for somewhere it is not. Removing those
+             * substitutions is still its own work.
+             *
+             * The site name keeps its own check below: it is not an input of the calculation, so the list
+             * has no words for it, and the words live where the check lives.
+             */
 
             var elevEl = siteForm.querySelector('#stg-elevation');
 
@@ -464,7 +480,7 @@
 
             Promise.all([
                 apiFetch('PATCH', '/sites/' + siteId, payload),
-                patchGaipConfig(_sections),
+                patchGaipConfig(_sections, 'settings.site'),
             ])
                 .then(function (results) {
                     var data = results[0];
@@ -486,7 +502,7 @@
                         setMsg(siteMsg, err, 'err');
                     }
                 })
-                .catch(function () { setMsg(siteMsg, 'Network error.', 'err'); })
+                .catch(function (err) { showRefusal('stg-site-form', siteMsg, err); })
                 .finally(function () { setSaving(siteSaveBtn, false); });
         });
     }
@@ -899,8 +915,26 @@
                 hoc:          document.getElementById('stg-turf-hoc').value,
                 methodology:  document.getElementById('stg-turf-methodology').value,
                 nProgram:     document.getElementById('stg-turf-n').value,
-                poaPercent:     document.getElementById('stg-turf-poa').value || '0',
-                c3Cover:        document.getElementById('stg-turf-c3').value || '0',
+                /**
+                 * GH-789 (queue item 7) — AN EMPTY BOX IS NOT NOUGHT PER CENT.
+                 *
+                 * These two carried `|| '0'`, and the template put `0` in the box as well, so a person who
+                 * never touched either field stored "no Poa annua" and "no cool-season cover" as measured
+                 * facts. Both are values somebody can mean: the C3 hint on the page says so in as many
+                 * words -- "0 = pure C4" -- and a stand with no Poa is an ordinary stand. A default that
+                 * equals a real answer cannot be told from one, and `/plan` already carries the workaround
+                 * for it (`plan-ui.js`, "c3Cover=0 is both the default (never set) and pure C4. Use
+                 * species to disambiguate").
+                 *
+                 * MEASURED ON THE STAND, 30.09.2026: all 13 configured sites hold `poaPercent: "0"` and 10
+                 * of 13 hold `c3Cover: "0"` -- a value nobody chose thirteen times over. Stored as the
+                 * STRING "0", which is this expression's own fingerprint.
+                 *
+                 * Empty now means empty: the field is left out of the patch by the rule below, which has
+                 * said so since GH-733 for the three fields beside it.
+                 */
+                poaPercent:     document.getElementById('stg-turf-poa').value,
+                c3Cover:        document.getElementById('stg-turf-c3').value,
                 // Save under both keys: overseedSpecies (hub persistence layer) and
                 // coolOverseed (engine internal name read by hub-tissue-v3, hub-orchestrator, etc.)
                 overseedSpecies:  document.getElementById('stg-turf-cool-overseed').value || '',
@@ -950,7 +984,7 @@
             // including the three programme keys that used to be deleted from
             // the clone by hand (GH-371).
             var saves = [
-                patchGaipConfig({ turf: turf }),
+                patchGaipConfig({ turf: turf }, 'settings.turf'),
                 apiFetch('PATCH', '/sites/' + encodeURIComponent(siteId), { soil_texture_override: soilTexture }),
             ];
 
@@ -966,7 +1000,7 @@
                     var speciesEl = document.getElementById('db-pill-species');
                     if (speciesEl) speciesEl.textContent = turf.species || '';
                 })
-                .catch(function () { setMsg(turfMsg, 'Save failed.', 'err'); })
+                .catch(function (err) { showRefusal('stg-turf-form', turfMsg, err); })
                 .finally(function () { setSaving(turfSaveBtn, false); });
         });
     }
@@ -1932,13 +1966,14 @@
             // GH-440 (GH-439 stage 1): the traffic section alone; nothing this
             // form does not own travels with it, so there is no clone to strip
             // the programme keys out of.
-            patchGaipConfig({ traffic: { schedule: state, savedAt: new Date().toISOString() } })
+            patchGaipConfig({ traffic: { schedule: state, savedAt: new Date().toISOString() } },
+                'settings.trafficAndWear')
                 .then(function () {
                     _checkAfterSave('stg-traffic-form');
                     setMsg(trafficMsg, 'Saved.', 'ok');
                     setTimeout(function () { setMsg(trafficMsg, '', ''); }, 2000);
                 })
-                .catch(function () { setMsg(trafficMsg, 'Save failed.', 'err'); })
+                .catch(function (err) { showRefusal('stg-traffic-form', trafficMsg, err); })
                 .finally(function () { setSaving(trafficSaveBtn, false); });
         });
     }

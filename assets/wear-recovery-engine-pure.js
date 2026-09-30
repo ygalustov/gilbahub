@@ -485,6 +485,25 @@
       "spring";
   }
 
+  /**
+   * GH-787 (queue item 3vy) — THE SEASON THE CALLER PASSED, and `m()` only where none did.
+   *
+   * The engine is GIVEN a season (`state.site.season`) and read it in one place out of five; the other four
+   * called `m()`, which knows only the southern hemisphere (`month >= 11 || month <= 1 -> "summer"`). So one
+   * call of this engine could compute its carrying capacity for one season and its organic-matter and Poa
+   * modifiers for another — a defect of wiring, not of which hemisphere is right. The owner's decision about
+   * the hemisphere ("as in the old hub") is about what to compute, not about whether to use what was handed in.
+   *
+   * MEASURED, AND NAMED AS A BOUNDARY: no site on the stand is a northern sports surface (`Test6 - UK` and
+   * `test4 - USA` are not sports, and wear is not computed for them), so no figure on the stand moves. The
+   * case for it is built on a fixture instead.
+   */
+  function seasonOf(state) {
+    const given = state && state.site && state.site.season;
+
+    return given || m();
+  }
+
   // v3.0.0 pure: Accept varietyTraits provider via state._varietyTraits ONLY
   let _varietyTraitsProvider = null;
   function f(e, r) {
@@ -828,7 +847,7 @@
       
       // Weight by species fraction, but also consider summer intent
       let effectiveC3 = blend.c3Fraction;
-      const season = m();
+      const season = seasonOf(e);   // GH-787: the season this run was given
       if (blend.summerIntent === "maintain" && season === "summer") {
         effectiveC3 = Math.max(blend.c3Fraction, 0.5);
       }
@@ -999,16 +1018,25 @@
         ((M = 0.95), (C = "N program supporting recovery"));
     } else if (w > 0) {
       _ = "om_estimate";
-      const e = {
+      /**
+       * GH-787 (queue item 3vy): the mineralisation factor gets a NAME OF ITS OWN, and the season comes from
+       * the state.
+       *
+       * This block declared `const e` for the factor, which shadows the state parameter `e` for the whole
+       * block — including any line above it, by the temporal dead zone. So reading the state's season here was
+       * a reference before initialisation: no syntax check sees it, every run does, and the case for this item
+       * is what found it. Renaming the local is the smaller change and leaves the state reachable.
+       */
+      const omSeasonFactor = {
         summer: 1.2,
         autumn: 1,
         winter: 0.5,
         spring: 0.9
-      } [m()] || 1;
+      } [seasonOf(e)] || 1;
       (w >= (b ? 2.5 : 4) ?
-        ((M = 1 / e), (C = "Good OM mineralisation expected")) :
+        ((M = 1 / omSeasonFactor), (C = "Good OM mineralisation expected")) :
         w >= (b ? 1.5 : 2.5) ?
-        ((M = 1.1 / e), (C = "Moderate OM - some N limitation possible")) :
+        ((M = 1.1 / omSeasonFactor), (C = "Moderate OM - some N limitation possible")) :
         ((M = b ? 1.15 : 1.25),
           (C = "Low OM - N likely limiting without regular applications")),
         h > 1 && (h = 1 + 0.5 * (h - 1)));
@@ -1035,14 +1063,16 @@
       O = null;
     const j = l(e.turf?.poaPercent, 0);
     if (j > 0) {
-      const e = m(),
+      // GH-787 (queue item 3vy): the season this run was given, and the local carries its own name so the
+      // state stays reachable inside this block — see the note on the mineralisation factor above.
+      const poaSeason = seasonOf(e),
         t = j / 100,
-        r = "summer" === e ? 1.6 : "spring" === e ? 1.3 : 1.15,
+        r = "summer" === poaSeason ? 1.6 : "spring" === poaSeason ? 1.3 : 1.15,
         i = 1 * (1 - t) + r * t;
       ((q = i),
         (O = {
           percent: j,
-          season: e,
+          season: poaSeason,
           baseFactor: r,
           blendedFactor: i
         }));

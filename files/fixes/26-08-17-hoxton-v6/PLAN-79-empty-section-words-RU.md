@@ -62,7 +62,7 @@
 - **Слово «Hub» на экране — в трёх местах, № 5, 13, 22. Все три закрываются утверждёнными текстами.**
 - **Самих ссылок `href` на `/hub` в клиентских файлах нет** — `grep` по `assets/*.js` и видам, кроме разметки `/hub`, пуст.
 - **Латентный адрес `hubUrl` без читателей — в трёх клиентских видах:** `analysis/growth-light.blade.php:23`, `analysis/disease.blade.php:23`, `layouts/db-shell.blade.php:18`. Убирается в этой работе, как записано в пункте. `layouts/app.blade.php:53` — разметка `/hub`, остаётся.
-- `pgr-irrigation-analysis.js:139` («Enter PGR details in the Hub») — файл-сирота, не поверхность.
+- `pgr-irrigation-analysis.js:139` («Enter PGR details in the Hub») — файл-сирота, не поверхность. **30.09: файл удалён `GH-784`.**
 
 ## Браузерные копии в этой области
 

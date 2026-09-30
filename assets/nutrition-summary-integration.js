@@ -191,22 +191,24 @@
         
         minGpThreshold: 0.10,
         
-        removalRates: {
-            bentgrass:          { N: 150, P: 15, K: 80,  Ca: 25, Mg: 12, S: 8 },
-            perennialRyegrass:  { N: 180, P: 18, K: 100, Ca: 30, Mg: 15, S: 10 },
-            kentuckyBluegrass:  { N: 160, P: 16, K: 90,  Ca: 28, Mg: 14, S: 9 },
-            fineFescue:         { N: 100, P: 10, K: 60,  Ca: 20, Mg: 10, S: 6 },
-            tallFescue:         { N: 140, P: 14, K: 80,  Ca: 25, Mg: 12, S: 8 },
-            couch:            { N: 200, P: 20, K: 120, Ca: 35, Mg: 18, S: 12 },
-            couch:              { N: 200, P: 20, K: 120, Ca: 35, Mg: 18, S: 12 },
-            zoysiagrass:        { N: 120, P: 12, K: 70,  Ca: 22, Mg: 11, S: 7 },
-            kikuyu:             { N: 250, P: 25, K: 140, Ca: 40, Mg: 20, S: 14 },
-            buffalo:            { N: 80,  P: 8,  K: 50,  Ca: 15, Mg: 8,  S: 5 },
-            seashorePaspalum:   { N: 160, P: 16, K: 90,  Ca: 28, Mg: 14, S: 9 },
-            mixedCool:          { N: 160, P: 16, K: 85,  Ca: 26, Mg: 13, S: 8 },
-            mixedWarm:          { N: 180, P: 18, K: 100, Ca: 32, Mg: 16, S: 10 }
+        /**
+         * GH-786 (queue item 3gg) - THE REMOVAL TABLE IS READ FROM ITS OWNER, not kept here a second time.
+         *
+         * Twelve species with six figures each stood in this object. `nutrition-requirement-core.js` declares
+         * the same table and is the only place that should: the engine runs on it, the nutrition programme runs
+         * on it, and since this item so does the one function that answers a site's annual nitrogen target. The
+         * two were compared key by key and field by field before removing this one - 12 species, no difference
+         * in any figure - and a copy that agrees today is an agreement by coincidence, not by construction.
+         * This one had already drifted in shape if not in value: `couch` was declared twice in it.
+         *
+         * `REMOVAL_RATES_OWNER` answers null in a frame without the core file, and each reader below says what
+         * it does then, rather than this file holding numbers so that it never has to ask.
+         */
+        get removalRates() {
+            const core = (typeof global !== 'undefined' && global.NutritionRequirementCore) || null;
+            return (core && core.REMOVAL_RATES) || null;
         },
-        
+
         clippingCollectionFactor: 2.5,
         trafficModifiers: { low: 0.8, moderate: 1.0, high: 1.2, extreme: 1.5 },
         
@@ -308,7 +310,9 @@
         };
         
         if (aliases[s]) return aliases[s];
-        for (const key of Object.keys(NUTRITION_CONFIG.removalRates)) {
+        // GH-786: the species keys come from the table's owner now. Without it in this frame there are no keys
+        // to match, and the line below falls to the C3/C4 answer this function already ends on.
+        for (const key of Object.keys(NUTRITION_CONFIG.removalRates || {})) {
             if (key.toLowerCase() === s) return key;
         }
         return isC4Species(species) ? 'mixedWarm' : 'mixedCool';
@@ -476,8 +480,12 @@
 
     function getRemovalRate(species, nutrient) {
         const normalized = normalizeSpecies(species);
-        return NUTRITION_CONFIG.removalRates[normalized]?.[nutrient] || 
-               NUTRITION_CONFIG.removalRates.mixedCool[nutrient];
+        // GH-786: from the table's owner. `null` when the core file is not in this frame — this deprecated
+        // path has no table of its own to fall back on any more, and a figure invented here would be the
+        // copy all over again.
+        const table = NUTRITION_CONFIG.removalRates;
+        if (!table) return null;
+        return table[normalized]?.[nutrient] ?? table.mixedCool?.[nutrient] ?? null;
     }
 
     /**
@@ -1025,32 +1033,37 @@
         tooltip.addEventListener('click', () => { clearTimeout(autoHide); tooltip.remove(); });
     }
 
-    // b35fix312 Fix 2: Nutrition Program panel input takes precedence.
-    // The Nutrition Program section has its own Annual N Target field
-    // (.gaip-nutrition-annual-n, added b35fix~280) intended as the primary
-    // user-facing input for N programme planning. Previously the engine only
-    // read .gaip-n-program from the Turf Profile / Site Settings area, which
-    // had a sticky hardcoded default of 200 (fix 3 removes that). If both
-    // inputs have values, the Nutrition Program input wins.
-    function _readPrimaryNInput() {
-        const nutritionPanelInput = document.querySelector('.gaip-nutrition-annual-n');
-        if (nutritionPanelInput && nutritionPanelInput.value) return nutritionPanelInput;
-        // Fall back to legacy / secondary selectors
-        return document.querySelector('.gaip-n-program, #n-program, [name="n-program"], .gaip-annual-n');
-    }
-
-    function extractAnnualNRate(species) {
+    /**
+     * GH-786 (queue item 3gg) - THE FIVE PAGE SELECTORS ARE GONE, and what remains is the run's own state.
+     *
+     * `_readPrimaryNInput()` stood here and answered from `.gaip-nutrition-annual-n`, then from
+     * `.gaip-n-program, #n-program, [name="n-program"], .gaip-annual-n`. Those are fields of whichever page
+     * this file happens to be loaded on, and the run's state already carries the site's own figure, resolved
+     * by id from the site's programme or its Settings (see `gaip_build_state` in hub-tissue-v3.js). A field
+     * read after the state was a second answer to a question already answered, and on the combined export's
+     * loop it was the PREVIOUS site's answer for as long as the repaint had not landed.
+     *
+     * AND THE `|| 160` IS GONE TOO, by the owner's decision of 30.09.2026: "without the substitution". The run's
+     * own figure already ends on the grass species where the site has no stored target - through
+     * `annualNBaseOf`, on the removal table's one owner - so a second species fallback here could only ever
+     * disagree with it, and it did: it ran on this file's own copy of the table, whose known defects are listed
+     * a few hundred lines above (a duplicate `couch` key, two alias typos, everything falling quietly to
+     * `mixedCool`). `species` is therefore no longer read; the parameter stays so the exported signature does
+     * not change under a caller this file cannot see.
+     *
+     * BOUNDARY, measured and named: the one live caller is the deprecated local branch, the one taken when the
+     * requirement engine is not loaded. With no figure that branch distributes nothing and its twelve months
+     * come out at zero. It is not reachable on any page that loads this file - `hub`, `reports/export` and
+     * `reports/scenarios` all load the engine, and `plan` does not load this file at all - and giving that
+     * branch an outcome of its own is a rebuild of a path kept only as a fallback.
+     */
+    function extractAnnualNRate(species) {   // eslint-disable-line no-unused-vars
         if (global.GilbaHubOrchestrator) {
             const state = global.GilbaHubOrchestrator.getState();
             if (state?.turf?.nProgramKgHaYr) return state.turf.nProgramKgHaYr;
             if (state?.inputs?.turf?.nProgramKgHaYr) return state.inputs.turf.nProgramKgHaYr;
         }
-
-        const nInput = _readPrimaryNInput();
-        if (nInput && nInput.value) return parseFloat(nInput.value);
-
-        const normalized = normalizeSpecies(species);
-        return NUTRITION_CONFIG.removalRates[normalized]?.N || 160;
+        return null;
     }
 
     // b35fix302b: returns ONLY user-specified N override (orchestrator/DOM),
@@ -1059,18 +1072,14 @@
     // buggy local NUTRITION_CONFIG.removalRates (duplicate couch key, bad
     // zoysia/paspalum aliases); engine uses the clean REMOVAL_RATES table.
     //
-    // b35fix312 Fix 2: now uses _readPrimaryNInput helper so the Nutrition
-    // Program panel input takes precedence over the Site Settings input.
+    // GH-786 (queue item 3gg): the page-field fallback is gone here too, for the reason above
+    // `extractAnnualNRate`. A site whose target nobody entered answers `null`, which is what this
+    // function already promised in its own name.
     function extractUserAnnualN() {
         if (global.GilbaHubOrchestrator) {
             const state = global.GilbaHubOrchestrator.getState();
             if (state?.turf?.nProgramKgHaYr) return state.turf.nProgramKgHaYr;
             if (state?.inputs?.turf?.nProgramKgHaYr) return state.inputs.turf.nProgramKgHaYr;
-        }
-        const nInput = _readPrimaryNInput();
-        if (nInput && nInput.value) {
-            const parsed = parseFloat(nInput.value);
-            return isNaN(parsed) ? null : parsed;
         }
         return null;
     }

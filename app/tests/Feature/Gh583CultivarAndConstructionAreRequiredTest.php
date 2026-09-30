@@ -65,7 +65,19 @@ class Gh583CultivarAndConstructionAreRequiredTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_clear_still_empties_a_cultivar_and_that_is_on_purpose(): void
+    /**
+     * GH-789 (queue item 7) — TURNED, AND THIS CASE ASKED TO BE.
+     *
+     * Its own words: "Coordinator's decision of 22.09.2026, PENDING THE OWNER'S CONFIRMATION ... This case
+     * is here so that reversing it tomorrow is a deliberate act with a test to change, not a quiet one."
+     * The owner confirmed on 29.09.2026: a required field is not saved empty and is marked red. So the
+     * larger of the two requirements is hers after all, and `clear` on a required input answers 422 naming
+     * the field -- the same answer an empty box on the Turf tab gets, because it is the same rule.
+     *
+     * `clear` keeps its contract everywhere else, which the second half below measures on a field nothing
+     * requires. Without that half this case would read as "clear stopped working".
+     */
+    public function test_clear_on_a_required_cultivar_is_refused_and_says_which_field(): void
     {
         // "REQUIRED" AND "CANNOT BE EMPTIED" ARE TWO DIFFERENT REQUIREMENTS, and
         // the owner asked for the first. For twenty minutes this route refused
@@ -83,14 +95,23 @@ class Gh583CultivarAndConstructionAreRequiredTest extends TestCase
         [$user, $site] = $this->siteWithConfig(['turf' => [
             'species' => 'perennialRyegrass', 'methodology' => 'mlsn', 'turfType' => 'sports',
             'variety' => 'Barenbrug Bar Extreme', 'construction' => 'sand_profile',
+            'companionSpecies' => 'Ryegrass',
         ], 'location' => ['lat' => -43.5, 'lon' => 172.5]]);
 
-        $this->actingAs($user)
+        $refusal = $this->actingAs($user)
             ->patchJson("/api/sites/{$site->id}/config/gaip", ['clear' => ['turf.variety']])
-            ->assertOk();
+            ->assertStatus(422);
+        fwrite(STDOUT, PHP_EOL.'[gh789] clear on a required cultivar -> '.$refusal->json('message').PHP_EOL);
 
-        $this->assertArrayNotHasKey('variety', $this->config($site)['turf']);
-        // and the three the owner DID make unclearable are untouched by this
+        $refusal->assertJsonPath('missing', [['input' => 'turf.variety', 'label' => 'the cultivar or variety']]);
+        // Nothing was written: the cultivar is still there.
+        $this->assertSame('Barenbrug Bar Extreme', $this->config($site)['turf']['variety']);
+
+        // AND THE OTHER DIRECTION: `clear` still empties a field nothing requires, so the refusal above is
+        // about the obligation and not about `clear` having stopped working.
+        $this->actingAs($user)
+            ->patchJson("/api/sites/{$site->id}/config/gaip", ['clear' => ['turf.companionSpecies']])
+            ->assertOk();
         $this->assertSame('perennialRyegrass', $this->config($site)['turf']['species']);
     }
 
@@ -192,10 +213,29 @@ class Gh583CultivarAndConstructionAreRequiredTest extends TestCase
     {
         $settings = file_get_contents(base_path('resources/views/settings.blade.php'));
 
-        foreach (['stg-turf-species', 'stg-turf-variety', 'stg-turf-construction'] as $id) {
+        /**
+         * GH-789 (queue item 7): the OBLIGATION is no longer an attribute in this file, so it is no longer
+         * read out of this file.
+         *
+         * `required` stood on these three on forms that all carry `novalidate` -- a mark and nothing else,
+         * and it named the wrong set: the turf type and the methodology were required by the list and
+         * unmarked, the golf surface is required of golf alone and no attribute can say that. The mark is
+         * drawn from the list now, per site, so what this case asserted is asserted where the answer lives
+         * -- `Gh789TheFormAsksByTheListTest` renders the page for each turf type and reads back the marks
+         * and the `data-input` bindings.
+         *
+         * What stays here is what this file can still answer for: the three fields exist, and each one
+         * states which input of the list it answers.
+         */
+        foreach ([
+            'stg-turf-species' => 'turf.species',
+            'stg-turf-variety' => 'turf.variety',
+            'stg-turf-construction' => 'turf.construction',
+        ] as $id => $input) {
             $at = strpos($settings, 'id="'.$id.'"');
             $this->assertNotFalse($at, $id.' is gone from the form');
-            $this->assertStringContainsString('required', substr($settings, $at, 120), $id.' is not required');
+            $this->assertStringContainsString("inputAttr('".$input."')", substr($settings, $at, 140),
+                $id.' does not say which input it answers');
         }
 
         /**

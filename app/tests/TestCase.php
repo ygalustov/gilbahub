@@ -38,6 +38,23 @@ abstract class TestCase extends BaseTestCase
             'turf.variety' => 'generic',
             'turf.construction' => 'native_soil',
             'turf.methodology' => 'slan',
+            /**
+             * GH-789 (queue item 7): the match and training schedule, which the list requires of a SPORTS
+             * surface and the setup wizard now asks for — so the lock holds a sports site without one, and 64
+             * page tests began redirecting the moment the wizard step was declared. Nought and nought is what
+             * the owner entered on the stand's own sports sites on 30.09.2026, by the product's route: a week
+             * with no load, which is an answer and not an absence.
+             */
+            'traffic.schedule' => ['matchesPerWeek' => 0, 'sessionsPerWeek' => 0],
+            /**
+             * GH-789 (queue item 7): the surface of a GOLF site. The list declared `wizard.step: 2` for it
+             * in golf's own branch all along and nothing read that declaration, so the lock did not ask for
+             * a golf surface and the setup wizard held it with a line of its own. The reader reads the
+             * branch now, so a golf site without one is held -- and a fixture for a golf page needs it.
+             * It is filled only where it is required: for sports the obligation is the owner's open
+             * question, and for a lawn there is none.
+             */
+            'turf.subCategory' => 'greens',
         ];
 
         foreach (\App\Support\CalculationInputs::requiredFor($config['turf']['turfType'] ?? 'sports') as $key) {

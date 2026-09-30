@@ -483,7 +483,9 @@ describe('GH-371 follow-up (independent review) — settings-init.js: neither Se
     test('the site form sends location, irrigation and weatherOverride, and nothing else', () => {
         const handlerIdx = src.indexOf("var _sections = { location: _locUpdate };");
         expect(handlerIdx).toBeGreaterThan(-1);
-        const patchIdx = src.indexOf('patchGaipConfig(_sections)', handlerIdx);
+        // GH-789 (queue item 7): the call names the PLACE the tab is saving, so the server judges this
+        // tab by the inputs it collects. What the tab SENDS is unchanged, which is this case's subject.
+        const patchIdx = src.indexOf("patchGaipConfig(_sections, 'settings.site')", handlerIdx);
         expect(patchIdx).toBeGreaterThan(handlerIdx);
 
         const handler = src.slice(handlerIdx, patchIdx);
@@ -493,23 +495,34 @@ describe('GH-371 follow-up (independent review) — settings-init.js: neither Se
     });
 
     test('the turf form sends the turf section alone', () => {
-        expect(src).toMatch(/patchGaipConfig\(\{\s*turf:\s*turf\s*\}\)/);
+        // GH-789: and it says which place, as the case above does.
+        expect(src).toMatch(/patchGaipConfig\(\{\s*turf:\s*turf\s*\},\s*'settings\.turf'\)/);
     });
 
     test('an unset number travels as clear, never as null', () => {
         // The route refuses null outright, so every form field that can be
         // empty (irrigation efficiency, the weather overrides, elevation)
         // reaches the server as a named clear instead.
-        const helper = anchoredSlice(src, 'function patchGaipConfig(sections)');
+        const helper = anchoredSlice(src, 'function patchGaipConfig(sections, place)');
         expect(helper).toMatch(/clear\.push\(key\)/);
         expect(helper).toMatch(/clear\.push\(path\)/);
         expect(helper).toMatch(/body\.clear = clear/);
         // An empty text box counts as unset too: Laravel turns "" into null
         // before the route sees it, so sending it as a value is a 422.
         expect(helper).toMatch(/typeof value === 'string' && value\.trim\(\) === ''/);
-        // Except for the fields a site cannot work without, which are simply
-        // not mentioned when the control is empty.
-        expect(helper).toMatch(/GAIP_IDENTITY_FIELDS\.indexOf\(path\) !== -1/);
+        /**
+         * GH-789 (queue item 7): AND THERE IS NO EXCEPTION LEFT. `GAIP_IDENTITY_FIELDS` named five fields
+         * this file would not mention when the control was empty, so the form reported "Saved." about a
+         * value the server had kept. Every empty field is stated now; a required one is refused by the
+         * server, which names it and the tab marks it. The absence is asserted, not merely unmentioned,
+         * because a list quietly reintroduced here would look exactly like this case passing.
+         */
+        // READ AS CODE, not as text: the file's own comment says what stood here and why it went, and a
+        // name inside a comment counted as the name itself is the class GH-788 built this reader for.
+        const code = require('./lib/source-without-comments').codeOf(src, 'settings-init.js');
+        expect(code).not.toMatch(/GAIP_IDENTITY_FIELDS/);
+        // The place travels with the body, which is what replaced the list's job.
+        expect(helper).toMatch(/if \(place\) body\.place = place/);
     });
 });
 

@@ -437,56 +437,16 @@
     }
 
     /**
-     * Execute Wear & Recovery engine
-     * @param {Object} state - Hub state
-     * @param {Object} weather - Weather data with growth potential
-     * @param {Object} shadeResult - Results from shade engine
-     * @param {Object} firmnessResult - Results from firmness engine
-     * @param {Object} salinityResult - Results from salinity engine
-     * @returns {Object|null} Wear analysis results
+     * GH-787 (queue item 3vy): THE CASCADE NO LONGER RUNS THE WEAR ENGINE.
+     *
+     * `executeWearEngine` stood here and built the engine's inputs a second time, its own way: the growth
+     * potential from `global.climateMetrics`, the traffic, construction, height of cut and soil moisture from
+     * the old hub's form, and no temperature stress at all. Measured on the stand, last row of every site:
+     * the two assemblies disagreed about the recovery window at 10 of 10 sites -- `Test5 - NZ` 17 days
+     * against 7, `Russley` 28 against 12 -- and about the species they handed the engine at all 10. The
+     * dependency graph now names one runner for that engine, and the list this file walks comes from the
+     * graph, so nothing here calls it any more.
      */
-    function executeWearEngine(state, weather, shadeResult, firmnessResult, salinityResult) {
-        if (typeof global.gaip_run_wear_analysis === 'function') {
-            try {
-                // Build weather with growth potential
-                const weatherWithGP = weather || {};
-                if (global.climateMetrics && global.climateMetrics.growth) {
-                    // Use dailyPattern[0] (daily mean per PACE contract) not current-hour override
-                    const _weDp = global.climateMetrics.growth.dailyPattern;
-                    const _weDp0 = _weDp && _weDp.length > 0 ? _weDp[0] : null;
-                    let growthPotential = _weDp0 && _weDp0.weighted != null ? _weDp0.weighted : (global.climateMetrics.growth.weighted || 50);
-                    let salinityModifier = 1;
-
-                    if (salinityResult && salinityResult.relativeYieldPct < 100) {
-                        salinityModifier = salinityResult.relativeYieldPct / 100;
-                    }
-
-                    weatherWithGP.growthPotential = Math.round(growthPotential * salinityModifier);
-                    weatherWithGP.growthC3 = _weDp0 ? _weDp0.c3 : global.climateMetrics.growth.c3;
-                    weatherWithGP.growthC4 = _weDp0 ? _weDp0.c4 : global.climateMetrics.growth.c4;
-                    weatherWithGP.salinityModifier = salinityModifier;
-                }
-                
-                // Build state with salinity penalty
-                const stateWithSalinity = Object.assign({}, state, {
-                    salinityPenalty: salinityResult ? {
-                        active: salinityResult.growthPenaltyPct > 0,
-                        growthModifier: salinityResult.relativeYieldPct / 100,
-                        penaltyPct: salinityResult.growthPenaltyPct,
-                        ecw: salinityResult.ecwInput,
-                        status: salinityResult.status
-                    } : null
-                });
-                
-                return global.gaip_run_wear_analysis(stateWithSalinity, weatherWithGP, shadeResult, firmnessResult);
-            } catch (e) {
-                warn('Wear engine failed:', e);
-                return null;
-            }
-        }
-        return null;
-    }
-
     /**
      * Execute Turf Manager engine
      * @param {Object} state - Hub state
@@ -951,17 +911,6 @@
             if (engines.includes('traffic-engine')) {
                 computed.traffic = executeTrafficEngine(state, weather, computed.firmness);
                 executionOrder.push('traffic-engine');
-            }
-
-            if (engines.includes('wear-recovery-engine')) {
-                computed.wear = executeWearEngine(
-                    state, weather, 
-                    computed.shade, 
-                    computed.firmness, 
-                    computed.salinityPenalty
-                );
-                computed.wearRecovery = computed.wear; // Alias
-                executionOrder.push('wear-recovery-engine');
             }
 
             if (engines.includes('turf-manager-engine')) {

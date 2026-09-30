@@ -22,6 +22,15 @@
  */
 
 const path = require('path');
+/**
+ * GH-788 (queue item 3gd): the line this file patches before running the file in `vm` is looked for in CODE.
+ *
+ * `expect(src).toContain(exportLine)` passed for a quotation of that line in a comment, and the patch would
+ * then be applied to the comment — the file would run unpatched and the case would measure nothing. The helper
+ * blanks comments to spaces and keeps every index, so a place found in the code view is the same place in the
+ * raw text the patch edits.
+ */
+const { codeOf } = require('./lib/source-without-comments');
 const fs = require('fs');
 const vm = require('vm');
 const { load, SITE, RUN } = require('./lib/runner-bench');
@@ -198,7 +207,8 @@ describe('GH-781 delivery 5 — the runner\'s own facts travel in the row, not i
             let src = fs.readFileSync(file, 'utf8');
             if (name === 'hub-persistence.js') {
                 const exportLine = 'global.GilbaPersistence = GilbaPersistence;';
-                expect(src).toContain(exportLine);
+                // GH-788: the line must be CODE, not a quotation of it in a comment — see the note above.
+                expect(codeOf(src, name)).toContain(exportLine);
                 src = src.replace(exportLine, exportLine
                     + '\n    global.__test_cacheAnalysisResults = cacheAnalysisResults;'
                     + '\n    global.__test_noteWaterSampleUnresolved = noteWaterSampleUnresolved;');

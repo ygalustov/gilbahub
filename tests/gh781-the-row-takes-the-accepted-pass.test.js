@@ -20,6 +20,15 @@
 
 const fs = require('fs');
 const path = require('path');
+/**
+ * GH-788 (queue item 3gd): the gate before the parse asks the CODE whether the name is there.
+ *
+ * `src.indexOf(LAST) < 0` stood on the raw text, so a file carrying the name only in a comment was parsed for
+ * nothing, and — the other way round — a file whose code has it could be admitted on the strength of a
+ * quotation. The parse that follows does not see comments at all, so the gate and the parse disagreed about
+ * what they were looking at.
+ */
+const { codeOf } = require('./lib/source-without-comments');
 const vm = require('vm');
 const parser = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
@@ -237,7 +246,7 @@ describe('GH-781 delivery 7 — the accepted pass, and the last attempt kept apa
         const trulyParsed = [];
         const notParsed = [];
         files.forEach((f) => {
-            const src = fs.readFileSync(path.join(ASSETS, f), 'utf8');
+            const src = codeOf(fs.readFileSync(path.join(ASSETS, f), 'utf8'), f);
             if (src.indexOf(LAST) < 0) { parsed.push(f); return; }
             let u = null;
             try { u = usesOf(LAST, src); }
@@ -285,7 +294,7 @@ describe('GH-781 delivery 7 — the accepted pass, and the last attempt kept apa
         const trulyParsed = [];
         const notParsed = [];
         files.forEach((f) => {
-            const src = fs.readFileSync(path.join(ASSETS, f), 'utf8');
+            const src = codeOf(fs.readFileSync(path.join(ASSETS, f), 'utf8'), f);
             if (src.indexOf(ACCEPTED) < 0) { parsed.push(f); return; }
             let ast = null;
             try {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Account;
 use App\Models\Site;
 use App\Models\SiteConfig;
+use App\Support\CalculationInputs;
 use App\Support\FieldOwners;
 use App\Support\SiteConfigWriter;
 use Illuminate\Http\JsonResponse;
@@ -38,41 +39,39 @@ class SiteController extends Controller
     ];
 
     /**
-     * GH-439: the fields a site cannot function without, and which no write
-     * may blank. They can be replaced with another value; emptying one is
-     * always a client sending a page's defaults rather than a person
-     * clearing a field, so `clear` refuses them and the PUT guard puts the
-     * stored value back.
+     * GH-789 (queue item 7): the object fields INSIDE a section that merge by
+     * key as the section itself does, one level deeper.
+     *
+     * `array_merge` below merges a section's own keys and stops there, so a
+     * patch carrying `traffic.schedule` replaced the stored schedule whole.
+     * That is the GH-439 class the note further down says this route was built
+     * to avoid -- "a key the payload omitted was a key deleted" -- surviving
+     * one level lower. Measured on the stand: a schedule holds up to 19
+     * fields, and five of them are the declared storage of three inputs of the
+     * list (`soil.moisture`, `soil.compaction` three ways, the root depth), so
+     * the setup wizard sending its two numbers would have taken the other
+     * seventeen with it.
+     *
+     * A field named here keeps what the request does not mention; a field the
+     * request does mention is overwritten, and emptying one is still `clear`'s
+     * job, exactly as for a section.
      */
-    private const GAIP_IDENTITY_FIELDS = [
-        ['turf', 'species'],
-        ['turf', 'methodology'],
-        ['turf', 'turfType'],
-        // GH-583 (stage 3) — CULTIVAR AND CONSTRUCTION ARE NOT HERE, AND
-        // THAT IS A DECISION RATHER THAN AN OMISSION.
-        //
-        // They were, for twenty minutes, and it turned
-        // `GH439SiteConfigPatchTest::…text_is_emptied_with_clear` red: `clear`
-        // on `turf.variety` answered 422 where it had always answered 200.
-        //
-        // "REQUIRED" AND "CANNOT BE EMPTIED" ARE TWO DIFFERENT REQUIREMENTS.
-        // The owner asked for required fields on 22.09.2026 — "we need the
-        // grass and the cultivar to be required fields" — and did not ask for
-        // unclearable ones. A field can be required when a form is saved and
-        // still be emptied in an intermediate edit. Reading her instruction as
-        // the larger of the two would decide, on her behalf, a question nobody
-        // put to her.
-        //
-        // So the requirement lives where she asked for it — the Settings form
-        // marks all three `required`, and `generic` is refused as a value below
-        // — and `clear` keeps the contract it has always had. Coordinator's
-        // decision of 22.09.2026, pending the owner's confirmation: if she says
-        // a cultivar may not be emptied, the two lines come back here AND the
-        // GH-439 case is changed deliberately, which is a different act from
-        // changing it quietly tonight.
-        ['location', 'lat'],
-        ['location', 'lon'],
+    private const GAIP_MERGED_SUBOBJECTS = [
+        'traffic' => ['schedule'],
     ];
+
+    /**
+     * GH-789 (queue item 7): GAIP_IDENTITY_FIELDS stood here -- five fields named by hand that no write
+     * could blank. It was the third of four hand-written answers to "which inputs are required", and the
+     * list is the only one now. What replaced it is a judgement on the RESULT, which is strictly wider:
+     * the old list held five fields, the list holds nine required inputs (eight for a lawn), and it knows
+     * that a golf surface is required of golf alone -- a condition five names in a row cannot express.
+     *
+     * The rule below examines an input when the request TOUCHES it (in `patch` or in `clear`) or when the
+     * request names the PLACE that collects it. So `clear: ['turf.species']` is still refused, by the same
+     * sentence as an empty cultivar on the Turf tab, and the Settings tab that did not collect a field is
+     * not refused because of it -- the owner's "as usual in settings", each tab answering for its own.
+     */
 
     /**
      * GH-583, reversed in part by GH-684: values that are a stand-in rather than an answer.
@@ -562,6 +561,13 @@ class SiteController extends Controller
             // path. It is compared and thrown away; it is never stored, so the
             // browser still sends a change and not a state.
             'expected' => ['sometimes', 'array'],
+            /**
+             * GH-789 (queue item 7): WHICH PLACE IS SAVING. A Settings tab names its own place -- a key
+             * the list already declares in `places` -- and the server then judges that tab by the inputs
+             * that place collects. Absent, only the inputs the request touches are judged, which is what
+             * every other caller (the setup wizard, the run frame) does.
+             */
+            'place' => ['sometimes', 'string'],
         ]);
 
         $patch = is_array($data['patch'] ?? null) ? $data['patch'] : [];
@@ -784,6 +790,13 @@ class SiteController extends Controller
             if (in_array($key, self::GAIP_OBJECT_SECTIONS, true)) {
                 $section = is_array($merged[$key] ?? null) ? $merged[$key] : [];
                 $merged[$key] = array_merge($section, $value);
+                // GH-789: and the declared object fields of the section merge too.
+                foreach (self::GAIP_MERGED_SUBOBJECTS[$key] ?? [] as $field) {
+                    if (! is_array($section[$field] ?? null) || ! is_array($value[$field] ?? null)) {
+                        continue;
+                    }
+                    $merged[$key][$field] = array_merge($section[$field], $value[$field]);
+                }
                 continue;
             }
             $merged[$key] = $value;
@@ -822,6 +835,34 @@ class SiteController extends Controller
         // The client does not send savedAt: a timestamp it chose is a
         // timestamp it can get wrong, and two tabs disagreeing about it is
         // how the old merge-by-savedAt logic picked the wrong copy.
+        /**
+         * GH-789 (queue item 7) — A REQUIRED INPUT IS NOT LEFT EMPTY, AND THE ANSWER NAMES THE FIELD.
+         *
+         * Judged on the RESULT and not on the patch: the four hand-written answers to "which inputs are
+         * required" are gone (the template's `required` attribute, the browser's identity list, this
+         * controller's identity list, the form's own checks), and what is left is the list, read here.
+         * Nothing is written when this refuses -- not one field of the form.
+         *
+         * WHICH INPUTS ARE EXAMINED: the ones this write TOUCHES, plus the ones the named place collects.
+         * The first is what replaces "these fields cannot be emptied" and keeps it for every caller; the
+         * second is the owner's decision of 29.09.2026 for a Settings tab, and it is per place because a
+         * tab answers for its own fields -- saving Site settings is not refused over an empty cultivar on
+         * the Turf tab.
+         */
+        $missing = $this->missingRequiredInputs($merged, $patch, $clear, (string) $request->input('place', ''));
+        if ($missing !== []) {
+            return [
+                null,
+                ['status' => 422, 'body' => [
+                    'message' => 'Not saved: fill in '
+                        .$this->readAsList(array_column($missing, 'label')).'.',
+                    'missing' => $missing,
+                    // The older field, kept: callers written against it read the same refusal.
+                    'invalid_keys' => array_column($missing, 'input'),
+                ]],
+            ];
+        }
+
         $merged['savedAt'] = now()->toISOString();
 
         if (! empty($context['siteSync'])) {
@@ -867,6 +908,76 @@ class SiteController extends Controller
                 ],
             ],
         ];
+    }
+
+    /**
+     * GH-789 (queue item 7): the required inputs this write would leave empty, as `[{input, label}]`.
+     *
+     * The words are the list's own, so the sentence a person reads on a Settings tab, in the setup wizard
+     * and in the panel that names an incomplete run is one sentence from one place.
+     *
+     * @param  array<string,mixed>  $merged   what the config would hold
+     * @param  array<string,mixed>  $patch    what this request sends
+     * @param  array<int,string>    $clear    what this request empties
+     * @return array<int,array{input: string, label: string}>
+     */
+    private function missingRequiredInputs(array $merged, array $patch, array $clear, string $place): array
+    {
+        $turfType = $merged['turf']['turfType'] ?? '';
+        $turfType = is_string($turfType) ? $turfType : '';
+
+        $examined = CalculationInputs::requiredAtPlace($place, $turfType);
+        foreach (CalculationInputs::requiredOnEveryWrite() as $key) {
+            if (! in_array($key, $examined, true)) {
+                $examined[] = $key;
+            }
+        }
+        foreach (CalculationInputs::requiredFor($turfType) as $key) {
+            if (in_array($key, $examined, true) || ! $this->writeTouches($key, $patch, $clear)) {
+                continue;
+            }
+            $examined[] = $key;
+        }
+
+        $missing = [];
+        foreach ($examined as $key) {
+            if (CalculationInputs::isFilled($key, CalculationInputs::valueIn($merged, $key))) {
+                continue;
+            }
+            $missing[] = ['input' => $key, 'label' => (string) (CalculationInputs::label($key) ?? $key)];
+        }
+
+        return $missing;
+    }
+
+    /** Does this request say anything at all about that input -- setting it, or emptying it? */
+    private function writeTouches(string $key, array $patch, array $clear): bool
+    {
+        if (in_array($key, $clear, true)) {
+            return true;
+        }
+        $segments = explode('.', $key, 2);
+        if (count($segments) === 1) {
+            return array_key_exists($key, $patch);
+        }
+        [$section, $field] = $segments;
+        if (in_array($section, $clear, true)) {
+            return true;
+        }
+
+        return is_array($patch[$section] ?? null) && array_key_exists($field, $patch[$section]);
+    }
+
+    /** "a, b and c" -- one sentence rather than a list a person has to read as code. */
+    private function readAsList(array $words): string
+    {
+        $words = array_values(array_unique(array_filter($words, 'is_string')));
+        if (count($words) <= 1) {
+            return (string) ($words[0] ?? '');
+        }
+        $last = array_pop($words);
+
+        return implode(', ', $words).' and '.$last;
     }
 
     /**
@@ -982,51 +1093,15 @@ class SiteController extends Controller
             }
         }
 
-        $blanked = [];
-        foreach (self::GAIP_IDENTITY_FIELDS as [$section, $field]) {
-            if (! is_array($patch[$section] ?? null) || ! array_key_exists($field, $patch[$section])) {
-                continue;
-            }
-            if (! $this->isBlankConfigValue($patch[$section][$field])) {
-                continue;
-            }
-            if ($this->isBlankConfigValue($existing[$section][$field] ?? null)) {
-                continue;
-            }
-            $blanked[] = $section.'.'.$field;
-        }
-        if ($blanked !== []) {
-            return [
-                'message' => 'These fields cannot be emptied: '.implode(', ', $blanked).'.',
-                'invalid_keys' => $blanked,
-            ];
-        }
 
         /**
-         * GH-684 — A CONFIG WHOSE RESULT HAS NO METHODOLOGY IS
-         * REFUSED. The owner's decision: methodology is required everywhere, for old sites and
-         * new ones alike.
-         *
-         * IT RUNS AFTER THE BLANKED CHECK, and the order is the answer rather than an accident: an
-         * attempt to EMPTY a methodology gets the precise reply -- this field cannot be emptied --
-         * because that says what the person tried. This one catches the other case, a site that
-         * never had one, where "cannot be emptied" would be about an act nobody performed.
-         *
-         * It is the RESULT that is judged, not the patch: blanking an existing one was already
-         * refused as an identity field, and this closes the other half -- a site that never had
-         * one cannot be configured around it. The wizard writes it, so the road that fills a site
-         * legitimately is unaffected.
+         * GH-789 (queue item 7): GH-684's separate methodology invariant stood here — "a config whose
+         * result has no methodology is refused", the owner's decision of 24.09.2026. It is the same rule
+         * as the one below, with a wider reach: judged on every write rather than at the place that
+         * collects it. So the reach is DECLARED in the list (`requiredOnEveryWrite` on `turf.methodology`)
+         * and the refusal comes from one place, in one sentence, with the field marked — instead of two
+         * sentences for one empty field, only one of which a form could point at.
          */
-        $resultingMethodology = array_key_exists('turf', $patch) && is_array($patch['turf'])
-            && array_key_exists('methodology', $patch['turf'])
-                ? $patch['turf']['methodology']
-                : ($existing['turf']['methodology'] ?? null);
-        if ($this->isBlankConfigValue($resultingMethodology)) {
-            return [
-                'message' => 'turf.methodology is required: a site is not saved without a methodology.',
-                'invalid_keys' => ['turf.methodology'],
-            ];
-        }
 
         $invalidClear = [];
         foreach ($clear as $path) {
@@ -1050,11 +1125,9 @@ class SiteController extends Controller
                 continue;
             }
 
-            foreach (self::GAIP_IDENTITY_FIELDS as [$identitySection, $identityField]) {
-                if ($section === $identitySection && $segments[1] === $identityField) {
-                    $invalidClear[] = $path;
-                }
-            }
+            // GH-789: a `clear` of a required input is not refused here for being on a list -- it is
+            // refused below, by what the RESULT would hold, which is where every other answer about a
+            // required input now comes from.
         }
         if ($invalidClear !== []) {
             return [
@@ -1067,18 +1140,14 @@ class SiteController extends Controller
     }
 
     /**
-     * GH-439: a value that carries nothing -- absent, null, or a string of
-     * whitespace. Zero is a value (a site can sit on the equator or the prime
-     * meridian), and so is false.
-     *
-     * GH-442: this sat between two functions the withdrawn PUT route took with
-     * it and was removed alongside them by mistake. rejectInvalidGaipPatch()
-     * uses it, and eight PATCH tests said so on the next run.
+     * GH-789 (queue item 7): `isBlankConfigValue` stood here and was the THIRD rule of "filled" in the
+     * tree, beside `RunStart::filled` and the lock's own. Two of the three are gone now and this is the
+     * third: the one rule is `CalculationInputs::isFilled`, which reads the list's declaration of what
+     * makes an object input filled and says that nought IS a value. This one agreed about a string and a
+     * null and knew nothing about an object, so a match-and-training schedule of nothing but `null`s
+     * counted as entered -- and the Settings form sends every key it has on every save, so that was
+     * every save.
      */
-    private function isBlankConfigValue($value): bool
-    {
-        return $value === null || (is_string($value) && trim($value) === '');
-    }
 
     /*
      * GH-442: guardWholeObjectGaipWrite() is gone too. It made a whole-object

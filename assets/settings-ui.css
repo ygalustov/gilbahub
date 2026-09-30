@@ -890,3 +890,20 @@
     transition: background 0.15s;
 }
 .stg-btn-danger:hover { background: #7f1d1d; }
+
+/**
+ * GH-789 (queue item 7): the word beside a field the inputs list calls required for this site.
+ *
+ * Drawn by the template for those fields, muted like a hint, and turned red by the shared marker
+ * (`GilbaRequiredFields`) when a save is refused naming that field -- one note rather than two, so the
+ * refusal recolours what is already there. It replaces the `*` that was typed into three labels by hand
+ * and the HTML `required` attribute on forms that all carry `novalidate`.
+ */
+.gilba-required-note {
+    display: block;
+    margin: 2px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--gaip-text-muted, #6b8878);
+}

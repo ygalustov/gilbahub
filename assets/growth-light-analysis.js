@@ -8,9 +8,12 @@
  * unified view.
  *
  * DATA SOURCE: window.GAIP_DASHBOARD_DATA = {
- *   metrics:  window.climateMetrics,       // from climate-engine.js
+ *   metrics:  the row's own climate block  // GH-783: this said `window.climateMetrics`, a snapshot the page
+ *                                          // held, and the page's five scripts write none of it. The row is
+ *                                          // the source; a row that computed none says so.
  *   computed: {
- *     shade:    window.GAIP_SHADE_RESULT,  // from shade-engine.js
+ *     shade:    the row's own shade block   // GH-783: this said `window.GAIP_SHADE_RESULT`, written by the
+ *                                          // cascade inside the `/hub` frame and by nothing this page loads.
  *     soilTemp: the run's own result       // GH-734: GaipOrchestrator.getComputed('soilTempPhysics'),
  *                                          // computed once by the run. This said
  *                                          // `window.GAIP_SOIL_TEMP`, the panel's global, which
@@ -296,9 +299,23 @@
         return global.GAIP_DASHBOARD_DATA || null;
     }
 
+    /**
+     * GH-783 (queue item 3vshch) - THE ROW, OR AN OUTCOME. NOT A SNAPSHOT THE PAGE HAPPENS TO HOLD.
+     *
+     * Two window globals were read here as fallbacks: `climateMetrics` (four readings, including the source of
+     * today's temperature) and `GAIP_SHADE_RESULT` below. Measured: this page loads five scripts -
+     * `settings-unavailable-banner`, `samples-unavailable-banner`, `dashboard-ui`, `gp-status` and this file -
+     * and not one of them writes either global. Their writers live in the `/hub` calculation frame
+     * (`cascade-orchestrator.js` for the shade, `dashboard-init.js` and `climate-engine-v2.js` for the climate),
+     * so on this page the fallback is a read of something nobody put there.
+     *
+     * Dead or not, it is a read of a `window.*` snapshot, which is what the owner's rule of 22.09.2026 removes:
+     * what a screen prints comes from the data of the object it is about. No row, no numbers - and the page says
+     * that in the words it already has, as it does on every other section.
+     */
     function buildClimateView(data) {
         var computed = data && data.computed;
-        if (!computed) return global.climateMetrics || null;
+        if (!computed) return null;
 
         var climate  = computed.climate  || {};
         var shade    = computed.shade    || {};
@@ -308,7 +325,9 @@
 
         // Orchestrator stores growth under 'growthPotential'; legacy path uses 'growth'
         var growth = climate.growth || climate.growthPotential || shade.growthData || {};
-        if (growth.weighted === undefined && growth.weighted !== 0) return global.climateMetrics || null;
+        // GH-783: a row with no growth figure is a row that did not compute it, and the page says so rather
+        // than reaching for whatever the page held a moment ago.
+        if (growth.weighted === undefined && growth.weighted !== 0) return null;
 
         var gp = growth.weighted;
         // GH-257: canonical GP colour thresholds — see gp-status.js.
@@ -341,11 +360,14 @@
         var trendInsight = (climate.forecast && climate.forecast.temp && climate.forecast.temp.insight)
                            ? climate.forecast.temp.insight : null;
 
-        var liveCm = global.climateMetrics;
+        /**
+         * GH-783: today's temperature comes from this row - the shade block or the climate block - and from
+         * nowhere else. The third reading was `climateMetrics`, the page's own snapshot, and a temperature taken
+         * from it belongs to whatever was open a moment ago rather than to the site this page is drawn for.
+         */
         var todayTemp = typeof shade.temperature === 'number'
                         ? shade.temperature
-                        : (climate.temperature ? climate.temperature.todayMean
-                          : (liveCm && liveCm.temperature ? liveCm.temperature.todayMean : null));
+                        : (climate.temperature ? climate.temperature.todayMean : null);
 
         return {
             growth: {
@@ -397,11 +419,18 @@
     }
 
     function getClimate(data) {
-        return buildClimateView(data) || global.climateMetrics || null;
+        // GH-783: the row's own climate view, or nothing. See `buildClimateView`.
+        return buildClimateView(data) || null;
     }
 
     function getShade(data) {
-        return (data && data.computed && data.computed.shade) || global.GAIP_SHADE_RESULT || null;
+        /**
+         * GH-783: the shade of THIS row. `GAIP_SHADE_RESULT` is written by the cascade inside the `/hub`
+         * calculation frame and by nothing this page loads, so the fallback could only ever have returned what
+         * some earlier page left behind - and a section explained by another site's shade is the defect of
+         * GH-459. A row that did not compute it leaves the section to say so.
+         */
+        return (data && data.computed && data.computed.shade) || null;
     }
 
     function getSoilTemp(data) {
@@ -1475,9 +1504,28 @@
         var seaHtml = '';
         if (seasonal) {
             var seaParts = [];
-            if (seasonal.range !== undefined) seaParts.push('Annual DLI range: ' + fmt(seasonal.range, 1) + ' mol/m²/day');
-            if (seasonal.stressMonths && seasonal.stressMonths.length) seaParts.push('Stress months: ' + seasonal.stressMonths.join(', '));
-            if (seasonal.renovationMonths && seasonal.renovationMonths.length) seaParts.push('Best renovation window: ' + seasonal.renovationMonths.join(', '));
+            /**
+             * GH-783 (queue item 3vshch) - THE NAMES THE ENGINE ANSWERS WITH, and no line for the relative range.
+             *
+             * WHAT WAS WRONG, measured: this asked for `range`, `stressMonths` and `renovationMonths`; the engine
+             * returns `seasonalRange`, `stressPeriods` and `optimalRenovation`. Three names against three, no
+             * overlap, so the note printed for 0 of 13 sites while every one of them carried a trajectory in its
+             * row. A second map of one producer's field names, kept by hand and drifted - the class of the graph's
+             * `module` and of `serverId`. The names come from the answer itself now; the working example was two
+             * files away, in the old hub's own shade panel, which has always read them by their real names.
+             *
+             * AND THE RANGE LINE IS GONE BY THE OWNER'S WORD of 30.09.2026 ("let us not print this line"). It
+             * printed a RELATIVE figure - the engine says so in its own answer, `note: 'Relative DLI values -
+             * multiply by open-field DLI...'` - under the absolute unit `mol/m²/day`. The same figure is printed
+             * correctly as a percentage in the old hub's panel, and that place is untouched: her decision is about
+             * this line.
+             */
+            if (seasonal.stressPeriods && seasonal.stressPeriods.length) {
+                seaParts.push('Stress months: ' + seasonal.stressPeriods.join(', '));
+            }
+            if (seasonal.optimalRenovation && seasonal.optimalRenovation.length) {
+                seaParts.push('Best renovation window: ' + seasonal.optimalRenovation.join(', '));
+            }
             if (seaParts.length) {
                 seaHtml = '<div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6">' + seaParts.join(' · ') + '</div>';
             }

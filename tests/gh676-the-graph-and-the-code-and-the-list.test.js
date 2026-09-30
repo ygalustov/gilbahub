@@ -190,7 +190,22 @@ const ROW_SECTIONS = {
  * An eleventh appearing here is what this direction exists to catch, and the list
  * being empty is the claim now rather than a hope.
  */
-const KNOWN_ABSENT = {};
+const KNOWN_ABSENT = {
+    /**
+     * GH-787 (queue item 3vy) — A KEY THE PASSES OF THE PAST WROTE, and the past is what this universe reads.
+     *
+     * `wearRecovery` was the cascade's alias of its own wear result: the wear engine ran twice per pass, once
+     * per runner, each with its own assembly of its inputs, and the second figure was stored beside the shown
+     * one. Measured on the stand, last row of every site: the two disagreed about the recovery window at 10 of
+     * 10 sites (`Test5 - NZ` 17 days against 7) and about the species they were given at all 10. The graph
+     * names one runner now and no code writes this key.
+     *
+     * It is declared here rather than removed, because this universe is `SELECT DISTINCT JSON_KEYS(computed)`
+     * over EVERY row ever stored, and the rows of the past are data we do not edit. It disappears from the
+     * census on its own once no stored row is old enough to carry it.
+     */
+    wearRecovery: 'the cascade\'s second wear result, removed by GH-787; still present in rows written before it',
+};
 
 
 /**
@@ -345,6 +360,73 @@ function readsOf(handle, seen = new Set()) {
             }
         });
     }
+    /**
+     * GH-787 (queue item 3vy) — THE SECOND SOURCE OF AN INPUT: THE SITE'S OWN CONFIG.
+     *
+     * A builder used to reach every input through `_hubState.inputs`, which is the page's assembled state,
+     * and the block above follows exactly that. Since GH-787 the wear builder reads the inputs the list
+     * declares from the config of the site the run is about — `siteConfigOfThisRun()` — because the state it
+     * used to read was the page's and carried substitutions (`"native"`, `25`, `"optimal"`). The reads did not
+     * stop; they changed owner, and a census that followed only the old owner reported them gone. That is the
+     * fault this file exists to prevent, so the sign follows the new owner too.
+     *
+     * TWO HOPS, both declared: `const c = siteConfigOfThisRun()` and then
+     * `const cTurf = (c && c.turf) || {}`, after which `cTurf.construction` is a read of `turf.construction`.
+     * The section names are the config's own, which is what the inputs list spells.
+     */
+    const cfgRoots = [];
+    const cfgRootRe = /(?:var|let|const)\s+(\w+)\s*=\s*siteConfigOfThisRun\s*\(\s*\)/g;
+    let cr;
+    while ((cr = cfgRootRe.exec(fn.body)) !== null) cfgRoots.push(cr[1]);
+    cfgRoots.forEach((root) => {
+        /**
+         * THE PATH IS KEPT WHOLE, from the config's root down — `traffic.schedule.rootDepth`, not
+         * `schedule.rootDepth`. Written first as "the last hop is the section", it reported
+         * `schedule.schedule`: a path invented out of the tail of somebody else's chain, which is the same
+         * fault as a matcher reading a substring for a subject. The whole path is what the inputs list
+         * spells under `storedAs`, so it is comparable to a declaration.
+         */
+        /**
+         * THE WHOLE ASSIGNMENT IS READ, then the DEEPEST path of the config inside it.
+         *
+         * `(c && c.traffic && c.traffic.schedule) || {}` mentions the root three times, and a regex that
+         * stops at the first mention yields `traffic` — so a read of `traffic.schedule.rootDepth` was
+         * reported as `traffic.rootDepth`, a path that exists nowhere. Found by this very case: the census
+         * named a path the config does not have, which is the sign inventing a subject.
+         */
+        const assignRe = new RegExp('(?:var|let|const)\\s+(\\w+)\\s*=\\s*([^;\\n]*)', 'g');
+        let am;
+        const deepest = {};
+        while ((am = assignRe.exec(fn.body)) !== null) {
+            const local = am[1];
+            const expr = am[2];
+            const pathRe = new RegExp('(?<![.\\w])' + root + '((?:\\s*(?:\\?\\.|\\.)\\s*\\w+)+)', 'g');
+            let pm;
+            while ((pm = pathRe.exec(expr)) !== null) {
+                const path = pm[1].replace(/[\s?]/g, '').replace(/^\./, '');
+                if (path && (!deepest[local] || path.length > deepest[local].length)) deepest[local] = path;
+            }
+        }
+        Object.entries(deepest).forEach(([local, base]) => {
+            const fieldRe = new RegExp('(?<![.\\w])' + local + '\\s*(?:\\?\\.|\\.)\\s*([a-zA-Z_]\\w*)', 'g');
+            let fm;
+            while ((fm = fieldRe.exec(fn.body)) !== null) {
+                if (isAssignmentTo(fn.body, fm.index, fm[0].length)) continue;
+                const pth = base + '.' + fm[1];
+                if (!out.includes(pth)) out.push(pth);
+            }
+        });
+        // And a direct read of the config itself: `cfg.location.lat`. Note that this also picks up the
+        // CONTAINER of a deeper alias (`cfg.traffic.schedule`), which the filter after this loop drops.
+        const directRe = new RegExp('(?<![.\\w])' + root
+            + '\\s*(?:\\?\\.|\\.)\\s*([a-zA-Z_]\\w*)\\s*(?:\\?\\.|\\.)\\s*([a-zA-Z_]\\w*)', 'g');
+        let dm;
+        while ((dm = directRe.exec(fn.body)) !== null) {
+            if (isAssignmentTo(fn.body, dm.index, dm[0].length)) continue;
+            const pth = dm[1] + '.' + dm[2];
+            if (!out.includes(pth)) out.push(pth);
+        }
+    });
     if (receiver) {
         const re = new RegExp('\\b' + receiver + '\\s*(?:\\?\\.|\\.)\\s*([a-zA-Z_]\\w*)\\s*(?:\\?\\.|\\.)\\s*([a-zA-Z_]\\w*)', 'g');
         let m;
@@ -379,6 +461,18 @@ function readsOf(handle, seen = new Set()) {
             if (a[2] === 'computed' || a[2] === 'derived') continue;
             aliases.push(a[1] + ' = ' + receiver + '.' + a[2]);
         }
+    }
+    /**
+     * GH-787 (queue item 3vy) — A CONTAINER IS NOT A READ.
+     *
+     * `const cfgSchedule = (cfg && cfg.traffic && cfg.traffic.schedule) || {}` makes the census see both
+     * `traffic.schedule` and, through it, `traffic.schedule.rootDepth`. The first is the object the fields
+     * live in, not a value anything reads — and the cascade's section rename then turned it into
+     * `schedule.schedule`, a path no config and no list has. A path that is a strict prefix of another path
+     * in the same census is that other path's container, and is dropped.
+     */
+    for (let i = out.length - 1; i >= 0; i--) {
+        if (out.some((other) => other !== out[i] && other.indexOf(out[i] + '.') === 0)) out.splice(i, 1);
     }
     const bodies = [{ name, file: fn.file, receiver: receiver || null, reads: out.length }];
     const stopped = [];
@@ -935,9 +1029,33 @@ describe('GH-676 — (c) what a body reads, with the receiver from its own signa
             const placeless = new Set((n.readsWithNoPlaceInTheList || {}).names || []);
             handlesOf(n).forEach((h) => {
                 readsOf(h).found.forEach((raw) => {
-                    const [section, field] = raw.split('.');
-                    const p = (aliases[section] || section) + '.' + field;
-                    if (declared.has(p) || declared.has(raw)) return;
+                    /**
+                     * GH-787 (queue item 3vy) — THE WHOLE PATH IS COMPARED, and a path of three segments is
+                     * one of them.
+                     *
+                     * This took `raw.split('.')` and kept the first two segments, so a read of
+                     * `traffic.schedule.rootDepth` — where Settings actually stores the root depth — was
+                     * compared as `traffic.schedule`, and the section rename turned that into
+                     * `schedule.schedule`: a path that exists in no config and in no list. The census was
+                     * naming a subject it had built out of a substring.
+                     *
+                     * AND A DECLARATION MAY BE THE INPUT'S KEY while the read is at its STORAGE path: the
+                     * inputs list is the one place that says the two are the same thing (`storedAs`,
+                     * `readAs`), which is how `gh725` already matches them. A node declaring `turf.rootDepth`
+                     * therefore accounts for a read of `traffic.schedule.rootDepth`.
+                     */
+                    const segments = raw.split('.');
+                    const section = segments[0];
+                    const field = segments[segments.length - 1];
+                    const p = (aliases[section] || section) + '.' + segments.slice(1).join('.');
+                    const declaredThroughTheList = [...declared].some((key) => {
+                        const entry = LIST.inputs[key];
+                        if (!entry) return false;
+                        const spellings = [...(entry.storedAs || []), ...(entry.readAs || [])];
+
+                        return spellings.includes(raw) || spellings.includes(p);
+                    });
+                    if (declared.has(p) || declared.has(raw) || declaredThroughTheList) return;
                     if (WEATHER.has(section)) return;
                     if (excused.has(p) || excused.has(raw) || excused.has(field)) return;
                     if (placeless.has(p) || placeless.has(raw)) return;
@@ -1001,6 +1119,18 @@ describe('GH-676 — (c) what a body reads, with the receiver from its own signa
             [...(n.requires || []), ...(n.uses || [])].forEach((d) => {
                 compared += 1;
                 if (seen.has(d)) return;
+                /**
+                 * GH-787 (queue item 3vy) — THE SAME MATCHING AS THE OTHER DIRECTION: a node may declare an
+                 * input by its KEY while its body reads the PATH THE VALUE IS STORED AT. The inputs list is
+                 * the one owner of that equivalence (`storedAs`, `readAs`), and since GH-787 the wear
+                 * assembly reads `soil.moisture` and `turf.rootDepth` where Settings writes them, under
+                 * `traffic.schedule.*`, instead of off the old hub's form.
+                 */
+                const entry = LIST.inputs[d];
+                if (entry) {
+                    const spellings = [...(entry.storedAs || []), ...(entry.readAs || [])];
+                    if (spellings.some((sp) => seen.has(sp))) return;
+                }
                 /**
                  * GH-777 (slice 3) — A SAMPLE IS READ IN ONE OF TWO SHAPES, and both are derived from the
                  * code rather than allowed by name.
@@ -2131,6 +2261,11 @@ describe('GH-690 — the area the reads census covered, and its edge', () => {
         'GAIP_SoilTempLogger.daysStored': 'sensor adapter',
         'GAIP_SoilTempLogger.getHistory': 'sensor adapter',
         // Which site and which species the page is about, rather than a value of the site.
+        // GH-787 (queue item 3vy): the wear assembly folds the site's own `turf.species` to a canonical key
+        // through this normaliser — the same one the canonical state uses — instead of taking the species off
+        // the canonical state, which is assembled from five sources of the PAGE. It is a spelling of a value,
+        // not a value: the value itself is read from the config and is declared by the node.
+        'SpeciesController.normalize': 'canonical spelling of a species name, not a value of the site',
         'GAIP_SiteContext.getSiteId': 'page and site identity',
         'GAIP_SampleManager.getActiveSiteId': 'page and site identity',
         'TurfProfileController.getState': 'page and site identity',

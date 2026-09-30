@@ -25,7 +25,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const { anchoredSlice, anchoredWindow, anchorIndex } = require('./lib/anchored-slice');
+const { anchoredSlice, anchoredWindow, anchorIndex, balancedEnd } = require('./lib/anchored-slice');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. calculateWeightedGrowth() math — confirms the reused function produces
@@ -179,10 +179,19 @@ describe('GH-252 — buildClimateView() forwards growth.monthlyNormal', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/growth-light-analysis.js'), 'utf8');
 
     test('the growth object literal returned by buildClimateView() includes monthlyNormal', () => {
-        // GH-467: the function anchor is checked by the helper, and the
-        // window starts at the object literal inside it.
-        const fn = anchoredWindow(src, 'function buildClimateView(data)', 4000);
-        const body = anchoredWindow(fn, 'return {', 900);
+        /**
+         * GH-467: the function anchor is checked by the helper.
+         *
+         * GH-783 - AND THE OBJECT LITERAL IS TAKEN BY ITS BRACES, NOT BY A CHARACTER COUNT. The window was 900
+         * characters from `return {`, so a comment added above a field pushed that field out of sight and the
+         * case reddened over prose rather than over the product: it happened when the two window-global
+         * fallbacks were removed from this function. `balancedEnd` reads to the `}` that closes the literal,
+         * which is what "the object literal" means.
+         */
+        const fnAt = anchorIndex(src, 'function buildClimateView(data)');
+        const fn = src.slice(fnAt, balancedEnd(src, fnAt));
+        const litAt = anchorIndex(fn, 'return {');
+        const body = fn.slice(litAt, balancedEnd(fn, litAt));
         expect(body).toMatch(/dailyPattern:\s*dailyPattern/); // sibling field, confirms right object literal
         expect(body).toMatch(/monthlyNormal:\s*growth\.monthlyNormal/);
     });

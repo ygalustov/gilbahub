@@ -42,45 +42,22 @@
     ========================================================================= */
 
     /**
-     * Enhanced wear-recovery wrapper
-     * Injects DLI recovery data into shade parameter before calling wear engine
+     * GH-787 (queue item 3vy, the reviewer's return) — A SECOND WEAR CALCULATION IS REMOVED, NOT KEPT.
+     *
+     * `enhancedWearRecoveryAnalysis(state, weather, shadeData, FIobj)` stood here and was published on
+     * `GAIP_Integration`. It called the same wear engine, but first replaced the shade data with
+     * `GAIP_DLI_Recovery.enhanceShadeData(...)` — so with that module loaded it would hand the engine a
+     * different shade stress and produce a different recovery window. That is exactly what this item removed
+     * everywhere else: the owner's decision of 30.09.2026 is one engine, one assembly, one figure.
+     *
+     * NO CALLER, MEASURED: the name appears nowhere in `assets`, nowhere in `app`, in no view, and in no test —
+     * only in the inventory of unresolved executors (`gh678`), which records it as reached by nobody. The four
+     * views that load this file load it for its other exports.
+     *
+     * WHY REMOVED RATHER THAN LEFT: the class is GH-784's. A published name that nothing calls is not dormant
+     * code, it is a second answer waiting for the next reader to find and use, and this one would answer
+     * differently from the pass. A copy of the function is in the developer's scratchpad, as with GH-784.
      */
-    function enhancedWearRecoveryAnalysis(state, weather, shadeData, FIobj) {
-        // Check dependencies
-        if (typeof global.gaip_wear_recovery_engine !== 'function') {
-            console.warn('[Integration] Wear/Recovery Engine not loaded');
-            return null;
-        }
-        
-        // Enhance shade data with DLI recovery modifiers
-        var enhancedShade = shadeData;
-        
-        if (global.GAIP_DLI_Recovery) {
-            try {
-                enhancedShade = global.GAIP_DLI_Recovery.enhanceShadeData(shadeData, state);
-                global.GAIP_STATE.dliRecovery = enhancedShade.dliRecovery;
-            } catch (e) {
-                console.warn('[Integration] DLI-Recovery Bridge error:', e);
-                enhancedShade = shadeData;
-            }
-        }
-        
-        // Call original wear-recovery engine with enhanced shade data
-        try {
-            var result = global.gaip_wear_recovery_engine(state, weather, enhancedShade, FIobj);
-            
-            // Inject DLI recovery info into result for rendering
-            if (result && global.GAIP_STATE.dliRecovery) {
-                result.dliRecovery = global.GAIP_STATE.dliRecovery;
-            }
-            
-            return result;
-        } catch (e) {
-            console.error('[Integration] Wear-Recovery analysis failed:', e);
-            return null;
-        }
-    }
-
     /**
      * Run stress trajectory projection
      * Call this after all hub calculations complete
@@ -339,9 +316,6 @@
 
     global.GAIP_Integration = {
         VERSION: VERSION,
-        
-        // Enhanced wear-recovery with DLI bridge
-        enhancedWearRecoveryAnalysis: enhancedWearRecoveryAnalysis,
         
         // Stress trajectory
         runStressTrajectory: runStressTrajectory,

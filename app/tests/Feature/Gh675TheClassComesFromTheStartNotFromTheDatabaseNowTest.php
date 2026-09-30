@@ -209,8 +209,15 @@ class Gh675TheClassComesFromTheStartNotFromTheDatabaseNowTest extends TestCase
         [$user, $site] = $this->site([]);
         $this->openFrame($user, $site, 'run-f');
 
+        /**
+         * GH-789 (queue item 7): the input this case uses as "a field the client never filled" is
+         * `turf.hoc`, not `traffic.schedule`. The wizard now asks a sports site for its match and training
+         * schedule (the owner's decision of 30.09.2026), so the shared fixture gives every site one —
+         * otherwise the lock would hold the page — and the schedule is no longer an unfilled field. The
+         * height of cut is a key of the list that the fixture does not answer, which is what this case needs.
+         */
         fwrite(STDOUT, '[gh675] a config field never filled'.PHP_EOL);
-        $this->fileRow($user, $site, 'run-f', ['traffic.schedule'])->assertStatus(200);
+        $this->fileRow($user, $site, 'run-f', ['turf.hoc'])->assertStatus(200);
 
         $judged = $this->judgementInTheRow();
         $this->assertSame('input-not-entered', $judged[0]['missing'][0]['cause']);
@@ -386,7 +393,14 @@ class Gh675TheClassComesFromTheStartNotFromTheDatabaseNowTest extends TestCase
 
     public function test_B_and_the_soil_moisture_the_traffic_form_saves_under_its_schedule(): void
     {
-        [$user, $site] = $this->site(['traffic' => ['schedule' => ['moisture' => 'optimal']]]);
+        /**
+         * GH-789: the two numbers travel with the moisture, because a schedule without either of them is not
+         * filled since this item — and the lock would hold every page of this site. The subject here is
+         * unchanged: the soil moisture is stored under the schedule and the start record reads it there.
+         */
+        [$user, $site] = $this->site(['traffic' => ['schedule' => [
+            'moisture' => 'optimal', 'matchesPerWeek' => 0, 'sessionsPerWeek' => 0,
+        ]]]);
         $this->openFrame($user, $site, 'run-q');
 
         $set = RunStart::recorded('run-q');
@@ -537,9 +551,12 @@ class Gh675TheClassComesFromTheStartNotFromTheDatabaseNowTest extends TestCase
         $judged = $this->judgementInTheRow();
         $this->assertSame('input-not-judged', $judged[0]['missing'][0]['cause']);
         $this->assertSame('run-incomplete', AnalysisNotice::classOf('input-not-judged'));
-        // And the same name in a record that DOES carry it is the client's own data, so the branch above
-        // is not a blanket excuse.
-        $this->assertFalse(RunStart::had(RunStart::observe($site), 'traffic.schedule'));
+        /**
+         * GH-789: and the same name in a record that DOES carry it — asked of `turf.hoc`, which the shared
+         * fixture does not answer. The schedule now comes with every site (the wizard asks for it), so asking
+         * `had()` about it would be asking about a field that is always there.
+         */
+        $this->assertFalse(RunStart::had(RunStart::observe($site), 'turf.hoc'));
     }
 
     /**
@@ -613,7 +630,21 @@ class Gh675TheClassComesFromTheStartNotFromTheDatabaseNowTest extends TestCase
      */
     public function test_O10_what_the_row_says_did_not_apply_reaches_the_projection(): void
     {
-        [$user, $site] = $this->site();
+         /**
+          * GH-789 (queue item 7): the site is built WITHOUT a schedule on purpose — an empty object, which the
+          * shared fixture leaves alone because a test that names a value keeps it. Since this item a schedule
+          * with neither `matchesPerWeek` nor `sessionsPerWeek` is not filled, which is exactly the state this
+          * case is about: an input the client never entered, whose address is the Traffic & Wear form.
+          */
+        /**
+         * GH-789 (queue item 7): a GOLF site with no schedule. Since this item the wizard asks a sports surface
+         * for its matches and sessions, so the lock holds every page of a sports site that has none — including
+         * the run frame this case opens. The schedule is required for sports ONLY, so a golf site can carry the
+         * state this case is about: an input of the list the client never entered, whose address is the
+         * Traffic & Wear form. That address does not depend on the turf type.
+         */
+        [$user, $site] = $this->site(['turf' => ['turfType' => 'golf', 'subCategory' => 'greens'],
+            'traffic' => ['schedule' => []]]);
         $this->openFrame($user, $site, 'run-n');
         $this->fileRow($user, $site, 'run-n', ['traffic.schedule'])->assertStatus(200);
 
@@ -674,9 +705,18 @@ class Gh675TheClassComesFromTheStartNotFromTheDatabaseNowTest extends TestCase
             .AnalysisNotice::classOf('input-not-entered').PHP_EOL);
         $this->assertSame('input-absent', AnalysisNotice::classOf('input-not-entered'));
 
+        /**
+         * GH-789 (queue item 7): a SPORTS site, and the unfilled input is the SOIL MOISTURE — the other input
+         * of the same Traffic & Wear tab, which the shared fixture does not answer.
+         *
+         * The sentence under test is only shown to a sports site, because only a sports site has that tab, so
+         * the fixture cannot become a golf one. And since this item the schedule cannot be the unfilled input
+         * here: the wizard asks a sports surface for it, so the lock would hold the run frame this case opens.
+         * The address is the same tab either way.
+         */
         [$user, $site] = $this->site();
         $this->openFrame($user, $site, 'run-o');
-        $this->fileRow($user, $site, 'run-o', ['traffic.schedule'])->assertStatus(200);
+        $this->fileRow($user, $site, 'run-o', ['soil.moisture'])->assertStatus(200);
 
         $this->assertFalse(AnalysisNotice::retryCanHelp('input-not-entered'),
             'a re-run is offered for a value nobody entered');
@@ -697,9 +737,9 @@ class Gh675TheClassComesFromTheStartNotFromTheDatabaseNowTest extends TestCase
         // the sentence names it. A site of another kind, or one whose kind nobody entered, gets no sentence
         // instead of a wrong address -- that pair is held in the sentence's own suite (GH-777).
         $this->assertStringContainsString(
-            (string) \App\Support\CalculationInputs::label('traffic.schedule'), (string) $section['text']);
+            (string) \App\Support\CalculationInputs::label('soil.moisture'), (string) $section['text']);
         $this->assertStringContainsString(
-            (string) \App\Support\CalculationInputs::placeFor('traffic.schedule', 'sports'),
+            (string) \App\Support\CalculationInputs::placeFor('soil.moisture', 'sports'),
             (string) $section['text']);
 
         // The composition itself, on an input whose place every site can reach.

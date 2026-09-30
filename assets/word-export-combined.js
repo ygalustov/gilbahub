@@ -1026,19 +1026,16 @@
                         var _overseedCfg = typeof _nsIntegration.detectOverseedScenario === 'function'
                             ? _nsIntegration.detectOverseedScenario() : null;
 
-                        // User N override — read via the same precedence the
-                        // single-export path uses (b35fix312 made nutrition-panel
-                        // input primary). No direct exporter; inline the read.
-                        var _userN = null;
-                        var _nEl = document.querySelector('.gaip-nutrition-annual-n');
-                        if (!_nEl || !_nEl.value) {
-                            _nEl = document.querySelector('.gaip-n-program, #n-program, [name="n-program"], .gaip-annual-n');
-                        }
-                        if (_nEl && _nEl.value) {
-                            var _nParsed = parseFloat(_nEl.value);
-                            if (isFinite(_nParsed) && _nParsed >= 0) _userN = _nParsed;
-                        }
-
+                        /**
+                         * GH-786 (queue item 3gg) - THE `userN` READ IS GONE, and nothing downstream noticed
+                         * because nothing downstream read it.
+                         *
+                         * Two page fields were read here into `_combinedCtx.userN`. The only consumer of
+                         * `_combinedCtx` is the amendment block further down this file, which takes
+                         * `hemisphere` and `overseedConfig` and never this key - measured across `assets` and
+                         * `app`. So it was a page read whose value went nowhere, and this export's annual N
+                         * comes from `resolveSiteProgramInputs` through `engineInputs.turf` as it did before.
+                         */
                         data._combinedCtx = {
                             species:            _turfCfg ? _turfCfg.species : null,
                             clippingsCollected: _turfCfg ? !!_turfCfg.clippingsCollected : false,
@@ -1070,7 +1067,6 @@
                                 // GH-741: an unset summer intent stays unset; 'transition' here was a guess that read as an answer.
                                 summerIntent: null
                             },
-                            userN:              _userN,
                             siteId:             entry.siteId  // self-check marker
                         };
                         log('Baked ctx for', entry.siteLabel, '-',

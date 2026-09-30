@@ -134,13 +134,11 @@ const BY_ID_CALLS = ['getSiteConfig', 'getConfig', 'resolveExportInputs', 'resol
 const EXEMPT = [
     // GH-752: the Cross-Module block's construction now comes from the export's own inputs, so the
     // exemption that named its leak from GAIP_STATE.turf is gone with the leak.
-    {
-        file: 'word-export.js', fn: 'collectData',
-        lhs: 'construction',
-        rhs: 'wm.compactionRisk.construction',
-        roots: ['window.GAIP_STATE'],
-        why: 'the wear block names the construction off the wear result it read from GAIP_STATE; during a leak that result belongs to the previous site. Section 10.5, out of layer I\'s first pass'
-    },
+    // GH-787 (queue item 3vy): the exemption for `construction = wm.compactionRisk.construction` is gone with
+    // the leak it named. That read took the wear result from `window.GAIP_STATE.wearMetrics` — the cascade's
+    // snapshot, which during a site switch is the previous site's — and it now takes this document's own pass
+    // through `GaipOrchestrator.getComputed('wear')`. There is no page state left in the chain to exempt; what
+    // remains is a trail this reader cannot follow through a method call, which `UNTRACEABLE` records.
     {
         file: 'word-export.js', fn: 'collectData',
         lhs: 'speciesKey',
@@ -897,7 +895,6 @@ function filesThatWriteIdentity() {
 const RATCHET = {
     // (a) One line per exemption, by its own four coordinates.
     exemptions: [
-        "word-export.js | collectData | construction = wm.compactionRisk.construction | roots window.GAIP_STATE",
         "word-export.js | collectData | speciesKey = cr._companionSpecies || '' | roots window.GAIP_COMPANION_DISEASE_RESULT",
         "word-export.js | collectData | species = phyto.species | roots window.GAIP_PHYTOTOXICITY_RESULT",
         // GH-563: the root this reader sees changed from the array to
@@ -968,7 +965,15 @@ describe('GH-461 — every identity value traces back to the resolver', () => {
             && !isViewII(f) && !isExempt(f))
             .map((f) => f.field + ':' + f.line + ' <- ' + f.unresolved.join(','));
         const named = UNTRACEABLE[file] || [];
-        const surprises = untraceable.filter((u) => named.indexOf(u.split(' <- ')[0]) < 0);
+        /**
+         * GH-787 (queue item 3vy): the name is matched WITHOUT the line number.
+         *
+         * A finding reads `construction:10127 <- GaipOrchestrator`, and a declaration that had to carry
+         * `10127` would go stale on the next edit above it — an address with no anchor, which is the class
+         * this repository keeps out of its documents. The declaration names the VALUE; the address is printed
+         * beside it so a reader can find it today.
+         */
+        const surprises = untraceable.filter((u) => named.indexOf(u.split(' <- ')[0].split(':')[0]) < 0);
         expect({ file: file, surprises: surprises }).toEqual({ file: file, surprises: [] });
         // The reviewer measured this list empty in both files, so it is
         // asserted empty rather than kept as a constant nobody rereads: a

@@ -47,6 +47,19 @@ class CalculationInputs
     }
 
     /**
+     * GH-789 (queue item 7): the turf types the list itself declares, so a reader that answers per
+     * type does not carry its own copy of the three names.
+     *
+     * @return array<int,string>
+     */
+    public static function turfTypes(): array
+    {
+        $types = self::all()['turfTypes'] ?? [];
+
+        return is_array($types) ? array_values(array_filter($types, 'is_string')) : [];
+    }
+
+    /**
      * GH-777 (queue item 4, O-9) — EVERY PLACE THE LIST DECLARES, key to the words a person reads.
      *
      * The words belong to the owner and change without code changing, so what is checked of them is their
@@ -240,6 +253,68 @@ class CalculationInputs
     }
 
     /**
+     * GH-789 (queue item 7) — THE ONE RULE OF "FILLED", and there is no second one.
+     *
+     * Two lived in the tree: `RunStart::filled`, which decides what a client is told it has or has not
+     * entered, and `EnsureSiteIsSetUp::isBlank`, which decides whether the setup wizard still holds a site.
+     * They disagreed about an OBJECT: both called a non-empty array filled, so a schedule of nothing but
+     * `null`s counted as entered — and the Settings form sends every key it has on every save, so that was
+     * every save. One rule, and it lives beside the list because it READS the list.
+     *
+     * WHAT COUNTS:
+     *   - `null` — not filled;
+     *   - a string — filled when it is not whitespace;
+     *   - an array with `filledWhenAnyOf` declared — filled when any of THOSE fields carries a value;
+     *   - any other array — filled when it is not empty, which is what both rules said before;
+     *   - anything else, a number or a boolean — filled. **0 IS FILLED**: nought matches a week is a week
+     *     with no load, which is an answer. The owner entered exactly that on six sites on 30.09.2026, by
+     *     the product's own route, and a rule that read it as absence would have shut those sites out of
+     *     every page the lock holds.
+     *
+     * @param  string  $key    the input's key in the list
+     * @param  mixed   $value  what the site holds at that key
+     */
+    public static function isFilled(string $key, $value): bool
+    {
+        if ($value === null) {
+            return false;
+        }
+        if (is_string($value)) {
+            return trim($value) !== '';
+        }
+        if (is_array($value)) {
+            $anyOf = self::filledWhenAnyOf($key);
+            if ($anyOf !== []) {
+                foreach ($anyOf as $field) {
+                    if (array_key_exists($field, $value) && self::isFilled($key . '.' . $field, $value[$field])) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            return $value !== [];
+        }
+
+        return true;
+    }
+
+    /**
+     * The fields of an object input that make it filled, as the list declares them — or an empty list, which
+     * means the input is not an object with such a declaration and the ordinary rule applies.
+     *
+     * @return array<int,string>
+     */
+    public static function filledWhenAnyOf(string $key): array
+    {
+        $entry = self::entry($key);
+        $fields = $entry['filledWhenAnyOf'] ?? null;
+
+        return is_array($fields) ? array_values(array_filter($fields, 'is_string')) : [];
+    }
+
+    /**
      * Is this input required — for a site of this turf type?
      *
      * `true` / `false` / `null`, and `null` is the honest third answer: the owner
@@ -324,10 +399,50 @@ class CalculationInputs
                 }
                 $byStep[(int) $m[1]][] = $key;
             }
+            /**
+             * GH-789 (queue item 7) — AND THE STEP A TURF TYPE'S OWN BRANCH NAMES.
+             *
+             * `turf.subCategory` declared `byTurfType.golf.wizard.step: 2` and nothing read it, so
+             * the wizard kept its own line for it (`turfType === 'golf' && !subCategory` in
+             * `_canProceed`) and the lock did not ask for a golf surface at all: a golf site created
+             * past the wizard walked through. The branch is where a conditional obligation is
+             * declared, so it is also where that obligation's step is read from.
+             */
+            $branchStep = $entry['byTurfType'][$turfType]['wizard']['step'] ?? null;
+            if (is_int($branchStep)) {
+                $byStep[$branchStep][] = $key;
+            }
+        }
+        foreach ($byStep as $step => $keys) {
+            $byStep[$step] = array_values(array_unique($keys));
         }
         ksort($byStep);
 
         return ['byStep' => $byStep, 'unparsed' => array_values(array_unique($unparsed))];
+    }
+
+    /**
+     * GH-789 (queue item 7) — THE SAME ANSWER FOR EVERY TURF TYPE, BECAUSE THE TYPE IS CHOSEN INSIDE
+     * THE WIZARD.
+     *
+     * A page receives this once, at load, when a new site has no turf type at all; the person then
+     * picks one on step 2, and from that click on it is the branch of the CHOSEN type that says what
+     * the step must collect. Sending only the stored type's branch is what left the wizard with its
+     * own hand-written condition for golf, and what would let a brand-new sports site past step 2
+     * with no schedule.
+     *
+     * The empty key is a site that has not answered its type yet.
+     *
+     * @return array<string, array<int, list<string>>>
+     */
+    public static function wizardStepsByTurfType(): array
+    {
+        $out = ['' => self::wizardStepsFor('')['byStep']];
+        foreach (self::turfTypes() as $type) {
+            $out[$type] = self::wizardStepsFor($type)['byStep'];
+        }
+
+        return $out;
     }
 
     /**
@@ -509,6 +624,105 @@ class CalculationInputs
     }
 
     /** What the wizard prints for each methodology: its name and its sentence. */
+    /**
+     * GH-789 (queue item 7) — THE REQUIRED INPUTS A PLACE COLLECTS, for a site of this turf type.
+     *
+     * The server judges a save by its PLACE: a Settings tab answers for the fields it collects and for no
+     * others, which is the owner's "as usual in settings" -- saving Site settings is not refused because
+     * the cultivar on the Turf tab is empty. The place keys are the ones the list already declares in
+     * `places` and each input names in its own `filledIn`, so nothing here is a second list.
+     *
+     * @return array<int,string>
+     */
+    public static function requiredAtPlace(string $place, string $turfType): array
+    {
+        if ($place === '') {
+            return [];
+        }
+        $out = [];
+        foreach (self::requiredFor($turfType) as $key) {
+            $entry = self::entry($key);
+            if (in_array($place, (array) ($entry['filledIn'] ?? []), true)) {
+                $out[] = $key;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * GH-789 (queue item 7): the inputs whose obligation is not tied to a place — judged on every write to
+     * a site's config, whatever the write was about. Declared, with its reason, in the entry itself.
+     *
+     * @return array<int,string>
+     */
+    public static function requiredOnEveryWrite(): array
+    {
+        $out = [];
+        foreach (self::all()['inputs'] as $key => $entry) {
+            if (is_array($entry) && ($entry['requiredOnEveryWrite'] ?? null) === true) {
+                $out[] = (string) $key;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * GH-789 (queue item 7): the value a config holds for an input, by the list's own dotted key.
+     *
+     * One reader, because the lock, the run record and the server's refusal must not spell a path three
+     * ways: one of them answering "missing" while another answers "here is your value" about the same
+     * field is the shape of the defect this queue item closes.
+     *
+     * @param  array<string,mixed>  $config
+     * @return mixed
+     */
+    public static function valueIn(array $config, string $key)
+    {
+        $at = $config;
+        foreach (explode('.', $key) as $step) {
+            if (! is_array($at) || ! array_key_exists($step, $at)) {
+                return null;
+            }
+            $at = $at[$step];
+        }
+
+        return $at;
+    }
+
+    /**
+     * GH-789 (queue item 7): the words for every input the setup wizard can name, key to label.
+     *
+     * The wizard refuses a step by naming the field, and the words a person reads belong to the list.
+     * A page that wrote its own would be a second declaration of the same thing; the server's own
+     * refusal (422 `missing: [{input, label}]`) reads them from here too, so both say one sentence
+     * about one field.
+     *
+     * @return array<string,string>
+     */
+    public static function labelsForWizard(): array
+    {
+        $keys = [];
+        foreach (self::wizardStepsByTurfType() as $byStep) {
+            foreach ($byStep as $inputs) {
+                foreach ($inputs as $key) {
+                    $keys[$key] = true;
+                }
+            }
+        }
+
+        $out = [];
+        foreach (array_keys($keys) as $key) {
+            $label = self::label($key);
+            if (is_string($label) && $label !== '') {
+                $out[$key] = $label;
+            }
+        }
+
+        return $out;
+    }
+
     public static function methodologyValuesForWizard(): array
     {
         $out = [];

@@ -32,124 +32,17 @@
 
 const fs = require('fs');
 const path = require('path');
+// Still used by the Settings sender's own sandbox further down, which is a different subject.
 const vm = require('vm');
 
-const SRC = fs.readFileSync(path.join(__dirname, '../assets/onboarding-wizard.js'), 'utf8');
-// GH-684: the page loads this first, from the db-shell layout, and it carries the ONE producer of
-// the cultivar list that both Settings and the wizard read. A sandbox without it measures a wizard
-// no browser has.
-const SHARED = fs.readFileSync(path.join(__dirname, '../assets/dashboard-ui.js'), 'utf8');
-
-function stubElement(tag) {
-    // Listeners are RECORDED rather than discarded (GH-684): a control is told apart from a
-    // decoration by what its click does, and a stub that drops the handler cannot tell them apart.
-    /**
-     * GH-684: `textContent` REACHES `innerHTML`, because the wizard escapes every label by writing
-     * it into a throwaway element and reading the element's HTML back. A stub where the two are
-     * unrelated properties returns an empty string for every escaped value, and the cultivar list
-     * came out as `<option value=""></option>` twice -- which looks exactly like a product that
-     * offers nothing.
-     */
-    let text = '';
-    let html = '';
-    const el = {
-        tag: tag || null, listeners: [],
-        get textContent() { return text; },
-        set textContent(v) {
-            text = v === null || v === undefined ? '' : String(v);
-            html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        },
-        get innerHTML() { return html; },
-        set innerHTML(v) { html = v === null || v === undefined ? '' : String(v); },
-        style: {}, dataset: {}, value: '',
-        classList: { add() {}, remove() {}, contains: () => false, toggle() {} },
-        addEventListener(type, fn) { el.listeners.push({ type, fn }); },
-        removeEventListener() {}, appendChild() {}, removeChild() {},
-        setAttribute() {}, getAttribute: () => null, insertAdjacentHTML() {},
-        querySelector: () => stubElement(), querySelectorAll: () => [],
-        parentNode: null, disabled: false,
-    };
-    return el;
-}
-
-/** The wizard, loaded the way a page loads it, with every request captured. */
-function wizardSandbox(opts) {
-    const sent = [];
-    const sandbox = {
-        console: { log() {}, warn() {}, error() {}, info() {} },
-        Date, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Error, Promise,
-        parseFloat, parseInt, isNaN, isFinite, setTimeout: (f) => { f(); return 0; }, clearTimeout() {},
-        encodeURIComponent, decodeURIComponent,
-        URLSearchParams: require('url').URLSearchParams,
-        localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
-        fetch: (url, opts) => {
-            sent.push({ url, method: opts && opts.method, body: opts && opts.body ? JSON.parse(opts.body) : null });
-            return Promise.resolve({
-                ok: true,
-                status: 200,
-                json: () => Promise.resolve({ data: { id: 'site-1' } }),
-            });
-        },
-    };
-    sandbox.window = sandbox;
-    sandbox.global = sandbox;
-    sandbox.globalThis = sandbox;
-    const created = [];
-    const documentListeners = [];
-    sandbox.document = {
-        readyState: 'complete',
-        addEventListener(type) { documentListeners.push(type); },
-        removeEventListener() {},
-        querySelector: () => null, querySelectorAll: () => [],
-        // GH-684: the steps look their own controls up by id after writing the markup. A document
-        // without this throws inside `_render`, which reads as the wizard being broken rather than
-        // as the stub being short of a method.
-        getElementById: () => null,
-        createElement: (tag) => {
-            const el = stubElement(tag);
-            created.push(el);
-
-            return el;
-        },
-        body: stubElement('body'),
-    };
-    sandbox.__created = created;
-    sandbox.__documentListeners = documentListeners;
-    sandbox.location = { search: '', pathname: '/dashboard', hash: '', href: '' };
-    sandbox.history = { replaceState() {} };
-    // An active site, so `_ensureSite()` does not create one — the subject is
-    // the config PATCH, and a site creation in between would only add noise.
-    sandbox.GAIP_HUB_CONFIG = Object.assign(
-        { activeSiteId: 'site-1', restUrl: '/api/', csrfToken: 't' },
-        (opts && opts.hubConfig) || {}
-    );
-    // GH-684: the cultivar list comes from the shared species key and the traits table, exactly as
-    // the page provides them. Two entries are enough to tell "offered" from "not offered".
-    sandbox.GAIP_SpeciesTraitsKey = { 'Perennial Ryegrass': 'perennialRyegrass' };
-    // GH-684, the reviewer's third condition: WITHOUT THIS THE STEP DRAWS NO SPECIES AT ALL.
-    // `_speciesOptions()` reads this table, and with it absent every draft came back with an empty
-    // list -- the step was rendered over nothing and the cases counted it as a pass. The same class
-    // as a green that never reached its subject, in a sandbox.
-    sandbox.GAIP_SpeciesData = { speciesByType: {
-        sports: { c3: [{ value: 'Perennial Ryegrass', label: 'Perennial Ryegrass', type: 'C3' }],
-                  c4: [{ value: 'Couch', label: 'Couch', type: 'C4' }] },
-        lawns:  { c3: [{ value: 'Tall Fescue', label: 'Tall Fescue', type: 'C3' }] },
-        golf:   {
-            greens:   { c3: [{ value: 'Creeping Bentgrass', label: 'Creeping Bentgrass', type: 'C3' }] },
-            fairways: { c3: [{ value: 'Perennial Ryegrass', label: 'Perennial Ryegrass', type: 'C3' }] },
-        },
-    } };
-    sandbox.GAIP_VARIETY_TRAITS = {
-        perennialRyegrass: { _meta: {}, colosseum: { displayName: 'Colosseum' }, barextreme: {} },
-    };
-
-    const ctx = vm.createContext(sandbox);
-    // The shared file first, exactly as the layout loads it. Its own page wiring finds nothing in
-    // this document and that is fine — what is wanted from it is the producer.
-    vm.runInContext(SHARED, ctx, { filename: 'dashboard-ui.js' });
-    vm.runInContext(SRC, ctx, { filename: 'onboarding-wizard.js' });
-    return { ctx, sent, created, documentListeners };
-}
+// GH-789 (queue item 7): the sandbox moved to `tests/lib/` when a second guard needed the same one.
+// Every reason for every stub in it moved with it.
+const { wizardSandbox, stubElement, wizardSource } = require('./lib/wizard-sandbox');
+// GH-789: the case below counted `_close()` in a text with its comments stripped by regular
+// expression. GH-788 built the reader for that, because a regex takes `/*` inside a string or a
+// regular-expression literal for the start of a comment, and this file's own note says a sentence
+// about the code was once counted as the code.
+const { codeOf } = require('./lib/source-without-comments');
 
 function saveWith(draft) {
     const { ctx, sent } = wizardSandbox();
@@ -266,11 +159,13 @@ describe('GH-637 — what the Settings Turf tab sends: the change, and nothing e
             },
         });
 
-        const idx = SETTINGS.indexOf("var GAIP_IDENTITY_FIELDS = [");
-        expect(idx).toBeGreaterThan(-1);
-        vm.runInContext(SETTINGS.slice(idx, SETTINGS.indexOf(';', idx) + 1), ctx, { filename: 'identity-fields' });
-
-        const at = SETTINGS.indexOf('function patchGaipConfig(sections) {');
+        /**
+         * GH-789 (queue item 7): `GAIP_IDENTITY_FIELDS` no longer stands in this file to be lifted out. It
+         * was five field names the browser refused to send empty, and a person who cleared their species
+         * read "Saved." about a value the server had kept. An empty required field travels as a `clear`
+         * now and the server refuses it, naming the field.
+         */
+        const at = SETTINGS.indexOf('function patchGaipConfig(sections, place) {');
         expect(at).toBeGreaterThan(-1);
         let depth = 0, end = -1;
         for (let i = SETTINGS.indexOf('{', at); i < SETTINGS.length; i++) {
@@ -315,8 +210,6 @@ describe('GH-637 — what the Settings Turf tab sends: the change, and nothing e
         // point: a field nobody touched travels nowhere, so it cannot undo
         // anybody's edit.
         const { ctx, sent } = senderSandbox(SAVED);
-        const identity = ctx.GAIP_IDENTITY_FIELDS;
-        expect(identity).toContain('turf.species');
 
         return ctx.patchGaipConfig({ turf: SUBMITTED }).then(() => {
             const body = sent[0].body;
@@ -337,7 +230,8 @@ describe('GH-637 — what the Settings Turf tab sends: the change, and nothing e
                     expectPatched.push(field);
                     return;
                 }
-                if (identity.indexOf('turf.' + field) !== -1) { expectNeither.push(field); return; }
+                // GH-789: no field is held back for being on a list any more. What decides is whether
+                // the page ARRIVED with a value: nothing stored and nothing now is nothing to empty.
                 if (wasEmpty) { expectNeither.push(field); return; }
                 expectCleared.push('turf.' + field);
             });
@@ -392,19 +286,29 @@ describe('GH-637 — what the Settings Turf tab sends: the change, and nothing e
         });
     });
 
-    test('an identity field that arrives empty is left out of the request entirely', () => {
-        // Neither patched nor cleared: a form whose control had nothing in it is
-        // not a person erasing the site's species, and the server refuses to
-        // empty these at all.
+    /**
+     * GH-789 (queue item 7) — TURNED, AND THE TURN IS THE SUBJECT.
+     *
+     * This asserted that an empty required field is left out of the request entirely: neither patched nor
+     * cleared, "a form whose control had nothing in it is not a person erasing the site's species". The
+     * cost of that reading was measured on the tree: the form then reported "Saved." while the server kept
+     * the old value, so a person who deliberately cleared their species was told the opposite of what
+     * happened, three fields over (species, methodology, turf type).
+     *
+     * The owner's decision of 29.09.2026 settles it the other way: a required field is not saved empty and
+     * is marked red. So an empty required field is STATED, the server refuses it and names it, and the tab
+     * shows the field. Which is what the earlier reading could never do -- it had nothing to show.
+     */
+    test('an empty required field is stated, so the server can refuse it and the tab can show it', () => {
         const { ctx, sent } = senderSandbox(SAVED);
 
         return ctx.patchGaipConfig({ turf: Object.assign({}, SUBMITTED, { species: '', methodology: '' }) }).then(() => {
             const body = sent[0].body;
-            process.stdout.write('[gh637] identity empty -> patch.turf: ' + JSON.stringify(body.patch.turf)
+            process.stdout.write('[gh637] a required field emptied -> patch.turf: ' + JSON.stringify(body.patch.turf)
                 + ' clear: ' + JSON.stringify(body.clear) + '\n');
             expect(body.patch.turf.species).toBeUndefined();
-            expect(body.clear || []).not.toContain('turf.species');
-            expect(body.clear || []).not.toContain('turf.methodology');
+            expect(body.clear || []).toContain('turf.species');
+            expect(body.clear || []).toContain('turf.methodology');
         });
     });
 
@@ -449,10 +353,12 @@ describe('GH-684 — there is no way out of the wizard but through it', () => {
         // GH-684: the nav's `Next` asks `_canProceed()`, which is now derived from the steps the
         // server sends. Without them every gate stands open, `Next` advances, and this case would
         // measure a wizard nobody is using. The payload is the product's own, from the list.
+        // GH-789 (queue item 7): the server sends the map FOR EVERY TURF TYPE, because the type is
+        // chosen on step 2 and a new site has none when the page loads. The empty key is that site.
         const box = wizardSandbox({ hubConfig: { setup: {
             missing: ['turf.turfType'],
-            byStep: { 1: ['location.lat', 'location.lon'], 2: ['turf.turfType'],
-                3: ['turf.species', 'turf.variety', 'turf.construction', 'turf.methodology'] },
+            byStepByTurfType: { '': { 1: ['location.lat', 'location.lon'], 2: ['turf.turfType'],
+                3: ['turf.species', 'turf.variety', 'turf.construction', 'turf.methodology'] } },
             answers: {},
         } } });
         const W = box.ctx.GilbaWizard;
@@ -515,7 +421,7 @@ describe('GH-684 — there is no way out of the wizard but through it', () => {
         // COMMENTS FIRST, everywhere. The count came out as two on the first run and the second
         // one was this repair's own comment saying `_close()` is reached from one place -- a
         // sentence about the code counted as the code. Same treatment as the removed label below.
-        const code = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+        const code = codeOf(wizardSource, 'onboarding-wizard.js');
         const callsToClose = (code.match(/_close\(\)/g) || []).length;
         // The anchor is `_save()` itself, not the `gilba_getting_started` flag it used to sit next
         // to: that flag was a browser copy with no reader and was removed with this same work, and
@@ -555,29 +461,81 @@ describe('GH-684 — the wizard asks for everything the list requires of it', ()
     const SCHEMA = JSON.parse(fs.readFileSync(
         path.join(__dirname, '../assets/calculation-inputs.schema.json'), 'utf8'));
 
-    const byStepFromTheList = () => {
+    /**
+     * GH-789 (queue item 7) — DERIVED PER TURF TYPE, as the server derives it.
+     *
+     * Two obligations of this list are conditional on the type, and the type is chosen INSIDE the
+     * wizard: a golf site must state its surface, a sports field its match and training schedule. So
+     * one type's step map cannot answer for the wizard, and the branch is where such an obligation is
+     * declared -- `byTurfType.<type>.required`, with its own `wizard.step`.
+     */
+    const byStepFromTheList = (turfType) => {
         const out = {};
+        const put = (step, key) => {
+            (out[step] = out[step] || []);
+            if (out[step].indexOf(key) === -1) out[step].push(key);
+        };
         Object.entries(SCHEMA.inputs).forEach(([key, entry]) => {
-            if (!entry || entry.required !== true) return;
+            if (!entry) return;
+            /**
+             * The list spells a conditional obligation two ways, and `isRequired` on the server reads
+             * both: a `byTurfType.<type>` branch, and `requiredFor: [types]`. The golf surface uses the
+             * first, the sports schedule the second. A derivation that knew only one of them would
+             * report the other as an input nobody requires — which is how it read before this.
+             */
+            const branch = (entry.byTurfType || {})[turfType];
+            const required = branch && Object.prototype.hasOwnProperty.call(branch, 'required')
+                ? branch.required === true
+                : (entry.required === true
+                    || (Array.isArray(entry.requiredFor) && entry.requiredFor.indexOf(turfType) !== -1));
+            if (!required) return;
             (entry.filledIn || []).forEach((place) => {
                 const m = /^wizard\.step(\d+)$/.exec(String(place));
-                if (!m) return;
-                (out[m[1]] = out[m[1]] || []).push(key);
+                if (m) put(m[1], key);
             });
+            if (branch && branch.wizard && typeof branch.wizard.step === 'number') {
+                put(String(branch.wizard.step), key);
+            }
         });
 
         return out;
     };
 
+    /** The whole map the server sends: one branch per declared type, plus a site with no type yet. */
+    const byTypeFromTheList = () => {
+        const out = { '': byStepFromTheList('') };
+        (SCHEMA.turfTypes || []).forEach((t) => { out[t] = byStepFromTheList(t); });
+
+        return out;
+    };
+
+    /** Every input any branch puts on a step — what the wizard must be able to ask for. */
+    const everyInputOnAStep = () => {
+        const all = [];
+        Object.values(byTypeFromTheList()).forEach((byStep) => {
+            Object.values(byStep).forEach((keys) => keys.forEach((k) => {
+                if (all.indexOf(k) === -1) all.push(k);
+            }));
+        });
+
+        return all.sort();
+    };
+
     const openWith = (draft, answers) => {
-        const byStep = byStepFromTheList();
+        const byStep = byStepFromTheList(String((answers || {})['turf.turfType'] || ''));
+        /**
+         * `missing` is what the SERVER answers about this site, and the server computes it for the type
+         * the site holds — so a lawn is never told it lacks a golf surface or a match schedule. Taking
+         * the union of every type here would open the wizard on a complete lawn, which is a wizard no
+         * client has.
+         */
         const missing = [];
-        Object.values(byStep).forEach((keys) => keys.forEach((k) => {
-            if (!answers || !(k in answers)) missing.push(k);
-        }));
+        [].concat(...Object.values(byStep)).forEach((k) => {
+            if ((!answers || !(k in answers)) && missing.indexOf(k) === -1) missing.push(k);
+        });
         const box = wizardSandbox({ hubConfig: {
             setup: {
-                missing, byStep, answers: answers || {},
+                missing, byStepByTurfType: byTypeFromTheList(), answers: answers || {},
                 constructionValues: [{ id: 'sand_profile', label: 'Sand profile (USGA-style)' }],
             },
             savedLocation: { name: 'Somewhere', lat: -37.8, lon: 144.9 },
@@ -586,12 +544,12 @@ describe('GH-684 — the wizard asks for everything the list requires of it', ()
         W._render = () => {};
         Object.assign(W.d, draft || {});
 
-        return { W, box, byStep, missing };
+        return { W, box, missing };
     };
 
     test('every input the list puts on a wizard step is BOUND to a draft field, both ways', () => {
-        const { W, byStep } = openWith();
-        const fromTheList = [].concat(...Object.values(byStep)).sort();
+        const { W } = openWith();
+        const fromTheList = everyInputOnAStep();
         const bound = Object.keys(W._answers).sort();
         process.stdout.write('[gh684] the list puts these on wizard steps: ' + JSON.stringify(fromTheList)
             + '\n[gh684] the wizard binds: ' + JSON.stringify(bound) + '\n');
@@ -601,14 +559,22 @@ describe('GH-684 — the wizard asks for everything the list requires of it', ()
     });
 
     test('a step does not let you pass while ONE of its inputs is unanswered — one case per input', () => {
-        const { byStep } = openWith();
-        const answered = {
-            'location.lat': -37.8, 'location.lon': 144.9, 'turf.turfType': 'sports',
+        /**
+         * GH-789 (queue item 7): one case per input PER TYPE, because two of these obligations belong
+         * to a type — the golf surface and the sports schedule — and a loop over one type's branch
+         * passes over both while looking complete.
+         */
+        const answeredFor = (turfType) => Object.assign({
+            'location.lat': -37.8, 'location.lon': 144.9, 'turf.turfType': turfType,
             'turf.species': 'Perennial Ryegrass', 'turf.variety': 'generic',
             'turf.construction': 'sand_profile', 'turf.methodology': 'slan',
-        };
+        }, turfType === 'golf' ? { 'turf.subCategory': 'greens' } : {},
+            turfType === 'sports' ? { 'traffic.schedule': { matchesPerWeek: 0, sessionsPerWeek: 0 } } : {});
+
         const report = [];
-        Object.entries(byStep).forEach(([step, keys]) => {
+        (SCHEMA.turfTypes || []).forEach((turfType) => {
+        const answered = answeredFor(turfType);
+        Object.entries(byStepFromTheList(turfType)).forEach(([step, keys]) => {
             keys.forEach((key) => {
                 const short = Object.assign({}, answered);
                 delete short[key];
@@ -624,11 +590,12 @@ describe('GH-684 — the wizard asks for everything the list requires of it', ()
                 whole.W.step = Number(step);
                 const canProceedWithAll = whole.W._canProceed();
 
-                report.push({ step: Number(step), key, canProceedWithout, canProceedWithAll });
+                report.push({ turfType, step: Number(step), key, canProceedWithout, canProceedWithAll });
             });
         });
-        process.stdout.write('[gh684] one case per input, from the list:\n'
-            + report.map((r) => '[gh684]   step ' + r.step + ' without ' + r.key
+        });
+        process.stdout.write('[gh684] one case per input per turf type, from the list:\n'
+            + report.map((r) => '[gh684]   ' + r.turfType + ' step ' + r.step + ' without ' + r.key
                 + ' -> may proceed: ' + r.canProceedWithout
                 + ' | with everything -> may proceed: ' + r.canProceedWithAll).join('\n') + '\n');
 
@@ -774,11 +741,20 @@ describe('GH-684 — the wizard asks for everything the list requires of it', ()
     });
 
     test('it opens at the first step short of an answer, and `?setup` has nothing to do with it', () => {
-        const { W } = openWith(null, { 'location.lat': -37.8, 'location.lon': 144.9, 'turf.turfType': 'sports' });
+        /**
+         * GH-789 (queue item 7): the schedule is answered here BECAUSE the site is a sports field, and
+         * without it the first step short of an answer is step 2, not step 3 — which is the case
+         * below. The claim of this one is about the step that collects species and the rest.
+         */
+        const { W } = openWith(null, {
+            'location.lat': -37.8, 'location.lon': 144.9, 'turf.turfType': 'sports',
+            'traffic.schedule': { matchesPerWeek: 2, sessionsPerWeek: 3 },
+        });
         let shown = 0;
         W.show = () => { shown++; };
         W.init();
-        process.stdout.write('[gh684] place and type answered -> opened ' + shown + ' times at step ' + W.step + '\n');
+        process.stdout.write('[gh684] place, type and schedule answered -> opened ' + shown
+            + ' times at step ' + W.step + '\n');
 
         expect(shown).toBe(1);
         // Step 3 is where species, cultivar, construction and methodology are collected.
@@ -786,6 +762,44 @@ describe('GH-684 — the wizard asks for everything the list requires of it', ()
         // And what was already answered is in the draft, not asked again.
         expect(W.d.turfType).toBe('sports');
         expect(W.d.location).toEqual({ lat: -37.8, lon: 144.9, name: 'Somewhere' });
+        expect([W.d.matchesPerWeek, W.d.sessionsPerWeek]).toEqual([2, 3]);
+    });
+
+    /**
+     * GH-789 (queue item 7) — AND A SPORTS FIELD WITH NO SCHEDULE OPENS AT THE STEP THAT ASKS FOR ONE.
+     *
+     * The other half of the same fact, and the one that is new: the step the wizard opens at is derived
+     * for the type the site HOLDS, so an input required of sports alone brings it back to step 2 rather
+     * than being passed over on the way to step 3.
+     */
+    test('a sports field with no schedule opens at step 2, and a lawn with the same answers does not open', () => {
+        const sports = openWith(null, {
+            'location.lat': -37.8, 'location.lon': 144.9, 'turf.turfType': 'sports',
+            'turf.species': 'Perennial Ryegrass', 'turf.variety': 'generic',
+            'turf.construction': 'sand_profile', 'turf.methodology': 'slan',
+        });
+        let shownForSports = 0;
+        sports.W.show = () => { shownForSports++; };
+        sports.W.init();
+
+        const lawn = openWith(null, {
+            'location.lat': -37.8, 'location.lon': 144.9, 'turf.turfType': 'lawns',
+            'turf.species': 'Tall Fescue', 'turf.variety': 'generic',
+            'turf.construction': 'sand_profile', 'turf.methodology': 'slan',
+        });
+        let shownForLawn = 0;
+        lawn.W.show = () => { shownForLawn++; };
+        lawn.W.init();
+
+        process.stdout.write('[gh789] sports, everything but the schedule -> opened ' + shownForSports
+            + ' times at step ' + sports.W.step
+            + ' | the same answers on a lawn -> opened ' + shownForLawn + ' times\n');
+
+        expect(shownForSports).toBe(1);
+        expect(sports.W.step).toBe(2);
+        // THE OTHER DIRECTION, and it is what makes the first mean anything: the schedule is asked of
+        // sports and of nothing else, so the same answers on a lawn complete the site.
+        expect(shownForLawn).toBe(0);
     });
 });
 

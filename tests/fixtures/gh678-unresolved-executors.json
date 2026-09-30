@@ -4276,16 +4276,6 @@
       "confirmed": false,
       "whyNotConfirmed": "a call on a property of a property is not resolved at all, so a function reached only that way would appear here wrongly. Nothing is deleted on the strength of this list until that is closed."
     },
-    "assets/hub-integration-patch.js : <top level> : enhancedWearRecoveryAnalysis #1": {
-      "ticket": "GH-678",
-      "line": null,
-      "why": "no-caller",
-      "establishedBy": "bindings-parse over the fixpoint",
-      "coversAlias": true,
-      "coversMemberOnAProperty": false,
-      "confirmed": false,
-      "whyNotConfirmed": "a call on a property of a property is not resolved at all, so a function reached only that way would appear here wrongly. Nothing is deleted on the strength of this list until that is closed."
-    },
     "assets/hub-integration-patch.js : <top level> : runStressTrajectory #1": {
       "ticket": "GH-678",
       "line": null,
@@ -8925,6 +8915,26 @@
       "coversMemberOnAProperty": false,
       "confirmed": false,
       "whyNotConfirmed": "NOT A CONSEQUENCE OF GH-729 BUT A DISCOVERY BY IT. This function is exported and called by nobody, and has been all along: the walk resolved `generateUUID()` in `prediction-logger.js` onto BOTH functions of that name, so this one counted as live on a twin's caller. Removing that call showed it. Same class as GH-717 seen from the other side. The file belongs to another item, so it is named here rather than changed."
+    },
+    "assets/nutrition-summary-integration.js : <top level> : removalRates #1": {
+      "ticket": "GH-786",
+      "line": null,
+      "why": "no-caller",
+      "establishedBy": "bindings-parse over the fixpoint",
+      "coversAlias": true,
+      "coversMemberOnAProperty": false,
+      "confirmed": false,
+      "whyNotConfirmed": "GH-786 (queue item 3gg) replaced this file's own copy of the species removal table with a getter that reads the table's one owner, `nutrition-requirement-core.js`. The walk sees a function with no caller because nothing CALLS it: it is a property accessor, reached as `NUTRITION_CONFIG.removalRates` by the two readers in this file, which is a member read and not a call. A call on a property of a property is not resolved at all, so nothing is deleted on the strength of this list."
+    },
+    "assets/dli-recovery-bridge.js : <top level> : enhanceShadeData #1": {
+      "ticket": "GH-787",
+      "line": null,
+      "why": "no-caller",
+      "establishedBy": "bindings-parse over the fixpoint",
+      "coversAlias": true,
+      "coversMemberOnAProperty": false,
+      "confirmed": false,
+      "whyNotConfirmed": "GH-787 (queue item 3vy, the reviewer's return) removed `enhancedWearRecoveryAnalysis`, which held the only call of this one: it was a SECOND wear calculation, published and called by nobody, and it swapped the shade data through this function before asking the engine — so with the bridge loaded it would have answered a different recovery window than the pass. The bridge's own `calculate` is still called, by the orchestrator's wear assembly, so the file is not idle; this one entry point of it is. Named rather than removed, because a call on a property of a property is not resolved at all and nothing is deleted on the strength of this list."
     }
   },
   "unread": {

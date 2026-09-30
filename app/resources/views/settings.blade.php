@@ -1,4 +1,27 @@
 @php
+    /**
+     * GH-789 (queue item 7) - WHICH INPUT EACH FIELD ANSWERS, AND WHETHER THIS SITE MUST FILL IT IN.
+     *
+     * `data-input` is how the shared marker (`GilbaRequiredFields` in `dashboard-ui.js`) finds a field
+     * when the server refuses a save naming it: the form states which input each control answers, once,
+     * here, and nothing in JavaScript needs to know a selector.
+     *
+     * The `Required` note is drawn for the inputs the LIST calls required for this site's turf type
+     * (`$requiredInputs`, derived in `SettingsController`). It replaces the HTML `required` attribute,
+     * which stood on five fields of forms that all carry `novalidate` -- a mark and nothing else, and it
+     * named the wrong five: the turf type and the methodology went unmarked, and the golf surface, which
+     * is required of golf alone, could not be expressed by an attribute at all. On a refusal the same
+     * note turns red rather than being doubled.
+     */
+    $inputAttr = function (string $key): string {
+        return 'data-input="'.e($key).'"';
+    };
+    $requiredNote = function (string $key) use ($requiredInputs): string {
+        return in_array($key, $requiredInputs ?? [], true)
+            ? '<span class="gilba-required-note">Required</span>'
+            : '';
+    };
+
     $legacyAssetUrl = function (string $asset): string {
         $path = base_path('../assets/'.$asset);
         $version = is_file($path) ? '?v='.filemtime($path) : '';
@@ -52,8 +75,11 @@
                             <div class="stg-form-grid">
                                 <div class="stg-field">
                                     <label for="stg-name">Site name</label>
-                                    <input type="text" id="stg-name" name="name"
-                                           value="{{ $activeSite->name }}" required maxlength="255">
+                                    <input type="text" id="stg-name" name="name" data-input="site.name"
+                                           value="{{ $activeSite->name }}" maxlength="255">
+                                    {{-- GH-789: the name is not a calculation input, so the list has no words
+                                         for it and no note is drawn; its check lives in `settings-init.js`
+                                         and marks this element through the same shared marker. --}}
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-site-type">Site type</label>
@@ -124,9 +150,16 @@
                                          that does is in settings-init.js, and it tests the coordinates
                                          rather than this field, so clearing them by hand is caught too.
                                          Same arrangement as the site name directly above. --}}
-                                    <label for="stg-location-name">Location (for live weather)</label>
+                                    {{-- GH-789 (queue item 7): THE WORD STANDS HERE AND NOT ON THE TWO
+                                         COORDINATE BOXES, because this is the field a person answers:
+                                         picking a result from the search is what fills them in, and asking
+                                         someone to type a latitude by hand is asking for the wrong number.
+                                         All three carry a binding, so a refusal naming a coordinate frames
+                                         this field as well as the box the value lands in. --}}
+                                    <label for="stg-location-name">Location (for live weather)</label>{!! $requiredNote('location.lat') !!}
                                     <input type="text" id="stg-location-name" name="location_name"
-                                           value="{{ $locationName ?? '' }}" required
+                                           {!! $inputAttr('location.lat') !!}
+                                           value="{{ $locationName ?? '' }}"
                                            maxlength="255" placeholder="Search suburb, city, or venue…"
                                            autocomplete="off">
                                     <div id="stg-location-results"
@@ -137,15 +170,15 @@
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-latitude">Latitude</label>
-                                    <input type="number" id="stg-latitude" name="latitude"
+                                    <input type="number" id="stg-latitude" name="latitude" {!! $inputAttr('location.lat') !!}
                                            value="{{ $latitude ?? '' }}"
-                                           step="0.0000001" min="-90" max="90" placeholder="-33.8688">
+                                           step="0.0000001" min="-90" max="90" placeholder="e.g. -33.8688">
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-longitude">Longitude</label>
-                                    <input type="number" id="stg-longitude" name="longitude"
+                                    <input type="number" id="stg-longitude" name="longitude" {!! $inputAttr('location.lon') !!}
                                            value="{{ $longitude ?? '' }}"
-                                           step="0.0000001" min="-180" max="180" placeholder="151.2093">
+                                           step="0.0000001" min="-180" max="180" placeholder="e.g. 151.2093">
                                 </div>
                                 <div class="stg-field">
                                     <label>Hemisphere</label>
@@ -192,7 +225,7 @@
                                     </label>
                                     <input type="number" id="stg-irrig-efficiency" name="irrig_efficiency"
                                            value="{{ $activeGaipConfig['irrigation']['efficiency'] ?? '75' }}"
-                                           min="10" max="100" step="1" placeholder="75">
+                                           min="10" max="100" step="1" placeholder="e.g. 75">
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-irrig-rain">
@@ -201,7 +234,7 @@
                                     </label>
                                     <input type="number" id="stg-irrig-rain" name="irrig_rain"
                                            value="{{ $activeGaipConfig['irrigation']['effectiveRainfall'] ?? '80' }}"
-                                           min="0" max="100" step="1" placeholder="80">
+                                           min="0" max="100" step="1" placeholder="e.g. 80">
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-irrig-cost">
@@ -210,7 +243,7 @@
                                     </label>
                                     <input type="number" id="stg-irrig-cost" name="irrig_cost"
                                            value="{{ $activeGaipConfig['irrigation']['costPerKl'] ?? '3.00' }}"
-                                           min="0" step="0.01" placeholder="3.00">
+                                           min="0" step="0.01" placeholder="e.g. 3.00">
                                 </div>
                             </div>
                         </div>
@@ -298,8 +331,8 @@
                             </div>
                             <div class="stg-form-grid" style="grid-template-columns:repeat(2,1fr)">
                                 <div class="stg-field">
-                                    <label for="stg-turf-type">Turf type</label>
-                                    <select id="stg-turf-type" name="turfType">
+                                    <label for="stg-turf-type">Turf type</label>{!! $requiredNote('turf.turfType') !!}
+                                    <select id="stg-turf-type" name="turfType" {!! $inputAttr('turf.turfType') !!}>
                                         <option value="">— select —</option>
                                         @foreach(['golf' => 'Golf', 'sports' => 'Sports Field', 'lawns' => 'Lawns'] as $v => $l)
                                         <option value="{{ $v }}" {{ $turfVal('turfType') === $v ? 'selected' : '' }}>{{ $l }}</option>
@@ -307,15 +340,15 @@
                                     </select>
                                 </div>
                                 <div class="stg-field">
-                                    <label for="stg-turf-subcategory">Surface / area</label>
-                                    <select id="stg-turf-subcategory" name="subCategory">
+                                    <label for="stg-turf-subcategory">Surface / area</label>{!! $requiredNote('turf.subCategory') !!}
+                                    <select id="stg-turf-subcategory" name="subCategory" {!! $inputAttr('turf.subCategory') !!}>
                                         <option value="">— select —</option>
                                     </select>
                                 </div>
                                 <div class="stg-field">
                                     {{-- GH-583 (stage 3): required. Owner's decision 22.09.2026. --}}
-                                    <label for="stg-turf-species">Species <span aria-hidden="true">*</span></label>
-                                    <select id="stg-turf-species" name="species" required data-saved-species="{{ $turfVal('species') }}">
+                                    <label for="stg-turf-species">Species</label>{!! $requiredNote('turf.species') !!}
+                                    <select id="stg-turf-species" name="species" {!! $inputAttr('turf.species') !!} data-saved-species="{{ $turfVal('species') }}">
                                         <option value="">— select turf type first —</option>
                                     </select>
                                 </div>
@@ -336,8 +369,8 @@
                                          file telling the truth, not about the list changing.
 
                                          The placeholder stays: it is what a site with no cultivar shows. --}}
-                                    <label for="stg-turf-variety">Cultivar / variety <span aria-hidden="true">*</span></label>
-                                    <select id="stg-turf-variety" name="variety" required>
+                                    <label for="stg-turf-variety">Cultivar / variety</label>{!! $requiredNote('turf.variety') !!}
+                                    <select id="stg-turf-variety" name="variety" {!! $inputAttr('turf.variety') !!}>
                                         <option value="">— select —</option>
                                         @if($turfVal('variety'))
                                         <option value="{{ $turfVal('variety') }}" selected>{{ $turfVal('variety') }}</option>
@@ -373,8 +406,8 @@
                                     {{-- GH-583 (stage 3): required. Without it the soil-structure
                                          engine takes the clay path in silence, and wear and irrigation
                                          run on median coefficients. --}}
-                                    <label for="stg-turf-construction">Construction type <span aria-hidden="true">*</span></label>
-                                    <select id="stg-turf-construction" name="construction" required>
+                                    <label for="stg-turf-construction">Construction type</label>{!! $requiredNote('turf.construction') !!}
+                                    <select id="stg-turf-construction" name="construction" {!! $inputAttr('turf.construction') !!}>
                                         <option value="">— select —</option>
                                         {{--
                                             GH-769: A STORED CONSTRUCTION IS SHOWN, NOT SILENTLY BLANKED.
@@ -451,7 +484,7 @@
                             </div>
                             <div class="stg-form-grid">
                                 <div class="stg-field">
-                                    <label for="stg-turf-methodology">Soil test methodology</label>
+                                    <label for="stg-turf-methodology">Soil test methodology</label>{!! $requiredNote('turf.methodology') !!}
                                     @php
                                         // GH-744: the words come from the inputs list, beside the keys.
                                         $methOptions = \App\Support\CalculationInputs::methodologyChoices();
@@ -508,7 +541,7 @@
                                             }
                                         }
                                     @endphp
-                                    <select id="stg-turf-methodology" name="methodology">
+                                    <select id="stg-turf-methodology" name="methodology" {!! $inputAttr('turf.methodology') !!}>
                                         <option value="">— select —</option>
                                         @foreach($methOptions as $v => $l)
                                         <option value="{{ $v }}" {{ $curMeth === $v ? 'selected' : '' }}>{{ $l }}</option>
@@ -614,8 +647,15 @@
                                         Poa annua content (%)
                                         <button type="button" class="stg-info-icon" data-stg-info="poa-percent" aria-label="About Poa annua">i</button>
                                     </label>
+                                    {{-- GH-789 (queue item 7): NO DEFAULT AND NO PLACEHOLDER. The box held
+                                         `0` when nothing was stored, and the form then sent it, so every
+                                         site of the stand carries a Poa figure nobody measured (13 of 13
+                                         on 30.09.2026). A nought a person means and a nought the page put
+                                         there cannot be told apart, and this one is a real answer: a stand
+                                         with no Poa annua. The placeholder goes with it -- a figure in an
+                                         empty box reads as a value already entered. --}}
                                     <input type="number" id="stg-turf-poa" name="poaPercent"
-                                           value="{{ $turfVal('poaPercent', '0') }}" min="0" max="100" step="1" placeholder="0">
+                                           value="{{ $turfVal('poaPercent') }}" min="0" max="100" step="1">
                                     <p class="stg-field-hint">Estimated Poa annua percentage in the stand.</p>
                                 </div>
                                 <div class="stg-field">
@@ -623,8 +663,10 @@
                                         C3 cover (%)
                                         <button type="button" class="stg-info-icon" data-stg-info="c3-cover" aria-label="About C3 cover">i</button>
                                     </label>
+                                    {{-- GH-789 (queue item 7): the same, and here the page says out loud
+                                         that nought is an answer -- "0 = pure C4" in the hint below. --}}
                                     <input type="number" id="stg-turf-c3" name="c3Cover"
-                                           value="{{ $turfVal('c3Cover', '0') }}" min="0" max="100" step="1" placeholder="0">
+                                           value="{{ $turfVal('c3Cover', '0') }}" min="0" max="100" step="1">
                                     <p class="stg-field-hint">Percentage of surface covered by cool-season (C3) grass. 0 = pure C4, 100 = pure C3.</p>
                                 </div>
                             </div>
@@ -721,8 +763,8 @@
                                     </select>
                                 </div>
                                 <div class="stg-field">
-                                    <label for="stg-tw-matches">Matches per week</label>
-                                    <input type="number" id="stg-tw-matches" min="0" max="14" step="1" placeholder="2">
+                                    <label for="stg-tw-matches">Matches per week</label>{!! $requiredNote('traffic.schedule') !!}
+                                    <input type="number" id="stg-tw-matches" {!! $inputAttr('traffic.schedule') !!} min="0" max="14" step="1" placeholder="2">
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-tw-match-dur">Match duration (hrs)</label>
@@ -763,7 +805,7 @@
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-tw-sessions">Sessions per week</label>
-                                    <input type="number" id="stg-tw-sessions" min="0" max="14" step="1" placeholder="3">
+                                    <input type="number" id="stg-tw-sessions" {!! $inputAttr('traffic.schedule') !!} min="0" max="14" step="1" placeholder="e.g. 3">
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-tw-session-dur">Session duration (hrs)</label>
@@ -786,11 +828,23 @@
                             </div>
                             <div class="stg-form-grid" style="grid-template-columns:repeat(2,1fr)">
                                 <div class="stg-field">
+                                    {{-- GH-789 (queue item 7) — "OPTIMAL" IS NO LONGER CHOSEN FOR ANYBODY.
+                                         This list had no empty option and stood on `optimal`, and the form
+                                         sends the whole schedule on every save, so every save wrote a soil
+                                         moisture nobody had chosen. It is the declared storage of the input
+                                         `soil.moisture` (`storedAs: traffic.schedule.moisture`), and the
+                                         orchestrator takes the entered word as the FIRST source, ahead of
+                                         the measured climate band -- so a site whose climate says the soil
+                                         is wet was banded optimal, and the wear engine's compaction and
+                                         wear factors (1.0 and 0.95 rather than 1.4 and 1.25) ran on that.
+                                         `— select —` is the form's own way of saying "not chosen": eight
+                                         other lists on this page already offer it. --}}
                                     <label for="stg-tw-moisture">Current soil moisture</label>
-                                    <select id="stg-tw-moisture">
+                                    <select id="stg-tw-moisture" {!! $inputAttr('soil.moisture') !!}>
+                                        <option value="" selected>— select —</option>
                                         <option value="dry">Dry</option>
                                         <option value="slightly_dry">Slightly Dry</option>
-                                        <option value="optimal" selected>Optimal</option>
+                                        <option value="optimal">Optimal</option>
                                         <option value="moist">Moist</option>
                                         <option value="wet">Wet</option>
                                         <option value="saturated">Saturated</option>

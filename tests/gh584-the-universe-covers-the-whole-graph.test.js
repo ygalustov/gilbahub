@@ -242,10 +242,16 @@ const DECLARED_OUTPUTS = {
         'computed.water',
         'computed.waterBlend',
     ],
+    /**
+     * GH-787 (queue item 3vy): one key, because the engine is run once.
+     *
+     * `computed.wearRecovery` was the cascade's alias of its own wear result — a second assembly of the same
+     * engine, whose figure disagreed with the shown one at 10 of 10 sites on the stand. `derived.adjustedRecoveryDays`
+     * was the second stress pass, removed by the owner's decision of 30.09.2026: stress enters the recovery
+     * days once, inside the engine. Both left the graph's outputs together with the code that wrote them.
+     */
     'wear-recovery-engine': [
         'computed.wear',
-        'computed.wearRecovery',
-        'derived.adjustedRecoveryDays',
     ],
 };
 
@@ -404,7 +410,10 @@ describe('GH-584 — every engine the graph declares is in exactly one named buc
         // GH-777 (queue item 4, slice 2): 59 before the confidence node, which the pass called while the
         // graph said nothing about it. The number is the ratchet — it moves only with a declaration
         // somebody wrote — so it moves here, in the same edit that added the node.
-        expect(pinned).toBe(60);
+        // GH-787 (queue item 3vy): 60 -> 58. `computed.wearRecovery` and `derived.adjustedRecoveryDays` left
+        // the graph's outputs with the code that wrote them — the cascade's second run of the wear engine and
+        // the second stress pass over its result. The ratchet moves in the same edit as the declaration.
+        expect(pinned).toBe(58);
         // `live` counts ROOTS, so nested paths collapse — it is the smaller
         // number and must never exceed the pinned one.
         expect(live).toBeLessThanOrEqual(pinned);

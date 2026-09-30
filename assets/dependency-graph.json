@@ -613,9 +613,7 @@
       "label": "Wear & Recovery Engine",
       "category": "analysis",
       "outputs": [
-        "computed.wear",
-        "derived.adjustedRecoveryDays",
-        "computed.wearRecovery"
+        "computed.wear"
       ],
       "after": [
         "climate-engine",
@@ -623,24 +621,21 @@
         "salinity-penalty-engine",
         "stress-aggregator"
       ],
-      "runner": [
-        "cascade",
-        "orchestrator"
-      ],
+      "runner": "orchestrator",
       "handle": [
-        "assets/cascade-orchestrator.js:executeWearEngine",
         "buildWearRecoveryInputs"
       ],
       "requires": [],
       "uses": [
         "schedule.traffic",
-        "site.construction",
         "soil.LOI",
         "soil.OM_pct",
+        "soil.moisture",
         "turf.construction",
-        "turf.heightOfCut",
+        "turf.hoc",
         "turf.overseedStatus",
         "turf.rootDepth",
+        "turf.species",
         "turf.turfType",
         "turf.variety"
       ],
@@ -651,6 +646,27 @@
         "turf.heightOfCut",
         "schedule",
         "soil.LOI"
+      ],
+      "$comment": [
+        "GH-787 (queue item 3vy) - ONE RUNNER, ONE HANDLE, ONE OUTPUT KEY.",
+        "",
+        "This node declared two runners and two handles, and that was not redundancy: each runner built the",
+        "engine's inputs its own way, so one calculation had two answers. Measured on the stand across the last",
+        "row of every site - the two disagreed about the recovery window at 10 of 10 sites (Test5 - NZ 17 days",
+        "against 7, Russley 28 against 12), about the recovery probability at 9, and about the species and the",
+        "variety they were given at all 10. The client is shown the orchestrator's figure; the cascade's went",
+        "into the row beside it under `computed.wearRecovery`.",
+        "",
+        "The cascade stopped calling it because this list is what it walks (`gaip_cascadeEnginesFromTheGraph`).",
+        "`computed.wearRecovery` and `derived.adjustedRecoveryDays` left the outputs with the code that wrote",
+        "them: the alias had no reader on any client page, and the second stress pass it stood for was removed",
+        "by the owner's decision of 30.09.2026 - stress enters the recovery days once, inside the engine.",
+        "",
+        "`uses` NAMES THE PATHS THE ASSEMBLY ACTUALLY READS, and since this item they are the paths the value is",
+        "STORED at rather than the names the page's state used: `turf.hoc` where it said `turf.heightOfCut`,",
+        "`traffic.schedule.rootDepth` and `traffic.schedule.moisture` where the form supplied them, plus",
+        "`turf.species` -- which the assembly used to take from the canonical state of the PAGE, five sources deep.",
+        "`site.construction` is gone with the `|| \"native\"` chain that read it, and the two inputs the form used to supply are named by their KEY in the inputs list (`soil.moisture`, `turf.rootDepth`) while the assembly reads them at the path that list declares they are stored at."
       ]
     },
     "firmness-engine": {

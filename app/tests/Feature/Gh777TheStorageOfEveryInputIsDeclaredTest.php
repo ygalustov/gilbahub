@@ -244,9 +244,25 @@ class Gh777TheStorageOfEveryInputIsDeclaredTest extends TestCase
         $paths = [];
         $noise = [];
         foreach (CalculationInputs::keys() as $key) {
-            foreach (CalculationInputs::storedAs($key) as $path) {
+            $declared = CalculationInputs::storedAs($key);
+            foreach ($declared as $path) {
                 $paths[$key][] = $path;
-                if ($path === $key || trim($path) === '' || ! str_contains($path, '.')) {
+                /**
+                 * GH-786 (queue item 3gg) — THE KEY ITSELF IS NOISE ONLY WHEN IT IS THE WHOLE DECLARATION.
+                 *
+                 * This read `$path === $key`, and it was right for every input here: one path, spelled the
+                 * same as the key, says nothing the absent `storedAs` did not already say. `turf.nProgram`
+                 * is the first input whose value lives in TWO places — the owner's decision of 30.09.2026
+                 * puts the annual nitrogen target in the saved programme first and in Settings second — and
+                 * the second of those two IS the key. Dropping it would make the server read only the
+                 * programme, so a site whose figure sits only in Settings (2 of the 13 on the stand, and the
+                 * only place a person can type it) would be reported to its own owner as not entered: the
+                 * exact direction of error this file exists to stop.
+                 *
+                 * So the rule keeps its subject and narrows to it: a declaration that is nothing but the key
+                 * again is still noise.
+                 */
+                if ((count($declared) === 1 && $path === $key) || trim($path) === '' || ! str_contains($path, '.')) {
                     $noise[] = $key.' -> '.json_encode($path);
                 }
             }
@@ -264,10 +280,16 @@ class Gh777TheStorageOfEveryInputIsDeclaredTest extends TestCase
         // declare, and the path their one reader looks at is declared as `readAs` instead. A path under
         // `storedAs` means "the value sits here"; theirs means "the reader looks here", and the two
         // must not be spelled the same way.
+        // GH-786 added `turf.nProgram`, the first input of the list with two storages: the saved nutrition
+        // programme's own figure and the Settings field, in the order the one function that answers the
+        // question walks them.
         $this->assertSame([
-            'turf.rootDepth', 'schedule.efficiency',
+            'turf.rootDepth', 'turf.nProgram', 'schedule.efficiency',
             'turf.cleggHammer', 'turf.ledPPFD', 'turf.ledHours', 'soil.moisture',
         ], array_keys($paths));
+        $this->assertSame([
+            'nutritionCalendarProgram.meta.annualNBase', 'turf.nProgram',
+        ], CalculationInputs::storedAs('turf.nProgram'));
         foreach (['schedule.uniformity', 'schedule.precipRate'] as $noStorage) {
             $this->assertSame([], CalculationInputs::storedIn($noStorage), $noStorage);
             $this->assertSame([], CalculationInputs::storedAs($noStorage), $noStorage);

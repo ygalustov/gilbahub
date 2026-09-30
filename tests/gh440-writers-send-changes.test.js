@@ -156,7 +156,7 @@ describe('GH-440 — the local copy is refreshed from the answer', () => {
 
     test('settings-init.js takes D.gaipConfig from the response', () => {
         const src = read('settings-init.js');
-        const fn = anchoredSlice(src, 'function patchGaipConfig(sections)');
+        const fn = anchoredSlice(src, 'function patchGaipConfig(sections, place)');
         expect(fn).toMatch(/apiFetch\('PATCH', '\/sites\/' \+ encodeURIComponent\(siteId\) \+ '\/config\/gaip', body\)/);
         expect(fn).toMatch(/D\.gaipConfig = saved;/);
     });

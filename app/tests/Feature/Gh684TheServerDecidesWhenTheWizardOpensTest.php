@@ -55,9 +55,33 @@ class Gh684TheServerDecidesWhenTheWizardOpensTest extends TestCase
         $this->assertSame('Perennial Ryegrass', $setup['answers']['turf.species']);
         $this->assertSame('sports', $setup['answers']['turf.turfType']);
 
-        // The step that collects the two missing ones is named, so the wizard can open there.
-        $this->assertContains('turf.variety', $setup['byStep']['3']);
-        $this->assertContains('turf.construction', $setup['byStep']['3']);
+        /**
+         * The step that collects the two missing ones is named, so the wizard can open there.
+         *
+         * GH-789 (queue item 7): the map arrives FOR EVERY TURF TYPE, and that is the point of the
+         * change rather than a rename. Two obligations of the list belong to a type -- a golf surface
+         * and a sports schedule -- and the type is chosen on step 2, so the branch the page needs is
+         * not known when this payload is built. Sending one branch is what left the wizard holding a
+         * hand-written condition for golf and would let a new sports field past step 2 with no
+         * schedule.
+         */
+        $byType = $setup['byStepByTurfType'];
+        $this->assertContains('turf.variety', $byType['sports']['3']);
+        $this->assertContains('turf.construction', $byType['sports']['3']);
+        // Every declared type has its branch, including a site that has not answered its type yet.
+        $this->assertSame(
+            array_merge([''], CalculationInputs::turfTypes()),
+            array_keys($byType),
+            'the page must be able to look up the branch of whatever type is clicked'
+        );
+        // And each conditional obligation is in the branch it belongs to, and in no other.
+        $this->assertContains('turf.subCategory', $byType['golf']['2']);
+        $this->assertContains('traffic.schedule', $byType['sports']['2']);
+        $this->assertNotContains('turf.subCategory', $byType['sports']['2']);
+        $this->assertNotContains('traffic.schedule', $byType['golf']['2']);
+        $this->assertNotContains('traffic.schedule', $byType['lawns']['2']);
+        // The words the refusal is written in travel too, out of the list, so no page writes its own.
+        $this->assertSame('the match and training schedule', $setup['labels']['traffic.schedule']);
     }
 
     public function test_a_site_that_answers_everything_is_told_nothing_is_missing(): void
@@ -70,6 +94,13 @@ class Gh684TheServerDecidesWhenTheWizardOpensTest extends TestCase
                 'turfType' => 'sports', 'species' => 'Perennial Ryegrass', 'methodology' => 'slan',
                 'variety' => 'generic', 'construction' => 'sand_profile',
             ],
+            /**
+             * GH-789 (queue item 7): a COMPLETE sports site now includes its match and training schedule —
+             * the owner's decision of 30.09.2026 put it in the wizard, so a site without one is not complete.
+             * Nought and nought is the shape she entered on the stand's own sports sites, by the product's
+             * route: a week with no load, which is an answer.
+             */
+            'traffic' => ['schedule' => ['matchesPerWeek' => 0, 'sessionsPerWeek' => 0]],
         ]);
 
         $setup = $this->setupFromThePage($user);
@@ -85,14 +116,23 @@ class Gh684TheServerDecidesWhenTheWizardOpensTest extends TestCase
          * correctly today and go stale the first time an input's `filledIn` changes — which is the
          * exact failure the hand-written `switch` in the wizard was.
          *
-         * `traffic.schedule` is the case that makes this worth asserting: it is required for a
-         * sports site and no wizard step collects it, so it must NOT appear here. That is also why
-         * the lock does not hold on it (the coordinator's rule: required AND asked by the wizard).
+         * GH-789 (queue item 7): `traffic.schedule` is now the case that makes this worth asserting the
+         * OTHER way. It is required for a sports site and the owner's decision of 30.09.2026 put it in the
+         * wizard's step 2, so it MUST appear here — and the lock holds it for the same reason (the
+         * coordinator's rule is unchanged: required AND asked by the wizard). Before that decision it was
+         * required and unasked, and this case asserted its absence.
          */
         $schema = json_decode(file_get_contents(base_path('../assets/calculation-inputs.schema.json')), true);
         $fromTheFile = [];
         foreach ($schema['inputs'] as $key => $entry) {
-            if (($entry['required'] ?? null) !== true) {
+            /**
+             * GH-789: `requiredFor` is the list's other spelling of "required", for the turf types it names —
+             * and this census is about a SPORTS site. Reading only the flat `required: true` made the file
+             * side miss `traffic.schedule` while the derived side had it, which reads as drift and is not.
+             */
+            $requiredHere = ($entry['required'] ?? null) === true
+                || in_array('sports', (array) ($entry['requiredFor'] ?? []), true);
+            if (! $requiredHere) {
                 continue;
             }
             foreach ((array) ($entry['filledIn'] ?? []) as $place) {
@@ -111,11 +151,22 @@ class Gh684TheServerDecidesWhenTheWizardOpensTest extends TestCase
         // A step name the rule cannot read is reported rather than dropped.
         $this->assertSame([], $derived['unparsed']);
 
-        // Required for sports, collected by no wizard step: it stays out.
+        /**
+         * GH-789 (queue item 7): required for sports AND collected by a wizard step, which is the state the
+         * owner's decision of 30.09.2026 created. It stays IN, and in step 2 — beside the turf type, because
+         * that is where the type is chosen and the schedule only applies to a sports surface.
+         */
         $this->assertContains('traffic.schedule', CalculationInputs::requiredFor('sports'));
         $flat = array_merge(...array_values($derived['byStep']));
-        $this->assertNotContains('traffic.schedule', $flat,
-            'the wizard does not ask for the schedule, so no step may claim to collect it');
+        $this->assertContains('traffic.schedule', $flat,
+            'the wizard asks for the schedule, so a step must collect it');
+        $this->assertContains('traffic.schedule', $derived['byStep'][2],
+            'the schedule belongs to the step where the turf type is chosen');
+        // And a golf or lawn site is not asked for it: the input is required for sports only.
+        foreach (['golf', 'lawns'] as $otherType) {
+            $otherFlat = array_merge(...array_values(CalculationInputs::wizardStepsFor($otherType)['byStep']));
+            $this->assertNotContains('traffic.schedule', $otherFlat, $otherType . ' is asked for a schedule');
+        }
     }
 
     /** The `setup` object as the rendered dashboard carries it. */

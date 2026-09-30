@@ -116,6 +116,11 @@
             
             'climate-engine.js',
             'shade-engine.js',
+            // GH-786 (queue item 3gg): the state assembly in hub-tissue-v3.js asks this file for the
+            // site's annual nitrogen target, by site id. Every other page that loads the assembly
+            // already loads it; without it here this page's run would carry no target at all, which
+            // is the outcome for a site that has none, not for a site that has one.
+            'nutrition-program-inputs.js',
             'cascade-orchestrator.js',
             'hub-orchestrator.js',
             'turf-profile-controller.js',

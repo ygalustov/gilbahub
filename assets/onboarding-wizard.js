@@ -29,6 +29,10 @@
             variety:      null,
             construction: null,
             methodology:  null,
+            // GH-789 (queue item 7): the schedule a sports field is asked for. `null` is an empty
+            // field and `0` is an answer, so neither is ever turned into the other.
+            matchesPerWeek:  null,
+            sessionsPerWeek: null,
         },
 
         /**
@@ -48,6 +52,38 @@
             'turf.variety':      { get: function (d) { return d.variety; },      set: function (d, v) { d.variety = v; } },
             'turf.construction': { get: function (d) { return d.construction; }, set: function (d, v) { d.construction = v; } },
             'turf.methodology':  { get: function (d) { return d.methodology; },  set: function (d, v) { d.methodology = v; } },
+            /**
+             * GH-789 (queue item 7): the golf surface, which the list declares required for golf and
+             * for no other type (`byTurfType.golf`). It was held by a line of this wizard's own
+             * instead, and the lock did not ask for it at all.
+             */
+            'turf.subCategory':  { get: function (d) { return d.subCategory; },  set: function (d, v) { d.subCategory = v; } },
+            /**
+             * GH-789 (queue item 7) — THE MATCH AND TRAINING SCHEDULE, AND IT IS AN OBJECT.
+             *
+             * `get` answers `null` unless one of the two is a NUMBER, and the gate rests on that:
+             * `String({})` is not empty, so an object would pass the gate whatever were inside it.
+             * Nought is a number and passes — a week with no load is an answer, and the owner
+             * entered exactly that on six sports sites on 30.09.2026.
+             *
+             * It sends the two fields it was given and no others: the rest of a schedule belongs to
+             * Settings, and a default for one of them here would be a choice nobody made.
+             */
+            'traffic.schedule': {
+                get: function (d) {
+                    if (typeof d.matchesPerWeek !== 'number' && typeof d.sessionsPerWeek !== 'number') return null;
+                    var out = {};
+                    if (typeof d.matchesPerWeek === 'number') out.matchesPerWeek = d.matchesPerWeek;
+                    if (typeof d.sessionsPerWeek === 'number') out.sessionsPerWeek = d.sessionsPerWeek;
+
+                    return out;
+                },
+                set: function (d, v) {
+                    if (!v || typeof v !== 'object') return;
+                    if (typeof v.matchesPerWeek === 'number') d.matchesPerWeek = v.matchesPerWeek;
+                    if (typeof v.sessionsPerWeek === 'number') d.sessionsPerWeek = v.sessionsPerWeek;
+                },
+            },
         },
 
         /**
@@ -100,9 +136,25 @@
             });
         },
 
+        /**
+         * GH-789 (queue item 7) — WHAT A STEP COLLECTS, FOR THE TYPE THE DRAFT HOLDS.
+         *
+         * The server sends the map for every turf type, because the type is chosen on step 2 and a
+         * new site has none when this page loads. Reading one precomputed branch is what left this
+         * wizard with a hand-written condition for golf and what would let a brand-new sports field
+         * past step 2 with no schedule at all.
+         */
+        _needsOfStep: function (step) {
+            var byType = (cfg.setup && cfg.setup.byStepByTurfType) || {};
+            var branch = byType[this.d.turfType || ''] || byType[''] || {};
+
+            return branch[step] || branch[String(step)] || [];
+        },
+
         /** The first step that collects something the site has not answered. */
         _firstStepShortOf: function (missing) {
-            var byStep = (cfg.setup && cfg.setup.byStep) || {};
+            var byType = (cfg.setup && cfg.setup.byStepByTurfType) || {};
+            var byStep = byType[this.d.turfType || ''] || byType[''] || {};
             var steps = Object.keys(byStep).map(Number).sort(function (a, b) { return a - b; });
             for (var i = 0; i < steps.length; i++) {
                 var needs = byStep[steps[i]] || byStep[String(steps[i])] || [];
@@ -215,20 +267,26 @@
             indicator.textContent = 'Step ' + (this.step + 1) + ' of ' + this.total;
 
             var isLast = this.step === this.total - 1;
-            var canGo  = this._canProceed();
+            /**
+             * GH-789 (queue item 7) — THE BUTTON PRESSES, AND SAYS WHAT IS MISSING.
+             *
+             * It used to go grey and stay grey, naming nothing: a person with an unanswered field saw
+             * a dead button and no reason for it. The owner's decision of 29.09.2026 is one behaviour
+             * for a required field everywhere in the product -- red frame, "Required", and a sentence
+             * naming the field -- so the press is what refuses, with the same marker Settings uses
+             * and the same words out of the list.
+             */
             var next = document.createElement('button');
             next.type = 'button';
             next.textContent = isLast ? 'Go to Dashboard' : 'Next →';
             next.style.cssText = [
                 'border:none;border-radius:8px;padding:10px 22px',
                 'font-size:14px;font-weight:600;font-family:inherit',
-                'background:' + (canGo ? 'var(--gaip-accent,#2da85e)' : 'var(--gaip-border,#d1dbd6)'),
-                'color:' + (canGo ? '#fff' : 'var(--gaip-text-muted,#6b8878)'),
-                'cursor:' + (canGo ? 'pointer' : 'not-allowed'),
+                'background:var(--gaip-accent,#2da85e);color:#fff;cursor:pointer',
                 'transition:background 0.15s',
             ].join(';');
             next.addEventListener('click', function () {
-                if (!self._canProceed()) return;
+                if (!self._refuseIfShort()) return;
                 if (isLast) { self._finish(); }
                 else { self.step++; self._render(); }
             });
@@ -237,6 +295,58 @@
             nav.appendChild(indicator);
             nav.appendChild(next);
             return nav;
+        },
+
+        /**
+         * GH-789 (queue item 7): marks what the step is short of and answers false, or answers true.
+         *
+         * The words come from the list, delivered with the steps (`cfg.setup.labels`) -- the same
+         * words the server puts in its own refusal, so the wizard and Settings say one thing about
+         * one field.
+         */
+        _refuseIfShort: function () {
+            var marker = window.GilbaRequiredFields;
+            var short = this._missingOfStep(this.step);
+            if (marker) { this._sayShort(marker.mark(this.modal, this._asMissing(short))); }
+
+            return short.length === 0;
+        },
+
+        /** `[{input, label}]`, the shape the server's 422 carries, built from the list's own labels. */
+        _asMissing: function (keys) {
+            var labels = (cfg.setup && cfg.setup.labels) || {};
+
+            return keys.map(function (key) { return { input: key, label: labels[key] || key }; });
+        },
+
+        /** The sentence under the button, or nothing when there is none to say. */
+        _sayShort: function (sentence) {
+            var holder = this.modal.querySelector('#wiz-short');
+            if (!sentence) {
+                if (holder && holder.parentNode) holder.parentNode.removeChild(holder);
+
+                return;
+            }
+            if (!holder) {
+                holder = document.createElement('div');
+                holder.id = 'wiz-short';
+                holder.style.cssText = 'padding:0 28px 16px;font-size:13px;color:#dc2626';
+                this.modal.appendChild(holder);
+            }
+            holder.textContent = sentence;
+        },
+
+        /**
+         * A number field of a step the wizard draws itself, carrying the input it answers so the
+         * shared marker can find it.
+         */
+        _numberField: function (id, label, value) {
+            return '<div>' +
+                '<label for="' + id + '" style="display:block;font-size:12px;font-weight:600;color:var(--gaip-text-secondary,#4a5e55);margin-bottom:4px">' + label + '</label>' +
+                '<input type="number" class="wiz-number" id="' + id + '" data-input="traffic.schedule"' +
+                ' min="0" max="14" step="1" value="' + (typeof value === 'number' ? value : '') + '"' +
+                ' style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f)">' +
+                '</div>';
         },
 
         /**
@@ -252,23 +362,36 @@
          * what declares an obligation; a wizard that cannot find the field for one has a hole in
          * it, and a hole must not read as an answer.
          *
-         * THE ONE CONDITION NOT DERIVED, and it is named rather than folded in: golf needs its
-         * sub-category. `turf.subCategory` is not a required input of the list -- whether the
-         * wizard must ask a sports site for its purpose is an open question to the owner -- so the
-         * list cannot express it, and dropping it would let a golf site through with no surface.
+         * GH-789 (queue item 7): AND NOW EVERY CONDITION IS DERIVED. One was not -- golf needs its
+         * sub-category, held by a line of this file -- and the list did express it all along, in
+         * `turf.subCategory`'s own `byTurfType.golf` branch, which nothing read. The reader reads it
+         * now, so the line is gone and the lock asks for a golf surface by the same derivation.
+         * Whether a SPORTS site must state its purpose is still an open question to the owner, and
+         * an input whose obligation is undecided is not required by anybody.
          */
         _canProceed: function () {
-            var byStep = (cfg.setup && cfg.setup.byStep) || {};
-            var needs = byStep[this.step] || byStep[String(this.step)] || [];
+            return this._missingOfStep(this.step).length === 0;
+        },
+
+        /**
+         * GH-789 (queue item 7): the inputs this step collects and the draft has not answered, by the
+         * list's own names — so the button can say WHICH field is wanted instead of going grey.
+         *
+         * An input the draft does not bind refuses the step, as before: the list is what declares an
+         * obligation, and a wizard with no field for one has a hole in it. A hole must not read as an
+         * answer, so it is named here under its own key.
+         */
+        _missingOfStep: function (step) {
+            var needs = this._needsOfStep(step);
+            var out = [];
             for (var i = 0; i < needs.length; i++) {
                 var field = this._answers[needs[i]];
-                if (!field) return false;
+                if (!field) { out.push(needs[i]); continue; }
                 var value = field.get(this.d);
-                if (value === null || value === undefined || String(value).trim() === '') return false;
+                if (value === null || value === undefined || String(value).trim() === '') out.push(needs[i]);
             }
-            if (this.step === 2 && this.d.turfType === 'golf' && !this.d.subCategory) return false;
 
-            return true;
+            return out;
         },
 
         // ── Step 0: Welcome ───────────────────────────────────────────────────
@@ -321,10 +444,10 @@
                 '</div>',
                 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">',
                 '<div><label style="display:block;font-size:11px;color:var(--gaip-text-muted,#6b8878);margin-bottom:4px">Latitude</label>',
-                '<input type="number" id="wiz-lat" step="0.0001" placeholder="-37.8136" value="' + (loc ? loc.lat : '') + '"',
+                '<input type="number" id="wiz-lat" data-input="location.lat" step="0.0001" placeholder="-37.8136" value="' + (loc ? loc.lat : '') + '"',
                 ' style="width:100%;padding:8px 10px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:6px;font-size:13px;font-family:inherit;box-sizing:border-box;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)"></div>',
                 '<div><label style="display:block;font-size:11px;color:var(--gaip-text-muted,#6b8878);margin-bottom:4px">Longitude</label>',
-                '<input type="number" id="wiz-lon" step="0.0001" placeholder="144.9631" value="' + (loc ? loc.lon : '') + '"',
+                '<input type="number" id="wiz-lon" data-input="location.lon" step="0.0001" placeholder="144.9631" value="' + (loc ? loc.lon : '') + '"',
                 ' style="width:100%;padding:8px 10px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:6px;font-size:13px;font-family:inherit;box-sizing:border-box;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)"></div>',
                 '</div>',
                 loc ? '<div style="margin-top:12px;padding:9px 12px;background:var(--gaip-surface-muted,#f3f7f5);border:1px solid var(--gaip-border,#d1dbd6);border-radius:6px;font-size:13px;color:var(--gaip-text,#17231f)"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="var(--gaip-accent,#2da85e)" stroke-width="2.5" style="vertical-align:middle;margin-right:5px"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' + this._esc(loc.name) + ' (' + loc.lat.toFixed(4) + ', ' + loc.lon.toFixed(4) + ')</div>' : '',
@@ -423,7 +546,7 @@
                 var subs = ['greens', 'fairways', 'tees', 'surrounds'];
                 subHtml = '<div style="margin-top:16px">' +
                     '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Surface type</label>' +
-                    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">' +
+                    '<div data-input="turf.subCategory" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">' +
                     subs.map(function (s) {
                         var a = self.d.subCategory === s;
                         return '<div data-sub="' + s + '" class="wiz-sub-btn" style="text-align:center;padding:9px 6px;border:2px solid ' +
@@ -436,17 +559,63 @@
                     '</div></div>';
             }
 
+            /**
+             * GH-789 (queue item 7) — THE SCHEDULE A SPORTS FIELD IS ASKED FOR.
+             *
+             * It stands where golf's surface stands, for the same reason and in the same order: both
+             * are what the chosen type needs and nothing else does, and the two are mutually
+             * exclusive. The words are the ones Settings uses on its Traffic & Wear tab, so a person
+             * who comes looking for the same two fields later finds them under the same names.
+             *
+             * NO `placeholder`. Settings shows "2" and "3" there, and a figure standing in an empty
+             * field of a setup wizard reads as a value already entered.
+             */
+            var scheduleHtml = '';
+            if (this.d.turfType === 'sports') {
+                scheduleHtml = '<div style="margin-top:16px">' +
+                    '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Match and training schedule</label>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+                    this._numberField('wiz-matches', 'Matches per week', this.d.matchesPerWeek) +
+                    this._numberField('wiz-sessions', 'Sessions per week', this.d.sessionsPerWeek) +
+                    '</div></div>';
+            }
+
             c.innerHTML = '<h3 style="margin:0 0 4px;font-size:17px;font-weight:700;color:var(--gaip-text,#17231f)">What are you managing?</h3>' +
                 '<p style="color:var(--gaip-text-secondary,#4a5e55);font-size:13px;margin:0 0 16px">Sets interpretation thresholds, species options, and analysis parameters.</p>' +
-                '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">' + typeHtml + '</div>' +
-                subHtml;
+                '<div data-input="turf.turfType" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">' + typeHtml + '</div>' +
+                subHtml + scheduleHtml;
 
             c.querySelectorAll('.wiz-type-btn').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     self.d.turfType = this.dataset.type;
                     if (self.d.turfType !== 'golf') self.d.subCategory = null;
+                    // GH-789: and the schedule goes the same way the golf surface does -- an answer
+                    // to a question this type is not asked is not an answer.
+                    if (self.d.turfType !== 'sports') {
+                        self.d.matchesPerWeek = null;
+                        self.d.sessionsPerWeek = null;
+                    }
                     self.d.species = null;
                     self._render();
+                });
+            });
+            /**
+             * GH-789: an empty field is `null` and a typed nought is `0`. `parseFloat('') || 0`
+             * would make both of them nought, which is the whole defect of this queue item in one
+             * expression: a value nobody entered reading as a value entered.
+             */
+            c.querySelectorAll('.wiz-number').forEach(function (input) {
+                input.addEventListener('input', function () {
+                    var raw = String(this.value).trim();
+                    var parsed = raw === '' ? null : parseFloat(raw);
+                    var value = (parsed === null || !isFinite(parsed)) ? null : parsed;
+                    if (this.id === 'wiz-matches') { self.d.matchesPerWeek = value; }
+                    else { self.d.sessionsPerWeek = value; }
+                    // The mark answered the press that was refused; typing answers it back.
+                    if (window.GilbaRequiredFields && self._canProceed()) {
+                        window.GilbaRequiredFields.clear(self.modal);
+                        self._sayShort('');
+                    }
                 });
             });
             c.querySelectorAll('.wiz-sub-btn').forEach(function (btn) {
@@ -578,22 +747,22 @@
                 '<p style="color:var(--gaip-text-secondary,#4a5e55);font-size:13px;margin:0 0 16px">These drive all downstream thresholds and interpretation ranges.</p>' +
                 '<div style="margin-bottom:16px">' +
                 '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Primary species</label>' +
-                '<select id="wiz-species" style="width:100%;padding:9px 12px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)">' +
+                '<select id="wiz-species" data-input="turf.species" style="width:100%;padding:9px 12px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)">' +
                 speciesTopt + '</select>' +
                 '</div>' +
                 '<div style="margin-bottom:16px">' +
                 '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Cultivar / variety</label>' +
-                '<select id="wiz-variety" style="width:100%;padding:9px 12px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)">' +
+                '<select id="wiz-variety" data-input="turf.variety" style="width:100%;padding:9px 12px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)">' +
                 varietyOpt + '</select>' +
                 '</div>' +
                 '<div style="margin-bottom:16px">' +
                 '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Construction type</label>' +
-                '<select id="wiz-construction" style="width:100%;padding:9px 12px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)">' +
+                '<select id="wiz-construction" data-input="turf.construction" style="width:100%;padding:9px 12px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)">' +
                 constructionOpt + '</select>' +
                 '</div>' +
                 '<div>' +
                 '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Soil interpretation method</label>' +
-                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + methodHtml + '</div>' +
+                '<div data-input="turf.methodology" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + methodHtml + '</div>' +
                 '</div>' +
                 this._methodNote();
 
@@ -769,7 +938,23 @@
                 .catch(function (err) {
                     console.warn('[Wizard] Save failed:', err);
                     if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = 'Go to Dashboard'; }
-                    alert('Could not save settings. Please check your connection and try again.');
+                    /**
+                     * GH-789 (queue item 7) — THE REFUSAL IS ABOUT A FIELD OR IT IS ABOUT THE
+                     * CONNECTION, AND THOSE ARE NOT THE SAME SENTENCE.
+                     *
+                     * Every failure used to say "check your connection and try again", including the
+                     * server refusing a field -- so a person read a network fault about their own
+                     * empty cultivar, and trying again did the same thing. A refusal that names
+                     * inputs is marked and named in the words of the list, the same ones Settings
+                     * uses; anything else is still the connection.
+                     */
+                    var marker = window.GilbaRequiredFields;
+                    if (err && err.missing && err.missing.length && marker) {
+                        self._sayShort(marker.mark(self.modal, err.missing));
+
+                        return;
+                    }
+                    self._sayShort('Could not save. Please check your connection and try again.');
                 });
         },
 
@@ -842,6 +1027,20 @@
                     turf: turfSection,
                     wizard: { complete: true, completedAt: new Date().toISOString(), version: '1.0' },
                 };
+                /**
+                 * GH-789 (queue item 7) — THE SCHEDULE, AND ONLY WHAT WAS TYPED INTO IT.
+                 *
+                 * Two keys, both numbers, no stand-in for any other field of a schedule: the rest of
+                 * it is Settings' business, and a default written here would be a choice nobody made
+                 * on a site nobody had configured yet. The server merges a schedule by key
+                 * (`GAIP_MERGED_SUBOBJECTS`), so what is already stored beside these two survives.
+                 *
+                 * Sports only, because sports is the only type asked.
+                 */
+                var schedule = self._answers['traffic.schedule'].get(self.d);
+                if (self.d.turfType === 'sports' && schedule) {
+                    gaipCfg.traffic = { schedule: schedule };
+                }
 
                 // GH-440 (GH-439 stage 1): the wizard states the three things
                 // it collected. As a whole-object write it also deleted
@@ -889,7 +1088,13 @@
             }
             return fetch(API + path, opts).then(function (r) {
                 return r.json().catch(function () { return {}; }).then(function (data) {
-                    if (!r.ok) throw new Error((data && data.message) || 'HTTP ' + r.status);
+                    if (!r.ok) {
+                        var err = new Error((data && data.message) || 'HTTP ' + r.status);
+                        // GH-789 (queue item 7): a refusal about a field carries the field, so the
+                        // person is told which one instead of being told to check the connection.
+                        if (data && data.missing) { err.missing = data.missing; }
+                        throw err;
+                    }
                     return data;
                 });
             });

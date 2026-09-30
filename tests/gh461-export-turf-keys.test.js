@@ -372,7 +372,10 @@ const EMPTY_VIEW_II = {
     tissue: 'GAIP_STATE.tissueResults and the tissue form; section 10.5',
     water: 'GAIP_STATE.waterResults and the blend form; section 10.5',
     shade: 'shadeMetrics computed by the page\'s own run; no shade result exists by id',
-    traffic: 'wearMetrics computed by the page\'s own run; no wear result exists by id',
+    // GH-787 (queue item 3vy): the `traffic` container left this list because it is no longer filled from a
+    // page global at all. It was `window.GAIP_STATE.wearMetrics`, the cascade's wear result; the section now
+    // reads the wear of the document's OWN pass (`GaipOrchestrator.getComputed('wear')`), so on a run that
+    // computes nothing the container simply does not appear — which is what this list is about.
     // GH-490: `amendment` stood here until the soil readings stopped coming off
     // the page. The amendment engine is called only where there are soil
     // readings to amend, so an empty run no longer reaches it at all — and a

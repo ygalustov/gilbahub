@@ -22,7 +22,8 @@
 ## Заявка «15 мест» — не подтвердилась: мест 22
 
 - Моя перепись в развилке 5 считала только `getActiveSample`. Её «17 мест в 9 файлах» включали упоминания в комментариях, а «15» — это они же без двух мест переключателя.
-- **Вместе с `getActiveSampleId` чтений активной пробы вне `sample-manager.js` — 22 в 11 файлах.** Перепись: `grep` по `getActiveSample(` и `getActiveSampleId(` в `assets`, без `gssh-*`, без комментариев.
+- **Вместе с `getActiveSampleId` чтений активной пробы вне `sample-manager.js` — 22 в 10 файлах.** Перепись: `grep` по `getActiveSample(` и `getActiveSampleId(` в `assets`, без `gssh-*`, без `sample-manager.js`, без комментариев. Файлы: `gaip-evidence-ui.js` 3, `hub-tissue-v3.js` 1, `lab-report-parser.js` 1, `nutrient-trend.js` 1, `nutrition-au-fertiliser-integration.js` 3, `nutrition-calendar.js` 4, `nutrition-uk-fertiliser-integration.js` 1, `sample-switcher-ui.js` 4, `site-selector-ui.js` 3, `word-export.js` 1. Прежнее «11 файлов» ошибочно считало `sample-manager.js`, а он владелец указателя, не место переписи. Пересчитано после коммита `1bf0c58`.
+- **№ 23 лежит в `hub-tissue-v3.js`**, в файле, который уже есть в переписи: это чтение формы `/hub`, а не вызов `getActiveSample`, поэтому числа 22 и 10 оно не меняет.
 - В перепись не входят проверки наличия метода (`typeof SM.getActiveSample`) внутри выбирающей функции `hub-tissue-v3.js`: около `:856`, `:1395`, `:1408`. Это не чтения.
 
 ## Где грузятся файлы — от этого зависит, что значит «расчёт»
@@ -119,7 +120,7 @@
 - **Форма `/hub` как вход расчёта** — № 23, снимается.
 - **Ответ сервера о пробе расчёта**, хранимый функцией до перезагрузки, — не копия: он не пишется обратно и не переживает страницу.
 
-Искала `localStorage`, `sessionStorage` в `sample-manager.js`, `dashboard-ui.js` и во всех 11 файлах переписи; `getActiveSample` / `getActiveSampleId` по `assets`.
+Искала `localStorage`, `sessionStorage` в `sample-manager.js`, `dashboard-ui.js` и во всех 10 файлах переписи; `getActiveSample` / `getActiveSampleId` по `assets`.
 
 ## Граница — вне пункта
 

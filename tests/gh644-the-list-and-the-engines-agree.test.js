@@ -309,11 +309,24 @@ describe('GH-644 — the universe is the engines, not the list', () => {
          * the drift in place. Thirteen is the measured set; a count would have said only that
          * the number changed, not which engines.
          */
+        /**
+         * GH-787 (queue item 3vy) — `wear-recovery-engine` LEFT THIS LIST, and that is the subject of that
+         * item rather than drift.
+         *
+         * The engine was run twice per pass, once by the cascade and once by the orchestrator, each with its
+         * own assembly of its inputs. Measured on the stand, last row of every site: the two disagreed about
+         * the recovery window at 10 of 10 sites — `Test5 - NZ` 17 days against 7 — and about the species they
+         * handed the engine at all 10. The graph now names one runner, the orchestrator, and the cascade
+         * builds this very list from the graph, so the engine is no longer one of the cascade's.
+         *
+         * It is still measured, by this file's own rule: the orchestrator's assembly
+         * (`buildWearRecoveryInputs`) is among the state assemblies this universe follows.
+         */
         expect(ids.slice().sort()).toEqual([
             'firmness-engine', 'mlsn-calculator', 'nopt-engine', 'phytotoxicity-engine',
             'salinity-penalty-engine', 'shade-engine', 'soil-structure-engine',
             'stress-trajectory-engine', 'tissue-engine', 'traffic-engine',
-            'turf-manager-engine', 'water-blender', 'wear-recovery-engine',
+            'turf-manager-engine', 'water-blender',
         ]);
         expect({ enginesWithNoBodyFound: missing }).toEqual({ enginesWithNoBodyFound: [] });
         expect(reads.size).toBeGreaterThan(20);
@@ -334,7 +347,13 @@ describe('GH-644 — the universe is the engines, not the list', () => {
          */
         expect(reads.get('soil.clay')).toBe('soil-structure-engine');   // a file of its own
         expect(perEngine['shade-engine']).toBeGreaterThan(0);           // reached through a global
-        expect(perEngine['wear-recovery-engine']).toBeGreaterThan(0);   // reached through the adapter
+        /**
+         * GH-787 (queue item 3vy): the witness for "a body reached through the adapter was scanned" is the
+         * firmness engine now. It was `wear-recovery-engine`, which the cascade no longer runs at all — the
+         * graph names one runner for it since that item, so it has no body among the cascade's and asserting
+         * one would be asserting the defect back.
+         */
+        expect(perEngine['firmness-engine']).toBeGreaterThan(0);        // reached through the adapter
         expect(reads.has('soil.CEC')).toBe(true);
         expect(reads.has('turf.hoc')).toBe(true);
         /**
@@ -371,7 +390,18 @@ describe('GH-644 — the universe is the engines, not the list', () => {
         expect(assemblies.length).toBeGreaterThan(0);
         expect(assemblies.some((a) => a.indexOf('hub-tissue-v3.js') > -1)).toBe(true);
         expect(Object.keys(perEngine).length).toBeGreaterThanOrEqual(11);
-        expect(reads.size).toBeGreaterThanOrEqual(83);
+        /**
+         * GH-787 (queue item 3vy): 83 -> 75, and the eight that left are the ones this item removed.
+         *
+         * The cascade's own wear assembly (`readWearRecoveryState`) read the old hub's form for the traffic
+         * schedule, the construction, the height of cut, the root depth and the soil moisture; its
+         * `executeWearEngine` read the growth potential off a page global. Those reads are gone because that
+         * second assembly is gone — the engine has one runner now, and its inputs come from the site's config
+         * in the orchestrator's own assembly, which this universe follows as a state assembly.
+         *
+         * The floor moves down only with a removal somebody wrote, which is what a ratchet is for.
+         */
+        expect(reads.size).toBeGreaterThanOrEqual(75);
     });
 
     test('DIRECTION ONE — an input the calculation reads and the list does not carry is named', () => {

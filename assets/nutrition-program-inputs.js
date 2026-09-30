@@ -676,6 +676,121 @@
     }
 
     // ==========================================================================
+    // The annual nitrogen target — one function, for every surface
+    // ==========================================================================
+
+    /**
+     * annualNBaseOf(siteConfig) -> { value, source }
+     *
+     * GH-786 (queue item 3gg) - ONE FUNCTION ANSWERS "WHAT IS THIS SITE'S ANNUAL N TARGET".
+     *
+     * The owner's decision, 30.09.2026: the analysis and the export take it from the saved programme
+     * (`nutritionCalendarProgram.meta.annualNBase`), and from Settings (`turf.nProgram`) when the site has no
+     * programme. Page fields are not read at all.
+     *
+     * WHY THIS FUNCTION EXISTS. The rule was already true in this file, as a chain inside one resolver, and it
+     * was ALSO true in the run frame - as a side effect of event order: `nutrition-calendar.js` put the saved
+     * programme's figure into a page field, and the state assembly read that field before it read the Settings
+     * one. Whichever won the race decided the number the whole analysis ran on. Measured on the stand: of 32
+     * analysis rows since 22.09 written for the 9 sites whose two stores disagree, 4 were computed on Settings
+     * and 28 on the programme - the same site answering differently on different days. The Plan page's Seasonal
+     * N block knew no rule at all and read Settings. Three readers, three answers, agreeing only where the two
+     * stores agree (2 sites of 11) or where the race happened to be won.
+     *
+     * THE SOURCE NAMES ARE THE ONES THE PRODUCT ALREADY PRINTS, not new words: `plan-persisted` and
+     * `settings-turf` are read by `plan-calc-trace.js` to tell a person where the figure came from and by both
+     * exports to decide whether the document carries its "not from a generated programme" note. A second
+     * vocabulary here would be a second answer to the same question.
+     *
+     * THE THIRD STEP IS THE SPECIES REMOVAL TABLE, and it is here by the owner's decision of 30.09.2026: "let
+     * us make it so that in the second place, and so in the third, it also takes it from the grass species
+     * automatically". So all three surfaces - the analysis, the export and the Plan page - end on the same
+     * figure the nutrition programme itself would compute, instead of each ending somewhere of its own (the
+     * analysis on a field carrying 200, the Plan page on an empty section).
+     *
+     * AND IT IS THE TABLE'S ONE OWNER, not a second copy of the rule: `REMOVAL_RATES` and `normalizeSpecies`
+     * are declared once, in `nutrition-requirement-core.js`, which is what the nutrition programme runs on and
+     * what this file already read for this very step. A caller that has already resolved the species - the
+     * resolver below has, from the sample as well as the site - hands it in, so the two cannot disagree about
+     * which species this site is.
+     *
+     * WHAT THIS FUNCTION DOES NOT KNOW: page fields, page globals, the live Plan form. The Plan form is a step
+     * of the Plan page's own generation flow and stays with the resolver that serves it; a stale programme is
+     * NOT a reason to refuse the figure (see the resolver).
+     *
+     * `null` REMAINS REACHABLE, and for one reason only: this function was asked about a site whose config did
+     * not resolve, or the core file is not loaded in this frame. It is no longer the answer for a site that
+     * merely has neither store.
+     *
+     * @param {object|null} siteConfig - the gaip config of ONE site, resolved by id by the caller.
+     * @param {object} [opts] - { species } the RAW species setting, when the caller has one of its own
+     *                          (the sample's, say). Never a resolved key: see the third step below.
+     * @returns {{value: number|null, source: string|null}}
+     */
+    function annualNBaseOf(siteConfig, opts) {
+        const cfg = siteConfig || null;
+        const turf = (cfg && cfg.turf) || {};
+        const programme = (cfg && cfg.nutritionCalendarProgram) || null;
+        const meta = (programme && programme.meta) || null;
+        const adj = (programme && programme.adjustments) || null;
+
+        if (meta && meta.annualNBase > 0) {
+            return { value: parseFloat(meta.annualNBase), source: 'plan-persisted' };
+        }
+        /**
+         * Programmes generated before GH-383 carry only the traffic-ADJUSTED target. The modifier is divided
+         * back out so a base can never compound across regenerations - the same arithmetic the resolver and
+         * the calendar's own restore already do. None of the 11 programmes on the stand is of that vintage
+         * (every one carries `meta.annualNBase`), and the step stays because a client's saved programme is
+         * older than this stand is.
+         */
+        if (adj && adj.target_n > 0) {
+            const mod = (adj.traffic_modifier > 0) ? adj.traffic_modifier : 1;
+            return { value: adj.target_n / mod, source: 'plan-persisted' };
+        }
+        if (turf.nProgram > 0) {
+            return { value: parseFloat(turf.nProgram), source: 'settings-turf' };
+        }
+        /**
+         * The species removal table, asked of the file that owns it - AND ONLY FOR A SITE WHOSE SPECIES IS
+         * NAMED. The owner decided that on 30.09.2026, after the first form of this step was measured across
+         * the stand: "let us do it without the substitution". Three of the 21 sites name no species, and for
+         * them the step used to answer 160 - `mixedCool`, the removal table's figure for an unnamed sward. A
+         * site whose grass nobody entered was getting a nitrogen programme derived from a guess about the
+         * grass, and on the Plan page that replaced "N programme not set" with a quarterly plan.
+         *
+         * THE SPECIES IS TESTED RAW, because the substitution sits upstream of the table: `resolveSpeciesKey`
+         * answers `mixedCool` for an empty value, for null and for a name it does not recognise, so its answer
+         * cannot tell "unnamed" from "named". Measured while writing this.
+         *
+         * THREE THINGS STOP THE STEP, and all three are "we were not told" rather than "there is nothing":
+         *   - NO CONFIG AT ALL. A caller that could not resolve the site by id knows neither its stores nor its
+         *     species, and a figure here would be the same number for a site nobody identified as for a site
+         *     whose species is simply unnamed. Measured: without this guard `annualNBaseOf(null)` answered 160.
+         *   - NO SPECIES NAMED on the site.
+         *   - NO CORE FILE in this frame, so there is no table to ask.
+         *
+         * NAMED AND NOT IN THE TABLE is a fourth case and it is NOT decided here: `resolveSpeciesKey` folds
+         * such a name to `mixedCool`, and it folds it the same way for the sufficiency ranges and for the
+         * nutrition programme itself. Answering differently in this one function would be a second vocabulary
+         * of species. All five species on the stand are in the table.
+         */
+        const core = _core();
+        /**
+         * `opts.species` IS THE RAW SETTING, never a resolved key, and the difference is the whole test:
+         * `resolveSpeciesKey` answers `mixedCool` for an unnamed sward, so a caller that hands in its resolved
+         * key hands in a species where there is none. Measured while writing this - the export resolver did
+         * exactly that and answered 160 for a site naming no grass.
+         */
+        const rawSpecies = (opts && opts.species) || turf.species || null;
+        const named = (typeof rawSpecies === 'string' && rawSpecies.trim() !== '') ? rawSpecies : null;
+        if (!cfg || !named || !core || !core.REMOVAL_RATES) return { value: null, source: null };
+        const table = core.REMOVAL_RATES[core._normalizeSpecies(resolveSpeciesKey(named) || named)];
+        if (!table || !(table.N > 0)) return { value: null, source: null };
+        return { value: table.N, source: 'species-default' };
+    }
+
+    // ==========================================================================
     // The programme-level input contract
     // ==========================================================================
 
@@ -918,27 +1033,33 @@
 
         // ── annual N base, with provenance (decision D-4/D-4b) ──
         let annualNBase = null;
+        /**
+         * GH-786 (queue item 3gg) - ONE FUNCTION WALKS THE SITE'S STORES, and the only step left here is the
+         * Plan page's live form.
+         *
+         * `annualNBaseOf` answers the whole question: the saved programme, then Settings, then the species
+         * removal table, and that third step only for a site whose species is named - the owner's decisions of
+         * 30.09.2026, so that the analysis, the export and the Plan page end on one figure instead of three,
+         * and on none at all where the grass was never entered.
+         *
+         * THE SPECIES HANDED IN IS THE RAW ONE, which takes the sample's over the site's, so the table is keyed
+         * on the same species the ranges are. Not `speciesKey`: that is already folded to `mixedCool` for a
+         * site naming no grass, so handing it in would report a species to a step that must not run without
+         * one. Measured while writing this - it answered 160 for a site with no species and no store.
+         *
+         * The live form stays above it because it is not a store: it is what a person is typing on the Plan
+         * page this moment. `readPlanForm` answers null off that page (`#plan-nut-annual-n` is on
+         * plan.blade.php and nowhere else), and the Word export passes `planForm` not at all.
+         */
+        const _nBase = annualNBaseOf(cfg, { species: rawSpecies });
         if (planForm && planForm.annualN > 0) {
             annualNBase = planForm.annualN;
             sources.annualN = 'plan';
-        } else if (persistedMeta && persistedMeta.annualNBase > 0) {
-            annualNBase = persistedMeta.annualNBase;
-            sources.annualN = 'plan-persisted';
-        } else if (persistedAdj && persistedAdj.target_n > 0) {
-            // Programmes generated before GH-383 carry only the
-            // traffic-ADJUSTED target. Divide the modifier back out so the
-            // base can never compound across regenerations.
-            const mod = (persistedAdj.traffic_modifier > 0) ? persistedAdj.traffic_modifier : 1;
-            annualNBase = persistedAdj.target_n / mod;
-            sources.annualN = 'plan-persisted';
-        } else if (turf.nProgram > 0) {
-            annualNBase = parseFloat(turf.nProgram);
-            sources.annualN = 'settings-turf';
+        } else if (_nBase.value != null) {
+            annualNBase = _nBase.value;
+            sources.annualN = _nBase.source;
         } else {
-            const table = core.REMOVAL_RATES[core._normalizeSpecies(speciesKey || speciesDisplay)] ||
-                core.REMOVAL_RATES.mixedCool;
-            annualNBase = table.N;
-            sources.annualN = 'species-default';
+            sources.annualN = 'unresolved';
         }
         const annualN = resolveAnnualN({ base: annualNBase, trafficModifier: traffic.modifier });
 
@@ -1312,6 +1433,8 @@
         resolveSufficiencyRanges: resolveSufficiencyRanges,
         deriveTrafficIntensity: deriveTrafficIntensity,
         resolveAnnualN: resolveAnnualN,
+        // GH-786 (queue item 3gg): the one function every surface asks for this site's annual N target.
+        annualNBaseOf: annualNBaseOf,
         validateSampleInputs: validateSampleInputs,
         getSiteConfig: getSiteConfig,
         getActiveSiteId: getActiveSiteId,

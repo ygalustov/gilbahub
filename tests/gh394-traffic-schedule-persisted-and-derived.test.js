@@ -339,7 +339,10 @@ describe('GH-394 — the schedule reaches the server and survives a site switch'
         // three programme keys out of any more -- they simply are not in what
         // is sent, and neither is anything else the form does not own.
         const s = read('settings-init.js');
-        expect(s).toMatch(/patchGaipConfig\(\{ traffic: \{ schedule: state, savedAt: new Date\(\)\.toISOString\(\) \} \}\)/);
+        // GH-789 (queue item 7): the call now names the PLACE that is saving -- `settings.trafficAndWear`,
+        // a key the inputs list declares -- so the server judges this tab by the inputs this tab collects.
+        // The section it sends is unchanged, which is what this case is about.
+        expect(s).toMatch(/patchGaipConfig\(\{ traffic: \{ schedule: state, savedAt: new Date\(\)\.toISOString\(\) \} \},\s*'settings\.trafficAndWear'\)/);
         expect(s).toMatch(/localStorage\.setItem\(getTrafficStateKey\(\), JSON\.stringify\(state\)\)/);
         expect(s).not.toMatch(/_tcfg/);
     });

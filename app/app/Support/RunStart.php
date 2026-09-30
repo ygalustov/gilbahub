@@ -292,12 +292,18 @@ class RunStart
     }
 
     /**
-     * Was this input filled at that moment?
+     * GH-789 (queue item 7) — ONE RULE OF "FILLED", ASKED OF THE LIST.
      *
-     * An empty string and an empty array count as absent, because that is what they
-     * mean to a person looking at the form: nothing entered. A zero does NOT — a
-     * measured zero is a value, and collapsing it into absence is the class this
-     * repository has spent the day removing.
+     * This held the rule itself, and the setup lock held a second copy of it (`EnsureSiteIsSetUp::isBlank`).
+     * They agreed on everything but an OBJECT: both called a non-empty array filled, so a schedule of nothing
+     * but `null`s read as entered — and the Settings form sends every key it has on every save. The rule now
+     * lives in `CalculationInputs`, beside the declaration it has to read (`filledWhenAnyOf`), and both
+     * callers ask it. A zero is filled, which is what the comment here has said since GH-675.
+     *
+     * The walk down the dotted path stays here: it is about where a value sits in THIS config, not about what
+     * counts as a value.
+     *
+     * @param  array<string,mixed>  $config
      */
     private static function filled(array $config, string $key): bool
     {
@@ -308,17 +314,8 @@ class RunStart
             }
             $value = $value[$segment];
         }
-        if ($value === null) {
-            return false;
-        }
-        if (is_string($value)) {
-            return trim($value) !== '';
-        }
-        if (is_array($value)) {
-            return $value !== [];
-        }
 
-        return true;
+        return CalculationInputs::isFilled($key, $value);
     }
 
     /** @return array<string,mixed> */

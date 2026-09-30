@@ -355,6 +355,21 @@
     },
     "turf.methodology": {
       "required": true,
+      "requiredOnEveryWrite": true,
+      "requiredOnEveryWriteBecause": [
+        "GH-789 (queue item 7) - THE OBLIGATION THAT IS NOT TIED TO A PLACE.",
+        "",
+        "Every other required input is judged where it is entered: the server refuses a Settings tab that",
+        "would leave one of ITS fields empty, and the setup wizard refuses the step that collects it. This",
+        "one is judged on EVERY write to a site's config, whatever the write was about, and that is the",
+        "owner's decision of 24.09.2026: methodology is required everywhere, for old sites and new alike,",
+        "because the whole calculation rests on it. GH-684 held it as a separate invariant inside",
+        "`SiteController`; it is declared here now, so the refusal a person reads is one sentence in the",
+        "list's own words with the field marked, rather than two sentences for one empty field.",
+        "",
+        "It is still never filled in with `mlsn` or anything else: an empty value on a site that completed",
+        "the wizard is a defect in the requirement, not a reason to substitute."
+      ],
       "filledIn": [
         "wizard.step3",
         "settings.turf"
@@ -432,6 +447,31 @@
       ],
       "storedIn": [
         "config"
+      ],
+      "storedAs": [
+        "nutritionCalendarProgram.meta.annualNBase",
+        "turf.nProgram"
+      ],
+      "$comment": [
+        "GH-786 (queue item 3gg) - TWO PLACES HOLD THIS NUMBER, AND THE ORDER IS THE RULE.",
+        "",
+        "The owner's decision, 30.09.2026: the analysis and the export take the annual nitrogen",
+        "target from the saved programme (`nutritionCalendarProgram.meta.annualNBase`), and from",
+        "Settings (`turf.nProgram`) when there is no programme. Page fields are not read at all.",
+        "The two paths are declared in that order because that is the order the one function that",
+        "answers the question walks them (`GAIP_NutritionProgramInputs.annualNBaseOf`), and the",
+        "server's `filledSomewhereInTheConfig` counts the input as entered when EITHER carries a",
+        "value - which is right here: a person who generated a programme entered this number.",
+        "",
+        "Measured on the stand before the change: 11 of 21 sites hold a programme, 9 of them with a",
+        "figure that differs from Settings, and three readers answered the question three ways.",
+        "Without the first path declared, a site whose number lives only in its programme would be",
+        "reported to its own owner as not having entered it.",
+        "",
+        "`filledIn` STAYS `settings.turf`, and that is a named boundary, not an oversight. The second",
+        "storage is written by the Plan page's own nutrition form, and `places` carries no key for it -",
+        "a sentence sending a person to an address that has no words is worse than none (GH-777's rule",
+        "of 49.1). Settings is where this number can always be entered, so the sentence stays true."
       ],
       "readAs": [
         "turf.plannedNRate",
@@ -566,10 +606,15 @@
         "sports"
       ],
       "filledIn": [
+        "wizard.step2",
         "settings.trafficAndWear"
       ],
       "storedIn": [
         "config"
+      ],
+      "filledWhenAnyOf": [
+        "matchesPerWeek",
+        "sessionsPerWeek"
       ],
       "readAs": [
         "traffic.level",
@@ -587,7 +632,23 @@
         "traffic.matchCode",
         "traffic.trainingCode"
       ],
-      "label": "the match and training schedule"
+      "label": "the match and training schedule",
+      "$comment": [
+        "GH-789 (queue item 7) - WHERE IT IS ENTERED, AND WHAT MAKES IT FILLED.",
+        "",
+        "The owner's decision of 30.09.2026: the setup wizard asks a sports surface for its matches and sessions",
+        "per week -- 'let us add it to the wizard for sports'. `wizard.step2` is that step, and it is declared HERE",
+        "rather than in the wizard, because `wizardStepsFor` builds the wizard's steps from this list and the lock",
+        "requires whatever the wizard asks. Golf and lawns do not get the step: the input is required for sports",
+        "only (`requiredFor`).",
+        "",
+        "`filledWhenAnyOf` SAYS WHICH FIELDS OF THE OBJECT MAKE IT FILLED, and it exists because the general rule",
+        "of 'filled' answers 'a non-empty array' for an object -- so a schedule of nothing but nulls counted as",
+        "entered. The form sends every key it has, always, so that was every save. These two are the load the wear",
+        "engine computes from; the rest of the schedule qualifies it. A NUMBER counts, and 0 IS A NUMBER: nought",
+        "matches is a week with no load, which is an answer and not an absence. Measured on the stand after the",
+        "owner's own entry of 30.09: six sports sites hold exactly {matchesPerWeek: 0, sessionsPerWeek: 0}."
+      ]
     },
     "pgr.productType": {
       "required": false,

@@ -76,6 +76,18 @@ class AnalysisCacheController extends Controller
             // silence, which is how the first run of this set filed an empty
             // judgement while the body carried a full one.
             'detail.notApplicable' => 'nullable|array',
+            /**
+             * GH-788 (queue item 3gd, found while repairing the source-reading guards) — THE JOURNAL'S MARKS,
+             * declared, because an undeclared key is dropped in silence. The very sentence above says so, and
+             * GH-781 walked into it anyway: the body it assembles carries `detail.journal` — the accepted
+             * cascade pass, the orchestrator's pass, whether a pass was unfinished at write, the sample ids —
+             * and none of it was in `$validated`, so none of it reached a row. Measured: 0 of 130 stored rows
+             * carry `detail.journal`, including rows written today, while `detail.skipped` and
+             * `detail.warnings` beside it are there. The reconciliation of GH-781 cannot fill while this key is
+             * dropped, and its suite reports itself NOT FILLED rather than passing — which is how the loss was
+             * visible at all.
+             */
+            'detail.journal'     => 'nullable|array',
             'inputs'             => 'nullable|array',
         ]);
 

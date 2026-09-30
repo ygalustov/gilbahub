@@ -117,9 +117,17 @@ class Gh629WizardSubCategoryPatchTest extends TestCase
                 'subCategory' => 'soccer', 'variety' => 'Colosseum'],
         ]]);
 
+        /**
+         * GH-789 (queue item 7): the cultivar left this pair, and the change of field is the subject rather
+         * than a repair. It is a REQUIRED input of the list, and by the owner's decision of 29.09.2026 a
+         * required field is not saved empty -- `clear` on it now answers 422 naming it
+         * (`Gh583CultivarAndConstructionAreRequiredTest`). What this case measures is what `clear` does for
+         * an ordinary field, and `turf.subCategory` on a sports site is one: its obligation is the owner's
+         * open question, so nothing requires it.
+         */
         $ordinary = $this->patchConfig($user, $site, [
             'patch' => ['turf' => ['species' => 'Perennial Ryegrass']],
-            'clear' => ['turf.subCategory', 'turf.variety'],
+            'clear' => ['turf.subCategory'],
         ]);
         $this->report('clear on two ordinary fields', $ordinary);
 

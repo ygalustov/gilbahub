@@ -68,26 +68,41 @@ class Gh708TheWizardLockHoldsEveryPageTest extends TestCase
         }
     }
 
-    public function test_an_input_the_wizard_cannot_ask_for_does_NOT_hold_the_page(): void
+    public function test_the_lock_holds_exactly_what_the_wizard_can_ask_for(): void
     {
         /**
-         * `traffic.schedule` is required for a sports site and no wizard step collects it. A lock
-         * holding it would send a person to a wizard that cannot answer it — the trap the
-         * coordinator's rule exists to avoid. Printed as well as asserted, because "it was not held"
-         * and "it was never required" read the same otherwise.
+         * GH-789 (queue item 7) — THE INVARIANT IS UNCHANGED; WHAT THE WIZARD ASKS HAS CHANGED.
+         *
+         * This case read "`traffic.schedule` is required for a sports site and NO wizard step collects it, so a
+         * lock holding it would send a person to a wizard that cannot answer it". The owner decided on
+         * 30.09.2026 that the wizard asks a sports surface for its matches and sessions per week, so the list
+         * declares the step and the lock holds the input — the invariant working rather than breaking: the lock
+         * holds exactly what the wizard can ask for, no more and no less.
+         *
+         * Asserted in BOTH directions and printed, because "held and askable" and "never required" read the
+         * same from a green test otherwise.
          */
         [$user, $site] = $this->site();
         $this->giveTheSiteWhatTheLockNeeds($site);
-        $this->blank($site, 'traffic.schedule');
 
         $required = CalculationInputs::requiredFor('sports');
-        fwrite(STDOUT, '[gh708] traffic.schedule required for sports: '
-            .json_encode(in_array('traffic.schedule', $required, true))
-            .' | held by the lock: '.json_encode(in_array('traffic.schedule', $this->locked(), true)).PHP_EOL);
+        $askable = [];
+        // `wizardStepsFor` answers {byStep: {n: [keys]}, unparsed: []} — the steps are under `byStep`.
+        foreach (CalculationInputs::wizardStepsFor('sports')['byStep'] as $keys) {
+            foreach ($keys as $key) {
+                $askable[] = $key;
+            }
+        }
+        $askable = array_values(array_unique($askable));
+        $held = $this->locked();
+        fwrite(STDOUT, '[gh708] required for sports: '.json_encode($required).PHP_EOL
+            .'[gh708] the wizard can ask for: '.json_encode($askable).PHP_EOL
+            .'[gh708] the lock holds: '.json_encode($held).PHP_EOL);
 
         $this->assertContains('traffic.schedule', $required);
-        $this->assertNotContains('traffic.schedule', $this->locked());
-        $this->actingAs($user->fresh())->get('/plan')->assertOk();
+        $this->assertContains('traffic.schedule', $askable);
+        $this->assertSame([], array_values(array_diff($held, $askable)), 'the lock holds what the wizard cannot ask');
+        $this->assertSame([], array_values(array_diff($askable, $held)), 'the wizard asks what the lock ignores');
     }
 
     public function test_the_run_frame_is_judged_by_the_site_it_was_opened_for_and_not_by_the_pointer(): void

@@ -82,6 +82,23 @@
 
     function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
 
+    /**
+     * This site's annual nitrogen target — GH-786 (queue item 3gg).
+     *
+     * Asked of `GAIP_NutritionProgramInputs.annualNBaseOf`, the one function that answers it for every surface:
+     * the saved programme first, then Settings, then nothing. This page loads that file (plan.blade.php), and a
+     * page that did not would get `null` here rather than a figure of its own.
+     *
+     * @param {object|null} siteConfig - the config of the site this page is showing.
+     * @returns {number|null}
+     */
+    function _annualNOf(siteConfig) {
+        var NPI = global.GAIP_NutritionProgramInputs;
+        if (!NPI || typeof NPI.annualNBaseOf !== 'function') return null;
+        var resolved = NPI.annualNBaseOf(siteConfig);
+        return (resolved && resolved.value != null) ? resolved.value : null;
+    }
+
     function esc(str) {
         return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
@@ -554,8 +571,27 @@
                 JSON.parse(localStorage.getItem('gilba_traffic_state_' + _tsid) || '{}');
         } catch(_) {}
 
-        var matchesPerWeek  = safeNum(_trafficSaved.matchesPerWeek  || (turf && (turf.matchesPerWeek  || turf.matches_per_week  || turf.matchesWeek)),  0);
-        var sessionsPerWeek = safeNum(_trafficSaved.sessionsPerWeek || (turf && (turf.sessionsPerWeek || turf.sessions_per_week || turf.sessionsWeek)), 0);
+        /**
+         * GH-789 (queue item 7) — NOUGHT MATCHES IS A NUMBER, and a number is never a reason to look elsewhere.
+         *
+         * `_trafficSaved.matchesPerWeek || (turf.matchesPerWeek || …)` sent an entered 0 down the fallback keys,
+         * and `sessionsPerWeek` the same way. Today both are right BY COINCIDENCE: none of the 8 sports sites on
+         * the stand carries `turf.matchesPerWeek`, `turf.matches_per_week` or `turf.matchesWeek` at all
+         * (measured), so the fallback answers nothing and the zero survives by accident. The wizard is about to
+         * start writing `{matchesPerWeek: 0, sessionsPerWeek: 0}` for six of them, which is a schedule of no
+         * load — the same class this repository removed in GH-780, GH-781 and GH-786.
+         *
+         * The fallback is kept for a value that is genuinely ABSENT, which is what it was for.
+         */
+        var _numberOr = function (value, fallback) {
+            var n = parseFloat(value);
+
+            return isFinite(n) ? n : fallback;
+        };
+        var matchesPerWeek  = safeNum(_numberOr(_trafficSaved.matchesPerWeek,
+            turf && (turf.matchesPerWeek  || turf.matches_per_week  || turf.matchesWeek)),  0);
+        var sessionsPerWeek = safeNum(_numberOr(_trafficSaved.sessionsPerWeek,
+            turf && (turf.sessionsPerWeek || turf.sessions_per_week || turf.sessionsWeek)), 0);
 
         if (!wear && !matchesPerWeek && !sessionsPerWeek) {
             var _turfType = turf && turf.turfType;
@@ -632,29 +668,66 @@
                     '</tbody></table>';
             }
 
-            // Stress factors
-            var adj = wear.adjustedRecovery;
-            if (adj && adj.adjustments && adj.adjustments.length) {
-                var icons = { shade: '—', salinity: '—', temperature: '—', compound: '—' };
-                html += '<div class="plan-stress-factors">' +
-                    '<div class="plan-stress-title">Stress Factors Affecting Recovery</div>' +
-                    adj.adjustments.map(function (a) {
-                        return '<div class="plan-stress-item">' +
-                            (icons[a.factor] || '•') + ' ' + esc(a.modification || a.factor) +
-                            '<span class="plan-stress-effect">' + esc(a.effect) + '</span>' +
-                            '</div>';
-                    }).join('') +
-                    (adj.baseProbability && adj.adjustedProbability
-                        ? '<div style="font-size:11px;margin-top:6px;color:var(--gaip-text-muted)">Recovery probability: ' + adj.baseProbability + '% → ' + adj.adjustedProbability + '%</div>'
-                        : '') +
-                    '</div>';
+            /**
+             * GH-787 (queue item 3vy) — THE STRESS FACTORS ARE THE ENGINE'S MULTIPLIERS, and there is one
+             * recovery probability on this page.
+             *
+             * This block read `wear.adjustedRecovery`, a second pass that divided the engine's days by the
+             * aggregate of stresses the engine had already applied. The owner settled it on 30.09.2026:
+             * stress enters the recovery days once, inside the engine. So the pass is gone, and with it the
+             * line "Recovery probability: X% → Y%" — measured on the stand, at 4 of 13 sites this page was
+             * showing two different probabilities at once, one in the card above and one here.
+             *
+             * What is listed instead is what the engine itself recorded: every multiplier it applied that is
+             * not 1. A multiplier of 1 changed nothing and saying so would be filling the block rather than
+             * informing it.
+             */
+            var mods = wear.recoveryCapacity && wear.recoveryCapacity.modifiers;
+            if (mods) {
+                var factorOf = function (v) { return (v && typeof v === 'object') ? v.factor : v; };
+                var applied = [
+                    { name: 'Shade', value: factorOf(mods.shade) },
+                    { name: 'Salinity', value: factorOf(mods.salinity) },
+                    { name: 'Temperature stress', value: factorOf(mods.temperatureStress) },
+                    { name: 'Soil moisture', value: factorOf(mods.moisture) },
+                    { name: 'Nitrogen', value: factorOf(mods.nitrogen) },
+                    { name: 'Root depth', value: factorOf(mods.rootDepth) },
+                    { name: 'Soil health', value: factorOf(mods.soilHealth) },
+                    { name: 'Growth', value: factorOf(mods.growth) },
+                    { name: 'Poa', value: factorOf(mods.poa) }
+                ].filter(function (m) { return typeof m.value === 'number' && m.value !== 1; });
+
+                if (applied.length) {
+                    html += '<div class="plan-stress-factors">' +
+                        '<div class="plan-stress-title">Stress Factors Affecting Recovery</div>' +
+                        applied.map(function (m) {
+                            var longer = m.value > 1;
+                            return '<div class="plan-stress-item">' +
+                                '• ' + esc(m.name) +
+                                '<span class="plan-stress-effect">' +
+                                esc((longer ? 'Recovery ' + Math.round((m.value - 1) * 100) + '% longer'
+                                            : 'Recovery ' + Math.round((1 - m.value) * 100) + '% shorter')) +
+                                '</span>' +
+                                '</div>';
+                        }).join('') +
+                        '</div>';
+                }
             }
         }
 
         // 4-week traffic grid
-        var matches  = Math.round(matchesPerWeek)  || (wear && wear.effectiveLoad && wear.effectiveLoad.breakdown
-            ? wear.effectiveLoad.breakdown.filter(function(b){ return /match/i.test(b.name); }).length : 0);
-        var sessions = Math.round(sessionsPerWeek) || 0;
+        /**
+         * GH-789 (queue item 7): the same rule one screen down. `Math.round(matchesPerWeek) || (count of
+         * "match" rows in the wear breakdown)` replaced an entered 0 with a count of rows — and the engine
+         * writes no row for nought hours (`wear-recovery-engine-pure.js`, `d > 0 &&`), so the count is 0 too
+         * and the substitution is invisible today. It stops being invisible the moment a site has a real
+         * schedule and a zero week.
+         */
+        var matches = isFinite(parseFloat(matchesPerWeek))
+            ? Math.round(matchesPerWeek)
+            : ((wear && wear.effectiveLoad && wear.effectiveLoad.breakdown)
+                ? wear.effectiveLoad.breakdown.filter(function(b){ return /match/i.test(b.name); }).length : 0);
+        var sessions = isFinite(parseFloat(sessionsPerWeek)) ? Math.round(sessionsPerWeek) : 0;
 
         if (matches > 0 || sessions > 0) {
             html += '<div style="font-size:12px;font-weight:700;color:var(--gaip-text);margin:14px 0 8px">4-Week Traffic Schedule</div>';
@@ -757,9 +830,15 @@
         var form = document.getElementById('plan-nut-form');
         if (!form) return;
 
-        // Pre-fill Annual N from saved site config
-        var turf   = siteConfig && siteConfig.turf;
-        var savedN = turf && (turf.nProgramKgHaYr || turf.annualN);
+        /**
+         * GH-786 (queue item 3gg) - PRE-FILLED FROM THE SITE'S OWN TARGET, by the one function that answers it.
+         *
+         * What stood here read `turf.nProgramKgHaYr || turf.annualN`, and neither key exists in a site config -
+         * checked against all 21 configs on the stand - so this pre-fill never once ran. The field ended up
+         * filled by the calendar's restore of a saved programme, which is a different path with a different
+         * rule, and a site whose figure lives only in Settings got an empty field.
+         */
+        var savedN = _annualNOf(siteConfig);
         if (savedN) {
             var inputN = document.getElementById('plan-nut-annual-n');
             if (inputN && !inputN.value) inputN.value = Math.round(savedN);
@@ -776,20 +855,25 @@
         if (!body) return;
 
         var turf  = siteConfig && siteConfig.turf;
+        // Still read below for the species name only; GH-786 took the annual N figure off it.
         var hub   = window.GAIP_HUB_CONFIG || {};
 
         // Determine hemisphere
         var hemi = (turf && turf.hemi) || (siteConfig && siteConfig.location && siteConfig.location.hemisphere) || 'southern';
         var seasons = hemi === 'northern' ? SEASONS_N : SEASONS_S;
 
-        // Annual N rate — from saved site config (nProgramKgHaYr or nProgram or annualN)
-        // This is the user-entered N programme from Settings, not from any analysis engine.
-        var annualN = safeNum(
-            (turf && (turf.nProgramKgHaYr || turf.nProgram || turf.annualN)) ||
-            (hub.nProgram) ||
-            null,
-            0
-        );
+        /**
+         * GH-786 (queue item 3gg) - THE SAME RULE AS THE ANALYSIS AND THE EXPORT, and no page global.
+         *
+         * This block knew no rule: it read Settings (`turf.nProgram`) and then `GAIP_HUB_CONFIG.nProgram`, a
+         * global describing whichever site the page was rendered for. On the stand 9 of the 11 sites that hold
+         * a saved programme carry a figure in it that differs from their Settings, so this section printed a
+         * quarterly split of a number the analysis and the document did not use - for example Federal Golf's
+         * 150 where its programme says 120.
+         *
+         * The two leading keys it tried, `turf.nProgramKgHaYr` and `turf.annualN`, exist in no site config.
+         */
+        var annualN = safeNum(_annualNOf(siteConfig), 0);
 
         if (!annualN) {
             body.innerHTML = emptyState('nutrition', 'N programme not set',

@@ -322,77 +322,19 @@
 }
 `;
 
-    // ========================================================================
-    // STATE READING FUNCTION
-    // ========================================================================
-
-    function readWearRecoveryState(root) {
-        if (!root) root = document;
-        
-        const safeNum = (el, fallback) => {
-            if (!el) return fallback;
-            const n = parseFloat(el.value);
-            return isFinite(n) ? n : fallback;
-        };
-        
-        const safeVal = (el, fallback) => {
-            return el ? el.value : fallback;
-        };
-
-        // Build prior weeks array
-        const priorWeeks = [];
-        const maxHours = {
-            soil: 3.0,
-            sand_profile: 7.8,
-            sand_carpet: 12.5
-        };
-        const construction = safeVal(root.querySelector('.gaip-construction'), 'soil');
-        const capacity = maxHours[construction] || 3.0;
-        
-        for (let i = 1; i <= 4; i++) {
-            const hours = safeNum(root.querySelector(`.gaip-prior-week-${i}`), null);
-            if (hours !== null) {
-                priorWeeks.push({
-                    load: hours,
-                    capacity: capacity
-                });
-            }
-        }
-
-        return {
-            site: {
-                construction: construction,
-                soilMoisture: safeVal(root.querySelector('.gaip-soil-moisture'), 'optimal')
-            },
-            traffic: {
-                // Matches
-                matchCode: safeVal(root.querySelector('.gaip-match-sport'), 'soccer'),
-                matchesPerWeek: safeNum(root.querySelector('.gaip-matches-week'), 0),
-                matchDuration: safeNum(root.querySelector('.gaip-match-duration'), 1.5),
-                
-                // Training
-                trainingCode: safeVal(root.querySelector('.gaip-training-type'), 'training_drills'),
-                sessionsPerWeek: safeNum(root.querySelector('.gaip-sessions-week'), 0),
-                sessionDuration: safeNum(root.querySelector('.gaip-session-duration'), 1.5),
-                trainingRotation: safeNum(root.querySelector('.gaip-training-rotation'), 100),
-                
-                // Common
-                ageGroup: safeVal(root.querySelector('.gaip-age-group'), 'adult'),
-                teamSize: safeVal(root.querySelector('.gaip-team-size'), 'medium'),
-                restDays: safeNum(root.querySelector('.gaip-rest-days'), 2),
-                
-                // Prior weeks for cumulative stress
-                priorWeeks: priorWeeks
-            },
-            turf: {
-                // These would come from existing turf inputs
-                // Adding wear-specific ones here
-                heightOfCut: safeNum(root.querySelector('.gaip-hoc'), 30),
-                rootDepth: safeNum(root.querySelector('.gaip-root-depth'), 100),
-                overseedStatus: safeVal(root.querySelector('.gaip-overseed-status'), 'none')
-            }
-        };
-    }
+    /**
+     * GH-787 (queue item 3vy): THE FORM OF THE OLD HUB IS NO LONGER AN INPUT TO THE WEAR CALCULATION.
+     *
+     * `readWearRecoveryState(root)` stood here and assembled the engine's state out of the hidden form --
+     * the traffic schedule, the construction, the height of cut, the root depth, the soil moisture -- each
+     * with its own default in the markup. That assembly is what made one calculation answer twice: measured
+     * on the stand, the two paths disagreed about the recovery window at 10 of 10 sites. The inputs now come
+     * from the site's own config, in the orchestrator's `buildWearRecoveryInputs`, by the key each is stored
+     * under (`calculation-inputs.schema.json`).
+     *
+     * What this file still does is DRAW: `renderWearRecoveryResults` below is called by the orchestrator's
+     * step 7 for the old hub's card, and the markup, the styles and the turf-profile listener stay with it.
+     */
 
     // ========================================================================
     // RESULTS RENDERING FUNCTION
@@ -462,50 +404,44 @@
             `).join('');
         }
         
-        // Build stress impact section from orchestrator data
+        /**
+         * GH-787 (queue item 3vy) — THE ENGINE'S OWN MULTIPLIERS, because the second pass is gone.
+         *
+         * This read `adjustedRecovery`, which re-applied salinity, shade and environmental stress to days
+         * the engine had already computed with all three. The owner settled it on 30.09.2026: stress enters
+         * the recovery days once, inside the engine. This card is on the old hub, which is a calculation
+         * runner and not a client surface, so it is kept working and no more than that: the multipliers the
+         * engine recorded, and nothing where it recorded none.
+         */
         let stressImpactHTML = '';
-        const orchestratorWear = window.GaipOrchestrator?.getComputed?.('wear');
-        const adjustedRecovery = orchestratorWear?.adjustedRecovery || r.adjustedRecovery;
-        
-        if (adjustedRecovery && adjustedRecovery.adjustments && adjustedRecovery.adjustments.length > 0) {
-            const baseProb = adjustedRecovery.baseProbability || 80;
-            const adjProb = adjustedRecovery.adjustedProbability || r.recoveryProbability;
-            const baseDays = adjustedRecovery.baseDays || 5;
-            const adjDays = adjustedRecovery.adjustedDays || r.recoveryWindow;
-            
-            const stressFactorItems = adjustedRecovery.adjustments.map(adj => {
-                let icon = '•';
-                let color = '#d97706';
-                if (adj.factor === 'shade') { icon = '☁️'; color = '#6366f1'; }
-                else if (adj.factor === 'salinity') { icon = '💧'; color = '#0891b2'; }
-                else if (adj.factor === 'temperature') { icon = '🌡️'; color = '#dc2626'; }
-                else if (adj.factor === 'compound') { icon = '⚠️'; color = '#7c3aed'; }
-                
-                return `<div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gaip-surface-hover);">
-                    <span>${icon}</span>
-                    <span style="flex: 1; color: var(--gaip-text);">${adj.modification || adj.factor}</span>
-                    <span style="color: ${color}; font-weight: 500;">${adj.effect}</span>
-                </div>`;
-            }).join('');
-            
-            stressImpactHTML = `
+        const engineMods = r.recoveryCapacity && r.recoveryCapacity.modifiers;
+        if (engineMods) {
+            const factorOf = (v) => (v && typeof v === 'object' ? v.factor : v);
+            const applied = [
+                ['Shade', factorOf(engineMods.shade)],
+                ['Salinity', factorOf(engineMods.salinity)],
+                ['Temperature stress', factorOf(engineMods.temperatureStress)],
+                ['Soil moisture', factorOf(engineMods.moisture)],
+                ['Nitrogen', factorOf(engineMods.nitrogen)],
+                ['Root depth', factorOf(engineMods.rootDepth)],
+                ['Soil health', factorOf(engineMods.soilHealth)],
+                ['Growth', factorOf(engineMods.growth)],
+                ['Poa', factorOf(engineMods.poa)]
+            ].filter(([, v]) => typeof v === 'number' && v !== 1);
+
+            if (applied.length) {
+                stressImpactHTML = `
                 <div style="margin-top: 16px; padding: 12px; background: var(--gaip-warning-bg); border-left: 4px solid #f59e0b; border-radius: 6px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <strong style="color: #92400e;">⚠️ Stress Factors Affecting Recovery</strong>
-                        <span style="font-size: 12px; color: var(--gaip-text);">
-                            ${baseProb}% → ${adjProb}% probability | ${baseDays}d → ${adjDays}d window
-                        </span>
-                    </div>
+                    <div style="margin-bottom: 8px;"><strong style="color: #92400e;">Stress Factors Affecting Recovery</strong></div>
                     <div style="font-size: 13px;">
-                        ${stressFactorItems}
+                        ${applied.map(([name, v]) => `<div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gaip-surface-hover);">
+                            <span style="flex: 1; color: var(--gaip-text);">${name}</span>
+                            <span style="color: #d97706; font-weight: 500;">${v > 1 ? 'Recovery ' + Math.round((v - 1) * 100) + '% longer' : 'Recovery ' + Math.round((1 - v) * 100) + '% shorter'}</span>
+                        </div>`).join('')}
                     </div>
-                    ${adjustedRecovery.warning ? `
-                        <div style="margin-top: 8px; padding: 8px; background: var(--gaip-critical-bg); border-radius: 4px; font-size: 12px; color: #dc2626;">
-                            ${adjustedRecovery.warning}
-                        </div>
-                    ` : ''}
                 </div>
             `;
+            }
         }
         
         // Modifiers detail (collapsed by default)
@@ -544,12 +480,12 @@
             </details>
         `;
         
-        // Get adjusted recovery values
-        const displayRecoveryProb = adjustedRecovery?.adjustedProbability ?? r.recoveryProbability;
-        const displayRecoveryDays = adjustedRecovery?.adjustedDays ?? r.recoveryWindow;
-        const hasStressAdjustment = adjustedRecovery?.adjustments?.length > 0;
-        const baseRecoveryProb = adjustedRecovery?.baseProbability ?? r.recoveryProbability;
-        const baseRecoveryDays = adjustedRecovery?.baseDays ?? r.recoveryWindow;
+        // GH-787: one figure, the engine's. There is no adjusted pair to show beside a base one any more.
+        const displayRecoveryProb = r.recoveryProbability;
+        const displayRecoveryDays = r.recoveryWindow;
+        const hasStressAdjustment = false;
+        const baseRecoveryProb = r.recoveryProbability;
+        const baseRecoveryDays = r.recoveryWindow;
         
         // Main output HTML
         const html = `
@@ -668,112 +604,13 @@
     // ========================================================================
 
     /**
-     * Wrapper function to run wear/recovery analysis
-     * Call this from the main hub runHub() function
+     * GH-787 (queue item 3vy): THE SECOND CALL OF THE ENGINE IS GONE.
+     *
+     * `runWearRecoveryAnalysis(state, weather, shadeData, FIobj)` stood here, published as
+     * `window.gaip_run_wear_analysis` and called by the cascade. The dependency graph now names one runner
+     * for the wear engine, and the cascade builds its engine list from the graph, so the wrapper had no
+     * caller left -- checked across `assets`, `app`, `tests` and the views before removing it.
      */
-    function runWearRecoveryAnalysis(state, weather, shadeData, FIobj) {
-        // Check if engine is loaded
-        if (typeof gaip_wear_recovery_engine !== 'function') {
-            console.warn('⚠️ Wear/Recovery Engine not loaded');
-            return null;
-        }
-        
-        // Merge wear-specific state with main state
-        const root = document.getElementById('gaip-hub');
-        const wearState = readWearRecoveryState(root);
-        
-        // Combine states
-        const combinedState = {
-            ...state,
-            site: {
-                ...state.site,
-                ...wearState.site
-            },
-            traffic: {
-                ...state.traffic,
-                ...wearState.traffic
-            },
-            turf: {
-                ...state.turf,
-                ...wearState.turf
-            },
-            monthIndex: state.monthIndex ?? new Date().getMonth()  // pure engine requires explicit date
-        };
-        
-        // =====================================================================
-        // DLI-RECOVERY BRIDGE INTEGRATION (v1.1.0)
-        // Enhances shadeData with species-specific recovery modifiers
-        // =====================================================================
-        let enhancedShadeData = shadeData || {};
-        
-        if (typeof window.GAIP_DLI_Recovery !== 'undefined' && window.GAIP_DLI_Recovery.calculate) {
-            try {
-                const dliRecovery = window.GAIP_DLI_Recovery.calculate(shadeData, combinedState);
-                
-                if (dliRecovery && dliRecovery.available) {
-                    // Merge DLI recovery data into shade data
-                    enhancedShadeData = {
-                        ...shadeData,
-                        // Core recovery modifier from DLI bridge
-                        stressFactor: dliRecovery.stressFactor,
-                        dliRecoveryFactor: dliRecovery.factor,
-                        
-                        // DLI metrics for display/debugging
-                        dliActual: dliRecovery.dliActual,
-                        dliMin: dliRecovery.dliMin,
-                        dliTarget: dliRecovery.dliTarget,
-                        dliOptimal: dliRecovery.dliOptimal,
-                        dliDeficitPct: dliRecovery.deficitPct,
-                        
-                        // Category and severity
-                        dliCategory: dliRecovery.category,
-                        dliSeverity: dliRecovery.severity,
-                        dliColour: dliRecovery.colour,
-                        dliImpactDescription: dliRecovery.impactDescription,
-                        
-                        // LED requirement flag
-                        ledRequired: dliRecovery.ledRequired,
-                        ledDeficitMol: dliRecovery.ledDeficitMol,
-                        
-                        // Source tracking
-                        _dliRecoveryBridge: true,
-                        _dliRecoveryVersion: dliRecovery.version
-                    };
-                } else {
-                }
-            } catch (dliErr) {
-                console.warn('[WearRecovery] DLI-Recovery Bridge error:', dliErr);
-            }
-        } else {
-        }
-        
-        // Run analysis with enhanced shade data
-        try {
-            const results = gaip_wear_recovery_engine(combinedState, weather, enhancedShadeData, FIobj);
-            
-            // Attach DLI recovery info to results for UI display
-            if (enhancedShadeData._dliRecoveryBridge) {
-                results.dliRecovery = {
-                    applied: true,
-                    stressFactor: enhancedShadeData.stressFactor,
-                    recoveryFactor: enhancedShadeData.dliRecoveryFactor,
-                    category: enhancedShadeData.dliCategory,
-                    severity: enhancedShadeData.dliSeverity,
-                    colour: enhancedShadeData.dliColour,
-                    impactDescription: enhancedShadeData.dliImpactDescription,
-                    dliActual: enhancedShadeData.dliActual,
-                    dliTarget: enhancedShadeData.dliTarget,
-                    ledRequired: enhancedShadeData.ledRequired,
-                    ledDeficitMol: enhancedShadeData.ledDeficitMol
-                };
-            }
-            
-            return results;
-        } catch (err) {
-            console.error('❌ Wear/Recovery analysis failed:', err);
-            return null;
-        }
-    }
 
     // ========================================================================
     // EXPORTS
@@ -781,9 +618,7 @@
 
     window.GAIP_WEAR_RECOVERY_HTML = WEAR_RECOVERY_HTML;
     window.GAIP_WEAR_RECOVERY_CSS = WEAR_RECOVERY_CSS;
-    window.gaip_read_wear_state = readWearRecoveryState;
     window.gaip_render_wear_results = renderWearRecoveryResults;
-    window.gaip_run_wear_analysis = runWearRecoveryAnalysis;
 
     // ========================================================================
     // TURF PROFILE LISTENER

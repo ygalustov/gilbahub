@@ -180,7 +180,6 @@
       combinedGrowthModifier: 1.0,
       environmentalStressIndex: 0,
       recoveryProbability: null,
-      adjustedRecoveryDays: null,
     },
   };
 
@@ -3908,23 +3907,98 @@
      */
     let schedule = _hubState.inputs.schedule;
     let trafficData = schedule?.traffic || schedule || null;
+    /**
+     * GH-787 (queue item 3vy) — EVERY INPUT FROM ITS OWNER, AT THE KEY IT IS STORED UNDER.
+     *
+     * One calculation had two assemblies, and this is the one that survives. What the other did with the
+     * page's form, this one did with substitutions: `"native"` for a construction, `25` for a height of
+     * cut, `"optimal"` for a soil moisture, `40` and `20` for a weather that had not resolved. Measured on
+     * the stand, last row of every site: the two assemblies gave the engine different species and
+     * varieties at 10 of 10 sites, a different construction at 3, and the recovery window came out
+     * different at 10 of 10 — `Test5 - NZ` 17 days against 7, `Russley` 28 against 12.
+     *
+     * The site's own config is the owner of these, by the key the inputs list declares
+     * (`calculation-inputs.schema.json`). Absent stays absent: the engine has its own branch for a missing
+     * value, and a plausible number here is indistinguishable from an entered one.
+     */
+    const siteCfg = siteConfigOfThisRun();
+    const cfgTurf = (siteCfg && siteCfg.turf) || {};
+    const cfgSchedule = (siteCfg && siteCfg.traffic && siteCfg.traffic.schedule) || {};
 
-    // Get construction - turf.construction is the primary source from the form
-    const construction = turf?.construction || site?.construction || "native";
+    /**
+     * The construction, from the input `turf.construction` — a required input, so a site without one is a
+     * site whose wizard is unfinished, not a site made of `"native"` soil. The old chain ended on that
+     * word, and 3 of the 10 rows on the stand carry it while their config says `sand_profile`.
+     */
+    const construction = cfgTurf.construction || null;
 
     // Get OM% - soil.LOI and soil.OM_pct are the same field
     const omPct = soil?.LOI || soil?.OM_pct || 0;
+
+    /**
+     * GH-787: THE SPECIES OF THE SITE, from its config, through the same normaliser the canonical state
+     * uses — not from the canonical state itself.
+     *
+     * `GAIP_CANONICAL_STATE.turf` is assembled from five sources of the PAGE (`inputs.turf`,
+     * `_hubState.inputs.turf`, `GAIP_STATE.turf`, the species controller, the injected config), which is
+     * the class GH-782 closed for the AA certificate: the species of whatever the page last held, not of
+     * the site being computed. Measured: the two assemblies handed the engine different species at all 10
+     * sites on the stand.
+     *
+     * `config.turf.species` is the key the config stores, and `grassSpecies` is the name the CALCULATION
+     * knows it by — the config has no such key, which is exactly the trap GH-782 walked into.
+     */
+    const cfgSpeciesKey = (function () {
+      const raw = cfgTurf.species || null;
+      if (!raw) return null;
+      if (global.SpeciesController && typeof global.SpeciesController.normalize === 'function') {
+        return global.SpeciesController.normalize(raw) || null;
+      }
+      return typeof normalizeSpeciesKey === 'function' ? (normalizeSpeciesKey(raw) || null) : raw;
+    })();
 
     // ─────────────────────────────────────────────────────────────────────
     // Build weather object for wear engine
     // ─────────────────────────────────────────────────────────────────────
     let weather = null;
     if (climate) {
+      /**
+       * GH-787: THE GROWTH POTENTIAL IS A NUMBER HERE, and that one line is most of the defect.
+       *
+       * `climate.growthPotential` is the object `{c3, c4, weighted}`. The engine divides what it is given
+       * by 100, so it got `NaN`, no band matched, and the last band applied: a growth modifier of 2.5 at
+       * 10 of 10 sites, which is what stretched the recovery window. Measured: with the weighted figure
+       * handed over as a number, the band agrees with the other assembly's at 10 of 10.
+       *
+       * No substitute when the figure has not resolved: `null` sends the engine down its own next branch.
+       * The temperature and the soil moisture travel the same way, for the same reason.
+       */
+      const gp = climate.growthPotential;
+      let gpNumber = typeof gp === 'number' ? gp
+        : (gp && typeof gp.weighted === 'number' ? gp.weighted : null);
+      /**
+       * AND THE SECOND SOURCE IS A CALCULATION, not a substitution: growth potential derived from the
+       * measured mean temperature by the PACE model (`calculateGrowthPotential`). It stood at the end of this
+       * chain before this item and was nearly removed with the substitutions — wrongly. A figure computed
+       * from a measurement is an answer; `40` and `20` for a climate that never resolved were not.
+       */
+      if (gpNumber === null && typeof climate.temperature?.mean === 'number') {
+        const derived = calculateGrowthPotential(climate.temperature.mean, turf);
+        if (typeof derived === 'number' && isFinite(derived)) gpNumber = derived;
+      }
       weather = {
-        growthPotential: climate.growthPotential || calculateGrowthPotential(climate.temperature?.mean || 20, turf),
-        soilMoisture: climate.soilMoisture?.mean || 40,
-        temperature: climate.temperature?.mean || 20,
+        soilMoisture: typeof climate.soilMoisture?.mean === 'number' ? climate.soilMoisture.mean : null,
+        temperature: typeof climate.temperature?.mean === 'number' ? climate.temperature.mean : null,
       };
+      /**
+       * WITH NO FIGURE THE KEY IS NOT SET AT ALL, and that is not tidiness.
+       *
+       * The engine asks `void 0 !== weather.growthPotential` and then divides by 100, so a `null` here reads
+       * as a growth potential of ZERO and lands in the worst band — a recovery modifier of 2.5, the very
+       * figure this item removes. Measured while writing the case for it: handing over `null` reproduced the
+       * defect exactly. Absent must therefore be ABSENT, so the engine goes to its own next branch.
+       */
+      if (gpNumber !== null) weather.growthPotential = gpNumber;
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -3932,8 +4006,28 @@
     // ─────────────────────────────────────────────────────────────────────
     let shadeData = null;
     if (shade) {
+      /**
+       * GH-787: THE SHADE STRESS COMES FROM THE DLI BRIDGE, the way the other assembly got it.
+       *
+       * `shade.stressFactor` is not a key the shade engine publishes, so this read was `0` at every site
+       * and the engine's shade branch could not fire. The bridge (`dli-recovery-bridge.js`, loaded by all
+       * four views that run this file) derives the factor from the DLI the shade result does carry, and it
+       * answers `available: false` when it cannot — which is an outcome, not a zero.
+       */
+      let bridgeStress = null;
+      const bridge = global.GAIP_DLI_Recovery;
+      if (bridge && typeof bridge.calculate === 'function') {
+        try {
+          const dliRecovery = bridge.calculate(shade, { turf: cfgTurf });
+          if (dliRecovery && dliRecovery.available && typeof dliRecovery.stressFactor === 'number') {
+            bridgeStress = dliRecovery.stressFactor;
+          }
+        } catch (e) {
+          note("wear", "The DLI recovery bridge could not answer: " + (e && e.message));
+        }
+      }
       shadeData = {
-        stressFactor: shade.stressFactor || 0,
+        stressFactor: bridgeStress,
         dli: shade.dli || null,
         deficitPct: shade.deficitPct || 0,
       };
@@ -3970,13 +4064,24 @@
 
     const wearState = {
       turf: {
-        grassSpecies: canonicalTurf.effectiveSpeciesKey || canonicalTurf.speciesKey, // No fallback
-        speciesKey: canonicalTurf.speciesKey,
-        variety: turf?.variety || "generic",
-        heightOfCut: turf?.heightOfCut || 25,
-        rootDepth: turf?.rootDepth || 100,
-        growthMultiplier: stress?.combinedGrowthModifier || 1.0,
-        overseedStatus: turf?.overseedStatus || "none",
+        grassSpecies: cfgSpeciesKey,
+        speciesKey: cfgSpeciesKey,
+        variety: cfgTurf.variety || null,
+        heightOfCut: cfgTurf.hoc != null && cfgTurf.hoc !== '' ? parseFloat(cfgTurf.hoc) : null,
+        rootDepth: cfgSchedule.rootDepth != null && cfgSchedule.rootDepth !== ''
+          ? parseFloat(cfgSchedule.rootDepth) : null,
+        /**
+         * GH-787: `null`, and NOT the combined growth modifier.
+         *
+         * This is the engine's own fallback for a run with no growth figure, and it was being handed
+         * `stress.combinedGrowthModifier` — the aggregate of the very stresses the engine applies itself.
+         * With the owner's decision of 30.09.2026 (stress enters the recovery days once, inside the
+         * engine), a run that lost its growth figure would have let stress in a second time through this
+         * door. Growth resolves at every site on the stand, so this changes no figure today; it closes the
+         * way in.
+         */
+        growthMultiplier: null,
+        overseedStatus: cfgTurf.overseedStatus || null,
         construction: construction,
       },
       soil: {
@@ -3986,14 +4091,25 @@
       site: {
         construction: construction,
         season: getCurrentSeason(),
-        soilMoisture:
-          climate?.soilMoisture?.mean > 80
-            ? "wet"
-            : climate?.soilMoisture?.mean > 60
-              ? "moist"
-              : climate?.soilMoisture?.mean < 25
-                ? "dry"
-                : "optimal",
+        /**
+         * GH-787: the soil moisture the person entered, at the key Settings stores it under
+         * (`traffic.schedule.moisture`, declared as `storedAs` for the input `soil.moisture`).
+         *
+         * What stood here banded `climate.soilMoisture.mean` and ended every other case on `"optimal"` —
+         * so a site whose climate had not resolved was told its moisture was optimal, and the engine's
+         * compaction factor ran on that word. The climate band is kept as the second source, because a
+         * measured mean IS information about the moisture; what is gone is the word for neither.
+         */
+        soilMoisture: (function () {
+          const entered = cfgSchedule.moisture;
+          if (entered) return entered;
+          const mean = climate?.soilMoisture?.mean;
+          if (typeof mean !== 'number') return null;
+          if (mean > 80) return "wet";
+          if (mean > 60) return "moist";
+          if (mean < 25) return "dry";
+          return "optimal";
+        })(),
       },
       shade: shadeData,
       // b35fix296: Engine reads state.traffic, not state.schedule
@@ -4024,13 +4140,51 @@
     return { state: wearState, weather: weather, shadeData: shadeData };
   }
 
-  function getCurrentSeason() {
-    const month = new Date().getMonth();
-    const latInput = document.querySelector(".gaip-lat");
-    const isSouthern = latInput && parseFloat(latInput.value) < 0;
+  /**
+   * The config of the site this run is about — GH-787 (queue item 3vy).
+   *
+   * The same read three places in this file already make inline (`GAIP_HUB_CONFIG.gaipConfig` first, the
+   * injected `siteConfig` second); it is named here because the wear assembly needs it for nine inputs and
+   * a fourth copy of the expression is a fourth thing to keep in step. The three older readers are left as
+   * they stand: each is about a different question (the pre-run config, the species of the canonical
+   * state), and moving them is not this item.
+   */
+  function siteConfigOfThisRun() {
+    const hub = global.GAIP_HUB_CONFIG;
+    return (hub && (hub.gaipConfig || hub.siteConfig)) || null;
+  }
 
-    // Adjust for hemisphere
-    const adjustedMonth = isSouthern ? (month + 6) % 12 : month;
+  /**
+   * GH-787 (queue item 3vy): THE SEASON FOLLOWS THE SITE'S LATITUDE, from the site's config.
+   *
+   * This read `.gaip-lat` — a field of the old hub's form, so the season of the calculation was the season
+   * of whatever page the run was drawn on. In the combined export's loop, which switches site per sample,
+   * that is the previous site's hemisphere for as long as the repaint has not landed (GH-459). The latitude
+   * is a required input and the config is its owner.
+   *
+   * NO LATITUDE IS AN OUTCOME, not the northern hemisphere. `latInput && parseFloat(...) < 0` read a
+   * missing field as "not southern", which is a decision about the hemisphere made out of an absence.
+   * `null` here leaves the engine to its own month-only answer, which is the one place it may use it.
+   */
+  function getCurrentSeason() {
+    /**
+     * GH-787, second pass — THE LATITUDE COMES FROM THE SITE'S ROW, which is its owner.
+     *
+     * The first form of this read `gaipConfig.location.lat`, and GH-474's guard named it: the place of a site
+     * — `name`, `lat`, `lon` — belongs to the site's ROW, and the config carries only a copy of it. A copy
+     * read as a source is the same defect one field wide, so the row is asked by id, exactly as
+     * `nutrition-program-inputs.js` asks it.
+     */
+    const SC = global.GAIP_SiteConfig;
+    const siteId = (global.GAIP_SampleManager && typeof global.GAIP_SampleManager.getActiveSiteId === 'function'
+      ? global.GAIP_SampleManager.getActiveSiteId() : null)
+      || (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId) || null;
+    const row = (siteId && SC && typeof SC.getSite === 'function') ? SC.getSite(siteId) : null;
+    const lat = row ? parseFloat(row.latitude) : NaN;
+    if (!isFinite(lat)) return null;
+
+    const month = new Date().getMonth();
+    const adjustedMonth = lat < 0 ? (month + 6) % 12 : month;
 
     if (adjustedMonth >= 2 && adjustedMonth <= 4) return "spring";
     if (adjustedMonth >= 5 && adjustedMonth <= 7) return "summer";
@@ -4039,86 +4193,14 @@
   }
 
   // =========================================================================
-  // ADJUSTED RECOVERY CALCULATION
+  // GH-787 (queue item 3vy): THE SECOND RECOVERY PASS IS GONE.
+  //
+  // `calculateAdjustedRecovery` stood here. It re-applied salinity, shade and environmental stress
+  // to days the engine had already computed with all three, so the figure a client read had the same
+  // stresses counted twice. The owner decided on 30.09.2026 that stress enters the recovery days once,
+  // inside the engine; the readers of `adjustedRecovery` (the export, the Plan page, the /hub card)
+  // print the engine's own days and its own stress multipliers instead.
   // =========================================================================
-
-  /**
-   * Calculate realistic recovery probability considering all stress factors
-   * This replaces the "optimistic" calculation that ignores compound stress
-   */
-  function calculateAdjustedRecovery(baseRecovery) {
-    const stress = _hubState.computed.stress;
-    const salinity = _hubState.computed.salinity;
-    const shade = _hubState.computed.shade;
-
-    if (!baseRecovery) return null;
-
-    let adjustedProbability = baseRecovery.probability || 80;
-    let adjustedDays = baseRecovery.days || 14;
-    const adjustments = [];
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Apply salinity penalty to recovery
-    // ─────────────────────────────────────────────────────────────────────
-    if (salinity && salinity.growthPenaltyPct > 0) {
-      const salinityMod = salinity.relativeYieldPct / 100;
-      adjustedProbability *= salinityMod;
-      adjustedDays /= salinityMod; // Takes longer to recover
-      adjustments.push({
-        factor: "salinity",
-        modification: `${salinity.growthPenaltyPct}% yield reduction`,
-        effect: `Recovery extended by ${((1 / salinityMod - 1) * 100).toFixed(0)}%`,
-      });
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Apply shade penalty to recovery
-    // ─────────────────────────────────────────────────────────────────────
-    if (shade && shade.stressFactor > 0.1) {
-      const shadeMod = 1 - shade.stressFactor * 0.4; // Up to 40% slower recovery
-      adjustedProbability *= shadeMod;
-      adjustedDays /= shadeMod;
-      adjustments.push({
-        factor: "shade",
-        modification: `DLI deficit ${shade.deficitPct?.toFixed(0) || "?"}%`,
-        effect: `Recovery extended by ${((1 / shadeMod - 1) * 100).toFixed(0)}%`,
-      });
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Apply temperature stress to recovery
-    // ─────────────────────────────────────────────────────────────────────
-    if (stress && stress.combinedGrowthModifier < 0.8) {
-      const tempMod = stress.combinedGrowthModifier;
-      adjustedProbability *= tempMod;
-      adjustedDays /= tempMod;
-      adjustments.push({
-        factor: "environmental_stress",
-        modification: `ESI ${stress.environmentalStressIndex.toFixed(0)}/100`,
-        effect: `Recovery extended by ${((1 / tempMod - 1) * 100).toFixed(0)}%`,
-      });
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Store results
-    // ─────────────────────────────────────────────────────────────────────
-    const result = {
-      baseProbability: baseRecovery.probability || 80,
-      adjustedProbability: Math.max(10, Math.round(adjustedProbability)),
-      baseDays: baseRecovery.days || 14,
-      adjustedDays: Math.min(60, Math.round(adjustedDays)),
-      adjustments: adjustments,
-      isRealistic: adjustments.length > 0,
-      warning: adjustedProbability < 50 ? "Recovery significantly compromised by compound stress factors" : null,
-    };
-
-    _hubState.derived.recoveryProbability = result.adjustedProbability;
-    _hubState.derived.adjustedRecoveryDays = result.adjustedDays;
-
-    log("recovery", "Adjusted recovery calculated", result);
-
-    return result;
-  }
 
   // =========================================================================
   // v1.7.0: BUILD PGR INPUTS — assembles pure state for gaip_pgr_calculate_pure
@@ -4792,19 +4874,30 @@
           shadeData,
         );
 
-        // Apply adjusted recovery calculation
-        if (baseWearResult && baseWearResult.recoveryCapacity) {
-          baseWearResult.adjustedRecovery = calculateAdjustedRecovery(baseWearResult.recoveryCapacity);
-        }
-
-        // b35fix296: Only write if we have real traffic data, or no prior result exists.
-        // Prevents overwriting a valid cascade/integration result with empty-schedule output.
-        const priorWear = _hubState.computed.wear;
-        const priorHasLoad = priorWear?.effectiveLoad?.totalEffectiveHours > 0;
-        const newHasLoad = baseWearResult?.effectiveLoad?.totalEffectiveHours > 0;
-        if (newHasLoad || !priorHasLoad) {
-          _hubState.computed.wear = wrapWithConfidence("wear", baseWearResult);
-        }
+        /**
+         * GH-787 (queue item 3vy) — THE ENGINE'S FIGURE IS THE FIGURE, and this pass is its only writer.
+         *
+         * Two things stood here and both are gone.
+         *
+         * `calculateAdjustedRecovery` took the days the engine had just produced — days that already carry
+         * the temperature, the salinity and the shade — and divided them AGAIN by the aggregate of the same
+         * stresses. The owner settled it on 30.09.2026: stress enters the recovery days once, inside the
+         * engine. Measured on the stand: the second pass fired at 4 of 13 sites (`Russley`, `GC - NZ -
+         * warm`, `Westview`, `Test1 - Sports`), so the export printed 60 days where `/plan`'s card said 28.
+         *
+         * `b35fix296` refused to write when this pass had no load and a PRIOR result did — and the prior
+         * was the cascade's, reaching `computed.wear` through the page's globals. With one runner there is
+         * nothing to preserve and nobody to overwrite: an absent schedule means no load, which is the
+         * answer, not a reason to keep another assembly's answer.
+         */
+        _hubState.computed.wear = wrapWithConfidence("wear", baseWearResult);
+        /**
+         * `derived.recoveryProbability` keeps its writer, and it is now the engine's own probability rather
+         * than the second pass's adjusted one. `contradiction-detector.js` reads this key in two places;
+         * removing the second pass without this line would have left it with no writer at all — which the
+         * plan did not name and a reader would have met as a silent `null`.
+         */
+        _hubState.derived.recoveryProbability = baseWearResult?.recoveryProbability ?? null;
 
         // b35fix296: Render wear UI if the render function and container exist
         if (typeof global.gaip_render_wear_results === "function") {
@@ -5209,7 +5302,14 @@
         };
         if (state.climateMetrics) _hubState.computed.climate = mergeClimateFromHub(state.climateMetrics);
         if (state.shadeMetrics) _hubState.computed.shade = state.shadeMetrics;
-        if (state.wearMetrics) _hubState.computed.wear = state.wearMetrics;
+        /**
+         * GH-787 (queue item 3vy): `state.wearMetrics` no longer reaches `computed.wear`.
+         *
+         * The page published the CASCADE's wear result into `GAIP_STATE.wearMetrics`, and these two
+         * handlers copied it into the key the orchestrator writes itself at step 7. That is how a second
+         * assembly's figure became "the prior result" that `b35fix296` then protected from being
+         * overwritten. With one runner the key has one writer, and it is the pass.
+         */
         log("integration", "State synchronized from hub");
       }
     });
@@ -5238,7 +5338,14 @@
         };
         if (state.climateMetrics) _hubState.computed.climate = mergeClimateFromHub(state.climateMetrics);
         if (state.shadeMetrics) _hubState.computed.shade = state.shadeMetrics;
-        if (state.wearMetrics) _hubState.computed.wear = state.wearMetrics;
+        /**
+         * GH-787 (queue item 3vy): `state.wearMetrics` no longer reaches `computed.wear`.
+         *
+         * The page published the CASCADE's wear result into `GAIP_STATE.wearMetrics`, and these two
+         * handlers copied it into the key the orchestrator writes itself at step 7. That is how a second
+         * assembly's figure became "the prior result" that `b35fix296` then protected from being
+         * overwritten. With one runner the key has one writer, and it is the pass.
+         */
       }
       // b35fix240: nothing here may pre-empt the weather-ready retry.
       // analysis-complete always arrives before gaip:weather-ready (hub-tissue
@@ -5872,7 +5979,6 @@
     runDiseaseAnalysis: runDiseaseAnalysis,
     buildWearRecoveryInputs: buildWearRecoveryInputs,
     buildPreEmergentInputs: buildPreEmergentInputs,
-    calculateAdjustedRecovery: calculateAdjustedRecovery,
 
     // Dependency graph integration
     getDependencyInfo: getDependencyInfo,

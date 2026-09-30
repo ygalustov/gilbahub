@@ -28,14 +28,23 @@ const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, 'assets/settings-init.js'), 'utf8');
 const LIST = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/calculation-inputs.schema.json'), 'utf8'));
 
+const { codeOf } = require('./lib/source-without-comments');
+
 /** The `turf` object literal the save builds, cut at its own brace. */
 function turfLiteral() {
-    const at = SRC.indexOf('var turf = {');
+    /**
+     * GH-789 (queue item 7): READ AS CODE. The literal carries a note explaining which substitution was
+     * taken out of it and why, and that note quotes the expression -- so a window over the raw text finds
+     * `|| '0'` in a sentence about `|| '0'` and reports the substitution as still standing. GH-788 built
+     * this reader for exactly that, twice over in one day.
+     */
+    const src = codeOf(SRC, 'settings-init.js');
+    const at = src.indexOf('var turf = {');
     if (at < 0) return '';
     let depth = 0;
-    for (let i = SRC.indexOf('{', at); i < SRC.length; i++) {
-        if (SRC[i] === '{') depth++;
-        else if (SRC[i] === '}') { depth--; if (!depth) return SRC.slice(at, i + 1); }
+    for (let i = src.indexOf('{', at); i < src.length; i++) {
+        if (src[i] === '{') depth++;
+        else if (src[i] === '}') { depth--; if (!depth) return src.slice(at, i + 1); }
     }
 
     return '';
@@ -107,11 +116,29 @@ describe('GH-733 — an empty Turf field gives no key', () => {
         expect(LIST.inputs['turf.summerIntent'].readAs).toContain('turf.overseedSummerIntent');
     });
 
-    test('the neighbours are untouched, so the scope of this item is visible', () => {
-        // `|| '0'` and `|| ''` are a different family and were deliberately left; asserting that
-        // keeps a later reader from thinking they were missed.
+    /**
+     * GH-789 (queue item 7) — ONE OF THE TWO NEIGHBOURS IS NO LONGER A NEIGHBOUR.
+     *
+     * This case recorded the boundary of GH-733: `|| '0'` on the Poa figure and the C3 cover, and `|| ''` on
+     * the overseed species, were "a different family and were deliberately left". The first of those two has
+     * been taken up, and by the coordinator's own criterion: a person can mean nought in both of those
+     * boxes -- the C3 hint on the page says "0 = pure C4" in as many words -- so the default could not be
+     * told from an answer. Measured on the stand, 30.09.2026: all 13 configured sites carry
+     * `poaPercent: "0"` and 10 of 13 carry `c3Cover: "0"`, stored as strings, which is that expression's own
+     * fingerprint.
+     *
+     * `|| ''` STAYS, and stays asserted: an empty string is not a value that means something else, so it
+     * says the same thing as no key, and the rule below drops it either way.
+     */
+    test('the boundary of this item, and where it has since moved', () => {
         const literal = turfLiteral();
-        expect(literal).toMatch(/poaPercent:\s*document\.getElementById\('stg-turf-poa'\)\.value \|\| '0'/);
+        const zeroDefault = /\|\| '0'/.test(literal);
+        process.stdout.write('[gh733] a nought still substituted in the turf literal: ' + zeroDefault + '\n');
+
+        expect(zeroDefault).toBe(false);
+        expect(literal).toMatch(/poaPercent:\s*document\.getElementById\('stg-turf-poa'\)\.value,/);
+        expect(literal).toMatch(/c3Cover:\s*document\.getElementById\('stg-turf-c3'\)\.value,/);
+        // The neighbour that is still one.
         expect(literal).toMatch(/coolOverseed:\s*document\.getElementById\('stg-turf-cool-overseed'\)\.value \|\| ''/);
     });
 });

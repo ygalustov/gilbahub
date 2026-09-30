@@ -431,7 +431,13 @@ function gaip_transformToCascadeFormat(domState, weather) {
                 coolOverseed: domState.turf?.coolOverseed || "",
                 percentC3Cover: domState.turf?.percentC3Cover || 0,
                 hoc: domState.turf?.hoc || 25,
-                nProgramKgHaYr: domState.turf?.nProgramKgHaYr || 0,
+                /**
+                 * GH-786 (queue item 3gg): a site with no annual N target carries `null` through the
+                 * transformer, not 0. `|| 0` turned "nobody entered a programme" into "the programme is zero"
+                 * one line before the cascade, which is a different statement and the one the cascade cannot
+                 * tell from an answer - `cascade-orchestrator.js` asks `nRate === null` to say so to a person.
+                 */
+                nProgramKgHaYr: domState.turf?.nProgramKgHaYr ?? null,
                 construction: domState.turf?.construction ||
                     // GSSH DOM has no .gaip-construction field — read from GAIP_CANONICAL_STATE
                     (window.GAIP_CANONICAL_STATE &&
@@ -714,8 +720,22 @@ function gaip_extractCascadeResults(cascadeResult, domState, weather) {
         se: computed.shade || {
             status: "Not computed"
         },
-        // le = Wear & recovery results
-        le: computed.wear || computed.wearRecovery || null,
+        /**
+         * GH-787 (queue item 3vy): the cascade carries no wear result any more.
+         *
+         * `le` was `computed.wear || computed.wearRecovery` of the CASCADE's own pass, and it travelled from
+         * here into `GAIP_STATE.wearMetrics`, from where the Word export's traffic section read it. That is
+         * how the document's traffic block and its stress block came from two different assemblies of one
+         * engine -- measured, they disagreed about the recovery window at 10 of 10 sites on the stand. The
+         * graph now names one runner, the cascade no longer runs the engine, and every reader of the figure
+         * takes it from the pass: the export through `GaipOrchestrator.getComputed('wear')`, the disease
+         * forecast through the orchestrator's own step 9 (`wearMetrics: _hubState.computed.wear`).
+         *
+         * The two remaining readers of `GAIP_STATE.wearMetrics` are in files no view loads --
+         * `eue-integration-bridge.js` (GH-748) and `gssh-operational-summary.js` -- plus one behind the beta
+         * disease flag. Named rather than chased.
+         */
+        le: null,
         // me = Turf manager results
         me: computed.turfManager || {
             warnings: []
@@ -1158,7 +1178,8 @@ function gaip_republishCascadePass(pass) {
     next.nitrogenStatus = x.ae || null;
     next.tissueResults = x.oe;
     next.shadeMetrics = x.se || null;
-    next.wearMetrics = x.le || null;
+    // GH-787 (queue item 3vy): nothing publishes a wear result into the page's global any more -- see `le`.
+    next.wearMetrics = null;
     next.salinityPenalty = x.fe ? {
         active: x.fe.growthPenaltyPct > 0,
         growthModifier: x.fe.relativeYieldPct / 100,
@@ -2207,17 +2228,43 @@ function gaip_build_state(e) {
                 percentC3Cover: safeNum(e.querySelector(".gaip-c3-cover")?.value, 0),
                 hoc: safeNum(e.querySelector(".gaip-hoc")?.value, 25),
                 heightOfCut: safeNum(e.querySelector(".gaip-hoc")?.value, 25),
-                // b35fix312 Fix 2: Nutrition Program panel input takes precedence
-                // over the legacy Site Settings input. Two separate fields exist
-                // (.gaip-nutrition-annual-n in the Nutrition Program section,
-                // .gaip-n-program in the Turf Profile section). If the user
-                // types a value into the Nutrition Program panel (the primary
-                // UX for this), it wins. Otherwise fall back to the Site
-                // Settings value.
+                /**
+                 * GH-786 (queue item 3gg) - THE SITE'S OWN ANNUAL N TARGET, asked of the one function that
+                 * answers it, instead of read off two fields of this page.
+                 *
+                 * The owner's decision, 30.09.2026: the figure comes from the saved programme
+                 * (`nutritionCalendarProgram.meta.annualNBase`), and from Settings (`turf.nProgram`) when there
+                 * is no programme. What stood here read `.gaip-nutrition-annual-n` and then `.gaip-n-program`,
+                 * and that was not a second spelling of the same rule - it was a RACE. The calendar restores a
+                 * saved programme's figure into the first field, this assembly reads the field, and whichever
+                 * finished first decided the number the whole analysis ran on: nitrogen, firmness and the
+                 * disease risk that follows them. Measured on the stand across the 9 sites whose two stores
+                 * disagree: of 32 analysis rows since 22.09, 4 were computed on Settings and 28 on the
+                 * programme, the same site answering differently on different days.
+                 *
+                 * THE CONFIG IS THE RUN'S SITE, BY ID, and that is why this does not read
+                 * `GAIP_HUB_CONFIG.gaipConfig`. That object is written once, when the page is rendered, and no
+                 * writer in `assets` ever updates it - so in the combined export's loop, which switches sites
+                 * and runs the analysis once per sample, it still describes whichever site the page was drawn
+                 * with. `getSiteConfig(id)` answers for the site asked about or answers null (GH-468, GH-469).
+                 *
+                 * ABSENT IS `null`, not 0 and not the 200 the Turf Profile markup carries as its value.
+                 * `cascade-orchestrator.js` already has the owner's words for a site with no programme.
+                 *
+                 * The service is not on every page that loads this file: a frame without it gets `null`, the
+                 * same outcome as a site with neither store, rather than a number from a field.
+                 */
                 nProgramKgHaYr: (function() {
-                    var nutritionVal = e.querySelector(".gaip-nutrition-annual-n")?.value;
-                    if (nutritionVal) return safeNum(nutritionVal, 0);
-                    return safeNum(e.querySelector(".gaip-n-program")?.value, 0);
+                    var NPI = window.GAIP_NutritionProgramInputs;
+                    if (!NPI || typeof NPI.annualNBaseOf !== 'function') return null;
+                    try {
+                        var siteId = typeof NPI.getActiveSiteId === 'function' ? NPI.getActiveSiteId() : null;
+                        if (!siteId) return null;
+                        var resolved = NPI.annualNBaseOf(NPI.getSiteConfig(siteId));
+                        return (resolved && resolved.value != null) ? resolved.value : null;
+                    } catch (_nErr) {
+                        return null;
+                    }
                 })(),
                 // GH-752: the site's construction as the server resolved it for this page (GH-664),
                 // not the form field, which is the state of whatever page the run is drawn on.
@@ -5237,6 +5284,19 @@ function gaip_shade_engine(e, t) {
     var d = safeNum(document.querySelector(".gaip-tree-occlusion")?.value, 0);
     (d < 0 && (d = 0), d > 100 && (d = 100));
     var c,
+        /**
+         * GH-783 - THE LATITUDE OF -35 IS A DECLARED DECISION, not an accident of this line.
+         *
+         * The owner settled it on 30.09.2026: it stays, because this client's data was entered that way, and it
+         * is revisited when a new requirement asks for it. So it is named here rather than left to be found: the
+         * shade engine of every site is computed on -35 whatever `config.location.lat` holds, and the window of
+         * recovery, the sun's declination and the seasonal months follow from that.
+         *
+         * WHAT ELSE IS TRUE ABOUT THIS LINE, measured and said out loud because it is not the same question: the
+         * latitude the engine is given comes from `e.climate.lat`, and every site's own latitude is stored under
+         * `config.location.lat` - so even without the substitution this key would be empty. Both halves are the
+         * owner's to change together, and neither is changed here.
+         */
         p = safeNum(e.climate.lat, -35),
         g = Math.abs(p),
         u = g <= 25 ? 0.8 : g <= 35 ? 0.7 : 0.6,
@@ -6294,53 +6354,17 @@ function generateRecoveryCalendar(e, t, r) {
                     (e.source ? '<span style="font-size: 9px; ">' + e.source + "</span>" : "") +
                     "</div></div>";
             });
-        var le =
-            window.GaipOrchestrator && window.GaipOrchestrator.getComputed ?
-            window.GaipOrchestrator.getComputed("wear") :
-            null,
-            de = le ? le.adjustedRecovery : null;
-        (de &&
-            de.adjustments &&
-            de.adjustments.length > 0 &&
-            ((P +=
-                    '<div style="border-top: 1px dashed var(--gaip-border); margin: 8px 0; padding-top: 8px;"><div style="font-size: 10px; color: #92400e; font-weight: 600; margin-bottom: 4px;">⚠️ Environmental Stress Impact</div>'),
-                de.adjustments.forEach(function(e) {
-                    var t = "•",
-                        r = "#d97706";
-                    ("shade" === e.factor ?
-                        ((t = "☁️"), (r = "#6366f1")) :
-                        "salinity" === e.factor ?
-                        ((t = "💧"), (r = "#0891b2")) :
-                        "temperature" === e.factor ?
-                        ((t = "🌡️"), (r = "#dc2626")) :
-                        "compound" === e.factor && ((t = "⚠️"), (r = "#7c3aed")),
-                        (P +=
-                            '<div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; background: var(--gaip-warning-bg); border-radius: 4px; margin-top: 3px;"><span style="color: var(--gaip-text);">' +
-                            t +
-                            " " +
-                            (e.modification || e.factor) +
-                            '</span><span style="font-weight: 600; color: ' +
-                            r +
-                            ';">' +
-                            e.effect +
-                            "</span></div>"));
-                }),
-                (P +=
-                    '<div style="font-size: 10px; color: #92400e; margin-top: 6px;">Recovery: ' +
-                    de.baseProbability +
-                    "% → " +
-                    de.adjustedProbability +
-                    "% | " +
-                    de.baseDays +
-                    "d → " +
-                    de.adjustedDays +
-                    "d</div>"),
-                de.warning &&
-                (P +=
-                    '<div style="font-size: 10px; color: #dc2626; margin-top: 4px; font-style: italic;">' +
-                    de.warning +
-                    "</div>"),
-                (P += "</div>")),
+        /**
+         * GH-787 (queue item 3vy): THE SECOND RECOVERY PASS IS GONE, so this block is too.
+         *
+         * It printed `wear.adjustedRecovery` -- a pass that divided the engine's days by the aggregate of
+         * the stresses the engine had already applied, and showed the pair "X% -> Y% | Xd -> Yd". The owner
+         * settled it on 30.09.2026: stress enters the recovery days once, inside the engine, so there is one
+         * probability and one window and no pair to print. This calendar is on the old hub, a calculation
+         * runner rather than a client surface, and the multipliers it would list are already shown by the
+         * wear card that `wear-recovery-integration.js` renders on the same page.
+         */
+        (
             z.length > 0 &&
             (P +=
                 '<div style="font-size: 10px;  margin-top: 8px; font-style: italic;">Missing: ' +
@@ -8408,7 +8432,7 @@ function initTurfTypeMode() {
                                     siteHistory: t.siteHistory,
                                     climateMetrics: window.climateMetrics || null,
                                     shadeMetrics: se || null,
-                                    wearMetrics: le || null,
+                                    wearMetrics: null,   // GH-787 (queue item 3vy): see `le`
                                     region: (function() {
                                         var lat = t.climate?.lat || t.climate?.latitude;
                                         var lon = t.climate?.lon || t.climate?.longitude;

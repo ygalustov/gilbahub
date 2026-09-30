@@ -594,3 +594,121 @@ window.GilbaGeo = (function () {
         },
     };
 }());
+
+/**
+ * GH-789 (queue item 7) — ONE WAY OF SAYING "THIS FIELD IS REQUIRED", FOR EVERY FORM THAT ASKS.
+ *
+ * The setup wizard and the four Settings forms collect the same required inputs of the same list,
+ * and until now each answered an empty one differently: the wizard greyed its Next button and named
+ * nothing, Settings said "Saved." and kept the old value on three fields, saved an empty one on
+ * three more, and answered "Save failed." with no reason on a server refusal. The owner's decision
+ * of 29.09.2026 is one behaviour -- a required field is not saved empty and is marked red -- so
+ * there is one function for the marking, and both surfaces call it.
+ *
+ * WHAT IT TAKES is what the server's refusal carries: `[{input, label}]`, the input's own key from
+ * the list and the words a person reads, which the list owns. A page that wrote its own words for a
+ * field would be a second declaration of the same thing, and the two would drift.
+ *
+ * WHICH ELEMENT IT MARKS is the one carrying `data-input="<key>"`. A form states which input each
+ * field answers, once, in the markup, and nothing here needs to know a selector.
+ *
+ * THE MARK IS AN OUTLINE rather than a border, and that is not decoration: the inputs it has to mark
+ * are a text field, a select and a group of tiles, and only the first two have a border to recolour.
+ * An outline shows on all three, takes no room and moves nothing on the page.
+ */
+window.GilbaRequiredFields = (function () {
+    'use strict';
+
+    var NOTE_CLASS = 'gilba-required-note';
+    var RED = '#dc2626';
+    /**
+     * GH-789: a form may already CARRY the word, for a field the list calls required for this site --
+     * Settings draws it beside the label so a person sees the obligation before pressing anything. Such a
+     * note is turned red rather than doubled, and is left where it is when the marks come off; only a note
+     * this file inserted is removed again.
+     */
+    var INSERTED = 'data-gilba-inserted';
+
+    function noteBeside(el) {
+        var next = el && el.nextSibling;
+        while (next) {
+            if (next.className === NOTE_CLASS) return next;
+            next = next.nextSibling;
+        }
+
+        return (el && el.parentNode && el.parentNode.querySelector)
+            ? el.parentNode.querySelector('.' + NOTE_CLASS)
+            : null;
+    }
+
+    // Iterated straight off the node list, as the two places above in this file do.
+    function fieldsFor(root, key) {
+        if (!root || !root.querySelectorAll) return [];
+
+        return root.querySelectorAll('[data-input="' + key + '"]');
+    }
+
+    return {
+        /** Takes every mark off, so a second attempt does not show the first one's fields. */
+        clear: function (root) {
+            if (!root || !root.querySelectorAll) return;
+            root.querySelectorAll('[data-input]').forEach(function (el) {
+                el.style.outline = '';
+                el.style.outlineOffset = '';
+            });
+            root.querySelectorAll('.' + NOTE_CLASS).forEach(function (el) {
+                if (el.getAttribute && el.getAttribute(INSERTED) === '1') {
+                    if (el.parentNode) el.parentNode.removeChild(el);
+
+                    return;
+                }
+                // A note the form itself drew: it says what is required and stays; only the red goes.
+                el.style.color = '';
+            });
+        },
+
+        /**
+         * Marks the fields named and returns the sentence to print beside the button.
+         *
+         * @param {Element} root - the form or the step being drawn.
+         * @param {Array} missing - `[{input, label}]`, as the server's 422 sends it.
+         * @returns {string} "Not saved: fill in …", or an empty string when nothing is missing.
+         */
+        mark: function (root, missing) {
+            this.clear(root);
+            var list = (missing || []).filter(function (m) { return m && m.input; });
+            if (!list.length) return '';
+
+            var first = null;
+            var words = [];
+            list.forEach(function (m) {
+                var label = m.label || m.input;
+                if (words.indexOf(label) === -1) words.push(label);
+                fieldsFor(root, m.input).forEach(function (el) {
+                    el.style.outline = '2px solid ' + RED;
+                    el.style.outlineOffset = '2px';
+                    if (!first) first = el;
+                    var standing = noteBeside(el);
+                    if (standing) {
+                        standing.style.color = RED;
+
+                        return;
+                    }
+                    var note = document.createElement('span');
+                    note.className = NOTE_CLASS;
+                    note.textContent = 'Required';
+                    note.style.cssText = 'display:block;margin-top:4px;font-size:11px;font-weight:700;color:' + RED;
+                    if (note.setAttribute) note.setAttribute(INSERTED, '1');
+                    if (el.parentNode) el.parentNode.insertBefore(note, el.nextSibling);
+                });
+            });
+            if (first && typeof first.scrollIntoView === 'function') {
+                first.scrollIntoView({ block: 'nearest' });
+            }
+
+            return 'Not saved: fill in ' + (words.length === 1
+                ? words[0]
+                : words.slice(0, -1).join(', ') + ' and ' + words[words.length - 1]) + '.';
+        },
+    };
+}());

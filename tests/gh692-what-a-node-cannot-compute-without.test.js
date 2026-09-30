@@ -161,7 +161,7 @@ describe('GH-692 — what each candidate node cannot compute without', () => {
         expect(order.length).toBeGreaterThan(3);
 
         /**
-         * THE TWO THIS BENCH CANNOT JUDGE, with the reason each one gives rather than a guess:
+         * THE THREE THIS BENCH CANNOT JUDGE, with the reason each one gives rather than a guess:
          *
          *   `pgr-module` — the graph gives it `runner: orchestrator` and no cascade handle, so the
          *     cascade never had it. Judging it needs the orchestrator pass, not this one.
@@ -170,12 +170,18 @@ describe('GH-692 — what each candidate node cannot compute without', () => {
          *     `engines.includes('tissue-engine') && options.hubRoot`, and the engine reads the tissue
          *     numbers off the PAGE through `gaip_read_tissue_data(hubRoot)` rather than out of the
          *     state. With no DOM root there is nothing for it to read.
+         *   `wear-recovery-engine` — GH-787 (queue item 3vy): it had TWO runners, each with its own
+         *     assembly of its inputs, and the two disagreed about the recovery window at 10 of 10 sites
+         *     on the stand. The graph names one runner now, the orchestrator, so the cascade no longer
+         *     runs it and this bench cannot take its input away and watch. What it requires is measured
+         *     on the orchestrator's own bench instead (`gh787-…`), which is where its assembly lives.
          *
-         * Both are printed as unjudged. A candidate quietly dropped from the list would come back as
+         * All three are printed as unjudged. A candidate quietly dropped from the list would come back as
          * "measured and it does not require anything".
          */
         expect(order.some((x) => String(x).indexOf('tissue') >= 0)).toBe(false);
         expect(order.some((x) => String(x).indexOf('pgr') >= 0)).toBe(false);
+        expect(order.some((x) => String(x).indexOf('wear') >= 0)).toBe(false);
     });
 
     test('with one input taken away, does the node still produce anything', () => {
@@ -183,7 +189,10 @@ describe('GH-692 — what each candidate node cannot compute without', () => {
         const judgeable = CANDIDATES.filter((c) => outputsOf(c.node)
             .some((o) => !isEmpty(valueAt(withEverything, o))));
         process.stdout.write('[gh692] judgeable on this bench: ' + JSON.stringify(judgeable.map((c) => c.node)) + '\n');
-        expect(judgeable.length).toBeGreaterThan(2);
+        // GH-787 (queue item 3vy): 3 -> 2 judgeable here, because the wear engine left the cascade for a
+        // single runner. The floor moves with a declaration somebody wrote, and the engine's own
+        // requirement is measured on the orchestrator's bench — see the note in the case below.
+        expect(judgeable.length).toBeGreaterThan(1);
 
         const verdicts = judgeable.map((c) => {
             const shortState = without(FULL(), c.at, c.keep);

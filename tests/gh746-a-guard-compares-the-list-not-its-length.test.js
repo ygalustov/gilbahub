@@ -32,6 +32,14 @@
 
 const fs = require('fs');
 const path = require('path');
+/**
+ * GH-788 (queue item 3gd): the address of a claim is worked out in the CODE.
+ *
+ * `src.indexOf(text)` over the raw text puts the line number on the first place the text appears, and a
+ * quotation of it in a comment is such a place — so the address printed beside a claim would point at prose.
+ * An address that is wrong is worse than none, because somebody goes to it.
+ */
+const { codeOf } = require('./lib/source-without-comments');
 const { lengthClaims, claimsIn } = require('./lib/length-claims');
 const RECORDED = require('./fixtures/gh746-length-claims.json');
 
@@ -212,7 +220,7 @@ describe('GH-746 — every length a test compares with a number is declared, and
             const rel = claim.split(' | ')[0];
             const text = claim.slice(claim.indexOf(' | ') + 3).replace(/ #\d+$/, '');
             try {
-                const src = fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
+                const src = codeOf(fs.readFileSync(path.join(__dirname, '..', rel), 'utf8'), rel);
                 const at = src.indexOf(text);
 
                 return at < 0 ? rel : rel + ':' + src.slice(0, at).split('\n').length;

@@ -49,6 +49,36 @@ const REMEDIES = ['guardStand', 'captureConfigsOnce', 'restoreConfigs', 'fillOwn
  * backlog, not an argument that they are safe.
  */
 const EXEMPT = {
+    'gh789-the-zero-schedule-goes-in-by-the-product-live.test.js': {
+        why: 'ITS SUBJECT IS THE WRITE, and the write is a CONFIG the owner asked for. Queue item 7 puts the '
+            + 'match and training schedule into the setup wizard, so the lock holds every page of a sports site '
+            + 'that has none -- Settings, Data, /plan, the reports and the run frame, which means no Re-run and '
+            + 'no export. Six sports sites of the stand had no schedule at all, and her decision of 30.09.2026 '
+            + 'is that they receive nought matches and nought sessions BY THE PRODUCT\'S OWN ROUTE rather than '
+            + 'by a write to the database -- "so that I have definitely not touched anything". `guardStand` '
+            + 'holding the PATCH would hold the very thing she asked for. It touches only the sites handed in '
+            + 'through `GILBA_E2E_GH789_SITES`, sends the same request Settings sends, and carries its own '
+            + 'protection instead of the remedy: it refuses to overwrite a site that already holds a schedule, '
+            + 'stops at the FIRST site both when the route refuses and when it accepts while storing nothing, '
+            + 'and reads the last row id of every site before and after so a site outside the window that moved '
+            + 'is red. Measured on 30.09.2026: six requests, six 200s, six configs holding exactly two keys, '
+            + 'and no row anywhere on the stand moved.',
+        until: '2026-10-15',
+    },
+    'gh787-wear-one-figure-on-the-stand-live.test.js': {
+        why: 'ITS SUBJECT IS THE WRITE, and the write is a stored row. One engine had two runners with two '
+            + 'assemblies of its inputs, and the recovery window they produced differed at 10 of 10 sites '
+            + 'carrying both figures -- 17 days against 7 at one, 28 against 12 at another. Whether a REAL run '
+            + 'now produces ONE window, and whether it is the figure the disagreement pointed at rather than a '
+            + 'third one, can only be answered by a run whose row lands, so `guardStand` holding every POST to '
+            + '`/api/analysis-cache` would hold the measurement itself. It presses Re-run on the two sites the '
+            + 'window was opened for and on no other, exports through the product\'s own picker with ONE '
+            + 'sample of one site ticked, and carries its own protection instead of the remedy: its last case '
+            + 'reads the last row id of EVERY site with a stored row, reddens if one outside that list moved, '
+            + 'and requires the two named sites to have GAINED a row rather than had one rewritten. It writes '
+            + 'no data of its own and edits nothing -- it presses the product\'s buttons and reads.',
+        until: '2026-10-15',
+    },
     'gh782-the-aa-ranges-on-the-stand-live.test.js': {
         why: 'ITS SUBJECT IS THE WRITE, for the same reason as the file below. Every site set to ammonium '
             + 'acetate stored its nutrient bands from the texture-only fallback instead of the Hill Labs '

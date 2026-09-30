@@ -10065,8 +10065,20 @@
         // Traffic/Wear data - only for sports turf, not golf
         var rawTurfType = (data.turf.rawTurfType || '').toLowerCase();
         var isGolfType = rawTurfType === 'golf' || rawTurfType.indexOf('golf_') === 0;
-        if (!isGolfType && window.GAIP_STATE && window.GAIP_STATE.wearMetrics) {
-            var wm = window.GAIP_STATE.wearMetrics;
+        /**
+         * GH-787 (queue item 3vy) — THE TRAFFIC SECTION READS THE PASS, not a snapshot in a page global.
+         *
+         * This read `window.GAIP_STATE.wearMetrics`, which the page filled from the CASCADE's wear result —
+         * a second assembly of the same engine, with its own inputs taken off the old hub's form. So this
+         * section and the stress section a few thousand lines below printed two different calculations of
+         * one thing: measured on the stand, they disagreed about the recovery window at 10 of 10 sites
+         * (`Test5 - NZ` 17 days against 7). The cascade no longer runs the engine, and the figure of this
+         * document's own pass is `getComputed('wear')` — the same object the stress section already reads.
+         */
+        var _passWear = (window.GaipOrchestrator && typeof window.GaipOrchestrator.getComputed === 'function')
+            ? window.GaipOrchestrator.getComputed('wear') : null;
+        if (!isGolfType && _passWear) {
+            var wm = _passWear;
             // Extract recovery days from recoveryCapacity object
             var recoveryDays = wm.recoveryCapacity;
             var recoveryCapacity = null;
@@ -10112,7 +10124,17 @@
                     riskPercent: wm.compactionRisk.riskPercent,
                     usageRatio: wm.compactionRisk.usageRatio,
                     maxHours: wm.compactionRisk.maxHours,
-                    construction: wm.compactionRisk.construction,
+                    /**
+                     * GH-787 (queue item 3vy): the site's construction from the resolver that owns it, not
+                     * echoed back out of the wear result.
+                     *
+                     * `wm.compactionRisk.construction` is the engine repeating what it was handed; printing it
+                     * from there made the document's compaction row trace back to a wear result rather than to
+                     * the site, and while that result came from `window.GAIP_STATE` it was the previous site's
+                     * during a switch (the exemption GH-461 carried for exactly this line). `data.turf`
+                     * is built by the identity resolver, by site id, a few thousand lines above.
+                     */
+                    construction: data.turf.construction,
                     moistureLevel: wm.compactionRisk.moisture?.level
                 };
             }
@@ -12273,7 +12295,23 @@
                         methodology: (data.soil.methodology || 'mlsn'),
                         soilPH: data.soil.pH_water || data.soil.pH_cacl2 || data.soil.pH || null,
                         turfType: (data.turf && data.turf.warmBase) ? 'warm-season' : 'cool-season',
-                        nProgram: (data.turf && data.turf.nProgramKgHaYr) || 0,
+                        /**
+                         * GH-786 (queue item 3gg) - THE FIGURE THIS DOCUMENT ALREADY RESOLVED, from where it
+                         * actually sits.
+                         *
+                         * This read `data.turf.nProgramKgHaYr`, and no writer puts that key in `data.turf`:
+                         * `collectData` builds that block field by field from the identity resolver, and the
+                         * annual N of this document lives in `data.engineInputs.turf`. So the interaction
+                         * checker was handed 0 for every site ever exported, and its one nitrogen rule
+                         * (`nProgram > 150` on warm-season turf) could not fire at all.
+                         *
+                         * `annualNBase` is the figure a person entered, before the traffic modifier - which is
+                         * what a threshold about a nitrogen PROGRAMME is about. Absent stays absent: `null` is
+                         * falsy at that comparison, so a site with no programme simply raises no nitrogen
+                         * interaction, instead of raising one against a zero nobody entered.
+                         */
+                        nProgram: (data.engineInputs && data.engineInputs.turf
+                            && data.engineInputs.turf.annualNBase) || null,
                         // b35fix267: extractant for P-ratio incompatibility check
                         extractant: data.soil.extractant || data.soil.methodology || null,
                     };
@@ -14631,119 +14669,20 @@
                 sections.push(new Paragraph({ children: [] }));
             }
             
-            // Add stress factors affecting recovery from orchestrator
-            var orchestratorWear = window.GaipOrchestrator && window.GaipOrchestrator.getComputed ? 
-                                   window.GaipOrchestrator.getComputed('wear') : null;
-            var adjustedRecovery = orchestratorWear ? orchestratorWear.adjustedRecovery : null;
-            
-            if (adjustedRecovery && adjustedRecovery.adjustments && adjustedRecovery.adjustments.length > 0) {
-                sections.push(new Paragraph({
-                    heading: HeadingLevel.HEADING_2,
-                    keepNext: true,
-                    children: [new TextRun('Environmental Stress Factors Affecting Recovery')]
-                }));
-                
-                // Summary paragraph
-                var baseProb = adjustedRecovery.baseProbability || 80;
-                var adjProb = adjustedRecovery.adjustedProbability || baseProb;
-                var baseDays = adjustedRecovery.baseDays || 5;
-                var adjDays = adjustedRecovery.adjustedDays || baseDays;
-                
-                var summaryText = 'Current environmental conditions are reducing recovery capacity. ';
-                summaryText += 'Base recovery probability of ' + baseProb + '% has been reduced to ' + adjProb + '%. ';
-                summaryText += 'Recovery window has extended from ' + baseDays + ' days to ' + adjDays + ' days. ';
-                summaryText += 'The following stress factors are contributing to this reduction:';
-                
-                sections.push(new Paragraph({
-                    spacing: { after: 150 },
-                    children: [new TextRun({ text: summaryText, size: 22 })]
-                }));
-                
-                // Stress factors table
-                var stressRows = [];
-                adjustedRecovery.adjustments.forEach(function(adj) {
-                    var factorName = adj.factor.charAt(0).toUpperCase() + adj.factor.slice(1);
-                    var modification = adj.modification || adj.factor;
-                    var effect = adj.effect || '';
-                    
-                    // Color based on severity
-                    var color = '000000';
-                    if (adj.factor === 'shade') color = '6366F1';
-                    else if (adj.factor === 'salinity') color = '0891B2';
-                    else if (adj.factor === 'temperature') color = 'DC2626';
-                    else if (adj.factor === 'compound') color = '7C3AED';
-                    
-                    stressRows.push(new TableRow({
-                        children: [
-                            new TableCell({
-                                width: { size: 2200, type: WidthType.DXA },
-                                children: [new Paragraph({ 
-                                    children: [new TextRun({ text: factorName, bold: true, size: 22, color: color })] 
-                                })]
-                            }),
-                            new TableCell({
-                                width: { size: 4500, type: WidthType.DXA },
-                                children: [new Paragraph({ 
-                                    children: [new TextRun({ text: modification, size: 22 })] 
-                                })]
-                            }),
-                            new TableCell({
-                                width: { size: 3000, type: WidthType.DXA },
-                                children: [new Paragraph({ 
-                                    children: [new TextRun({ text: effect, size: 22, color: 'B45309' })] 
-                                })]
-                            })
-                        ]
-                    }));
-                });
-                
-                if (stressRows.length > 0) {
-                    // Header row
-                    var headerRow = new TableRow({
-                        children: [
-                            new TableCell({
-                                width: { size: 2200, type: WidthType.DXA },
-                                shading: { fill: 'E5E7EB' },
-                                children: [new Paragraph({ 
-                                    children: [new TextRun({ text: 'Stress Factor', bold: true, size: 22 })] 
-                                })]
-                            }),
-                            new TableCell({
-                                width: { size: 4500, type: WidthType.DXA },
-                                shading: { fill: 'E5E7EB' },
-                                children: [new Paragraph({ 
-                                    children: [new TextRun({ text: 'Condition', bold: true, size: 22 })] 
-                                })]
-                            }),
-                            new TableCell({
-                                width: { size: 3000, type: WidthType.DXA },
-                                shading: { fill: 'E5E7EB' },
-                                children: [new Paragraph({ 
-                                    children: [new TextRun({ text: 'Recovery Impact', bold: true, size: 22 })] 
-                                })]
-                            })
-                        ]
-                    });
-                    
-                    sections.push(new Table({ width: { size: 9500, type: WidthType.DXA }, columnWidths: [2000, 4500, 3000], rows: [headerRow].concat(stressRows) }));
-                    sections.push(new Paragraph({ children: [] }));
-                }
-                
-                // Warning if present
-                if (adjustedRecovery.warning) {
-                    sections.push(new Paragraph({
-                        spacing: { before: 100, after: 150 },
-                        shading: { fill: 'FEF2F2' },
-                        border: { left: { color: 'DC2626', size: 24, style: BorderStyle.SINGLE } },
-                        children: [
-                            new TextRun({ text: 'Warning: ', bold: true, size: 22, color: 'DC2626' }),
-                            new TextRun({ text: adjustedRecovery.warning, size: 22 })
-                        ]
-                    }));
-                }
-            }
-            // v2.0.8: Fallback - use recovery modifiers from wear-recovery engine
-            else if (data.traffic.recoveryModifiers) {
+            /**
+             * GH-787 (queue item 3vy) — THE STRESS SECTION PRINTS THE ENGINE'S OWN MULTIPLIERS.
+             *
+             * What stood here read `wear.adjustedRecovery` — a second pass over the engine's result that
+             * re-applied salinity, shade and environmental stress to days already carrying all three. The
+             * owner decided on 30.09.2026 that stress enters the recovery days once, inside the engine, so
+             * the pass is gone and with it the sentence "recovery window has extended from X days to Y":
+             * there is one figure, and it is the one the Plan page shows.
+             *
+             * Nothing new is written for this section. The branch below already printed the engine's own
+             * multipliers (`salinity.factor`, `shade`, `temperatureStress.factor`) and stood unreached
+             * whenever the second pass had produced anything at all; it is now the only branch.
+             */
+            if (data.traffic.recoveryModifiers) {
                 var rm = data.traffic.recoveryModifiers;
                 var hasStressFactors = (rm.salinity && rm.salinity.factor > 1) || 
                                       (rm.shade && rm.shade > 1) || 

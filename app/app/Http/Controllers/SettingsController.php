@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\AnalysisResults;
+use App\Support\CalculationInputs;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -51,8 +52,21 @@ class SettingsController extends Controller
             $longitude !== null ? (float) $longitude : null
         );
 
+        /**
+         * GH-789 (queue item 7): WHICH FIELDS THIS SITE MUST FILL IN, from the list.
+         *
+         * The template marked five fields with the HTML `required` attribute, on forms that all carry
+         * `novalidate` -- so it was a mark and nothing else, and it named the wrong five: the cultivar and
+         * the construction were marked, the turf type and the methodology were not, and neither was the
+         * golf surface, which is required of golf alone. The mark is derived here, per input, for THIS
+         * site's turf type, so it follows the owner's decisions without this file being touched.
+         */
+        $setupTurfType = $activeGaipConfig['turf']['turfType'] ?? '';
+        $requiredInputs = CalculationInputs::requiredFor(is_string($setupTurfType) ? $setupTurfType : '');
+
         return view('settings', [
             'title'            => 'Settings',
+            'requiredInputs'   => $requiredInputs,
             'activeSite'       => $activeSite,
             'activeGaipConfig' => $activeGaipConfig,
             'turfSpecies'      => $turfSpecies,

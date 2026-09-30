@@ -299,8 +299,13 @@ class AnalysisResults
         // GH-670 (queue item 3ao): the site check's own account is part of the row's
         // account of itself, and it is enough on its own to make one — a row whose
         // only remarkable fact is that no site was declared must still say so.
+        /**
+         * GH-788 (queue item 3gd): the journal's marks are part of the row's account of itself, and they alone
+         * are enough to make one — a row whose only remarkable fact is which pass produced it must still say so.
+         */
+        $journal = is_array($detail['journal'] ?? null) ? $detail['journal'] : null;
         if (! $nulls && ! $skipped && ! $warnings && ! $assumptions && $siteCheck === null
-            && ! $notApplicable && $runStart === null) {
+            && ! $notApplicable && $runStart === null && $journal === null) {
             return null;
         }
 
@@ -327,6 +332,21 @@ class AnalysisResults
             // — which is the very reading this device removes.
             'notApplicable' => $notApplicable ?: [],
             'runStart' => $runStart,
+            /**
+             * GH-788 (queue item 3gd) — WHICH PASS EACH ACCOUNT BELONGS TO, kept with the row.
+             *
+             * This assembly is what the row's `detail` IS: a key the runner sends and this list does not name is
+             * dropped here, after surviving validation. GH-781 added `detail.journal` — the accepted cascade
+             * pass, the orchestrator's pass, whether a pass was still running when the row was written, the
+             * sample ids the cascade pass read — and it reached neither place. Measured before this repair: 0 of
+             * 130 stored rows carried it, while `skipped` and `warnings` beside it were in 125, and the
+             * reconciliation of GH-781 reported itself NOT FILLED because no row could be counted.
+             *
+             * Stored as the producer sent it. Without it a reader cannot tell "the pass had nothing to say" from
+             * "the account was read while a pass was still running", which is the difference those marks exist
+             * for.
+             */
+            'journal' => $journal,
         ];
     }
 

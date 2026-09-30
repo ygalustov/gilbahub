@@ -63,9 +63,27 @@ describe('GH-776 — no schedule, no wear load', () => {
 
         expect(inForm).not.toBeNull();
         expect(inForm[1]).toContain('value="100"');
-        // The readers' own fallback of 100, which GH-776 does not touch either.
-        expect(FORM_JS).toContain("safeNum(root.querySelector('.gaip-root-depth'), 100)");
+        /**
+         * GH-787 (queue item 3vy) — THE READER THAT CARRIED THAT DEFAULT IS GONE, and the field is not.
+         *
+         * `safeNum(root.querySelector('.gaip-root-depth'), 100)` lived in `readWearRecoveryState`, the
+         * cascade's own assembly of the wear engine's inputs. The engine has one runner now, and the
+         * orchestrator's assembly reads the root depth from the site's config, at the path Settings stores it
+         * under (`traffic.schedule.rootDepth`) — with no default, so a site that entered none carries none.
+         *
+         * The owner's decision about the FIELD's own default of 100 is untouched: the markup still declares
+         * it, which the assertion above holds, and `hub-tissue-v3.js` still reads that field for the page.
+         * What is asserted here instead is that the removed reader took its default with it rather than
+         * leaving a second one behind.
+         */
+        expect(FORM_JS).not.toContain("safeNum(root.querySelector('.gaip-root-depth'), 100)");
+        expect(FORM_JS).not.toContain('function readWearRecoveryState');
         expect(read('assets/hub-tissue-v3.js')).toContain('.gaip-root-depth');
+        // And the assembly that survives takes it from the site, with no number of its own.
+        const builderAt = ORCH.indexOf('function buildWearRecoveryInputs()');
+        const builderBody = ORCH.slice(builderAt, ORCH.indexOf('\n  }', builderAt));
+        expect(builderBody).toContain('cfgSchedule.rootDepth');
+        expect(builderBody).not.toMatch(/rootDepth[^\n]*\|\|\s*100/);
     });
 
     test('the wear builder does not read the form when a site has no schedule', () => {

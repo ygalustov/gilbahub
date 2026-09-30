@@ -37,7 +37,13 @@ const OWNERS = FIELD_OWNERS.owners;
  */
 const CALLED_ELSEWHERE = ['addSample', 'addSite', 'addSiteWithId', 'canDriveRecommendations',
     'captureFromForm', 'captureRawForm', 'clearSamples', 'compareSamples', 'deleteSample',
-    'forEach', 'getActiveSampleId', 'getAreaGuidance', 'getCurrentSiteLabel', 'getSample',
+    'forEach', 'getActiveSampleId', 'getAreaGuidance',
+    // GH-787 (queue item 3vy): `getBaseSpecies` came into view when the wear assembly started folding the
+    // site's own `turf.species` to a canonical key through `SpeciesController` — the same normaliser the
+    // canonical state uses — instead of taking the species off that state, which is built from five sources
+    // of the page. The method itself belongs to the species controller of a hub page and no export reaches it.
+    'getBaseSpecies',
+    'getCurrentSiteLabel', 'getSample',
     'getSampleCount', 'getSiteMappings', 'hasCredentials', 'importFile', 'isRestoring', 'labReadingOf',
     'map', 'mergeConfig',
     // GH-533 (stage 2): `normalizeValues` joined the list. The server restore

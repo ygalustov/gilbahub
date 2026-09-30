@@ -260,7 +260,11 @@ describe('GH-461 — no value in the document comes from the page\'s state', () 
             // cannot — classification and the hazard ratings — is not printed,
             // because a run carries no stamp saying whose it is.
             'GAIP_STATE.shadeMetrics': 'the shade run — view II',
-            'GAIP_STATE.wearMetrics': 'the wear run — view II',
+            // GH-787 (queue item 3vy): `GAIP_STATE.wearMetrics` is deleted rather than kept, which is this
+            // case's own rule for a name that stopped reaching the document. The page published the CASCADE's
+            // wear result there and the export's traffic section read it — two assemblies of one engine, which
+            // disagreed about the recovery window at 10 of 10 sites on the stand. The engine has one runner
+            // now and the section reads this document's own pass through `GaipOrchestrator.getComputed`.
             'GAIP_STATE.fertility': 'the fertility figures the page holds — view II',
             'GAIP_TRAJECTORY_RESULT': 'the stress trajectory the page computed — view II',
             'GAIP_COMPANION_DISEASE_RESULT': 'the companion-surface disease run — view II',

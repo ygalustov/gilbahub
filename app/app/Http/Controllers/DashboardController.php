@@ -112,7 +112,16 @@ class DashboardController extends Controller
             'missing' => $activeSite
                 ? EnsureSiteIsSetUp::missingInputs($activeSite)
                 : CalculationInputs::requiredFor(''),
-            'byStep' => CalculationInputs::wizardStepsFor(is_string($setupTurfType) ? $setupTurfType : '')['byStep'],
+            /**
+             * GH-789 (queue item 7): the steps FOR EVERY TURF TYPE, because the type is chosen on
+             * step 2 and this is sent once, at load, when a new site has none. The wizard picks the
+             * branch of the type its draft holds; sending only the stored type's branch is what left
+             * it with a hand-written condition for a golf surface and would let a new sports field
+             * past step 2 with no schedule.
+             */
+            'byStepByTurfType' => CalculationInputs::wizardStepsByTurfType(),
+            /** The words each input is named by, from the list, so the refusal reads the same as Settings'. */
+            'labels' => CalculationInputs::labelsForWizard(),
             'answers' => $activeSite
                 ? EnsureSiteIsSetUp::answersFor($activeSite, CalculationInputs::requiredFor(is_string($setupTurfType) ? $setupTurfType : ''))
                 : [],

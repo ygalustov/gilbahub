@@ -162,14 +162,21 @@ class GH439SiteConfigPatchTest extends TestCase
                 ->assertStatus(422)
                 ->assertJsonPath('invalid_keys', ['turf.'.$field]);
 
-            $this->assertStringContainsString('cannot be emptied', $response->json('message'), 'turf.'.$field);
+            /**
+             * GH-789 (queue item 7): THE SAME REFUSAL, IN THE LIST'S WORDS. `GAIP_IDENTITY_FIELDS` named
+             * five fields by hand and said "cannot be emptied"; the rule is now "a required input is not
+             * left empty in the result", read from the list, and it says which field and in the words a
+             * person reads on the tab. The refusal is still a 422 naming the same key, which is what this
+             * case is about -- the sentence is the list's now, not this controller's.
+             */
+            $this->assertStringContainsString('Not saved: fill in', $response->json('message'), 'turf.'.$field);
             $this->assertSame($stored, $this->config($site)['turf'][$field]);
         }
 
         $response = $this->patchConfig($user, $site, ['patch' => ['location' => ['lat' => '']]])
             ->assertStatus(422)
             ->assertJsonPath('invalid_keys', ['location.lat']);
-        $this->assertStringContainsString('cannot be emptied', $response->json('message'));
+        $this->assertStringContainsString('Not saved: fill in', $response->json('message'));
         $this->assertSame(-36.8508827, $this->config($site)['location']['lat']);
     }
 
@@ -194,9 +201,15 @@ class GH439SiteConfigPatchTest extends TestCase
             ->assertStatus(422)
             ->json('message');
 
+        /**
+         * GH-789 (queue item 7): the two rules are still two, and still tell themselves apart by their
+         * words -- `null` anywhere means "use clear instead", an empty REQUIRED input means "not saved,
+         * fill it in". What changed is the second one's source: the list, rather than five field names
+         * written in the controller.
+         */
         $this->assertStringContainsString('clear', $nullAnswer);
-        $this->assertStringNotContainsString('cannot be emptied', $nullAnswer);
-        $this->assertStringContainsString('cannot be emptied', $identityAnswer);
+        $this->assertStringNotContainsString('Not saved: fill in', $nullAnswer);
+        $this->assertStringContainsString('Not saved: fill in', $identityAnswer);
     }
 
     public function test_an_empty_string_never_reaches_this_route_and_text_is_emptied_with_clear(): void
@@ -211,18 +224,31 @@ class GH439SiteConfigPatchTest extends TestCase
         // ship a form that silently 422s.
         $user = User::factory()->create();
         $site = $this->siteWithConfig($user, [
-            'turf' => ['species' => 'Couch', 'variety' => 'Wintergreen'],
+            'turf' => ['species' => 'Couch', 'variety' => 'Wintergreen', 'companionSpecies' => 'Ryegrass'],
         ]);
 
         $this->patchConfig($user, $site, ['patch' => ['turf' => ['variety' => '']]])
             ->assertStatus(422)
             ->assertJsonPath('invalid_keys', ['turf.variety']);
 
+        /**
+         * GH-789 (queue item 7): THE FIELD EMPTIED HERE IS AN OPTIONAL ONE NOW, and the change of field is
+         * the subject rather than a repair of the case. The cultivar is a REQUIRED input of the list, and
+         * the owner's decision of 29.09.2026 is that a required field is not saved empty -- so `clear` on
+         * it answers 422 naming it, exactly as an empty box on the Turf tab does. What this case is about
+         * -- an empty string never reaches the route, and emptying a field is `clear`'s job -- is unchanged
+         * and is asserted on `companionSpecies`, which nothing requires.
+         */
         $this->patchConfig($user, $site, ['clear' => ['turf.variety']])
+            ->assertStatus(422)
+            ->assertJsonPath('invalid_keys', ['turf.variety']);
+
+        $this->patchConfig($user, $site, ['clear' => ['turf.companionSpecies']])
             ->assertOk();
 
         $config = $this->config($site);
-        $this->assertArrayNotHasKey('variety', $config['turf']);
+        $this->assertArrayNotHasKey('companionSpecies', $config['turf']);
+        $this->assertSame('Wintergreen', $config['turf']['variety']);
         $this->assertSame('Couch', $config['turf']['species']);
     }
 

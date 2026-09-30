@@ -244,14 +244,26 @@
      * @returns {Object} adjustment result with recommended N rate
      */
     function adjustAnnualNForShade(userAnnualN, shadeData) {
-        if (!shadeData || !userAnnualN) {
-            return {
-                originalN: userAnnualN || 0,
-                adjustedN: userAnnualN || 0,
-                factor: 1.0,
-                applied: false,
-                reason: 'No shade data or N rate'
-            };
+        /**
+         * GH-786 (queue item 3gg) - THREE CAUSES, THREE REASONS, and an entered zero is one of them.
+         *
+         * `!shadeData || !userAnnualN` stood here and folded three different facts into one sentence, "No shade
+         * data or N rate": no shade result, no programme entered, and a programme entered AS ZERO. The third is
+         * the class removed in GH-780 and GH-781 - a deliberate zero is an answer, and a reader that treats it
+         * as absence reports it as missing data to whoever is looking. The outcome for a zero is unchanged,
+         * because there is nothing to reduce; what changes is that it now says which of the three happened.
+         */
+        if (!shadeData) {
+            return { originalN: userAnnualN ?? null, adjustedN: userAnnualN ?? null, factor: 1.0,
+                applied: false, reason: 'No shade data' };
+        }
+        if (userAnnualN === null || userAnnualN === undefined) {
+            return { originalN: null, adjustedN: null, factor: 1.0,
+                applied: false, reason: 'No annual N programme for this site' };
+        }
+        if (!(userAnnualN > 0)) {
+            return { originalN: userAnnualN, adjustedN: userAnnualN, factor: 1.0,
+                applied: false, reason: 'The annual N programme is zero, so there is nothing to reduce' };
         }
 
         // Try to get the shade engine's pre-calculated N adjustment
@@ -743,9 +755,28 @@
             return { applied: false, reason: 'No shade result' };
         }
 
-        const nRate = parseFloat(state?.turf?.nProgramKgHaYr) ||
-                      parseFloat(state?.fertility?.annualN) ||
-                      200;
+        /**
+         * GH-786 (queue item 3gg) - NO 200, AND AN ENTERED ZERO IS A NUMBER.
+         *
+         * `|| 200` stood at the end of this chain, and the owner's decision of 30.09.2026 is "without the
+         * substitution": the annual nitrogen target now comes from the site's own stores and, failing those,
+         * from its grass species - and where none of that answers, there is no figure, not 200. A site's shade
+         * nutrition was being computed against a programme nobody entered.
+         *
+         * AND `||` ATE AN ENTERED ZERO, which is the class this repository removed in GH-780 and GH-781: a
+         * measured or deliberate 0 is an answer, and `0 || next` discards it. Both halves are the same
+         * expression, so both are fixed here.
+         *
+         * WITHOUT A FIGURE THE SHADE ADJUSTMENT HAS NOTHING TO ADJUST, and says so as an outcome, the way this
+         * function already refuses a run with no shade result one line above.
+         */
+        const nEntered = [state?.turf?.nProgramKgHaYr, state?.fertility?.annualN]
+            .map((v) => parseFloat(v))
+            .filter((v) => isFinite(v));
+        if (!nEntered.length) {
+            return { applied: false, reason: 'No annual N programme for this site' };
+        }
+        const nRate = nEntered[0];
 
         const context = state?.soil?.surfaceType || 'sports';
         const methodology = state?.soil?.methodology || 'mlsn';

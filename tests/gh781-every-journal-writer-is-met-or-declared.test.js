@@ -22,6 +22,16 @@
 
 const fs = require('fs');
 const path = require('path');
+/**
+ * GH-788 (queue item 3gd): the census reads CODE, not prose.
+ *
+ * This file's census was the measurement that opened that item: the reviewer inserted a block comment quoting
+ * a door's call into `cascade-orchestrator.js` and the census grew from 7 writers to 8 with the suite green —
+ * so "no writer outside the census" was being checked against a census a comment inflates. The helper blanks
+ * every comment to spaces, keeping the length and the newlines, so the addresses this file prints still point
+ * where they did.
+ */
+const { codeOf } = require('./lib/source-without-comments');
 const { execFileSync } = require('child_process');
 
 const vm = require('vm');
@@ -129,9 +139,18 @@ const DECLARED = [
     },
 ];
 
+/**
+ * GH-788 (queue item 3gd) — `--raw`, BECAUSE THE DEFAULT OUTPUT ESCAPES WHAT THIS FILE PARSES.
+ *
+ * Without it the client escapes backslashes in the values it prints, so a journal entry whose `data` is itself a
+ * JSON string came back as `{\\"reason\\":...}` and `JSON.parse` threw. The reader caught the throw, set the
+ * entries to null, and the row was filed as NOT COUNTED — so the reconciliation reported itself unfilled while
+ * the rows it needed were sitting in the table. Measured: with `--raw` the same row parses into 5 entries, every
+ * one of them carrying a door.
+ */
 function query(sql) {
     return execFileSync('docker', ['exec', 'gilba_mysql', 'mysql', '-ugilba', '-pgilba_secret',
-        'gilba', '-N', '-e', sql], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+        'gilba', '-N', '--raw', '-e', sql], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
         .split('\n').map((l) => l.trim()).filter((l) => l);
 }
 
@@ -140,7 +159,7 @@ function censusFromTheCode() {
     const out = [];
     ['hub-tissue-v3.js', 'cascade-orchestrator.js', 'hub-persistence.js', 'hub-orchestrator.js']
         .forEach((file) => {
-            const src = fs.readFileSync(path.join(ASSETS, file), 'utf8');
+            const src = codeOf(fs.readFileSync(path.join(ASSETS, file), 'utf8'), file);
             // The window is wide enough for the longest call in the tree -- the PGR note, whose data
             // object runs over twenty lines. Measured: at 400 characters it was missed, and the census
             // said five writers where the code has six. A census that quietly loses a writer is the
@@ -211,7 +230,7 @@ function howManyCallsTheCodeHas() {
     let n = 0;
     ['hub-tissue-v3.js', 'cascade-orchestrator.js', 'hub-persistence.js', 'hub-orchestrator.js']
         .forEach((file) => {
-            const src = fs.readFileSync(path.join(ASSETS, file), 'utf8');
+            const src = codeOf(fs.readFileSync(path.join(ASSETS, file), 'utf8'), file);
             const m = src.match(/(?:GaipOrchestrator|pass)\s*\.\s*(?:recordProblem|noteSkipped|notApplicable|note)\s*\(/g);
             n += m ? m.length : 0;
         });
@@ -262,9 +281,23 @@ function registryFromTheStand() {
         const cut = line.split('|');
         const id = cut[0];
         const hasJournal = cut[1] === 'journal';
+        /**
+         * GH-788 (queue item 3gd) — THE JOURNAL IS `warnings` AND `skipped`, and `detail.notApplicable` is not
+         * part of it.
+         *
+         * That third array is the SERVER's judgement (GH-675): each entry names a module and the inputs whose
+         * absence made it inapplicable, and it carries no `door` because no door wrote it. Counting it as a
+         * journal entry made `everyDoor` false for every row that has one — and on the stand that is every row
+         * with a salinity gap — so the registry stayed empty and the reconciliation reported itself unfilled
+         * even after the marks reached the rows. Measured on the first row to carry a journal: 5 entries in
+         * `warnings`, all with a door, 0 in `skipped`, and 2 in `notApplicable` with none.
+         *
+         * The journal's own `notApplicable` door is not lost by this: the pass writes it into `warnings`, where
+         * it is counted — row 132 carries `door: "notApplicable"` there.
+         */
         let entries = [];
         try {
-            entries = [].concat(JSON.parse(cut[2]), JSON.parse(cut[3]), JSON.parse(cut[4]));
+            entries = [].concat(JSON.parse(cut[2]), JSON.parse(cut[3]));
         } catch (e) {
             entries = null;
         }

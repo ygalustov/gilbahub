@@ -95,7 +95,14 @@ describe('GH-749 — the resolver answers an absent methodology with no ranges',
          */
         const r = Inputs.resolveSiteProgramInputs({
             siteId: 'gh749-site',
-            siteConfig: { turf: { turfType: 'golf', grassSpecies: 'creepingBentgrass' } },
+            /**
+             * GH-786: `species`, the key the resolver actually reads — `grassSpecies` stood here and is in
+             * none of the 21 configs on the stand, so this site named no grass and the assertion below passed
+             * on the species-table substitution the owner removed on 30.09.2026. The subject of the case is
+             * that a field unrelated to a methodology is still ANSWERED, so the site is given the species it
+             * was always meant to have.
+             */
+            siteConfig: { turf: { turfType: 'golf', species: 'creepingBentgrass' } },
             planForm: null,
         });
         process.stdout.write('[gh749] the site resolver, with no methodology: methodology '

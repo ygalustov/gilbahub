@@ -23,6 +23,12 @@
 
 const fs = require('fs');
 const path = require('path');
+/**
+ * GH-788 (queue item 3gd): the claim is that these two files CALL the function, so it is asked of their code.
+ * A comment quoting `speciesOfTheSite(state)` satisfied the assertion without a call — which is the one shape
+ * this case exists to rule out.
+ */
+const { codeOf } = require('./lib/source-without-comments');
 const vm = require('vm');
 
 const ASSETS = path.join(__dirname, '..', 'assets');
@@ -193,8 +199,9 @@ describe('GH-782 — the species for AA ranges is the site\'s, and one function 
          * The reason this is one function: the validator was right by coincidence while the calculation beside it
          * was wrong. Read off the two files, because the claim is about who asks whom.
          */
-        const engine = fs.readFileSync(path.join(ASSETS, 'hub-tissue-v3.js'), 'utf8');
-        const validator = fs.readFileSync(path.join(ASSETS, 'input-range-validator.js'), 'utf8');
+        const engine = codeOf(fs.readFileSync(path.join(ASSETS, 'hub-tissue-v3.js'), 'utf8'), 'hub-tissue-v3.js');
+        const validator = codeOf(fs.readFileSync(path.join(ASSETS, 'input-range-validator.js'), 'utf8'),
+            'input-range-validator.js');
 
         expect(engine).toContain('speciesOfTheSite(state)');
         expect(validator).toContain('speciesOfTheSite(state)');

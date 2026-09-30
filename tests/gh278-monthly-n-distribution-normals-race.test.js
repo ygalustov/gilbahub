@@ -100,6 +100,16 @@ describe('GH-278 — nutrition-summary-integration.js reacts to monthly normals 
     test('renderNutritionSummary() computes real monthly N and sets __GAIP_MONTHLY_N__ once monthlyTemps has resolved', () => {
         const { ctx } = loadModule();
         ctx.window.GAIP_STATE = { soil: { P: 20, K: 150, Ca: 800 } };
+        /**
+         * GH-786: the site's annual nitrogen target, handed in through the orchestrator state the module reads.
+         *
+         * This fixture supplied none, and the figure came from the module's own species fallback (`|| 160` off
+         * its own copy of the removal table). Both are gone — the owner decided on 30.09.2026 that the target
+         * comes from the site's stores, then from its species, and is otherwise absent — so without a figure
+         * here every month comes out at zero and this case, whose subject is the SPREAD across months, would be
+         * measuring absence instead.
+         */
+        ctx.window.GilbaHubOrchestrator = { getState: () => ({ turf: { nProgramKgHaYr: 160 } }) };
         ctx.window.climateMetrics = {
             monthlyTemps: { 1: 20, 2: 20, 3: 18, 4: 15, 5: 12, 6: 9, 7: 8, 8: 9, 9: 11, 10: 14, 11: 17, 12: 19 },
         };

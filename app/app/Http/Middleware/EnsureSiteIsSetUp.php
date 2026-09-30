@@ -109,7 +109,7 @@ class EnsureSiteIsSetUp
             if (! in_array($key, $asked, true)) {
                 continue;
             }
-            if (self::isBlank(self::valueAt($config, $key))) {
+            if (! CalculationInputs::isFilled($key, self::valueAt($config, $key))) {
                 $missing[] = $key;
             }
         }
@@ -136,7 +136,7 @@ class EnsureSiteIsSetUp
         $out = [];
         foreach ($keys as $key) {
             $value = self::valueAt($config, $key);
-            if (! self::isBlank($value)) {
+            if (CalculationInputs::isFilled($key, $value)) {
                 $out[$key] = $value;
             }
         }
@@ -144,36 +144,29 @@ class EnsureSiteIsSetUp
         return $out;
     }
 
-    /** `turf.species` and the like, read out of the config by the list's own key. */
+    /**
+     * `turf.species` and the like, read out of the config by the list's own key.
+     *
+     * GH-789 (queue item 7): the reading itself lives in `CalculationInputs` now, because the server's
+     * refusal at a Settings place needs the same one. Two readers spelling a path differently would have
+     * one of them answer "missing" while the other answers "here is your value" about one field.
+     */
     private static function valueAt(array $config, string $key)
     {
-        $at = $config;
-        foreach (explode('.', $key) as $step) {
-            if (! is_array($at) || ! array_key_exists($step, $at)) {
-                return null;
-            }
-            $at = $at[$step];
-        }
-
-        return $at;
+        return CalculationInputs::valueIn($config, $key);
     }
 
     /**
      * WHAT COUNTS AS ANSWERED. `generic` counts, by the owner's decision of 24.09.2026 17:32 —
      * a person may choose it deliberately and it is filled. An empty string and a null do not.
      */
-    private static function isBlank($value): bool
-    {
-        if ($value === null) {
-            return true;
-        }
-        if (is_string($value)) {
-            return trim($value) === '';
-        }
-        if (is_array($value)) {
-            return $value === [];
-        }
-
-        return false;
-    }
+    /**
+     * GH-789 (queue item 7): `isBlank` stood here and was the SECOND rule of "filled" in the tree.
+     *
+     * It and `RunStart::filled` agreed on everything but an object: both called a non-empty array filled, so a
+     * match-and-training schedule of nothing but `null`s counted as entered — and the Settings form sends every
+     * key it has on every save, so that was every save. The rule now lives in `CalculationInputs`, which is
+     * where the declaration it must read lives (`filledWhenAnyOf`), and this middleware asks it. A zero is
+     * filled: the owner entered nought matches and nought sessions on six sports sites on 30.09.2026.
+     */
 }

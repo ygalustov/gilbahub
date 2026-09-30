@@ -104,7 +104,12 @@
         'subtropical': 48,
         'warm-temperate': 42,
         'cool-temperate': 36,
-        'default': 40
+        /**
+         * GH-783: the `'default': 40` that stood here was a substitution wearing the clothes of a lookup table -
+         * `REGION_PEAK_DLI[region] || REGION_PEAK_DLI['default']` reads as a table miss handled, and it is a
+         * figure chosen for a site whose region nobody knows. The readers ask for the region's own peak now, and
+         * answer nothing when the table has none.
+         */
     };
 
     // CANONICAL DLI THRESHOLDS — other modules should reference these values
@@ -177,18 +182,37 @@
         throw new Error('shade-engine-pure: state.monthIndex is required (0-11)');
     }
 
+    /**
+     * GH-783 (queue item 3vshch) - A REGION NOBODY GAVE IS ABSENT, NOT 'warm-temperate'.
+     *
+     * The literal stood here as a default and decides real numbers: the region picks the open-field peak DLI
+     * below, and from that come the light deficit, the stress verdict and the species advice a person reads. A
+     * site whose region never reached the engine was computed as a warm-temperate one and told so with no sign
+     * that anything had been assumed. The owner's rule of 17.09.2026: an absent field stays absent, and a
+     * default means the data did not arrive - which is what has to be shown rather than covered.
+     */
     function getRegion(state) {
         if (state.site && state.site.region) return state.site.region;
         if (state.location && state.location.region) return state.location.region;
-        return 'warm-temperate';
+
+        return null;
     }
 
+    /**
+     * GH-783 - AND A HEMISPHERE NOBODY GAVE IS ABSENT TOO, not 'south'.
+     *
+     * `// Default Australian` is what the literal said, and it is the same class as the region above: the
+     * hemisphere decides the sun's declination, the months of the renovation window and which half of the year
+     * is the growing one. A site with no latitude was answered as a southern one, and nothing on the page said
+     * that the answer had been chosen here. Absent stays absent, and the readers below say so.
+     */
     function getHemisphere(state) {
         if (state.site && state.site.hemisphere) return state.site.hemisphere;
-        if (state.location && state.location.lat !== undefined) {
+        if (state.location && state.location.lat !== undefined && state.location.lat !== null) {
             return state.location.lat < 0 ? 'south' : 'north';
         }
-        return 'south'; // Default Australian
+
+        return null;
     }
 
     function getSpeciesKey(state) {
@@ -334,8 +358,17 @@
      * @param {string} region - climate region
      * @returns {number} DLI in mol/m²/day
      */
+    /**
+     * GH-783 (queue item 3vshch, the reviewer's return) - THE SAME INPUT HAS TWO ENTRANCES, AND BOTH ARE CLOSED.
+     *
+     * The direct-DLI branch stopped substituting a peak of 40, and this one kept doing it through a `'default'`
+     * key in the table itself - so a region the table does not know was still worth 40 here. One input, two
+     * doors, one closed: the very shape this repository closed for the grass species in GH-782. A region with no
+     * peak answers nothing, and the caller shows an outcome instead of a figure about a site that does not exist.
+     */
     function DLIfromHourly(hourly, region) {
-        var peak = REGION_PEAK_DLI[region] || REGION_PEAK_DLI['default'];
+        var peak = (region && REGION_PEAK_DLI[region] !== undefined) ? REGION_PEAK_DLI[region] : null;
+        if (peak === null) return null;
         var sum = hourly.reduce(function(a, b) { return a + b; }, 0);
         // Scale: sum of hourly fractions × peak DLI / 12 (normalisation factor)
         return +(sum * (peak / 12)).toFixed(1);
@@ -370,9 +403,20 @@
     /**
      * Get soil temperature for month and region
      */
+    /**
+     * GH-783 - AND A THIRD ENTRANCE OF THE SAME REGION, which nobody had named at all.
+     *
+     * Two substitutions in three lines: a region the profiles do not know was computed as warm-temperate, and a
+     * month with no figure in its profile was worth 18 degrees. The region arrives from the site's config as a
+     * free string and is checked against no list of keys, so the first of the two was reachable by a typo. The
+     * comment on the direct-DLI branch already calls this shape a defect; it is the same one, one function along.
+     */
     function getSoilTemp(region, monthIdx) {
-        var profile = SOIL_TEMP_PROFILES[region] || SOIL_TEMP_PROFILES['warm-temperate'];
-        return profile[monthIdx] || 18;
+        var profile = (region && SOIL_TEMP_PROFILES[region]) || null;
+        if (!profile) return null;
+        var t = profile[monthIdx];
+
+        return (t === undefined || t === null) ? null : t;
     }
 
     /**
@@ -385,6 +429,15 @@
      * @returns {object} { mode, reason, targetDLI, confidence }
      */
     function speciesDecision(baseType, dliShaded, monthIdx, traffic, region) {
+        /**
+         * GH-783: a soil temperature nobody can give is not a cold one. `getSoilTemp` answers `null` for a region
+         * the profiles do not know, and every comparison below would read that as freezing - `null < 14` is true -
+         * so the species advice would be the advice for a cold month. Absence is answered as absence instead.
+         */
+        var _T = getSoilTemp(region, monthIdx);
+        if (_T === null || _T === undefined) {
+            return { strategy: null, reason: 'no soil-temperature profile for this region', mode: null };
+        }
         var T = getSoilTemp(region, monthIdx);
         var D = dliShaded;
         var heavy = (traffic === 'heavy');
@@ -542,6 +595,22 @@
      * @param {string} speciesMode - C3/C4/mixed
      * @param {number} deficitPct - light deficit
      * @returns {object} { flag, detail, windowStart, windowEnd }
+     */
+    /**
+     * GH-783 - THE SEASONS HERE ARE THE SOUTHERN ONES, AND THAT IS A DECISION, not an omission.
+     *
+     * September to November is spring in this function, March to May autumn, and the hemisphere is not asked at
+     * all - so a northern site is told that its September is a spring window. The owner settled it on 30.09.2026:
+     * leave it as the old hub has it, FOR NOW, and revisit it later. Measured before writing this, because "as
+     * the old hub has it" had to be a fact rather than a memory: `/hub` loads both this file and
+     * `shade-engine.js`, and in both copies this function takes no hemisphere and marks Sep-Nov as spring. So
+     * what is kept is what runs today, and nothing third exists.
+     *
+     * WHAT IT COSTS, measured on the stand: of thirteen sites one prints a window of the wrong hemisphere
+     * (`+52.24` latitude, "September" in September) and a second has the wrong branch with no window to print.
+     * The engine already knows the hemisphere two lines away - `seasonalTrajectory` shifts the declination by it
+     * and `optimalRenovation` answers Mar-May for the north - so this function disagreeing with its neighbours is
+     * the thing a later requirement will settle.
      */
     function recoveryWindowAssessment(region, monthIdx, speciesMode, deficitPct) {
         // Severe deficit = poor recovery regardless
@@ -975,6 +1044,32 @@
         
         var region = getRegion(state);
         var hemisphere = getHemisphere(state);
+        /**
+         * GH-783 (queue item 3vshch) - WITHOUT A REGION OR A HEMISPHERE THIS ENGINE COMPUTES NOTHING.
+         *
+         * The two used to be substituted ('warm-temperate', 'south') and every number below rested on the guess:
+         * the region picks the open-field peak DLI, and from it come the light deficit, the stress verdict and the
+         * species advice; the hemisphere picks the sun's declination and the months of the renovation window.
+         * Now they are absent when nobody gave them - and absence must not be read as a value either. Every check
+         * below asks `=== 'south'`, for which `null` reads as NORTH, so a bare removal would have answered a site
+         * with no latitude as a northern one, which is worse than the default it replaced.
+         *
+         * So the engine says it did not compute, in the shape the cascade already recognises as "produced
+         * nothing" - the same device as the soil engine without a methodology (GH-782).
+         *
+         * ON THE STAND THIS CHANGES NOTHING TODAY, and that is measured rather than hoped: the caller of this
+         * engine substitutes a latitude of -35 for every site (the owner's open fork 7), so a hemisphere always
+         * arrives. What the guard removes is the silence in the case where it does not.
+         */
+        if (!region || !hemisphere) {
+            return {
+                status: 'Not available',
+                statusSeverity: 'unknown',
+                reason: !hemisphere ? 'no-hemisphere' : 'no-region',
+                hemisphere: hemisphere,
+                region: region,
+            };
+        }
         var monthIdx = getCurrentMonth(state.monthIndex);
         var speciesKey = getSpeciesKey(state);
         
@@ -1007,9 +1102,15 @@
             if (ambientDLI && ambientDLI > 0) {
                 dliOpen = ambientDLI;
             } else {
-                var peakDLI = REGION_PEAK_DLI[region] || 40;
+                /**
+                 * GH-783: the region's own peak, or nothing computed from it. `|| 40` turned a region nobody
+                 * gave - and a region name this table does not know - into a number, and every figure downstream
+                 * was then a figure about a site that does not exist.
+                 */
+                var peakDLI = (region && REGION_PEAK_DLI[region] !== undefined)
+                    ? REGION_PEAK_DLI[region] : null;
                 var monthMult = MONTH_DLI_MULT[monthIdx];
-                dliOpen = peakDLI * monthMult;
+                dliOpen = (peakDLI === null) ? null : peakDLI * monthMult;
             }
             dliShaded = dliInput;
             globalMod = dliOpen > 0 ? (dliShaded / dliOpen) : 1;
@@ -1025,6 +1126,20 @@
             } else {
                 var hourlyOpen = computeHourlyOpenFraction(1, 1, 1, monthIdx, shade.aspect || 'N', hemisphere);
                 dliOpen = DLIfromHourly(hourlyOpen, region);
+                /**
+                 * GH-783: and a peak the table has no figure for stops the pass here rather than becoming a
+                 * deficit computed from nothing. The other branch of this same `if` was already repaired; this is
+                 * its second entrance.
+                 */
+                if (dliOpen === null) {
+                    return {
+                        status: 'Not available',
+                        statusSeverity: 'unknown',
+                        reason: 'no-peak-dli-for-region',
+                        region: region,
+                        hemisphere: hemisphere,
+                    };
+                }
             }
             
             var hourlyPartial = computeHourlyOpenFraction(morningSky, middaySky, afternoonSky, monthIdx, shade.aspect || 'N', hemisphere);
