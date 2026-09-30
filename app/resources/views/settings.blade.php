@@ -666,7 +666,7 @@
                                     {{-- GH-789 (queue item 7): the same, and here the page says out loud
                                          that nought is an answer -- "0 = pure C4" in the hint below. --}}
                                     <input type="number" id="stg-turf-c3" name="c3Cover"
-                                           value="{{ $turfVal('c3Cover', '0') }}" min="0" max="100" step="1">
+                                           value="{{ $turfVal('c3Cover') }}" min="0" max="100" step="1">
                                     <p class="stg-field-hint">Percentage of surface covered by cool-season (C3) grass. 0 = pure C4, 100 = pure C3.</p>
                                 </div>
                             </div>

@@ -129,6 +129,13 @@ describe('GH-733 — an empty Turf field gives no key', () => {
      *
      * `|| ''` STAYS, and stays asserted: an empty string is not a value that means something else, so it
      * says the same thing as no key, and the rule below drops it either way.
+     *
+     * AND THE REST OF THE SETTINGS DEFAULTS STAY BY THE OWNER'S DECISION of 30.09.2026 -- eight fields of
+     * the four forms still travel with a value nobody chose, and she answered "leave it as it is, we will
+     * decide later". Named here so a green in this area reads as what it is: a decided deferral, not a
+     * field this item overlooked. Three were taken up and are asserted above and in
+     * `Gh789TheFormAsksByTheListTest`: the Poa figure, the C3 cover and the soil moisture -- each one a
+     * value a person can mean, so the default could not be told from an answer.
      */
     test('the boundary of this item, and where it has since moved', () => {
         const literal = turfLiteral();

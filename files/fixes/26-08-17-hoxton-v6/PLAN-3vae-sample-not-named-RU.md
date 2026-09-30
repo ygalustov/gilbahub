@@ -10,6 +10,37 @@
 
 `hub-tissue-v3.js` и `hub-persistence.js` сейчас правит разработчик (3вш), адреса даны с якорями.
 
+## СВЕРКА С ДЕРЕВОМ 30.09, НОЧЬ — перед работой
+
+`md5`:
+- `hub-tissue-v3.js` `d9816a57…` (было `ca7d65ae…`, двигали 3гг, 3вы, 3гд);
+- `dashboard-ui.js` `ab1c3172…` (было `1f6d277e…`);
+- `dependency-graph.json` `bd01abd6…` (было `ca568c48…`);
+- `hub-persistence.js` `18a2ac71…` и `AnalysisNotice.php` `01d84a61…` — без изменений.
+
+**Дефект на месте, проверено чтением:** `gaip_namedSample` при `told === "unknown"` отвечает `null` (`hub-tissue-v3.js`, около `:1388`, якорь `if (!told || told === "unknown") return null;`), и `gaip_sampleInHand` берёт `SM.getActiveSample(kind)` (около `:1432-1439`, якорь `return named || SM.getActiveSample(kind) || null;`). Прогонщик при `unknown` по-прежнему ждёт почву: `{ expect: true, id: null, told: 'unknown' }` (`hub-persistence.js`, около `:438`).
+
+**Адреса, сейчас** (номер — «около», якорь — имя функции):
+
+| что | было | сейчас |
+|---|---|---|
+| `askServerForSample` | `dashboard-ui.js:183–199` | `:183-197`, без изменений по сути |
+| `gaip_namedSample` | `hub-tissue-v3.js:1345–1348` | `:1385` |
+| `gaip_sampleInHand` | — | `:1432` |
+| `gaip_sampleReadings` | — | `:1445` |
+| `gaip_passSampleIds` | — | `:841` |
+| `gaip_runCascadePass`, блок входа почвы | — | `:939`; образец писателя пропуска с производителем `cascade` — `noteSkipped("mlsn", "mlsn", "soil-sample-not-loaded", "mlsn", "cascade")`, около `:1068` |
+| `gaip_read_tissue_data` | — | `:2661` |
+| `_soilExpected` | `hub-persistence.js:437–438` | тот же |
+| ворота каскада | `requires: ["samples.soil"]` / `["samples.tissue"]` | те же (`mlsn-calculator`, `tissue-engine`) |
+
+**Что изменилось за сутки и как ложится на план:**
+- **Причины доезжают до строки** (`GH-781`, `GH-786`, `GH-788`): пропуск под именем `cascade` ложится в тело журналом принятого прохода. Устройство плана на это и рассчитано (п. 2); правок не требует.
+- **Фраза владельца для непосчитанного модуля** уже стоит в четырёх причинах с `composed` / `wordsFrom: owner`. `sample-not-named` становится пятой той же формы (п. 3), новых слов нет.
+- **Пересечение с 3вю, названо в обоих планах.** 3вю переносит разбор названной пробы в `SM.calculationSample(kind)` и в своём перечне пишет: «`unknown` — исход пункта 3вэ, не активная». **Первым идёт 3вэ** (он раньше в очереди): делает три ответа в `gaip_namedSample` (номер, `none`, `unknown`) и отказ от активной в `gaip_sampleInHand`. 3вю переносит уже исправленный разбор в `SM.calculationSample`, не меняя его ответов, и проверяет, что `unknown` не даёт активную.
+
+**Размер — без изменений: 8 мест.**
+
 ## Решение владельца
 
 Развилка 1 блока владельца, вариант (б): при ошибке почву не считать и записать причину. Фраза — «{Module} was not calculated in this analysis. If this continues, contact us.»; её слова на предложение фразы: «Давай твою фразу».

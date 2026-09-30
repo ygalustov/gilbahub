@@ -92,9 +92,18 @@ describe('GH-404 — the form marks Location required, and leaves the coordinate
     const view = readView('settings.blade.php');
 
     test('Location carries the required mark, drawn from the list rather than typed in', () => {
-        // GH-789: the `required` attribute went with the page's gate -- it sat on forms that all carry
-        // `novalidate`, so it was a mark and nothing else. The mark is now derived per site from the list,
-        // and it stands beside Location because that is the field a person answers.
+        /**
+         * GH-789: the `required` attribute went with the page's gate -- it sat on forms that all carry
+         * `novalidate`, so it was a mark and nothing else. The mark is now derived per site from the list,
+         * and it stands beside Location because that is the field a person answers.
+         *
+         * THIS IS A STRUCTURAL PIN AND NOT THE PROOF, said out loud because the reviewer caught the same
+         * shape one layer over: an assertion about the TEXT of a template survives a rename of the helper
+         * and misses a mark arriving another way. What is RENDERED is asserted where it can be rendered --
+         * `app/tests/Feature/Gh789TheFormAsksByTheListTest.php` draws this page for every turf type and
+         * every editing role and reads the marks and the bindings back off the page. This file is jest and
+         * has no server to render with, so it pins the wiring and names where the behaviour is held.
+         */
         const at = view.indexOf('id="stg-location-name"');
         const label = view.slice(Math.max(0, at - 700), at);
         expect(label).toMatch(/\$requiredNote\('location\.lat'\)/);

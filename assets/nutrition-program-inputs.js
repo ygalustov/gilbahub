@@ -630,6 +630,52 @@
         return null;
     }
 
+    /**
+     * GH-790 (queue item 9) — THE CONFIG OF THE SITE THIS RUN IS FOR, and it is one function because it
+     * was about to be written into fourteen lines of two files.
+     *
+     * WHAT IT REPLACES. The run's state was assembled from the fields of the `/hub` markup and from
+     * `GAIP_HUB_CONFIG.gaipConfig`. That object is written once, when the page is rendered, and no writer
+     * in `assets` ever updates it, so in the combined export's loop -- which switches site and runs the
+     * analysis once per sample -- it still describes whichever site the page was drawn with. The form is
+     * worse: a snapshot in the browser used to refill it on every load, keyed by USER rather than by site.
+     *
+     * It answers for the site asked about or answers `null`, because `getSiteConfig` above refuses to
+     * substitute the page's config for another site's -- that refusal is the whole point of GH-468/GH-469
+     * and this must not reach around it. A caller that gets `null` has no config for this run and computes
+     * without it, which is an outcome; a number from a neighbouring site is not.
+     *
+     * @returns {Object|null} the site's persisted `gaip` config, or null
+     */
+    function runSiteConfig() {
+        const id = getActiveSiteId();
+
+        return id ? getSiteConfig(id) : null;
+    }
+
+    /**
+     * One value out of that config, by the storage key the inputs list declares -- `turf.species`,
+     * `location.lat`, `traffic.schedule.matchesPerWeek`.
+     *
+     * BY THE KEY IT IS STORED UNDER, not by the name the calculation knows it by: that was the lesson of
+     * queue item 3ga, where a reader walked the input's own key as a path and six inputs are written
+     * elsewhere. Absent is `null` -- never 0, never "", never the markup's literal.
+     *
+     * @param {string} path dotted path in the config
+     * @param {Object} [cfg] the config, when the caller already has it
+     */
+    function runSiteValue(path, cfg) {
+        let at = cfg === undefined ? runSiteConfig() : cfg;
+        if (!at || typeof path !== 'string' || path === '') return null;
+        const steps = path.split('.');
+        for (let i = 0; i < steps.length; i += 1) {
+            if (at === null || typeof at !== 'object' || !(steps[i] in at)) return null;
+            at = at[steps[i]];
+        }
+
+        return at === undefined || at === '' ? null : at;
+    }
+
     // ==========================================================================
     // Sample-level validation — the Plan page's null-not-zero rule for everyone
     // ==========================================================================
@@ -1438,6 +1484,9 @@
         validateSampleInputs: validateSampleInputs,
         getSiteConfig: getSiteConfig,
         getActiveSiteId: getActiveSiteId,
+        // GH-790 (queue item 9): the config of the site the run is for, and one value out of it.
+        runSiteConfig: runSiteConfig,
+        runSiteValue: runSiteValue,
         FIELD_PATHS: FIELD_PATHS,
         normalizeMethodology: normalizeMethodology,
         resolveSpeciesKey: resolveSpeciesKey,

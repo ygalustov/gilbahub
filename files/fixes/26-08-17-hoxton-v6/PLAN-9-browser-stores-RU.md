@@ -20,6 +20,48 @@
 
 Остальные три файла — с прежними `md5`.
 
+## СВЕРКА С ДЕРЕВОМ 30.09, НОЧЬ — перед работой, после 3гг (`GH-786`), 3вы (`GH-787`), 3гд (`GH-788`) и правки пункта 7
+
+`md5` на время сверки: `hub-tissue-v3.js` `d9816a57…`, `hub-persistence.js` `18a2ac71…`, `settings-init.js` `af988bbe…`, `plan-ui.js` `a95dabfb…`, `site-config-persistence.js` `6e7a0bd1…`, `hub-orchestrator.js` `4a4d8668…`, `auto-refresh.js` `74971a0b…`, `wear-recovery-integration.js` `620f61e8…`, `cascade-orchestrator.js` `a680ac1b…`, `weather-resilience.js` `25a58a13…`, `word-export-combined.js` `cf8c2dc4…`. **Адреса в тексте ниже — по дереву 29–30.09; где они разошлись, действует эта таблица.** Номер строки — «около», якорь рядом.
+
+| что | было в тексте | сейчас (якорь) |
+|---|---|---|
+| запись зеркала трафика | `settings-init.js:1918` | `:1952`, `localStorage.setItem(getTrafficStateKey(), …)` |
+| чтение зеркала в форму Settings | `settings-init.js:1860` | `:1894`, `getTrafficSchedule` |
+| чтение зеркала на `/plan` | `plan-ui.js:554` | `:571`, `localStorage.getItem('gilba_traffic_state_' + _tsid)` |
+| чтение зеркала в поля Клегга `/hub` | `site-config-persistence.js:795` | `:793-798`, без изменений |
+| вычистка `gilba_last_pgr_` (образец вычистки) | `settings-init.js:1982` | `:2017` |
+| запуск `restore()` через 200 мс | `hub-persistence.js:3417–3420` | `:3580-3585` |
+| `restoreInputState` | `:1503–1640` | `:1660` и далее |
+| события автосохранения, выгрузка | `:3444–3479` | `:3610-3642` (`beforeunload`) |
+| `save` / `restore` | `:3515–3520` | `:3680` / `:3741` |
+| экспорт/импорт снимка | — | `:3861` / `:3878` |
+| вычистка `useLiveWeather` | `:3579–3589` | `:3744-3752` |
+| значок «последний анализ» | `auto-refresh.js:116` | `:116`, `addStalenessIndicators` |
+| сборка состояния прогона | `hub-tissue-v3.js:1781–2179` | `gaip_build_state`, `:2041` и далее |
+| ручная влажность | `:1835` | `:2095` |
+| LED | `:1969–1970` | `:2278-2279` |
+| Клегг | `:1965–1967` | `:2274-2276` |
+| трафик в состоянии каскада | `:2066–2101` | блок `traffic:`, `:2375` и далее |
+| ручная погода из конфига | `weather-resilience.js:259–291` | без изменений |
+| комментарий GH-468 о цикле экспорта | `word-export-combined.js:840-853` | тот же якорь, `setActiveSite() stays` |
+
+**Что изменилось по существу:**
+1. **Предмет 6 — сужен.** Путь каскада удалён 3вы (`executeWearEngine`, `readWearRecoveryState` — якоря-комментарии `cascade-orchestrator.js`, около `:442`, `wear-recovery-integration.js`, около `:328`). Износ считает только оркестратор. Его нагрузка **по-прежнему из пустого входа**: `buildWearRecoveryInputs`, `let schedule = _hubState.inputs.schedule; let trafficData = schedule?.traffic || schedule || null` (около `:3908-3909`) → `traffic: trafficData` (около `:4116`). 3вы перевёл на конфиг девять входов сборки, но не нагрузку: она ждала преобразования из предмета 5. **В предмете 6 остаётся одно место** — `trafficData` из того же преобразования «расписание конфига → трафик». Абзац «Порядок с пунктом износ…» исполнен: каскадного износа нет.
+2. **Предмет 7 — источник конфига решён 3гг, и ответ меняет место, не только чтение.**
+   - 3гг установил: `GAIP_HUB_CONFIG.gaipConfig` пишется один раз при отрисовке страницы и никем не обновляется. В цикле объединённого экспорта он описывает площадку, с которой страница нарисована. Норма N поэтому читается по id — `GAIP_NutritionProgramInputs.getSiteConfig(getActiveSiteId())` (`hub-tissue-v3.js`, около `:2244-2270`, якорь `THE CONFIG IS THE RUN'S SITE, BY ID`).
+   - **11 полей таблицы предмета 7 читают тем же путём, по id, а не `GAIP_HUB_CONFIG.gaipConfig`.** Одна функция «конфиг площадки прогона» на оба файла, чтобы путь не повторялся в двенадцати строках.
+   - **Находка — в закрытом 3вы тот же дефект:** `siteConfigOfThisRun()` (`hub-orchestrator.js`, около `:4152-4155`) читает `GAIP_HUB_CONFIG.gaipConfig`. Девять входов износа и широта сезона во втором и следующих отчётах объединённого экспорта берутся с площадки страницы. План 3вы предписывал взять ответ 3гг, а 3вы сдан раньше, чем ответ появился. **Здесь чинится одной строкой:** `siteConfigOfThisRun` становится той самой функцией «конфиг площадки прогона по id». Износ получает верную площадку без правки сборки. +1 место. Три старых чтения `GAIP_HUB_CONFIG.gaipConfig` в оркестраторе (около `:584`, `:659` — конфиг до прогона, вид канонического состояния) — тот же класс, названы, в 9 не входят.
+   - **Строка «программа азота» — сделана 3гг** (`GH-786`, по id). Мёртвое чтение `_userN` — удалено 3гг: в `word-export-combined.js` `_userN` 0 вхождений. Оба подпункта закрыты. В предмете 7 остаются 11 полей и замер гонки прохода экспорта с пробами.
+   - **Второе чтение сорта:** `variety: e.querySelector(".gaip-variety")?.value || "generic"` стоит ещё в одном блоке сборки (около `:2409`, рядом с `overseedStatus`). Это то же поле таблицы — правится тем же приёмом. Строка добавлена в таблицу.
+   - Адреса таблицы предмета 7 теперь: `grassSpecies` `:2221`, `coolOverseed` `:2223`, `overseedVariety` `:2224`, `overseedSummerIntent` `:2226`, `poaPercent` `:2227`, `hoc`/`heightOfCut` `:2229-2230`, `drainage` `:2273`, `lat`/`lon` `:2067-2068`, `construction` `:2271-2272` (и `:2060`), `variety` `:2280` и `:2409`.
+3. **Пункт 7 — на что план 9 опирается, стоит в дереве:** одно правило «заполнено»; 422 с `missing`; нули шести площадкам; `|| '0'` снят. Форма Traffic & Wear по-прежнему пишет зеркало в `localStorage` (`:1952`) — это предмет 1 здесь, пункт 7 его не трогал.
+4. **Пересечение с 3вз — без изменений:** первым идёт пункт 9; широту и долготу переводит он, 3вз проверяет, что они уже читаются из данных площадки.
+
+**Граница, найдена при сверке, названа, в 9 не входит.** Ещё четыре сборки оркестратора читают тот же никогда не заполняемый `_hubState.inputs.schedule` (перепись `q-schedule-site-census.md`): `buildStressTrajectoryInputs` (около `:3119`), `buildDewInputs` (около `:3443`, `nextMatch`), `buildPreEmergentInputs` (около `:3597`), `buildSalinityInputs` (около `:4225`, `dailyIrrigationMM`/`irrigationDepth`). Они читают поля, которых в расписании конфига нет (`nextMatch`, глубина полива). Преобразование трафика им ничего не даст, это не трафик. `runComputePass` берёт `schedule: global.GAIP_STATE.schedule || _hubState.inputs.schedule` (около `:4435`) — глобал страницы первым, класс GH-459, для всех входов прохода; в 9 не входит.
+
+**Размер после сверки:** предмет 6 — 1 место (было 1 место + снятие `readWearRecoveryState`); предмет 7 — 11 полей одним блоком, плюс второе чтение сорта, плюс `siteConfigOfThisRun` — 3 места. **Итого ≈ 13 мест** (было ≈ 11 без предмета 7).
+
 ## Браузерные копии в этой области — перечень, это предмет работы
 
 Искала `grep` по трём ключам пункта (`gilba_traffic_state`, `gilba_last_pgr`, `gilba_hub_state`) в `assets` и `app/resources`, и `localStorage` в `hub-persistence.js`, `settings-init.js`, `site-config-persistence.js`, `plan-ui.js`, `auto-refresh.js`.
@@ -115,6 +157,7 @@
       | `turf.hoc` и `turf.heightOfCut` | `.gaip-hoc`, `safeNum(…, 25)` (около `:2205-2206`) | `turf.hoc` |
       | ~~`turf.nProgramKgHaYr`~~ | **переехало в 3гг** (`PLAN-3gg-annual-n-one-source-RU.md`, Ч1) решением координатора 30.09; здесь не трогается | — |
       | `turf.drainage` | `.gaip-drainage` (около `:2214`) | `turf.drainage` |
+      | `turf.variety` — второе чтение, другой блок сборки | `.gaip-variety`, `\|\| "generic"` (около `:2409`, добавлено сверкой 30.09 ночью) | `turf.variety` |
       | `climate.lat` | `.gaip-lat`, `safeNum(…, 0)` (около `:2046`) | `location.lat` — **см. пересечение с 3вз** |
       | `climate.lon` | `.gaip-lon`, `safeNum(…, 0)` (около `:2047`) | `location.lon` — **см. пересечение с 3вз** |
       | `turf.construction` | уже не форма: `GAIP_HUB_CONFIG.construction.value` (GH-664/752, около `:2212`) | `turf.construction` — тот же источник, что у 11 остальных |

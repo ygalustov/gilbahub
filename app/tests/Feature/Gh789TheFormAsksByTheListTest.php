@@ -190,6 +190,81 @@ class Gh789TheFormAsksByTheListTest extends TestCase
         return substr($html, $at - 8, $end - $at + 17);
     }
 
+    /**
+     * GH-789 (queue item 7) — AN EMPTY FIELD IS DRAWN EMPTY: THE TEMPLATE LAYER.
+     *
+     * WHY THIS CASE EXISTS, and it is the reviewer's finding rather than an extra. The substitution of nought
+     * in these two boxes had TWO layers -- `|| '0'` where the form builds its request, and a template
+     * fallback that put `0` into the box when the site held nothing -- and the argument for repairing both
+     * was that repairing the sender alone would close nothing: the page would show `0`, the person would
+     * save, and the nought would be stored as a measured fact all the same. Only the sender was asserted
+     * (`tests/gh733-…:147`), so the template layer could be put back and both suites stayed green. Measured
+     * by the reviewer: `$turfVal('c3Cover')` -> `$turfVal('c3Cover', '0')`, JS 4007 passed, PHP 3409 passed,
+     * no new failure.
+     *
+     * THREE OUTCOMES, because two would not tell a repair from a broken field:
+     *
+     *   the site holds nothing -> the box is EMPTY. Nobody has measured the Poa or the cool-season cover.
+     *   the site holds `0`     -> the box shows `0`. It is an answer somebody gave: a stand with no Poa, and
+     *                             "0 = pure C4", which the page's own hint says in as many words.
+     *   the site holds a figure -> the box shows the figure.
+     *
+     * AND NO `placeholder`, for the same reason the wizard's schedule has none: a figure standing in an
+     * empty box reads as a value already entered.
+     */
+    public function test_an_empty_figure_is_drawn_empty_and_a_stored_nought_is_drawn_as_nought(): void
+    {
+        $cases = [
+            'nothing stored' => [],
+            'a stored nought' => ['poaPercent' => 0, 'c3Cover' => 0],
+            'a stored figure' => ['poaPercent' => 12, 'c3Cover' => 60],
+            'a stored nought as a string' => ['poaPercent' => '0', 'c3Cover' => '0'],
+        ];
+        $drawn = [];
+        foreach ($cases as $what => $turf) {
+            $html = $this->settingsFor('sports', 'manager', $turf);
+            $drawn[$what] = [
+                'poaPercent' => $this->valueDrawn($html, 'stg-turf-poa'),
+                'c3Cover' => $this->valueDrawn($html, 'stg-turf-c3'),
+                'placeholder' => preg_match('/id="stg-turf-c3"[^>]*placeholder/', $html) === 1,
+            ];
+        }
+        fwrite(STDOUT, PHP_EOL.'[gh789] the two figures, as the form draws them:'.PHP_EOL);
+        foreach ($drawn as $what => $row) {
+            fwrite(STDOUT, '[gh789]   '.str_pad($what, 28).' -> Poa '.json_encode($row['poaPercent'])
+                .', C3 '.json_encode($row['c3Cover'])
+                .($row['placeholder'] ? ' | A PLACEHOLDER IS DRAWN' : '').PHP_EOL);
+        }
+
+        // NOTHING STORED IS DRAWN AS NOTHING. This is the assertion the reviewer's mutation reddens.
+        $this->assertSame('', $drawn['nothing stored']['poaPercent']);
+        $this->assertSame('', $drawn['nothing stored']['c3Cover']);
+        // AND THE OTHER TWO OUTCOMES, which is what tells the repair from a field that stopped working.
+        $this->assertSame('0', $drawn['a stored nought']['poaPercent']);
+        $this->assertSame('0', $drawn['a stored nought']['c3Cover']);
+        $this->assertSame('0', $drawn['a stored nought as a string']['c3Cover']);
+        $this->assertSame('12', $drawn['a stored figure']['poaPercent']);
+        $this->assertSame('60', $drawn['a stored figure']['c3Cover']);
+        // No figure in an empty box, whatever the site holds.
+        foreach ($drawn as $what => $row) {
+            $this->assertFalse($row['placeholder'], $what.': a placeholder stands in the C3 box');
+        }
+    }
+
+    /** What the `value` attribute of one control actually says on the rendered page. */
+    private function valueDrawn(string $html, string $id): string
+    {
+        $at = strpos($html, 'id="'.$id.'"');
+        $this->assertNotFalse($at, $id.' is gone from the form');
+        $tag = substr($html, $at, (int) strpos($html, '>', $at) - $at);
+        if (preg_match('/\bvalue="([^"]*)"/', $tag, $m) !== 1) {
+            // No attribute at all is not the same as an empty one, and a case must be able to say which.
+            return '(no value attribute)';
+        }
+
+        return $m[1];
+    }
+
     /** Does the list say this input is entered at a Settings place? */
     private function listSaysSettings(string $key): bool
     {
@@ -224,7 +299,7 @@ class Gh789TheFormAsksByTheListTest extends TestCase
     }
 
     /** The page as a person of this role sees it for a site of this turf type. */
-    private function settingsFor(string $turfType, string $role): string
+    private function settingsFor(string $turfType, string $role, array $turf = []): string
     {
         $user = User::factory()->create();
         $account = Account::query()->firstOrCreate(
@@ -244,7 +319,9 @@ class Gh789TheFormAsksByTheListTest extends TestCase
         $user->forceFill(['last_active_site_id' => $site->id])->save();
         SiteConfig::query()->create([
             'site_id' => $site->id, 'namespace' => 'gaip', 'synced_at' => now(),
-            'config' => $this->configThePageLockAccepts(['turf' => ['turfType' => $turfType]]),
+            'config' => $this->configThePageLockAccepts([
+                'turf' => array_merge(['turfType' => $turfType], $turf),
+            ]),
         ]);
 
         return $this->actingAs($user->fresh())->get('/settings')->assertOk()->getContent();
