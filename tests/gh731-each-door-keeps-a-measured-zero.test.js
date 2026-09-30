@@ -22,6 +22,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { loadManager } = require('./lib/sample-form-bench');
+const { giveItTheChooser } = require('./lib/sample-chooser');
 
 const ASSETS = path.join(__dirname, '..', 'assets');
 const SRC = fs.readFileSync(path.join(ASSETS, 'hub-persistence.js'), 'utf8');
@@ -67,8 +68,13 @@ function produce({ search, store, ecwField }) {
     sandbox.GAIP_SampleManager = {
         readingsOf: sm.readingsOf,
         labReadingOf: sm.labReadingOf,
-        getSamples: () => [],
-        getActiveSample: () => null,
+        /**
+         * GH-778: the run computes on the sample the server named, and where an opener named none the page's
+         * active sample is still this run's own. The bench says which sample the page holds, so the chooser
+         * has something to answer with — the producer no longer has a rule of its own to fall back on.
+         */
+        getSamples: (kind) => (kind === 'water' && store ? Object.values(store) : []),
+        getActiveSample: (kind) => (kind === 'water' && store ? Object.values(store)[0] : null),
         getActiveSiteId: () => 'site-1',
         getAllSamples: () => ({
             allSites: store ? { 'site-1': { water: store } } : {},
@@ -80,6 +86,10 @@ function produce({ search, store, ecwField }) {
     };
 
     const ctx = vm.createContext(sandbox);
+    // GH-778: the write path asks one function which sample this run computes on, and that function lives
+    // in `hub-tissue-v3.js`. A bench executing the producer alone has none, and every such place answers
+    // `null`. The product's own chooser is lifted in, not stubbed.
+    giveItTheChooser(ctx);
     vm.runInContext(testSrc, ctx, { filename: 'hub-persistence.js' });
     const snap = ctx.__test_cacheAnalysisResults();
     return (snap.computed && snap.computed.waterBalance) || null;

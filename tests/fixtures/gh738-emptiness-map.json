@@ -10,7 +10,8 @@
     "Taken from what the run ASSEMBLED, before any write, so it answers even when no row has been",
     "stored since the change.",
     "Down to the leaves, not the sections: `ecw` lives inside `computed.waterBalance`, and a map of sections would have missed the very drift this exists for.",
-    "GH-738 (the reviewer's return): the run's state is now assembled by the product's own `gaip_build_state`, not by a literal this file wrote, so the map is of the row the product would store. It grew from 422 keys to 540, and `computed.waterBalance.ecw` is among them because the site now has a water sample with a conductivity."
+    "GH-738 (the reviewer's return): the run's state is now assembled by the product's own `gaip_build_state`, not by a literal this file wrote, so the map is of the row the product would store. It grew from 422 keys to 540, and `computed.waterBalance.ecw` is among them because the site now has a water sample with a conductivity.",
+    "GH-777 (queue item 4, slice 2): `computed.notApplicable` joins the row - the pass's third account, beside what it could not compute and what it said. It is a LIST, so 'filled' here means the key is there; whether it carries an entry is what the account itself is for."
   ],
   "ticket": "GH-738",
   "measuredOn": "the orchestrator bench as a run frame (?rerun=&site=), one assembled row",
@@ -50,6 +51,7 @@
     "computed.dew.timestamp": "null",
     "computed.disease": "null",
     "computed.irrigation": "null",
+    "computed.notApplicable": "filled",
     "computed.passInputs": "filled",
     "computed.passStartedAt": "filled",
     "computed.pgr": "null",

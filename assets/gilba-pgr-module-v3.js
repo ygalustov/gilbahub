@@ -2016,7 +2016,51 @@
         },
         config: a,
         speciesThresholds: a.speciesThresholds,
-        gddBaseTemperatures: a.gddBaseTemperatures
+        gddBaseTemperatures: a.gddBaseTemperatures,
+        /**
+         * GH-780 — "IS THIS SITE USING A PGR?", ANSWERED FROM THE JOURNAL, and owned here.
+         *
+         * The owner's decision of 29.09.2026: there is no PGR switch, and a site is using a PGR when its
+         * spray journal holds an application within the last ninety days. Before it, the answer came from
+         * `config.pgr.enabled` -- a field nothing in the product writes any more: `false` on twelve sites,
+         * absent on nine, so the answer was "no" everywhere while three sites had actually applied one.
+         *
+         * THE WINDOW LIVES HERE AND NOWHERE ELSE. It was declared twice -- a constant in the run's state
+         * assembly and a `|| 90` in the orchestrator's note -- and the morning briefing had no window at all,
+         * because it does not load the file that held the constant. One owner, three readers.
+         *
+         * THREE ANSWERS, NOT TWO. A date inside the window is `true`. A date outside it, or no application at
+         * all, is `false` -- the journal is the complete record by the owner's decision, so that is a
+         * measured fact. NO ANSWER FROM THE JOURNAL is `null`: the shade advice then neither asserts nor
+         * denies a conflict, which is what it did for an unanswered switch.
+         *
+         * The day count is the one the orchestrator already used: whole days between UTC midnights, so that
+         * a ninety-nine-day-old application is not reported as a hundred.
+         */
+        historyWindowDays: 90,
+        daysSinceApplication: function (appliedAt, now) {
+            if (appliedAt === null || appliedAt === undefined || appliedAt === '') return null;
+            const applied = (appliedAt instanceof Date) ? appliedAt : new Date(appliedAt);
+            if (isNaN(applied.getTime())) return null;
+            const asOf = (now instanceof Date) ? now : new Date(now || Date.now());
+            const midnightUtc = (d) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+
+            return Math.round((midnightUtc(asOf) - midnightUtc(applied)) / 864e5);
+        },
+        isInUse: function (lastApplication, now) {
+            // No answer from the journal at all: nothing is known, and nothing is claimed.
+            if (lastApplication === undefined) return null;
+            if (lastApplication === null) return false;
+            const date = (typeof lastApplication === 'object' && lastApplication !== null
+                && !(lastApplication instanceof Date))
+                ? (lastApplication.application_date || lastApplication.applicationDate || null)
+                : lastApplication;
+            if (date === null || date === undefined || date === '') return false;
+            const days = E.daysSinceApplication(date, now);
+            if (days === null) return false;
+
+            return days >= 0 && days <= E.historyWindowDays;
+        }
     };
     e.GAIP_PGR = E, e.gaip_pgr_calculate = w, e.gaip_pgr_calculate_pure = w_pure, e.gaip_pgr_status = w, e.gaip_pgr_sinewave = m, e.gaip_pgr_chart_data = b, e.gaip_pgr_species_threshold = p, e.gaip_pgr_gdd_base = d, e.gaip_pgr_module = w, console.log("✅ Gilba PGR Module v3.6.0 loaded (amplitude-dampened sinewave, PHC reapplication fix)")
 }("undefined" != typeof window ? window : "undefined" != typeof global ? global : this);

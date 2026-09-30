@@ -240,7 +240,13 @@ describe('GH-555 — the half that was open: the run now explains itself', () =>
         // taken on trust.
         const climate = out.state.computed.climate;
         expect(climate === null || Object.keys(climate).length === 0).toBe(true);
-        expect(skipped.map((s) => s.step).sort()).toEqual(['climate', 'disease', 'forecast']);
+        // GH-777 (queue item 4, slice 2): a fourth name, and it is the same kind of fact as the three.
+        // The walk over the graph takes on every module of the pass now, `soil-temp-physics` included —
+        // the one module that used to run without declaring itself. This bench gives it no construction
+        // and no soil moisture, so it computes nothing and the sweep names it. On the stand the model's
+        // result is present in the last row of all 13 sites, so no client run gains a gap.
+        expect(skipped.map((s) => s.step).sort())
+            .toEqual(['climate', 'disease', 'forecast', 'soil-temp-physics']);
         expect(skipped.filter((s) => s.step === 'climate')[0].reason).toBe('engine-produced-nothing');
         expect(skipped.filter((s) => s.step === 'disease')[0].reason).toBe('climate-late');
         expect(skipped.filter((s) => s.step === 'forecast')[0].reason).toBe('disease-not-computed');
@@ -283,7 +289,8 @@ describe('GH-555 — the half that was open: the run now explains itself', () =>
         const d = heard[heard.length - 1];
         expect(Array.isArray(d.warnings)).toBe(true);
         expect(Array.isArray(d.skipped)).toBe(true);
-        expect(d.skipped.map((s) => s.step).sort()).toEqual(['climate', 'disease', 'forecast']);
+        expect(d.skipped.map((s) => s.step).sort())
+            .toEqual(['climate', 'disease', 'forecast', 'soil-temp-physics']);
         expect(typeof d.passStartedAt).toBe('number');
     });
 });

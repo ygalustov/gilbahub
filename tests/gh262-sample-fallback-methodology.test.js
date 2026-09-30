@@ -125,21 +125,32 @@ describe('GH-262 — sample-store fallback computes with the site\'s real method
             expect(k.rangeMin).toBeCloseTo(75, 1);
         });
 
-        test('site with no methodology set: null reaches the card, the literal "mlsn" does not', () => {
-            // This assertion is the one that changed direction. It used to read
-            // `expect(sn.methodology).toBe('mlsn')` and was called a regression
-            // guard against a crash. It was guarding the substitution instead: a
-            // site with no methodology was being printed as an MLSN site, and the
-            // number under that label was MLSN's. Now the absence travels.
+        test('site with no methodology set: NOTHING is computed, and no table is built under a name nobody chose', () => {
+            /**
+             * THIS ASSERTION HAS CHANGED DIRECTION TWICE, and each turn was a step of one argument.
+             *
+             * It first read `toBe('mlsn')` and was called a regression guard; it was guarding a SUBSTITUTION - a
+             * site with no methodology was printed as an MLSN site and the numbers under that label were MLSN's.
+             * Then it read `toBeNull()` and let the absence travel as far as the LABEL, while the numbers were
+             * still produced: `|| "slan"` stood in the engine, so the table came from SLAN whatever the label said.
+             *
+             * GH-782 (queue item 3ga) removed that substitution, because it was hiding a defect of its own: the
+             * converter dropped `methodology` on the way to the engine, every site set to ammonium acetate was
+             * computed by the SLAN table, and the row still declared AA - measured, 41 of 43 rows since 23.09.
+             * Methodology is a required input (the owner, 24.09.2026) and nothing may fill it, so a run without
+             * one computes nothing, the fallback stores no block at all, and the page prints the owner's sentence
+             * for a module that was not calculated.
+             */
             const sn = runSampleFallback(engineCtx, {
                 siteId: 'site1',
                 configMethodology: null,
                 textureDom: 'sand',
                 sampleRaw: { K_ppm: 50, P_ppm: 25 },
             });
-            expect(sn).toBeDefined();
-            expect(sn.methodology).toBeNull();
-            expect(Array.isArray(sn.nutrients)).toBe(true);
+            process.stdout.write('\n[gh262] a site with no methodology -> the fallback built '
+                + JSON.stringify(sn === undefined ? 'nothing' : sn) + '\n');
+
+            expect(sn).toBeUndefined();
         });
     });
 });

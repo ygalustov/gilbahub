@@ -21,20 +21,58 @@ const fs = require('fs');
 const path = require('path');
 
 function buildContext() {
-    const hlst = require('../../assets/hill-labs-sample-types.js');
     const sandbox = {
         window: {},
-        document: { querySelector: () => null },
+        document: { querySelector: () => null, readyState: 'complete', addEventListener() {},
+            querySelectorAll: () => [], getElementById: () => null },
         console: { log: () => {}, warn: () => {}, error: () => {} },
         Date: Date,
         Math: Math,
+        JSON: JSON,
+        setTimeout: () => 0,
+        clearTimeout: () => {},
+        parseFloat: parseFloat,
+        parseInt: parseInt,
+        isNaN: isNaN,
+        isFinite: isFinite,
     };
-    sandbox.window.HillLabsSampleTypes = hlst;
-    sandbox.HillLabsSampleTypes = hlst;
     sandbox.global = sandbox;
     sandbox.globalThis = sandbox;
 
     const ctx = vm.createContext(sandbox);
+    /**
+     * GH-782 (queue item 3ga) - THE SERVICE RUNS IN THIS CONTEXT, as it does on a page.
+     *
+     * It used to be `require`d, so its closure saw NODE's globals: a function of the service that asks the page
+     * for the site's config could not see the config this harness sets, and the case read a texture-only range
+     * while the product resolved a certificate. Measured while turning these cases over. The species normaliser
+     * comes in the same way, because `deriveCode` spells the certificate's keys and asks it for the rest.
+     */
+    ['species-controller.js', 'hill-labs-sample-types.js'].forEach((file) => {
+        try {
+            vm.runInContext(fs.readFileSync(path.join(__dirname, '../../assets/', file), 'utf8'), ctx,
+                { filename: file });
+        } catch (e) {
+            // A service that wires itself to a page may throw on a stub document; its API is defined first.
+        }
+    });
+    /**
+     * WHERE THE SERVICES PUT THEMSELVES: each file is an IIFE taking `window` and publishing onto THAT object, so
+     * in this context they land on `sandbox.window` rather than on the sandbox. Read from there and mirrored, so
+     * both spellings the product uses (`window.X` and a bare `X`) resolve.
+     */
+    sandbox.HillLabsSampleTypes = sandbox.window.HillLabsSampleTypes;
+    sandbox.SpeciesController = sandbox.window.SpeciesController;
+    /**
+     * AND IT SAYS SO IF IT DID NOT LOAD. A swallowed failure here leaves the overlay without its service, the
+     * cases read texture-only ranges, and the red points at the product instead of at this harness - which is
+     * exactly what happened while these cases were being turned over.
+     */
+    if (!sandbox.HillLabsSampleTypes || typeof sandbox.HillLabsSampleTypes.speciesOfTheSite !== 'function') {
+        throw new Error('mlsn harness: the Hill Labs service did not load into the context'
+            + ' (HillLabsSampleTypes=' + typeof sandbox.HillLabsSampleTypes
+            + ', SpeciesController=' + typeof sandbox.SpeciesController + ')');
+    }
     const src = fs.readFileSync(path.join(__dirname, '../../assets/hub-tissue-v3.js'), 'utf8');
     try {
         vm.runInContext(src, ctx, { filename: 'hub-tissue-v3.js' });
@@ -68,6 +106,13 @@ function buildState(opts) {
             bulkDensity: 1.4,
         },
         turf: {
+            /**
+             * GH-782 (queue item 3ga): the AA certificate overlay no longer reads the species off this state -
+             * it was assembled from the `/hub` form field, and on the stand that key is empty in all five sites
+             * set to ammonium acetate while their species sits in the site's CONFIG. The harness keeps it here
+             * because the rest of the engine reads it, and supplies the config below, which is what the overlay
+             * now asks (`HillLabsSampleTypes.speciesOfTheSite`).
+             */
             grassSpecies: opts.species || 'perennialRyegrass',
             construction: opts.construction || 'soil',
             warmBase: !!opts.warmBase,
@@ -97,6 +142,17 @@ function buildState(opts) {
  * that really are about the markup.
  */
 function run(ctx, opts) {
+    /**
+     * GH-782 (queue item 3ga) - THE SITE'S OWN SETTINGS, where the AA overlay now asks for the species.
+     *
+     * It used to read the species off the state this harness builds, and that state is the `/hub` form: on the
+     * stand the form's key is empty for every ammonium-acetate site while the species sits in the config, so no
+     * certificate resolved and potassium stood on texture-only ranges. The harness supplies the config the page
+     * would have, from the same `opts.species` it already uses, so the cases measure the product's own path.
+     */
+    const species = (opts && opts.species) || 'perennialRyegrass';
+    ctx.window.GAIP_HUB_CONFIG = { gaipConfig: { turf: { species: species } } };
+    ctx.GAIP_HUB_CONFIG = ctx.window.GAIP_HUB_CONFIG;
     const out = ctx.mlsnEngine(buildState(opts), null);
     const html = typeof out === 'string' ? out : (out && out.html) || '';
     const rows = (out && out.nutrients) || [];

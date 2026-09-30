@@ -784,13 +784,17 @@
                     
                     <!-- PGR application inputs -->
                     <div style="margin-top:14px;padding:12px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;">
+                        {{-- GH-780: THE PGR SWITCH IS GONE, and the fields it used to hide are simply shown.
+
+                             The owner decided on 29.09.2026 that there is no PGR switch: a site is using a
+                             PGR when its spray journal holds an application within ninety days. Nothing
+                             writes `pgr.enabled` any more, and by this project's rule for `/hub` a control
+                             whose write path has been removed is removed rather than repaired. The product,
+                             date and rate stay: other readers of this page still fill and read them. --}}
                         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                            <label class="gaip-module-toggle" style="margin:0">
-                                <input type="checkbox" class="gaip-enable-pgr">
-                                <span style="font-weight:600;color:#6d28d9">PGR Application</span>
-                            </label>
+                            <span style="font-weight:600;color:#6d28d9">PGR Application</span>
                         </div>
-                        <div class="gaip-pgr-inputs" style="display:none">
+                        <div class="gaip-pgr-inputs">
                             <label style="font-size:12px;color:#4b5563">Product</label>
                             <select class="gaip-pgr-product" style="width:100%;margin-bottom:8px;padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px">
                                 <option value="">-- Select product --</option>
@@ -813,16 +817,6 @@
                             <input type="number" step="0.1" class="gaip-pgr-rate" placeholder="e.g. 0.4" style="width:100%;padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px">
                         </div>
                     </div>
-                    <script>
-                    (function(){
-                        var cb = document.querySelector('.gaip-enable-pgr');
-                        var inputs = document.querySelector('.gaip-pgr-inputs');
-                        if (!cb || !inputs) return;
-                        cb.addEventListener('change', function(){ inputs.style.display = cb.checked ? 'block' : 'none'; });
-                        if (cb.checked) inputs.style.display = 'block';
-                    })();
-                    </script>
-
 
                     <div class="gaip-note" style="margin-top:12px; padding-top:8px; border-top:1px solid #ddd;">
                         <strong>Optional surface hardness (Clegg hammer):</strong>

@@ -144,7 +144,7 @@ describe('GH-741 — the readers carry an unset summer intent as unset, and deci
         const ctx = vm.createContext(box);
         ['safeNum', 'collectGridValues', 'convertDateToISO', 'calculateEndDate', 'gaip_readSoilForm',
             'gaip_soilFromActiveSample', 'gaip_soilStateFrom', 'gaip_namedSample', 'gaip_sampleReadings',
-            'gaip_waterFromActiveSample', 'calculateC3C4Fractions', 'enforceHemisphereTurfRules', 'gaip_build_state']
+            'gaip_waterFromActiveSample', 'calculateC3C4Fractions', 'enforceHemisphereTurfRules', 'gaip_lastPgrForThisRun', 'gaip_build_state']
             .forEach((n) => vm.runInContext(declared(n), ctx, { filename: n }));
         const turf = ctx.gaip_build_state({ querySelector: () => null, querySelectorAll: () => [] }).turf;
         process.stdout.write('[gh741] assembly overseedSummerIntent — ' + JSON.stringify(turf.overseedSummerIntent) + '\n');

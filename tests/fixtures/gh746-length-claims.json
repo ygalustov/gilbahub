@@ -127,6 +127,10 @@
       "multiplicity",
       "a count of regular-expression matches in a source text; matches carry nothing to tell one from another, so how many there are is the whole of the claim."
     ],
+    "tests/gh273-texture-dom-priority.test.js | expect(occurrences).toBe(1) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: the claim is that the variable is reused rather than redeclared"
+    ],
     "tests/gh278-monthly-n-distribution-normals-race.test.js | expect(ctx.window.__GAIP_MONTHLY_N__).toHaveLength(12) #1": "pending-list",
     "tests/gh278-monthly-n-distribution-normals-race.test.js | expect(ctx.window.__GAIP_MONTHLY_N__).toHaveLength(12) #2": "pending-list",
     "tests/gh280-monthly-n-card-redesign.test.js | expect(emptyMatches).toHaveLength(11) #1": [
@@ -146,10 +150,18 @@
       "multiplicity",
       "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the whole claim; where the single one sits is asserted on the next line by index"
     ],
+    "tests/gh313-nutrient-range-column.test.js | expect(occurrences).toBe(3) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the claim - three branches degrade to a dash"
+    ],
     "tests/gh327-p-delivery-accuracy-score.test.js | expect(matches.length).toBe(0) #1": "pending-list",
     "tests/gh330-prebble-hard-exclude-unneeded-p-k.test.js | expect(matches.length).toBe(2) #1": [
       "multiplicity",
       "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the whole claim - one in each function, unchanged by the fix"
+    ],
+    "tests/gh342-au-p-carryover-tracking.test.js | expect(occurrences).toBe(2) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the claim - both scoring functions gate on the same branch"
     ],
     "tests/gh349-nz-preemergent-herbicide-rules.test.js | expect(matches.length).toBe(2) #1": [
       "multiplicity",
@@ -180,6 +192,10 @@
       "the count of DISTINCT values is the claim - the curve moved bodily, by the same amount in every month; the single value itself is asserted on the next line"
     ],
     "tests/gh425-calc-trace.test.js | expect(good.checks.rows.length).toBe(21) #1": "pending-list",
+    "tests/gh425-calc-trace.test.js | expect(planRefs).toBe(1) #1": [
+      "multiplicity",
+      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the claim - the file has exactly one entry point, which is what makes its removal one deletion"
+    ],
     "tests/gh426-soil-temperature-conversion.test.js | expect(crude.length).toBe(12) #1": "pending-list",
     "tests/gh426-soil-temperature-conversion.test.js | expect(crude.length).toBe(12) #2": "pending-list",
     "tests/gh426-soil-temperature-conversion.test.js | expect(model.length).toBe(12) #1": "pending-list",
@@ -281,6 +297,14 @@
     "tests/gh549-a-zone-with-no-name.test.js | expect(zones.length).toBe(2) #2": "pending-list",
     "tests/gh549-a-zone-with-no-name.test.js | expect(zones.length).toBe(2) #3": "pending-list",
     "tests/gh552-where-the-chain-is-broken.test.js | expect(REQUIRED.length).toBe(13) #1": "pending-list",
+    "tests/gh552-where-the-chain-is-broken.test.js | expect(posts.length).toBe(1) #1": [
+      "multiplicity",
+      "posts of one run: they carry nothing to tell one from another, and the claim is that the control run wrote once - a second post would be the defect"
+    ],
+    "tests/gh552-where-the-chain-is-broken.test.js | expect(posts.length).toBe(1) #2": [
+      "multiplicity",
+      "posts of one run: they carry nothing to tell one from another, and the claim is that the measured run wrote once, so the body below is that run's own"
+    ],
     "tests/gh556-a-pass-before-the-weather-is-not-completion.test.js | expect(h.failures().length).toBe(1) #1": [
       "multiplicity",
       "one failure recorded by the pass; failures of one kind, and a second would mean it failed twice."
@@ -329,6 +353,8 @@
     "tests/gh577-the-soil-comes-from-the-sample.test.js | expect(Object.keys(soil.ppm)).toHaveLength(10) #1": "pending-list",
     "tests/gh577-the-soil-comes-from-the-sample.test.js | expect(Object.keys(soil.ppm)).toHaveLength(10) #2": "pending-list",
     "tests/gh589-the-pass-comes-after-the-inputs.test.js | expect(Object.keys(expected)).toHaveLength(10) #1": "pending-list",
+    "tests/gh597-an-exhausted-effect-is-an-answer.test.js | expect(notes).toHaveLength(1) #2": "pending-list",
+    "tests/gh597-an-exhausted-effect-is-an-answer.test.js | expect(notes).toHaveLength(1) #3": "pending-list",
     "tests/gh606-a-page-global-the-row-reads-is-cleared-on-site-switch.test.js | expect(perSite).toHaveLength(5) #1": "pending-list",
     "tests/gh607-the-growth-result-gives-up-only-its-daily-pattern.test.js | expect(uses).toHaveLength(1) #1": [
       "multiplicity",
@@ -336,49 +362,35 @@
     ],
     "tests/gh609-the-judge-reads-the-row-at-its-own-precision.test.js | expect(shared).toHaveLength(9) #1": "pending-list",
     "tests/gh626-the-producer-says-what-it-calls-a-reading.test.js | expect(Object.keys(readings).length).toBe(15) #1": "pending-list",
+    "tests/gh630-the-wizard-sends-no-key-it-never-asked-for.test.js | expect(callsToClose).toBe(1) #1": [
+      "multiplicity",
+      "calls to one and the same function: there is nothing to tell one call from another, and the claim is that a single exit is left; where it sits is asserted on the next line"
+    ],
+    "tests/gh649-the-note-lives-inside-the-pass.test.js | expect(afterCascade).toHaveLength(1) #1": [
+      "multiplicity",
+      "GH-781: exactly one note per run, not one per pass -- the cascade drops its own records before writing, and a repeat of it (up to three per frame, GH-589) must not stack a second copy"
+    ],
+    "tests/gh649-the-note-lives-inside-the-pass.test.js | expect(afterPasses).toHaveLength(1) #2": [
+      "multiplicity",
+      "GH-781: the same one note is still there after two passes of the orchestrator -- the count is the subject, because the fault was that it became zero"
+    ],
+    "tests/gh649-the-note-lives-inside-the-pass.test.js | expect(refusal).toHaveLength(1) #1": [
+      "multiplicity",
+      "GH-781: a record offered without naming its producer is refused ONCE and the refusal itself is recorded, so silence cannot pass for a write"
+    ],
     "tests/gh656-each-construction-resolves-into-its-consumers-table.test.js | expect(Object.keys(VALUES).length).toBe(11) #1": "pending-list",
     "tests/gh678-the-caller-walk-itself.test.js | expect(writes.length).toBe(2) #1": "pending-list",
     "tests/gh679-does-init-write-the-programme-without-a-press.test.js | expect(calls.length).toBe(2) #1": "pending-list",
     "tests/gh718-orchestrator-exports-by-the-stack.test.js | expect(callSite.length).toBe(1) #1": "pending-list",
     "tests/gh741-an-unset-summer-intent-stays-unset.test.js | expect(hits).toHaveLength(2) #1": "pending-list",
-    "tests/hoxton-nutrition-requirement-no-fabricated-gp.test.js | expect(result.facility.monthlyN).toHaveLength(12) #1": "pending-list",
-    "tests/gh273-texture-dom-priority.test.js | expect(occurrences).toBe(1) #1": [
-      "multiplicity",
-      "matches of one and the same literal in a source file: the claim is that the variable is reused rather than redeclared"
-    ],
-    "tests/gh313-nutrient-range-column.test.js | expect(occurrences).toBe(3) #1": [
-      "multiplicity",
-      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the claim - three branches degrade to a dash"
-    ],
-    "tests/gh342-au-p-carryover-tracking.test.js | expect(occurrences).toBe(2) #1": [
-      "multiplicity",
-      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the claim - both scoring functions gate on the same branch"
-    ],
-    "tests/gh425-calc-trace.test.js | expect(planRefs).toBe(1) #1": [
-      "multiplicity",
-      "matches of one and the same literal in a source file: they carry nothing to tell one from another, and how many there are IS the claim - the file has exactly one entry point, which is what makes its removal one deletion"
-    ],
-    "tests/gh630-the-wizard-sends-no-key-it-never-asked-for.test.js | expect(callsToClose).toBe(1) #1": [
-      "multiplicity",
-      "calls to one and the same function: there is nothing to tell one call from another, and the claim is that a single exit is left; where it sits is asserted on the next line"
-    ],
-    "tests/gh649-the-note-lives-inside-the-pass.test.js | expect(before).toBe(1) #1": [
-      "multiplicity",
-      "journal entries after exactly one was written by the line above: the claim is that it landed, and which entry it is was fixed by that call rather than by this count"
-    ],
-    "tests/gh552-where-the-chain-is-broken.test.js | expect(posts.length).toBe(1) #1": [
-      "multiplicity",
-      "posts of one run: they carry nothing to tell one from another, and the claim is that the control run wrote once - a second post would be the defect"
-    ],
-    "tests/gh552-where-the-chain-is-broken.test.js | expect(posts.length).toBe(1) #2": [
-      "multiplicity",
-      "posts of one run: they carry nothing to tell one from another, and the claim is that the measured run wrote once, so the body below is that run's own"
-    ],
-    "tests/gh597-an-exhausted-effect-is-an-answer.test.js | expect(notes).toHaveLength(1) #2": "pending-list",
-    "tests/gh597-an-exhausted-effect-is-an-answer.test.js | expect(notes).toHaveLength(1) #3": "pending-list",
     "tests/gh753-the-restore-stays-inside-its-own-site.test.js | expect(updates).toHaveLength(1) #1": [
       "multiplicity",
       "matches of one and the same literal (`UPDATE site_configs`) in a source file: they carry nothing to tell one from another, and the claim is that the module builds that statement in ONE place - which is what makes a set with a stand-in database prove the text the stand runs"
-    ]
+    ],
+    "tests/gh781-what-the-cascade-produces-on-each-shape.test.js | expect(afterRepeat.filter((n) => n === 'tissue/cascade')).toHaveLength(1) #1": [
+      "multiplicity",
+      "GH-781: a repeat of the cascade replaces its own record rather than adding a second, which is what the count is about"
+    ],
+    "tests/hoxton-nutrition-requirement-no-fabricated-gp.test.js | expect(result.facility.monthlyN).toHaveLength(12) #1": "pending-list"
   }
 }

@@ -419,8 +419,15 @@ describe('GH-644 — the universe is the engines, not the list', () => {
             const entry = LIST.inputs[key];
             const hasPlace = Array.isArray(entry.filledIn) && entry.filledIn.length > 0;
             const isOpen = entry.required === null && typeof entry.decision === 'string';
+            // GH-777 (queue item 4): and a question the owner has ANSWERED is not an orphan either. An
+            // entry nobody fills and no cascade engine reads used to have one lawful shape — an open
+            // decision — so an answered one would have looked like a gap in the list. `decided` carries
+            // the answer, in her words and with its date, which is the difference between "we have not
+            // decided" and "we decided not to ask". Both are declarations; silence is what this checks
+            // for.
+            const isDecided = typeof entry.decided === 'string' && entry.decided.length > 20;
             const isSample = key.startsWith('samples.');
-            return !hasPlace && !isOpen && !isSample;
+            return !hasPlace && !isOpen && !isDecided && !isSample;
         });
         expect({ entriesNobodyReadsAndNobodyFills: orphans }).toEqual({ entriesNobodyReadsAndNobodyFills: [] });
     });

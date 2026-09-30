@@ -156,7 +156,9 @@
       tissue: null, // Tissue test data
       schedule: null, // Event/usage schedule
       site: null, // Site characteristics
-      pgr: null, // PGR application data (v1.7.0)
+      // GH-781: no `pgr` here. Its one reader was the note about an exhausted window, which is written by
+      // the pass that holds the input now; nothing ever published this key, so declaring it invited the
+      // next reader to take `{}` for an answer.
     },
 
     // Computed results (outputs from each engine)
@@ -1445,16 +1447,130 @@
   const WARN_LEVEL = 'problem';
   const NOTE_LEVEL = 'info';
 
-  function record(level, module, message, data) {
+  /**
+   * GH-781 (queue item 3vsh) — EVERY ENTRY OF THE JOURNAL SAYS WHO WROTE IT.
+   *
+   * WHAT WAS WRONG, measured: the journal is one store, and `runComputePass` emptied all four of its lists at
+   * the start of every pass (GH-557, "the journal is per pass"). A RUN IS NOT ONE PASS: the cascade writes
+   * its account of what it could not produce, then a pass of the orchestrator starts and wipes it. So the
+   * inapplicability of tissue and MLSN never reached a stored row -- 9 sites of the stand have no tissue
+   * sample and 3 no soil sample, and not one of their rows says why the section is empty.
+   *
+   * THE PRODUCER IS A FACT OF THE WRITER, NOT A GUESS. These inner writers belong to the orchestrator, so
+   * they stamp `orchestrator` by construction; the exported ones demand the name from their caller. A pass
+   * then clears ITS OWN entries and leaves everybody else's, which keeps GH-557 exactly: a module skipped by
+   * one pass of a producer and computed by the next pass of the same producer is still not reported skipped.
+   */
+  const PRODUCER_OF_THIS_PASS = 'orchestrator';
+
+  /**
+   * GH-781 (delivery 6, the analyst's amendment (9)) - WHICH DOOR A RECORD CAME THROUGH.
+   *
+   * The reviewer's finding: an entry's writer cannot be told from its list and level, because the internal
+   * `warn` produces the same `warnings` + `problem` as the outside `recordProblem`. So a writer that came the
+   * internal way would be counted as having used the outside door, and that door would read as covered.
+   * The door is therefore a FIELD the door itself fills; internal writers are marked `internal`.
+   */
+  /**
+   * GH-781 (delivery 7, the analyst's amendments (7)-(10)) - THE PASS THAT WROTE A RECORD IS PART OF IT.
+   *
+   * WHY, measured: cleanup stood at the START of a pass, so a repeat that then FAILED had already removed the
+   * previous pass's account and put nothing usable in its place - the row would carry numbers from pass N
+   * beside a journal from the failed pass N+1. With the pass marked on each record, the two ends of a pass can
+   * say which records are accepted (`commitPass`) and which are dropped (`rollbackPass`), so the account in a
+   * row always belongs to the pass whose numbers are in it.
+   */
+  const _passOf = { orchestrator: null, cascade: null };
+
+  /**
+   * GH-781 (delivery 7, the analyst's amendment (14)) - THE PASS THAT WAS ACCEPTED, per producer.
+   *
+   * The row's marks used to be read off the LAST pass, which is a different thing from the accepted one: a
+   * repeat that failed became the last, and the row then carried its mark beside the records and numbers of the
+   * pass before it. Accepting a pass and publishing its mark are now one action, in one branch.
+   */
+  const _acceptedPassOf = { orchestrator: null, cascade: null };
+
+  /** The pass a record written right now belongs to, by its producer. */
+  function _currentPass(producer) {
+    const name = producer || PRODUCER_OF_THIS_PASS;
+    // A plain lookup over the two names this journal knows. A guarded `hasOwnProperty` call would be a new
+    // edge in the caller walk for a defence this object does not need: its keys are written here.
+    const id = _passOf[name];
+
+    return id === undefined ? null : id;
+  }
+
+  /** This producer is now writing under this pass. */
+  function beginPass(producer, id) {
+    if (typeof producer !== 'string' || !producer) return null;
+    _passOf[producer] = (id === undefined || id === null) ? Date.now() : id;
+
+    return _passOf[producer];
+  }
+
+  /** The pass finished: this producer's records of any OTHER pass go. */
+  function commitPass(producer) {
+    if (typeof producer !== 'string' || !producer) return;
+    const accepted = _passOf[producer];
+    // The same branch that accepts the records publishes the mark, so the two cannot disagree.
+    _acceptedPassOf[producer] = accepted;
+    // GH-781 (amendment (11)): `attempted` is not part of a producer's account - see `runComputePass`.
+    ['warnings', 'skipped', 'notApplicable'].forEach(function (list) {
+      _hubState.computed[list] = (_hubState.computed[list] || []).filter(function (entry) {
+        if (!entry || entry.producer !== producer) return true;
+
+        return entry.pass === accepted;
+      });
+    });
+  }
+
+  /** The pass did not finish: its own records go, and everybody else's stay. */
+  function rollbackPass(producer) {
+    if (typeof producer !== 'string' || !producer) return;
+    const dropped = _passOf[producer];
+    // GH-781 (amendment (11)): `attempted` is not part of a producer's account - see `runComputePass`.
+    ['warnings', 'skipped', 'notApplicable'].forEach(function (list) {
+      _hubState.computed[list] = (_hubState.computed[list] || []).filter(function (entry) {
+        if (!entry || entry.producer !== producer) return true;
+
+        return entry.pass !== dropped;
+      });
+    });
+    _passOf[producer] = null;
+  }
+
+  function record(level, module, message, data, producer, door) {
     try {
       const log = (_hubState.computed.warnings = _hubState.computed.warnings || []);
       // A cap, because a pathological run must not post a megabyte of prose.
       // The overflow is COUNTED rather than dropped silently: a list that
       // quietly stops growing is the defect this whole section is about.
       if (log.length < WARNINGS_CAP) {
-        log.push({ module: module, message: String(message), at: Date.now(), data: summariseWarnData(data), level: level });
+        log.push({ module: module, message: String(message), at: Date.now(), data: summariseWarnData(data),
+          level: level, producer: producer || PRODUCER_OF_THIS_PASS, door: door || 'internal',
+          pass: _currentPass(producer) });
       } else if (log.length === WARNINGS_CAP) {
-        log.push({ module: 'orchestrator', message: 'warning log full — further warnings this pass are not recorded', at: Date.now(), data: null, level: WARN_LEVEL });
+        /**
+         * GH-781 (delivery 7, the reviewer's second finding) - THE NOTICE THAT THE JOURNAL STOPPED WRITING
+         * MUST NOT ITSELF BE DROPPED.
+         *
+         * Delivery 5 gave it a producer; delivery 7 then made the pass MARK part of a record, and this one had
+         * none - so `commitPass` removed it as belonging to another pass, and the message saying "the log is
+         * full, nothing more from this pass is recorded" disappeared on every successful pass. Measured by the
+         * reviewer with a probe: zero after the commit. It is filled like every other record now, by the same
+         * three fields, because the rule this item exists for applies to our own bookkeeping first.
+         */
+        /**
+         * GH-781 (second return, the reviewer's fourth finding) - AND IT BELONGS TO WHOEVER'S WRITE WAS REFUSED.
+         *
+         * The first repair gave this notice the three fields every record carries, and left its producer as the
+         * literal `orchestrator` - so a notice caused by a write of the CASCADE was filed as the orchestrator's,
+         * and the orchestrator's next pass removed it as one of its own. Measured by the reviewer: it still
+         * disappears. The same regression as before, entered from the other end, and the lesson is the same -
+         * the fields must describe the write, not the file they are written in.
+         */
+        log.push({ module: 'orchestrator', message: 'warning log full — further warnings this pass are not recorded', at: Date.now(), data: null, level: WARN_LEVEL, producer: producer || PRODUCER_OF_THIS_PASS, door: door || 'internal', pass: _currentPass(producer) });
       }
     } catch (e) {
       // Never let bookkeeping break a run.
@@ -1468,8 +1584,8 @@
    * hold everything the run said — but it never turns an outcome partial and it
    * is not printed under a heading about what could not be computed.
    */
-  function note(module, message, data) {
-    record(NOTE_LEVEL, module, message, data);
+  function note(module, message, data, producer, door) {
+    record(NOTE_LEVEL, module, message, data, producer, door);
 
     const prefix = `[Orchestrator:${module}]`;
     if (data !== undefined) {
@@ -1491,51 +1607,17 @@
    * journal entry, and what a PERSON reads about it is composed in one place on
    * the server, which has no words for this cause yet.
    */
-  function _notePgrWindowExhausted() {
-    try {
-      const pgr = (_hubState.inputs && _hubState.inputs.pgr) || {};
-      const applied = pgr.applicationDate;
-      if (!applied) return;
+  /**
+   * GH-781 — THE WRITER OF THIS NOTE HAS MOVED TO THE PASS THAT HOLDS THE INPUT.
+   *
+   * It lived here since GH-649 and read `_hubState.inputs.pgr`, a key no publisher of state ever fills: 0 of
+   * 108 stored rows carry the note, and `Test5 - NZ`, 105 days past its application, has none in 5 rows for
+   * 29.09. The input belongs to the cascade's pass, which builds the state from the spray journal, so the
+   * note is written there (`gaip_runCascadePass`) and marked as the cascade's — this pass no longer clears it.
+   */
 
-      const appliedAt = new Date(applied);
-      if (isNaN(appliedAt.getTime())) return;
-
-      // COUNTED IN CALENDAR DAYS, BOTH SIDES IN UTC, and this cost a day in the
-      // first version: `'2026-06-16'` parses as UTC midnight, and calling
-      // `setHours(0,0,0,0)` on it moves it back into the local zone, so a
-      // ninety-nine-day-old application came out as a hundred. The note carries
-      // the number a person reads, so being a day out is being wrong.
-      const midnightUtc = (d) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-      const now = new Date();
-      const days = Math.round((midnightUtc(now) - midnightUtc(appliedAt)) / 864e5);
-      if (days <= 0) return;
-      const windowDays = global.GAIP_PGR_HISTORY_WINDOW_DAYS || 90;
-      if (days <= windowDays) return;
-
-      note("pgr",
-        "plant-growth-regulator applied " + days + " days ago, beyond the "
-        + windowDays + "-day history window: no effect left to compute",
-        {
-          reason: "pgr-window-exhausted",
-          daysSinceApplication: days,
-          windowDays: windowDays,
-          /**
-           * GH-772: the product and the date travel with the note, because the sentence a person
-           * reads names them and the stored row carries no `inputs.pgr` to look them up in --
-           * measured: none of the 86 rows on the stand has that key. Both come from the spray log
-           * through the server (GH-771), so the sentence says what the log holds and not what a form
-           * once held.
-           */
-          productType: pgr.productType || null,
-          applicationDate: applied,
-        });
-    } catch (e) {
-      /* bookkeeping must not stop a run */
-    }
-  }
-
-  function warn(module, message, data) {
-    record(WARN_LEVEL, module, message, data);
+  function warn(module, message, data, producer, door) {
+    record(WARN_LEVEL, module, message, data, producer, door);
 
     const prefix = `[Orchestrator:${module}]`;
     if (data !== undefined) {
@@ -1586,15 +1668,235 @@
     }
   }
 
-  /** The engine ran and said this site is not a case for it. Not a gap. */
-  function notApplicable(module, why) {
+  /**
+   * GH-777 (queue item 4, slice 2, the analyst's 4.11 "who writes") — THE GATE IS THE GRAPH, AND THERE
+   * IS ONE OF IT.
+   *
+   * WHAT THIS REPLACES. Eleven steps of this pass each opened with a hand-written declaration of their
+   * own name, and the condition in front of it was the gate: `if (_hubState.inputs.water?.ecw)` for
+   * salinity, the presence of a global for the rest. So the pass's account of itself depended on twelve
+   * places agreeing, and where a gate stood in front of it the module said NOTHING AT ALL when its
+   * input was absent -- neither an attempt nor an inapplicability. That silence is what made "there was
+   * no data" and "the data was there and did not arrive" the same fact in a stored row, which is the
+   * defect this queue item exists for.
+   *
+   * WHAT IT IS. One walk over the nodes the graph declares for this pass, before any step runs. A node
+   * whose `requires` the run's inputs satisfy is registered as attempted; a node missing one of them is
+   * recorded as not applicable WITH THE NAMES of what is missing, and the server judges those names
+   * against what existed when the run started (GH-675). Nothing is registered twice and no step declares
+   * itself any more.
+   *
+   * THE NAME COMES FROM THE NODE. `module` is declared in the graph (the analyst's answer of
+   * 29.09.2026): the journal, the sweep and the server all use that one spelling. Deriving it here from
+   * the node's id would be a second derivation of the server's, and the server's is already wrong for
+   * one node -- `disease-forecast` gives `disease` by that rule while the pass writes `forecast`.
+   *
+   * WHICH NODES. `runner` contains `orchestrator` AND the node declares a `computed.*` output. The
+   * second half is the rule that keeps `ambient-dli-engine` out: it declares `derived.ambientDLI`,
+   * because its number never becomes a key of the row -- measured, 0 of 94 rows -- and registering it
+   * would have reported every site as having failed to produce it.
+   *
+   * WITHOUT THE GRAPH there is no gate and the pass says so: a warning in the run's own journal, no
+   * registrations, and the steps still run. The alternative is inventing a list here, which is the
+   * second source this item removes.
+   *
+   * @returns {{registered: string[], missing: object, canRun: function(string): boolean}}
+   */
+  function gateFromTheGraph() {
+    const gate = {
+      registered: [],
+      missing: {},
+      canRun: function (module) { return this.registered.indexOf(module) !== -1; },
+    };
+    let nodes = null;
+    try {
+      const graph = global.GAIP_DEPENDENCY_GRAPH;
+      nodes = graph && graph.nodes && typeof graph.nodes === 'object' ? graph.nodes : null;
+    } catch (e) {
+      nodes = null;
+    }
+    if (!nodes) {
+      // `orchestrator` is the module this journal entry belongs to — the pass talking about itself —
+      // and it is a name `STEP_NAMES` already has words for. `main` is the LOG channel of this file and
+      // has none, so a warning filed under it would reach a reader as a bare identifier (gh572).
+      warn('orchestrator', 'the pass was not given the dependency graph, so no step could be gated by it');
+
+      return gate;
+    }
+
+    Object.keys(nodes).forEach(function (id) {
+      const node = nodes[id] || {};
+      const runners = Array.isArray(node.runner) ? node.runner : (node.runner ? [node.runner] : []);
+      if (runners.indexOf('orchestrator') === -1) return;
+      const rowKeys = (node.outputs || []).filter(function (o) {
+        return typeof o === 'string' && o.indexOf('computed.') === 0;
+      });
+      if (!rowKeys.length) return;
+      const module = typeof node.module === 'string' ? node.module : null;
+      if (!module) {
+        warn('orchestrator', 'a node of this pass declares no `module`, so nothing can be recorded under its name: ' + id);
+
+        return;
+      }
+      const resultKey = rowKeys[0].slice('computed.'.length).split('.')[0];
+      const absent = absentRequirementsOf(node);
+      if (absent.length) {
+        gate.missing[module] = absent;
+        notApplicable(module, 'this site has no ' + absent.join(', ') + ', so ' + module
+          + ' does not apply to it', absent);
+
+        return;
+      }
+      gate.registered.push(module);
+      attempting(module, resultKey);
+    });
+
+    log('main', 'the graph gated this pass', { registered: gate.registered, notApplicable: gate.missing });
+
+    return gate;
+  }
+
+  /**
+   * GH-777 (queue item 4, slice 3) — WHICH OF A NODE'S REQUIREMENTS THIS RUN DOES NOT HAVE.
+   *
+   * ONE GATE FOR BOTH PASSES. The walk above asks it for the nodes of this orchestrator, and the cascade
+   * asks the same function through `GaipOrchestrator` for its own nodes -- so a module cannot be gated one
+   * way in one pass and another way in the other. The answer is a list, because the sentence a client reads
+   * names the input rather than the fact that something was missing.
+   *
+   * @param  {object} node  a node of the dependency graph
+   * @return {string[]}     the declared requirements this run cannot satisfy
+   */
+  function absentRequirementsOf(node) {
+    return (((node || {}).requires) || []).filter(function (input) {
+      return !inputIsThere(input);
+    });
+  }
+
+  /**
+   * Is this input of the calculation list there, for this run?
+   *
+   * A MEASURED ZERO IS A VALUE, and that is the rule of this repository rather than a preference here:
+   * only `null`, `undefined`, an empty string and an empty list count as absent. What an engine then
+   * does with a zero is the engine's own answer -- salinity says a water with no measurable salt is not
+   * a case for it, and says so as an inapplicability rather than as a missing input.
+   */
+  function inputIsThere(path) {
+    const asked = String(path);
+    /**
+     * GH-777 (slice 3, the analyst's answer of 29.09.2026) — A REQUIREMENT HAS TWO KINDS OF NAME.
+     *
+     * A path of the run's state (`water.ecw`) is looked up in the state, below. A SAMPLE KEY
+     * (`samples.tissue`) is asked of the sample -- and asked through the very function the engine's own
+     * body asks, `gaip_sampleReadings`, so the gate cannot disagree with the calculation: it says "no
+     * sample" exactly when the body would have received nothing. Which sample the run was given is a fact
+     * of the run (`&tissue=` on the frame's address), not of the database, so a sample the site owns but
+     * this run was not given is correctly absent here.
+     */
+    if (asked.indexOf('samples.') === 0) return sampleIsThere(asked.slice('samples.'.length));
+    let value = _hubState.inputs;
+    const parts = asked.split('.');
+    for (let i = 0; i < parts.length; i += 1) {
+      if (value === null || typeof value !== 'object' || !(parts[i] in value)) return false;
+      value = value[parts[i]];
+    }
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'string') return value.trim() !== '';
+    if (Array.isArray(value)) return value.length > 0;
+
+    return true;
+  }
+
+  /**
+   * Does the sample this run was given carry readings of this kind?
+   *
+   * THE ONE READER, `gaip_sampleReadings`, which is also what the tissue and water bodies call. Not `null`
+   * is a sample, `null` is none.
+   *
+   * IF THERE IS NOTHING TO ASK, the run does not get to blame the client. A missing reader is this
+   * project's script failing to load, not a site without a sample, and answering "absent" would file
+   * `input-not-entered` against a person who entered everything. So the gate opens and the pass records a
+   * warning: the engine then answers for itself, and a module that produced nothing is reported as that.
+   */
+  function sampleIsThere(kind) {
+    /**
+     * GH-777 (queue item 4, slice 3, the live measurement of 29.09.2026) — "NOT ARRIVED YET" IS NOT
+     * "NOT ENTERED", AND THE RUN'S OWN ANSWER TELLS THEM APART.
+     *
+     * WHAT THE STAND SHOWED. The first form asked `gaip_sampleReadings` alone and closed the gate on
+     * anything falsy. The cascade runs TWICE in a frame -- once on the button and again when the samples
+     * arrive (GH-589) -- and on the first pass the store is still empty, so a named sample answers
+     * `not-found` and MLSN was gated out of a run on a site that HAS three soil samples. Both sites of
+     * the window came back `failed`.
+     *
+     * THE THREE ANSWERS OF `gaip_namedSample`, each meaning something different:
+     *   - `"none"`: the opener asked the server and there is no sample of this kind. THE CLIENT HAS NOT
+     *     ENTERED ONE, which is exactly what this gate is for;
+     *   - `"not-found"`: a sample was named and the store does not hold it YET. That is delivery, and
+     *     delivery has its own wait with its own reason (`soil-sample-not-loaded`). The gate opens;
+     *   - the sample itself, or `null` when this opener names no sample: then the readings decide, and an
+     *     empty reading set is an absence only when the run knew which sample to read. Told nothing and
+     *     finding nothing, the gate opens rather than blaming a client for a page's silence.
+     */
+    const namedSample = global.gaip_namedSample;
+    const told = (typeof namedSample === 'function') ? namedSample(kind) : null;
+    if (told === 'none') return false;
+    if (told === 'not-found') return true;
+
+    const reader = global.gaip_sampleReadings;
+    if (typeof reader !== 'function') {
+      warn('orchestrator', 'there is no sample reader on this page, so `samples.' + kind
+        + '` could not be judged and the step was not gated on it');
+
+      return true;
+    }
+    try {
+      const readings = reader(kind);
+      if (readings !== null && readings !== undefined) return true;
+
+      return told === null;
+    } catch (e) {
+      warn('orchestrator', 'the sample reader threw while judging `samples.' + kind + '`: ' + e.message);
+
+      return true;
+    }
+  }
+
+  /**
+   * The engine ran, or was not run, and this site is not a case for it. Not a gap.
+   *
+   * GH-777 (queue item 4, slice 2) — AND IT IS NOW RECORDED, not only said. The entry is
+   * `{module, missing}`: the inputs whose absence makes the module inapplicable, and an EMPTY list
+   * when nothing is missing and the engine itself answered "not here" — dew is that case, and the two
+   * are different facts about a site. The server judges each named input against what existed when the
+   * run started (GH-675) and the client is told which of the two happened; an entry with nothing
+   * missing is a module that answered, and no input is blamed for it.
+   *
+   * @param {string}   module   the module's own name, as `attempting` uses it
+   * @param {?string}  why      the sentence for the journal
+   * @param {string[]} missing  inputs of the calculation list that are not there, or []
+   */
+  function notApplicable(module, why, missing, producer, door) {
     try {
       const list = (_hubState.computed.attempted = _hubState.computed.attempted || []);
       _hubState.computed.attempted = list.filter((a) => a.module !== module);
     } catch (e) {
       // as above
     }
-    note(module, why || 'engine reports this site is not a case for it');
+    try {
+      const declared = (_hubState.computed.notApplicable = _hubState.computed.notApplicable || []);
+      // GH-781 (delivery 7): one declaration per module PER PASS -- see the note in `noteSkipped`.
+      const thisPass = _currentPass(producer);
+      if (!declared.some((entry) => entry && entry.module === module
+          && entry.producer === (producer || PRODUCER_OF_THIS_PASS) && entry.pass === thisPass)) {
+        declared.push({ module: module, missing: Array.isArray(missing) ? missing.slice() : [],
+          producer: producer || PRODUCER_OF_THIS_PASS, door: door || 'internal',
+          pass: _currentPass(producer) });
+      }
+    } catch (e) {
+      // Never let bookkeeping break a run.
+    }
+    note(module, why || 'engine reports this site is not a case for it', undefined, producer, door);
   }
 
   /**
@@ -1627,6 +1929,24 @@
     try {
       (_hubState.computed.attempted || []).forEach(function (a) {
         if (producedSomething(_hubState.computed[a.resultKey])) return;
+        /**
+         * GH-777 (queue item 4, slice 2) — WHAT STOOD HERE AND WHY IT IS NOT HERE.
+         *
+         * The analyst's finding B added a check that a module which had already recorded its own cause
+         * was not given `engine-produced-nothing` on top of it. It was removed by the coordinator's
+         * decision of 29.09.2026, on both our measurements: a case for it cannot be built without
+         * editing the stand's data, which only the owner does. On the stand nothing reaches the state it
+         * repairs — the construction is set on 13 of 13 sites, so `setting-missing` is unreachable; the
+         * model's result is present in the last row of all 13 and in 90 of 94 rows; and of the 4 rows
+         * with no result, 0 carry a recorded cause for this step, so there is nothing to double. (Four,
+         * not the three first written here: three carry no `computed` at all and the fourth carries one
+         * without the key. The reviewer counted it; the half that matters — no recorded cause to double
+         * — is the same either way.)
+         *
+         * `noteSkipped` already refuses a second entry for the same (step, module), which is why the
+         * change moved nothing that could be measured. It is filed as a question rather than kept as an
+         * unguarded edit.
+         */
         noteSkipped(a.module, a.module, 'engine-produced-nothing', a.resultKey);
       });
     } catch (e) {
@@ -1659,15 +1979,28 @@
     return readings.reduce((a, v) => a + v, 0) / readings.length;
   }
 
-  function noteSkipped(step, module, reason, resultKey) {
+  function noteSkipped(step, module, reason, resultKey, producer, door) {
     try {
       const list = (_hubState.computed.skipped = _hubState.computed.skipped || []);
-      if (!list.some((s) => s.step === step && s.module === module)) {
+      /**
+       * GH-781 (delivery 7) - ONE ENTRY PER MODULE PER PASS, and the pass is part of the question.
+       *
+       * The guard used to ask only about the step and the module, which was right while a pass cleared its own
+       * account at its start: nothing of a previous pass was there to be found. With the account kept until
+       * the pass is accepted, the old form reads a PREVIOUS pass's entry and declines to write this one's -
+       * and then `commitPass` drops the old one, because it belongs to another pass. Measured: the
+       * orchestrator's own `notApplicable` for a site vanished after two passes.
+       */
+      const thisPass = _currentPass(producer);
+      const mineNow = (e) => e && e.producer === (producer || PRODUCER_OF_THIS_PASS) && e.pass === thisPass;
+      if (!list.some((s) => s.step === step && s.module === module && mineNow(s))) {
         // GH-573: `resultKey` travels with the declaration so the server can
         // check it against the result. Three modules spell their result
         // differently from their own name (`pre-emergent`/`preEmergent`), and a
         // second copy of that spelling on the server is a second source.
-        list.push({ step: step, module: module, reason: reason, resultKey: resultKey || module });
+        list.push({ step: step, module: module, reason: reason, resultKey: resultKey || module,
+          producer: producer || PRODUCER_OF_THIS_PASS, door: door || 'internal',
+          pass: _currentPass(producer) });
       }
     } catch (e) {
       // as above
@@ -3928,8 +4261,21 @@
       return _hubState.computed;
     }
     _isComputingAll = true;
+    /**
+     * GH-781 (delivery 7) - THE TWO ENDS OF THE PASS, ON EVERY EXIT.
+     *
+     * Success accepts this pass's records and drops the previous ones; an exception drops this pass's own and
+     * leaves the previous account standing, which is what the row should carry when a repeat fails. The early
+     * return above is not a pass at all, so it names none.
+     */
     try {
-      return await runComputePass(inputs);
+      const out = await runComputePass(inputs);
+      commitPass(PRODUCER_OF_THIS_PASS);
+
+      return out;
+    } catch (e) {
+      rollbackPass(PRODUCER_OF_THIS_PASS);
+      throw e;
     } finally {
       _isComputingAll = false;
     }
@@ -3942,10 +4288,50 @@
     // GH-557 (section 15): the journal is per PASS, not per page. A run that
     // skipped disease on its first pass and computed it on its second must not
     // report both, or the reader is told about a gap that the run closed.
-    _hubState.computed.warnings = [];
-    _hubState.computed.skipped = [];
-    // GH-573: and what this pass takes on, so the sweep at the end is about
-    // THIS pass and not about what a previous one attempted.
+    /**
+     * GH-781 — A PASS CLEARS ITS OWN ENTRIES AND NOBODY ELSE'S.
+     *
+     * GH-557 is kept exactly: the journal is per pass, so what THIS producer said on its previous pass goes.
+     * What changes is that the cascade's account survives, because the cascade is a different producer and
+     * its records are not this pass's to remove. Measured before: the cascade recorded the inapplicability of
+     * tissue and MLSN, this line wiped it, and 9 sites without a tissue sample and 3 without a soil sample
+     * stored an empty section with no cause at all.
+     */
+    /**
+     * GH-781 (delivery 5) — AND AN ENTRY WITH NO PRODUCER IS NOT ADOPTED.
+     *
+     * `!entry.producer` used to make an unnamed entry this pass's own, so every writer outside a pass had its
+     * record silently removed here. All four doors of the journal name their writer now, and nothing left in
+     * the tree writes without one, so the clause goes: an unnamed entry, if one ever appears again, stays put
+     * and is visible instead of disappearing. The overflow notice below is stamped for the same reason — it
+     * was the one entry the orchestrator itself wrote without a name.
+     */
+    /**
+     * GH-781 (delivery 7): the pass NAMES ITSELF here and its records are accepted or dropped at its end
+     * (`commitPass` / `rollbackPass` in `computeAll`). Clearing at the start is gone: it could not tell a pass
+     * that finished from one that failed, so a failed repeat removed the account of the pass whose numbers the
+     * row would carry.
+     */
+    beginPass(PRODUCER_OF_THIS_PASS, startTime);
+    /**
+     * GH-777 (queue item 4, slice 2, the analyst's 4.11 decision 3) — WHAT DOES NOT APPLY TO THIS SITE,
+     * RECORDED WITH THE PASS.
+     *
+     * `notApplicable()` has written a journal line since GH-573 and nothing else, so the third answer
+     * existed in the run's prose and nowhere a reader could find it: 0 of 76 stored rows carry one, the
+     * server's judgement of it (GH-675) has never had a live producer, and a module that does not apply
+     * looked exactly like a module that failed. Per pass, like the other two accounts.
+     */
+    /**
+     * GH-781 (delivery 7, the analyst's amendment (11)) - `attempted` IS NOT AN ACCOUNT, AND IS EMPTIED HERE.
+     *
+     * It is written by this orchestrator's own gates and read by exactly one reader - the sweep at the end of
+     * THIS pass that names what was taken on and not produced. The server never reads it and it reaches no
+     * row. Delivery 7 removed its clearing along with the rest, and `commitPass` filters by a producer these
+     * entries do not carry, so the list simply grew and the sweep of a later pass saw modules of an earlier
+     * one. Emptied at the start of the pass that uses it, and neither the cascade nor `commitPass` /
+     * `rollbackPass` touch it.
+     */
     _hubState.computed.attempted = [];
     // When THIS pass began. The runner uses it to tell a pass that ran before
     // the weather from the one the orchestrator re-runs after it — the two are
@@ -3966,7 +4352,10 @@
         tissue: global.GAIP_STATE.tissue || _hubState.inputs.tissue,
         schedule: global.GAIP_STATE.schedule || _hubState.inputs.schedule,
         site: global.GAIP_STATE.site || _hubState.inputs.site,
-        pgr: global.GAIP_STATE.pgr || _hubState.inputs.pgr, // v1.7.0: PGR inputs
+        // GH-781: the `pgr` key of this store had exactly one reader, the note about an exhausted window, and
+        // that note is written by the pass that actually holds the input now. Nothing publishes this key --
+        // it was `{}` on every pass and `null` in every stored row -- so it is not carried any more.
+
       };
     }
 
@@ -3991,7 +4380,14 @@
     // survives one clearing survives the next, and then a second journal with a
     // lifetime of its own is needed. So the fact is not carried across the
     // clearing — it is RESTATED after it, by the pass that will carry it.
-    _notePgrWindowExhausted();
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 2a. THE GATE (GH-777, queue item 4, slice 2)
+    //     One walk over the graph's own nodes, before any step runs: each is
+    //     registered as attempted, or recorded as not applicable with the inputs
+    //     it is missing. No step declares itself below.
+    // ─────────────────────────────────────────────────────────────────────
+    const _gate = gateFromTheGraph();
 
     // ─────────────────────────────────────────────────────────────────────
     // 2. POPULATE CANONICAL STATE (single source of truth)
@@ -4004,7 +4400,6 @@
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 2: Climate");
     let climate = {};
-    attempting("climate");
     try {
       climate = getAuthoritativeClimate();
       _hubState.computed.climate = wrapWithConfidence("climate", climate);
@@ -4027,7 +4422,6 @@
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 2: Dew prediction");
     if (global.gaip_dew_prediction) {
-      attempting("dew");
       try {
         const { state: dewState, weather: weatherForDew } = buildDewInputs();
         const hasCloudData = !!weatherForDew?.forecast?.hourly?.cloud_cover;
@@ -4058,7 +4452,10 @@
           // GH-573: the engine ran and answered "not here". That is a result,
           // not a gap, and the pass stops expecting one — otherwise every site
           // without dew conditions would report a module that failed.
-          notApplicable("dew", "dew prediction does not apply to this site's conditions");
+          // GH-777: nothing is MISSING here — the engine ran on everything it needed and answered
+          // that this site is not a case for dew. The empty list is the difference between that and
+          // an input nobody entered, and the client is told nothing in this case.
+          notApplicable("dew", "dew prediction does not apply to this site's conditions", []);
         }
       } catch (e) {
         warn("dew", "Dew engine error", e);
@@ -4071,7 +4468,6 @@
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 3: Shade analysis");
     if (global.gaip_shade_engine && _hubState.inputs.turf) {
-      attempting("shade");
       try {
         const { state: shadeState, weather: weatherForShade } = buildShadeInputs();
         _hubState.computed.shade = wrapWithConfidence("shade", global.gaip_shade_engine(shadeState, weatherForShade));
@@ -4090,12 +4486,14 @@
       waterKeys: _hubState.inputs.water ? Object.keys(_hubState.inputs.water) : null,
       t: Date.now(),
     });
-    if (_hubState.inputs.water?.ecw) {
+    // GH-777 (slice 2): the gate is the graph — `salinity-penalty-engine` declares `requires:
+    // ["water.ecw"]`, and the walk has already recorded the inapplicability for a site without it. The
+    // condition that used to stand here was the second copy of that gate.
+    if (_gate.canRun("salinity")) {
       try {
         if (global.SalinityEnginePure) {
           const salInputs = buildSalinityInputs();
           if (salInputs.ecw > 0) {
-            attempting("salinity");
             const salResult = global.SalinityEnginePure.analyse(salInputs);
             if (salResult && !salResult.error) {
               _hubState.computed.salinity = wrapWithConfidence("salinity", salResult);
@@ -4108,6 +4506,12 @@
                 climateEnhanced: salResult.climateEnhanced,
               });
             }
+          } else {
+            // GH-777: the reading is there and it is zero — water with no measurable salt. The engine
+            // has nothing to penalise, and that is an ANSWER about this site rather than a gap: no
+            // input is named, the run stays complete, and the panel says nothing. A zero is a
+            // measurement, so it does not count as a missing input in the walk above.
+            notApplicable("salinity", "the water of this site carries no measurable salinity", []);
           }
         }
         // Fallback to legacy
@@ -4134,7 +4538,6 @@
     // 6. STRESS AGGREGATION (depends on 2,3,4)
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 5: Stress aggregation");
-    attempting("stress");
     try {
       calculateStressAggregates();
     } catch (e) {
@@ -4152,7 +4555,6 @@
     log("main", "Step 6: Disease analysis");
     let _diseaseFreshThisPass = false;
     if (global.DiseaseEngine || (global.GILBA_USE_PURE_DISEASE && global.DiseaseEnginePure)) {
-      attempting("disease");
       try {
         const diseaseInputs = buildDiseaseInputs();
 
@@ -4382,7 +4784,6 @@
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 7: Wear/recovery analysis");
     if (global.gaip_wear_recovery_engine) {
-      attempting("wear");
       try {
         const { state, weather, shadeData } = buildWearRecoveryInputs();
         const baseWearResult = global.gaip_wear_recovery_engine(
@@ -4432,7 +4833,6 @@
           trajWeather,
           { days: 14, startDate: new Date() }, // pure engine requires explicit startDate
         );
-        attempting("stress-trajectory", "stressTrajectory");
         if (trajResult) {
           // Inject metadata.species so the UI subtitle shows the actual species name
           if (!trajResult.metadata) trajResult.metadata = {};
@@ -4491,7 +4891,9 @@
            * because a held-over prior result would be another site's.
            */
           if (preEmInputs.region == null) {
-            attempting("pre-emergent", "preEmergent");
+            // GH-777 (slice 2): the walk registered this step already, so the declaration that stood
+            // here is gone and the note stays. What a person sees does not change: the sweep at the end
+            // of the pass names the gap by this module's name, exactly as it did (gh727 holds it).
             note("pre-emergent",
               "Pre-emergent timing needs the site's coordinates to know which weeds germinate here, " +
               "and this site has none stored");
@@ -4527,7 +4929,6 @@
               preEmInputs.soilTempSource + ' single-point, awaiting sensor fetch');
             console.log('[PreEmergent] race guard, holding prior sensor result, skipping physics single-point');
           } else {
-          attempting("pre-emergent", "preEmergent");
           const preEmResult = global.GAIP_PreEmergent.analyse(preEmInputs);
           // Stamp source so race guard can check it on next run
           preEmResult._soilTempSource = preEmInputs.soilTempSource;
@@ -4649,8 +5050,7 @@
           day0ActiveThreats: day0ActiveThreats,
         };
 
-        attempting("forecast");
-        const forecastResult = global.DiseaseForecast.generateForecast(forecastState);
+          const forecastResult = global.DiseaseForecast.generateForecast(forecastState);
         if (forecastResult && !forecastResult.error) {
           _hubState.computed.forecast = wrapWithConfidence("forecast", forecastResult);
           log("forecast", "7-day disease forecast computed", {
@@ -4686,7 +5086,6 @@
     // v1.3.0: Calculate and attach confidence summary
     let confidenceSummary = null;
     if (global.GilbaEngineConfidence) {
-      attempting("confidence");
       confidenceSummary = global.GilbaEngineConfidence.getConfidenceSummary(_hubState);
       _hubState.computed.confidence = confidenceSummary;
 
@@ -4726,6 +5125,10 @@
           // weather arrived.
           warnings: _hubState.computed.warnings || [],
           skipped: _hubState.computed.skipped || [],
+          // GH-777 (slice 2): the third account travels the same way the other two do. The runner
+          // reads the EVENT, not the state, so a record left only in `_hubState` would never reach
+          // the row -- which is how this one has been invisible since GH-573.
+          notApplicable: _hubState.computed.notApplicable || [],
           passStartedAt: _hubState.computed.passStartedAt || startTime,
         },
       }),
@@ -4799,7 +5202,7 @@
           tissue: state.tissue || null,
           schedule: state.schedule || null,
           site: state.site || null,
-          pgr: state.pgr || null, // v1.7.0
+          // GH-781: `pgr` is not carried into the pass's inputs — see the note's new writer.
           // Include location so getAuthoritativeClimate() can
           // read lat/lon on GSSH pages where no saved site config exists
           location: state.location || state.site?.location || null,
@@ -4831,7 +5234,7 @@
           tissue: state.tissue || null,
           schedule: state.schedule || null,
           site: state.site || null,
-          pgr: state.pgr || null, // v1.7.0
+          // GH-781: `pgr` is not carried into the pass's inputs — see the note's new writer.
         };
         if (state.climateMetrics) _hubState.computed.climate = mergeClimateFromHub(state.climateMetrics);
         if (state.shadeMetrics) _hubState.computed.shade = state.shadeMetrics;
@@ -5308,8 +5711,27 @@
     // on this same state and had no way to say anything about a pass — its own
     // `warn` reached a console and stopped. Two entries, no more: record a
     // problem, and name a module that produced nothing.
-    recordProblem: function (module, message, data) {
-      warn(module, message, data);
+    /**
+     * GH-781 (delivery 5) — THIS DOOR CAN CARRY THE WRITER'S NAME, WHICH IT COULD NOT.
+     *
+     * It had no producer parameter at all, so every problem recorded through it was filed with no producer
+     * and `runComputePass` took it for its own: the cascade's problems were removed by the next pass of the
+     * orchestrator, silently. That is the fault of this queue item, on the one account it had not reached.
+     *
+     * THE NAME IS NOT REQUIRED HERE YET, and that is deliberate rather than overlooked. Two callers still
+     * have no name to give (`hub-tissue-v3.js`, `hub-persistence.js`), because they write once per run from
+     * outside any pass and no clearing moment for such a writer exists; refusing them today would drop what
+     * they say instead of keeping it. A name without its own moment of cleanup is the same leak pointing the
+     * other way, so the remaining callers wait on that decision rather than on this parameter.
+     */
+    recordProblem: function (module, message, data, producer) {
+      if (typeof producer !== 'string' || !producer) {
+        warn('orchestrator', 'a journal problem was offered without naming its producer and was not'
+          + ' recorded: an unnamed entry has no pass that clears it (module "' + module + '")');
+
+        return;
+      }
+      warn(module, message, data, producer, 'recordProblem');
     },
 
     /**
@@ -5326,10 +5748,97 @@
      * partial. So `note` — stamped `info` (GH-570) — is exposed for facts that
      * belong in the run's account without being wrong.
      */
-    note: function (module, message, data) {
-      note(module, message, data);
+    /**
+     * GH-781: an outside writer NAMES ITSELF. The producer is what keeps a record alive across the passes of
+     * another producer, so an entry written without one would be filed as the orchestrator's and cleared by
+     * its next pass — silently, which is the fault this item exists to close. Unnamed, nothing is written.
+     */
+    note: function (module, message, data, producer) {
+      if (typeof producer !== 'string' || !producer) {
+        warn('orchestrator', 'a journal note was offered without naming its producer and was not written: '
+          + 'an unnamed entry would be cleared by the next pass of this orchestrator (module "'
+          + module + '")');
+
+        return;
+      }
+      note(module, message, data, producer, 'note');
     },
-    noteSkipped: noteSkipped,
+    /**
+     * GH-781 (delivery 5) — THE OUTSIDE DOORS REFUSE AN UNNAMED WRITER, all four of them now.
+     *
+     * `note` began refusing in this item's third delivery; these two were exported as they are, with the
+     * producer optional, and `recordProblem` had no such parameter at all. So three of the four doors still
+     * took a record that `runComputePass` would then take for its own and remove. The internal functions keep
+     * their optional argument, because inside a pass the default IS this pass.
+     */
+    noteSkipped: function (step, module, reason, resultKey, producer) {
+      if (typeof producer !== 'string' || !producer) {
+        warn('orchestrator', 'a skipped step was offered without naming its producer and was not recorded:'
+          + ' an unnamed entry has no pass that clears it (module "' + module + '")');
+
+        return;
+      }
+      noteSkipped(step, module, reason, resultKey, producer, 'noteSkipped');
+    },
+
+    /**
+     * GH-781 — A PRODUCER REMOVES ITS OWN RECORDS BEFORE IT WRITES NEW ONES.
+     *
+     * The cascade needs at the start of its pass exactly what `runComputePass` does for the orchestrator:
+     * drop what it itself said last time and leave everybody else's. Without it a repeat of the cascade
+     * (GH-589, up to three) would stack the same record three times.
+     */
+    /**
+     * GH-781 (delivery 6, the analyst's amendments (7)-(9)) - IS A PASS OF THIS PRODUCER RUNNING RIGHT NOW.
+     *
+     * The row's body is assembled from the journal AS IT STANDS at that moment, not from a reference captured
+     * earlier, so the assembler has to be able to say "a pass was still running when I looked". No new flag
+     * was needed: `runComputePass` has exactly one caller, `computeAll`, which already sets `_isComputingAll`
+     * before it and clears it in a `finally` - so all three exits are covered, including an exception and the
+     * re-entry guard's early return, which is not a pass at all. This only opens it.
+     */
+    passInProgress: function () {
+      return !!_isComputingAll;
+    },
+
+    /**
+     * GH-781 (delivery 7) - THE THREE MOMENTS OF A PASS, IN PLACE OF CLEARING AT ITS START.
+     *
+     * `beginPass` names the pass a producer is now writing under; `commitPass` accepts it, which is when that
+     * producer's records of OTHER passes go; `rollbackPass` drops the records of a pass that did not finish.
+     * Clearing at the start could not tell those apart, and a repeat that failed took the previous account
+     * with it.
+     */
+    beginPass: beginPass,
+    commitPass: commitPass,
+    rollbackPass: rollbackPass,
+
+    /**
+     * GH-781 (amendment (14)): the ACCEPTED pass of a producer, for whoever assembles a row. Not the last one
+     * attempted - that is what the repeat needs, and it is a different question.
+     */
+    acceptedPassOf: function (producer) {
+      const id = _acceptedPassOf[producer];
+
+      return id === undefined ? null : id;
+    },
+
+    /**
+     * GH-777 (slice 3) — THE GATE AND THE RECORD, handed out so the cascade uses these and not its own.
+     *
+     * The cascade runs the nodes whose handle is declared in its file, and it has no gate of its own; a
+     * second gate written there would be the second copy this item exists to remove.
+     */
+    absentRequirementsOf: absentRequirementsOf,
+    notApplicable: function (module, why, missing, producer) {
+      if (typeof producer !== 'string' || !producer) {
+        warn('orchestrator', 'a module was declared not applicable without naming the producer and was not'
+          + ' recorded: an unnamed entry has no pass that clears it (module "' + module + '")');
+
+        return;
+      }
+      notApplicable(module, why, missing, producer, 'notApplicable');
+    },
 
     // State access
     getState: function () {

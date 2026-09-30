@@ -81,11 +81,30 @@ class Gh638TheClassDecidesTheOfferTest extends TestCase
             // run ANSWERS with, whose words are the owner's open item. Anything
             // else without a sentence is an omission, so the exemption is tied to
             // the CLASS rather than to a list of codes here.
+            //
+            // GH-777 — AND FOR A SECOND SHAPE, WHICH IS ALSO A DECLARATION AND NOT A LIST. The judge
+            // of queue item 4 writes three causes about an INPUT, and each sentence needs that input's
+            // human name — her draft. They carry `wordsFrom: owner`, and the rule below reads that
+            // mark from the table: a wordless cause is allowed when it is an answer OR when it says
+            // whose words are missing. The mark is held BOTH WAYS, so it cannot be used to hide a
+            // sentence somebody already wrote.
             if ($entry['text'] === null) {
-                $this->assertSame('answer', $entry['class'],
-                    $code.' has no sentence and is not an answer — an omission, not a decision');
+                /**
+                 * GH-781 - AND FOR A THIRD SHAPE: A SENTENCE COMPOSED PER RUN.
+                 *
+                 * Two causes of ours carry the owner's general phrase, and that phrase names the module of the
+                 * section a person is looking at - so it cannot be a fixed string in this table. They declare
+                 * `composed`, and what they compose is measured by `Gh781TheOwnersSentenceForOurOwnCausesTest`
+                 * through the public reader rather than trusted to the flag.
+                 */
+                $this->assertTrue($entry['class'] === 'answer' || AnalysisNotice::awaitsHerWords($code)
+                    || ! empty($entry['composed']),
+                    $code.' has no sentence, is not an answer, does not say whose words are missing and does'
+                    .' not declare a composed one — an omission, not a decision');
                 continue;
             }
+            $this->assertFalse(AnalysisNotice::awaitsHerWords($code),
+                $code.' says its words are still the owner\'s and carries a sentence anyway');
             $this->assertIsString($entry['text'], $code);
             $this->assertGreaterThan(20, strlen($entry['text']), $code.' has no sentence');
         }

@@ -81,7 +81,50 @@
     // has: what the sites are called, and what their configs hold.
     var _serverSites = null;   // [{ id, label }]
     var _serverConfigs = null; // { siteId: config }
+    // GH-780: the journal's answer per site — `null` where it answered none, absent where it did not answer.
+    var _lastPgrBySite = null;
     var _sitesError = false;
+
+    /**
+     * GH-780 — THE LAST PGR APPLICATION OF EACH SITE, FROM THE JOURNAL.
+     *
+     * The owner's decision of 29.09.2026: a site is using a PGR when its journal holds an application within
+     * the last ninety days, and there is no switch. This page used to read `config.pgr.enabled` and
+     * `config.pgr.applicationDate` -- a switch nothing writes any more (`false` on twelve sites, absent on
+     * nine) and a date beside it. So "PGR overdue" scored nothing for anybody, while `Russley` was
+     * seventy-one days past its application.
+     *
+     * The path is the one the run already asks (`spray-log/context`, GH-771), one request per site, and the
+     * answer is kept per site: `null` means the journal answered and there is none, absent means it was not
+     * answered -- two different facts, and the engine's question treats them differently.
+     */
+    function loadLastPgrFromServer(sites) {
+        var base = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) || '/api/';
+        if (typeof fetch !== 'function' || !Array.isArray(sites) || !sites.length) {
+            return Promise.resolve(false);
+        }
+        var root = base.replace(/\/?$/, '/');
+
+        return Promise.all(sites.map(function (site) {
+            return fetch(root + 'spray-log/context?site_id=' + encodeURIComponent(site.id), {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+            })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (payload) {
+                    return { id: site.id, lastPGR: (payload && payload.lastPGR) || null };
+                })
+                .catch(function () { return { id: site.id, lastPGR: undefined }; });
+        })).then(function (answers) {
+            _lastPgrBySite = {};
+            answers.forEach(function (a) {
+                if (a.lastPGR !== undefined) _lastPgrBySite[a.id] = a.lastPGR;
+            });
+            log('the journal answered for ' + Object.keys(_lastPgrBySite).length + ' of ' + sites.length + ' sites');
+
+            return true;
+        });
+    }
 
     function loadSitesFromServer() {
         var base = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) || '/api/';
@@ -236,7 +279,15 @@
      * Compute a simple 0–100 priority score for a site card.
      * Higher = needs attention sooner.
      */
-    function computePriorityScore(metrics, config) {
+    /** The journal's answer for one site: absent when it was never answered for it. */
+    function lastPgrFor(site) {
+        var id = site && (site.id || site.siteId);
+        if (!id || !_lastPgrBySite) return undefined;
+
+        return Object.prototype.hasOwnProperty.call(_lastPgrBySite, id) ? _lastPgrBySite[id] : undefined;
+    }
+
+    function computePriorityScore(metrics, config, lastPgr) {
         var score = 0;
 
         if (metrics) {
@@ -257,12 +308,23 @@
             }
         }
 
-        // PGR overdue (0–15 points)
-        if (config && config.pgr && config.pgr.enabled && config.pgr.applicationDate) {
-            var daysSince = Math.floor((Date.now() - new Date(config.pgr.applicationDate).getTime()) / 86400000);
-            if (daysSince > 28) score += 15;
-            else if (daysSince > 21) score += 10;
-            else if (daysSince > 14) score += 5;
+        /**
+         * PGR overdue (0–15 points) — GH-780: THE JOURNAL DECIDES, AND THE ENGINE OWNS BOTH RULES.
+         *
+         * The gate is "is this site using a PGR", which the engine answers from the last application and its
+         * own ninety-day window; the day count is the engine's too, whole days between UTC midnights. The
+         * count written here was `Math.floor(ms / 86400000)` off local time, a second rule for the same
+         * number -- and it sat behind a switch that has not been written since the switch was removed.
+         */
+        var pgrEngine = global.GAIP_PGR;
+        if (pgrEngine && typeof pgrEngine.isInUse === 'function' && pgrEngine.isInUse(lastPgr) === true) {
+            var daysSince = pgrEngine.daysSinceApplication(
+                (lastPgr && (lastPgr.application_date || lastPgr.applicationDate)) || lastPgr);
+            if (daysSince !== null) {
+                if (daysSince > 28) score += 15;
+                else if (daysSince > 21) score += 10;
+                else if (daysSince > 14) score += 5;
+            }
         }
 
         return Math.min(100, Math.round(score));
@@ -305,11 +367,23 @@
         return { level: 'poor', text: 'GP ' + pct + '%, poor growing conditions.' };
     }
 
-    function pgrDecision(pgr) {
-        if (!pgr || !pgr.applicationDate) return null;
-        var daysSince = Math.floor((Date.now() - new Date(pgr.applicationDate).getTime()) / 86400000);
-        if (daysSince < 0) return null;
-        var product = pgr.productType ? pgr.productType : 'PGR';
+    /**
+     * GH-780 — THE PGR LINE OF A CARD, FROM THE JOURNAL.
+     *
+     * The application date and the product used to come from `config.pgr`, which only the file import writes;
+     * the journal is where a person records an application, and it is what the run itself reads (GH-771). The
+     * day count is the engine's, so the card, the score and the run's own note all count days one way.
+     */
+    function pgrDecision(lastPgr) {
+        if (!lastPgr) return null;
+        var applied = lastPgr.application_date || lastPgr.applicationDate || null;
+        if (!applied) return null;
+        var engine = global.GAIP_PGR;
+        var daysSince = (engine && typeof engine.daysSinceApplication === 'function')
+            ? engine.daysSinceApplication(applied)
+            : null;
+        if (daysSince === null || daysSince < 0) return null;
+        var product = lastPgr.product_name || lastPgr.product_key || lastPgr.productType || 'PGR';
         if (daysSince > 28) return { level: 'overdue', text: product + ', ' + daysSince + 'd since last application. Review reapplication window.' };
         if (daysSince > 21) return { level: 'due', text: product + ', ' + daysSince + 'd since application. Reapplication window approaching.' };
         if (daysSince > 14) return { level: 'active', text: product + ', ' + daysSince + 'd since application. Active suppression period.' };
@@ -466,7 +540,6 @@
         var siteId     = site.id;
         var label      = site.label || siteId;
         var turf       = (config && config.turf)     || {};
-        var pgr        = (config && config.pgr)      || {};
         // GH-477: the place and the coordinates come from the site row, which
         // owns them. This card was the reader the previous guard could not
         // see: the config arrives as a PARAMETER, and the guard looked for a
@@ -493,8 +566,11 @@
         // Green here means "nothing needs attention", and it was shown for a
         // site whose data had simply not been read -- next to a banner saying
         // the settings could not be loaded. Grey says what is true: unknown.
-        var hasData    = !!metrics || vwc !== null || !!pgr.applicationDate;
-        var score      = computePriorityScore(metrics, config);
+        // GH-780: the journal's answer, not the config's copy of a date.
+        var _lastPgr   = lastPgrFor(site) || null;
+        var hasData    = !!metrics || vwc !== null || !!(_lastPgr
+            && (_lastPgr.application_date || _lastPgr.applicationDate));
+        var score      = computePriorityScore(metrics, config, lastPgrFor(site));
         // Literal colours for the no-data case: this page also renders on the
         // old layout, where the design-system custom properties are not
         // defined, and an undefined var() resolves to transparent -- which is
@@ -555,8 +631,8 @@
                 actionsHTML += actionRowHTML(vwcDecision(vwc));
             }
         }
-        if (pgr.applicationDate) {
-            actionsHTML += actionRowHTML(pgrDecision(pgr));
+        if (_lastPgr && (_lastPgr.application_date || _lastPgr.applicationDate)) {
+            actionsHTML += actionRowHTML(pgrDecision(_lastPgr));
         }
 
         // No-data state for non-active sites
@@ -664,7 +740,7 @@
             var config  = configs[site.id] || null;
             var metrics = (site.id === cachedSiteId) ? cachedDashboard : null;
             var vwc     = getSiteVWC(site.id);
-            var score   = computePriorityScore(metrics, config);
+            var score   = computePriorityScore(metrics, config, lastPgrFor(site));
             return { site: site, config: config, metrics: metrics, vwc: vwc, score: score };
         });
 
@@ -750,7 +826,11 @@
 
         _refresh: function () {
             // GH-444: Refresh re-reads the sites, not just the screen.
-            loadSitesFromServer().then(render, render);
+            // GH-780: the journal's answer per site, asked once the list is known.
+            loadSitesFromServer()
+                .then(function () { return loadLastPgrFromServer(getSiteList()); })
+                .catch(function () {})
+                .then(render, render);
         },
 
         render: render
@@ -801,7 +881,10 @@
     // 1200 ms wait was for SampleManager to finish reading localStorage, which
     // is no longer where any of this comes from.
     function boot() {
-        loadSitesFromServer().then(init, init);
+        loadSitesFromServer()
+            .then(function () { return loadLastPgrFromServer(getSiteList()); })
+            .catch(function () {})
+            .then(init, init);
     }
 
     if (document.readyState === 'loading') {

@@ -239,6 +239,11 @@
       "kind": "call-apply-bind",
       "line": 38
     },
+    "assets/gaip-morning-briefing.js : lastPgrFor : Object.prototype.hasOwnProperty.call #1": {
+      "ticket": "GH-780",
+      "kind": "call-apply-bind",
+      "line": null
+    },
     "assets/gaip-morning-briefing.js : log : Array.prototype.slice.call #1": {
       "ticket": "GH-678",
       "kind": "call-apply-bind",
@@ -8993,37 +8998,37 @@
       "kind": "unparsed-view",
       "line": null
     },
-    "app/resources/views/plan.blade.php#script23 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
+    "app/resources/views/plan.blade.php#script22 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
       "ticket": "GH-678",
       "kind": "unparsed-view",
       "line": null
     },
-    "app/resources/views/reports/accuracy.blade.php#script24 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
+    "app/resources/views/reports/accuracy.blade.php#script23 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
       "ticket": "GH-678",
       "kind": "unparsed-view",
       "line": null
     },
-    "app/resources/views/reports/export.blade.php#script25 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
+    "app/resources/views/reports/export.blade.php#script24 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
       "ticket": "GH-678",
       "kind": "unparsed-view",
       "line": null
     },
-    "app/resources/views/reports/forensic.blade.php#script31 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
+    "app/resources/views/reports/forensic.blade.php#script30 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
       "ticket": "GH-678",
       "kind": "unparsed-view",
       "line": null
     },
-    "app/resources/views/reports/scenarios.blade.php#script32 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
+    "app/resources/views/reports/scenarios.blade.php#script31 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
       "ticket": "GH-678",
       "kind": "unparsed-view",
       "line": null
     },
-    "app/resources/views/settings.blade.php#script34 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
+    "app/resources/views/settings.blade.php#script33 : <inline script> : threw: This experimental syntax requires enabling one of the #1": {
       "ticket": "GH-678",
       "kind": "unparsed-view",
       "line": null
     },
-    "app/resources/views/stadium.blade.php#script35 : <inline script> : threw: Unexpected token, expected \",\" (6:34) #1": {
+    "app/resources/views/stadium.blade.php#script34 : <inline script> : threw: Unexpected token, expected \",\" (6:34) #1": {
       "ticket": "GH-678",
       "kind": "unparsed-view",
       "line": null
@@ -9052,9 +9057,13 @@
     "viewsLoading": "fx0f110"
   },
   "reMeasuredBecauseTheRuleChanged": {
-    "GH-740, the acceptor's return — bodies now come from the parse, not from a regular expression": ["every function in the perimeter"],
+    "GH-740, the acceptor's return — bodies now come from the parse, not from a regular expression": [
+      "every function in the perimeter"
+    ],
     "whyEveryHashMoved": "A body used to run from one `function` keyword to the next, so the export lines and docblocks between declarations belonged to the function before them. Measured: inserting a function after `splitDeadFromUnresolved` moved its hash fh74f5q -> f1cyabyd without a character of it changing, and the guard would have NAMED it. Bodies are now `start`..`end` of the declaration the parser reports. Every hash moved because every body lost its tail; the three lists did not move at all.",
-    "GH-740, the acceptor's return — the perimeter gained a second root": ["splitDeadFromUnresolved"],
+    "GH-740, the acceptor's return — the perimeter gained a second root": [
+      "splitDeadFromUnresolved"
+    ],
     "whyTheEntriesDidNotMove": "The walk itself is unchanged: every other function in the perimeter keeps its hash, and the three lists are identical. What changed is what the perimeter CAN see. `splitDeadFromUnresolved` is exported and called from outside this file, so a walk over calls inside it never arrived there — while that function sorts every entry into the three lists and decides which of them carries a line. Found by an echo that was predicted and did not come, not by a red.",
     "GH-740, the reviewer's return — what changed in the rule": [
       "analyse",

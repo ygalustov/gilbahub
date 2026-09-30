@@ -31,6 +31,7 @@ const vm = require('vm');
 const fs = require('fs');
 const path = require('path');
 const { hubScripts, makeSandbox } = require('./lib/orchestrator-bench');
+const { giveItTheChooser } = require('./lib/sample-chooser');
 const { realReadingsOf } = require('./lib/sample-readings');
 
 const RealDate = Date;
@@ -93,6 +94,10 @@ function benchWithProducer({ grids }) {
 
     const failed = [];
     const ctx = vm.createContext(sandbox);
+    // GH-778: the write path asks one function which sample this run computes on, and that function lives
+    // in `hub-tissue-v3.js`. A bench executing the producer alone has none, and every such place answers
+    // `null`. The product's own chooser is lifted in, not stubbed.
+    giveItTheChooser(ctx);
     hubScripts().forEach((name) => {
         const file = path.join(ASSETS, name);
         if (!fs.existsSync(file)) { failed.push(name + ': missing'); return; }
@@ -294,6 +299,15 @@ describe('GH-589 — case 5: the tissue block and the water are the store’s sa
         // Point 3: the form was the source "when there is no sample at all", and
         // it is not one. The grids are full here and every reading is absent.
         const b = benchWithProducer({ grids: true });
+        /**
+         * GH-777 (the live measurement of 29.09.2026): THE RUN IS TOLD THERE IS NO SAMPLE, in the words the
+         * opener uses. The gate of slice 3 distinguishes three answers -- told `none`, named but not in the
+         * store yet, and told nothing at all -- because the cascade's first pass runs before the store is
+         * filled, and reading "not in the store yet" as "the client entered none" gated MLSN out of a live
+         * run on a site with three soil samples. A bench whose address names no sample measures the third
+         * answer, so this one says `none`, which is what the dashboard's opener sends for a site with none.
+         */
+        b.ctx.location = { search: '?rerun=r1&site=site-1&soil=none&tissue=none' };
         const pass = b.ctx.gaip_runCascadePass('run-button', b.hubRoot, WEATHER, null);
 
         expect(pass.state.soil.ppm).toEqual({});
@@ -301,7 +315,27 @@ describe('GH-589 — case 5: the tissue block and the water are the store’s sa
         expect(pass.state.soil.CEC).toBeNull();
         expect(pass.state.soil.ECe).toBeNull();
         expect(pass.state.water.ions).toEqual({});
-        expect(pass.result.state.computed.tissue).toBeNull();
+
+        /**
+         * GH-777 (queue item 4, slice 3) — AND NOW THE TISSUE IS NOT COMPUTED AT ALL, WHICH IS STRONGER
+         * THAN COMPUTED-TO-NULL.
+         *
+         * This used to assert `computed.tissue === null`: the engine ran over a site with no tissue sample,
+         * asked for readings, received none and returned nothing. The node declares `samples.tissue` now,
+         * so the gate does not run it and the pass records WHY -- which is what a client needs and what a
+         * null in a row could never say. The consequence asserted is the same one, in the shape the run
+         * writes it.
+         */
+        expect(pass.result.state.computed.tissue).toBeFalsy();
+        const recorded = (b.ctx.GaipOrchestrator.getState().computed.notApplicable || [])
+            .filter((e) => e && e.module === 'tissue');
+        process.stdout.write('[GH-589] with no tissue sample the pass recorded: '
+            + JSON.stringify(recorded) + '\n');
+        // GH-781: the entry names its producer, which is how it survives the next pass of the orchestrator.
+        // GH-781 (delivery 6): the entry also names the DOOR it came through, because a record's list and
+        // level cannot tell the outside door from the orchestrator's internal one.
+        expect(recorded).toEqual([{ module: 'tissue', missing: ['samples.tissue'], producer: 'cascade',
+            door: 'notApplicable', pass: expect.any(Number) }]);
     });
 });
 
@@ -412,11 +446,17 @@ function runRunner({ soilParam }) {
         readingsOf: realReadingsOf(),
         getSamples: () => [],
         getAllSamples: () => ({ allSites: {}, allActive: {}, allMeta: {}, sites: {} }),
-        getActiveSample: (t) => (t === 'soil' && sampleThere ? { id: 'sample_141', rawData: SOIL_141 } : null),
+        // GH-778: a store's key and a sample's row id are two things; the address names the row.
+        getActiveSample: (t) => (t === 'soil' && sampleThere
+            ? { id: 'sample_141', serverId: 141, rawData: SOIL_141 } : null),
+        getSamples: (t) => ((t === 'soil' && sampleThere)
+            ? [{ id: 'sample_141', serverId: 141, rawData: SOIL_141 }] : []),
     };
     sandbox.GaipOrchestrator = { noteSkipped: (...a) => skipped.push(a), recordProblem() {}, getState: () => ({ computed: {} }) };
 
     const ctx = vm.createContext(sandbox);
+    // GH-778: this bench executes the row producer too, so it needs the product's chooser of a sample.
+    giveItTheChooser(ctx);
     vm.runInContext(src, ctx, { filename: 'hub-persistence.js' });
 
     const fire = (name, detail) => (listeners[name] || []).forEach((f) => f({ detail: detail || {} }));
@@ -446,7 +486,7 @@ async function settle() {
 
 describe('GH-589 — case 2: the runner counts the pass, not the arrival', () => {
     test('CONTROL: a cascade pass that began after the sample completes the run', async () => {
-        const h = runRunner({ soilParam: 'sample_141' });
+        const h = runRunner({ soilParam: '141' });
         h.advance(100);
         h.deliverSample();
         h.advance(200);                                   // the poll finds it
@@ -465,7 +505,7 @@ describe('GH-589 — case 2: the runner counts the pass, not the arrival', () =>
         // events, same arrival, only the pass is older than the sample. Before
         // this the row was written and carried ten dashes over a sample holding
         // K 40 and Ca 803.
-        const h = runRunner({ soilParam: 'sample_141' });
+        const h = runRunner({ soilParam: '141' });
         h.advance(100);
         h.fire('gaip:weather-ready');
         h.fire('gaip:cascade-complete', { passStartedAt: h.nowOf() });   // the press-time pass
@@ -480,7 +520,7 @@ describe('GH-589 — case 2: the runner counts the pass, not the arrival', () =>
     });
 
     test('and a later pass, on the sample, releases it', async () => {
-        const h = runRunner({ soilParam: 'sample_141' });
+        const h = runRunner({ soilParam: '141' });
         h.advance(100);
         h.fire('gaip:weather-ready');
         h.fire('gaip:cascade-complete', { passStartedAt: h.nowOf() });
@@ -504,7 +544,7 @@ describe('GH-589 — case 2: the runner counts the pass, not the arrival', () =>
         // The third outcome, which exists for exactly this: the rest of the run
         // is real and is stored, the soil part is named as not computed, and the
         // previous complete numbers are not replaced by a partial one.
-        const h = runRunner({ soilParam: 'sample_141' });
+        const h = runRunner({ soilParam: '141' });
         h.advance(100);
         h.fire('gaip:weather-ready');
         h.fire('gaip:cascade-complete', { passStartedAt: h.nowOf() });
@@ -520,7 +560,22 @@ describe('GH-589 — case 2: the runner counts the pass, not the arrival', () =>
         await settle();
 
         expect(h.posted.map((p) => p[0])).toEqual(['result']);
-        expect(h.skipped.map((s) => s.slice(0, 3))).toContainEqual(['mlsn', 'mlsn', 'soil-sample-not-loaded']);
+        /**
+         * GH-781 (delivery 5): the runner no longer writes this reason. It wrote it unnamed, so the
+         * orchestrator's next pass removed it, and after the capture of the journal it could not reach the
+         * row at all. The pass that ran before the sample is what names it now -- it can see that the sample
+         * it was given is not in the store -- and that is measured in
+         * `gh781-a-producer-that-names-itself-is-also-cleared-by-itself.test.js`.
+         *
+         * THIS HARNESS RUNS NO PASS, so there is nothing to find here, and the case holds what it is named
+         * for: the run WRITES rather than hanging, and it writes after its own budget.
+         *
+         * AND THE HONEST EDGE, named rather than left to be discovered: a run in which no pass ran at all
+         * has nobody to name the gap now. Whether that is reachable in the product, and what should name it,
+         * is carried to the analyst rather than decided here.
+         */
+        expect(h.skipped.map((s) => s.slice(0, 3)))
+            .not.toContainEqual(['mlsn', 'mlsn', 'soil-sample-not-loaded']);
     });
 
     test('a run nobody told about a sample is not gated on a pass either', async () => {

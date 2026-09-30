@@ -70,7 +70,13 @@ describe('GH-568 — question 1: the nutrient list is empty while pH and ECe are
         // GH-574: the engine returns `{ html, nutrients }` now. Both halves are
         // measured, because the rows are what the cards are built from and the
         // markup is what the page shows.
-        const out = ctx.mlsnEngine({ soil: numeric(SAMPLE_AS_STORED), turf: TURF }, {});
+        /**
+         * GH-782 (queue item 3ga): the methodology is part of the state now. A site without one is not
+         * computed at all - the owner's rule of 24.09.2026 - and the `|| "slan"` that used to stand in the
+         * engine is what hid a defect: every ammonium-acetate site fell into the SLAN table silently.
+         */
+        const out = ctx.mlsnEngine({ soil: Object.assign(numeric(SAMPLE_AS_STORED),
+            { methodology: 'slan' }), turf: TURF }, {});
         expect(out.nutrients.length).toBeGreaterThan(0);
         const html = out.html;
         expect(typeof html).toBe('string');
@@ -85,7 +91,8 @@ describe('GH-568 — question 1: the nutrient list is empty while pH and ECe are
         // the engine does with them.
         const { ctx } = load();
         let threw = null;
-        try { ctx.mlsnEngine({ soil: SAMPLE_AS_STORED, turf: TURF }, {}); }
+        try { ctx.mlsnEngine({ soil: Object.assign({}, SAMPLE_AS_STORED, { methodology: 'slan' }),
+            turf: TURF }, {}); }
         catch (e) { threw = e && e.message; }
 
         process.stdout.write('[q31] engine on the stored strings: ' + JSON.stringify(threw) + '\n');
@@ -116,7 +123,7 @@ describe('GH-568 — question 1: the nutrient list is empty while pH and ECe are
         //    journal, and by naming the module that produced nothing.
         expect(cascade).toMatch(/warn\('MLSN engine failed:', e\);/);
         expect(cascade).toMatch(/GaipOrchestrator\.recordProblem/);
-        expect(cascade).toMatch(/noteSkipped\(key, key, 'engine-produced-nothing', key\)/);
+        expect(cascade).toMatch(/noteSkipped\(module, module, 'engine-produced-nothing',\s*\n?\s*key, PRODUCER\)/);
 
         // 3. `computed.mlsn` is still the HTML string for every reader that had
         //    one, so nothing downstream changed shape.

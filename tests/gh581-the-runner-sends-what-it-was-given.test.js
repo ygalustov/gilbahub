@@ -17,6 +17,7 @@
 'use strict';
 
 const vm = require('vm');
+const { giveItTheChooser } = require('./lib/sample-chooser');
 const fs = require('fs');
 const path = require('path');
 
@@ -72,6 +73,10 @@ function bodySentBy({ weather, samples, assumptions }) {
     const testSrc = SRC.replace(exportLine, exportLine + '\n    global.__test_write = _writeResult;');
 
     const ctx = vm.createContext(sandbox);
+    // GH-778: the write path asks one function which sample this run computes on, and that function lives
+    // in `hub-tissue-v3.js`. A bench executing the producer alone has none, and every such place answers
+    // `null`. The product's own chooser is lifted in, not stubbed.
+    giveItTheChooser(ctx);
     vm.runInContext(testSrc, ctx, { filename: 'hub-persistence.js' });
     return { ctx, get sent() { return sent; } };
 }
@@ -99,7 +104,12 @@ describe('GH-581 — the body carries the run’s inputs and assumptions', () =>
         const block = SRC.slice(at, SRC.indexOf('var _assumptions', at));
         ['weather', 'normals', 'samples', 'sensors'].forEach((k) => expect(block).toContain(k + ':'));
         // the sample's IDENTITY, not a second copy of its numbers
-        expect(block).toMatch(/a\.id \|\| null/);
+        // GH-778: the field records the sample the run COMPUTED ON, by its row id — `gaip_sampleInHand`
+        // answers which sample that is, and `serverId` is its one name. It used to record the client store's
+        // own key when no sample was named, and the named id itself when one was, so the field held two
+        // kinds of name and said what was ASKED FOR rather than what was read.
+        expect(block).toMatch(/gaip_sampleInHand\(type\)/);
+        expect(block).toMatch(/a\.serverId/);
         expect(block).not.toMatch(/rawData|values/);
     });
 

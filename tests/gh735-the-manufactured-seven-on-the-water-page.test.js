@@ -33,8 +33,8 @@ const HUB = fs.readFileSync(path.join(__dirname, '..', 'assets', 'hub-tissue-v3.
 
 /** The functions `gaip_build_state` needs, as `gh736` runs them: the assembly, executed. */
 const ASSEMBLY = ['safeNum', 'collectGridValues', 'convertDateToISO', 'calculateEndDate', 'gaip_readSoilForm',
-    'gaip_soilFromActiveSample', 'gaip_soilStateFrom', 'gaip_namedSample', 'gaip_sampleReadings',
-    'gaip_waterFromActiveSample', 'calculateC3C4Fractions', 'enforceHemisphereTurfRules', 'gaip_build_state'];
+    'gaip_soilFromActiveSample', 'gaip_soilStateFrom', 'gaip_namedSample', 'gaip_sampleInHand', 'gaip_sampleReadings',
+    'gaip_waterFromActiveSample', 'calculateC3C4Fractions', 'enforceHemisphereTurfRules', 'gaip_lastPgrForThisRun', 'gaip_build_state'];
 
 function declared(name) {
     const at = HUB.indexOf('function ' + name + '(');

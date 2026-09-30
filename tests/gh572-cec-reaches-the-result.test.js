@@ -79,6 +79,10 @@ function passSoilFrom(sample) {
     // `tests/lib/sample-readings.js`.
     box.GAIP_SampleManager = stubSampleManager(sample ? { soil: sample } : {});
     const ctx = vm.createContext(box);
+    // GH-778: the soil block asks `gaip_sampleInHand` for the run's own sample now — the server names it on
+    // the frame's address and one function in the frame reads that answer. A bench lifting the block alone
+    // would be measuring a block with no reader.
+    ['gaip_namedSample', 'gaip_sampleInHand'].forEach((n) => vm.runInContext(slice(n), ctx, { filename: n }));
     vm.runInContext(slice('gaip_soilFromActiveSample'), ctx, { filename: 'gaip_soilFromActiveSample' });
     expect(typeof ctx.gaip_soilFromActiveSample).toBe('function');
     const read141 = ctx.gaip_soilFromActiveSample();

@@ -76,7 +76,12 @@ const normalise = (s) => s.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, ' 
  * Listed here rather than inferred, so that a module which SHOULD have had a
  * graph entry cannot slip in by simply not having one.
  */
-const NO_ENGINE_OF_ITS_OWN = ['cascade', 'canonical', 'confidence', 'dmi', 'engine', 'isolated', 'selective', 'orchestrator'];
+// GH-777 (queue item 4, slice 2): `confidence` HAS LEFT THIS LIST, and it left the way `water` and
+// `soil-temp-physics` left the alias map above — the graph stopped being silent rather than this list
+// being loosened. The pass has called the confidence summary since v1.3.0 and its result is in 14 of 14
+// stored rows; there was no node for it, so the module had no engine to take its words from. It has one
+// now, `confidence`, measured from that call site, and its label comes from there like everyone else's.
+const NO_ENGINE_OF_ITS_OWN = ['cascade', 'canonical', 'dmi', 'engine', 'isolated', 'selective', 'orchestrator'];
 
 /**
  * Four modules whose `warn` name is not the `computed.*` key their engine
@@ -109,6 +114,26 @@ const GRAPH_KEY = {
 };
 const graphKeyOf = (module) => GRAPH_KEY[module] || module;
 
+/**
+ * GH-781 (delivery 2) — THE NODE THAT DECLARES THIS MODULE'S NAME, when it declares one.
+ *
+ * The map above is a list of spelling differences between a module's name in the journal and the `computed`
+ * key its engine writes — a guess that had to be maintained by hand. Nodes declare `module` now (GH-777), so
+ * the label of a module with a declared owner is that node's label, with no guessing at all. The map stays
+ * for the modules whose node declares nothing yet, and shrinks as they do.
+ */
+function labelByDeclaredModule() {
+    const graph = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/dependency-graph.json'), 'utf8'));
+    const out = {};
+    Object.values(graph.nodes).forEach((n) => {
+        if (typeof n.module === 'string' && n.module && typeof n.label === 'string') {
+            out[n.module] = n.label;
+        }
+    });
+
+    return out;
+}
+
 describe('GH-572 — the words a module is called', () => {
     test('the two sources are real — both parse and are not empty', () => {
         // Positive control. An empty map and an empty graph agree perfectly.
@@ -122,10 +147,11 @@ describe('GH-572 — the words a module is called', () => {
     test('every named module with an engine takes its words from that engine’s label', () => {
         const names = stepNames();
         const labels = labelsByComputedKey();
+        const declared = labelByDeclaredModule();
 
         Object.entries(names).forEach(([module, words]) => {
             if (NO_ENGINE_OF_ITS_OWN.includes(module)) return;
-            const label = labels[graphKeyOf(module)];
+            const label = declared[module] || labels[graphKeyOf(module)];
             expect([module, label]).not.toEqual([module, undefined]);
             expect([module, normalise(label)]).toEqual([module, expect.stringContaining(normalise(words))]);
         });
@@ -134,7 +160,11 @@ describe('GH-572 — the words a module is called', () => {
     test('the modules with no engine are exactly the ones listed as having none', () => {
         const names = stepNames();
         const labels = labelsByComputedKey();
-        const without = Object.keys(names).filter((m) => !labels[graphKeyOf(m)]).sort();
+        // GH-781: a declared `module` is an engine of its own, so the declaration counts here too — the
+        // list below is the modules with NO engine at all, not the ones this file cannot guess a key for.
+        const declared = labelByDeclaredModule();
+        const without = Object.keys(names)
+            .filter((m) => !declared[m] && !labels[graphKeyOf(m)]).sort();
         expect(without).toEqual([...NO_ENGINE_OF_ITS_OWN].sort());
     });
 

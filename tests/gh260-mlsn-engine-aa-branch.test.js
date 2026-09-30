@@ -57,7 +57,10 @@ describe('GH-260 — mlsnEngine() real AA branch', () => {
         });
 
         test('deriveCode()/getRangesPpm() overlay is present and gated on HillLabsSampleTypes being loaded', () => {
-            expect(src).toMatch(/_hlst\.deriveCode\(species, generalSoilTexture\)/);
+            // GH-782 (queue item 3ga): the species handed to `deriveCode` is the SITE's, asked through the
+            // one function both readers use, and no longer the one this state carries from the form.
+            expect(src).toMatch(/_hlst\.deriveCode\(aaSpecies, generalSoilTexture\)/);
+            expect(src).toMatch(/speciesOfTheSite\(state\)/);
             expect(src).toMatch(/_hlst\.getRangesPpm\(aaSampleTypeCode, nut, aaCec\)/);
         });
 

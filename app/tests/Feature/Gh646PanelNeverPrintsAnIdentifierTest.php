@@ -54,8 +54,25 @@ class Gh646PanelNeverPrintsAnIdentifierTest extends TestCase
         // complete and the cause travels as a journal note, which the panel does
         // not print (GH-573). Feeding it here would measure a shape that cannot
         // occur, and the red would be about the fixture rather than the product.
+        // GH-777: and narrowed by one more property OF THE TABLE, for the same reason the `answer`
+        // class is excluded above. A cause marked `wordsFrom: owner` is a SECTION cause — the judge of
+        // queue item 4 writes it into `detail.notApplicable`, never into a run's `reason` — and it has
+        // no sentence yet, so feeding it here as a run reason measures a shape that cannot occur and
+        // the red would be about the fixture. What keeps that true is asserted in
+        // `Gh777…`: none of them reaches the browser's map, which is the only door the opener could
+        // frame a raw code through.
         $table = (new \ReflectionClass(AnalysisNotice::class))->getConstant('REASONS');
-        $declared = array_keys(array_filter($table, fn (array $e) => $e['class'] !== 'answer'));
+        /**
+         * GH-781 - AND A THIRD KIND LEFT OUT, for the same reason as the other two: a cause that explains a
+         * SECTION is never a run's reason. The owner's sentence for such a cause names the module of the
+         * section, and a run-level panel has no section - so feeding one here would measure a shape the product
+         * cannot produce. The exclusion is read off the table (`sectionOnly`), not listed here, and it is
+         * printed below like the others.
+         */
+        $declared = array_keys(array_filter($table,
+            fn (array $e, string $code) => $e['class'] !== 'answer' && ! AnalysisNotice::awaitsHerWords($code)
+                && ! AnalysisNotice::explainsASectionOnly($code),
+            ARRAY_FILTER_USE_BOTH));
         foreach ($declared as $code) {
             $shapes['failed:'.$code] = array_merge($base, [
                 'status' => 'failed',
@@ -102,6 +119,13 @@ class Gh646PanelNeverPrintsAnIdentifierTest extends TestCase
         $answers = array_keys(array_filter($table, fn (array $e) => $e['class'] === 'answer'));
         fwrite(STDOUT, '[gh646] left out, class `answer` and so never a run reason: '
             .json_encode($answers).PHP_EOL);
+        $hers = array_values(array_filter(array_keys($table), fn (string $c) => AnalysisNotice::awaitsHerWords($c)));
+        fwrite(STDOUT, '[gh646] left out, a section cause whose sentence is still hers: '
+            .json_encode($hers).PHP_EOL);
+        $sectionOnly = array_values(array_filter(array_keys($table),
+            fn (string $c) => AnalysisNotice::explainsASectionOnly($c)));
+        fwrite(STDOUT, '[gh646] left out, explains a section and never a run: '
+            .json_encode($sectionOnly).PHP_EOL);
     }
 
     public function test_NOT_ONE_of_those_panels_contains_a_technical_identifier(): void

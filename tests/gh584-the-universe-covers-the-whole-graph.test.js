@@ -114,8 +114,14 @@ function declaredEngines() {
  * `computed.forecast` it actually writes.
  */
 const DECLARED_OUTPUTS = {
+    // GH-777 (queue item 4, slice 2) — `computed.ambientDLI` WAS A ROW KEY NOBODY WRITES: measured,
+    // absent from all 14 stored rows since 25.09, written by neither pass. What the engine's number
+    // really is is DERIVED WORK consumed by another engine — the shade builder puts it on the state as
+    // `ambientDLI` and the shade engine reads `ambientDLI.current` — and `derived.*` is the graph's own
+    // word for that, as `climate-engine` uses it for the growth potential. The node keeps its runners;
+    // what changed is the shape of what it declares.
     'ambient-dli-engine': [
-        'computed.ambientDLI',
+        'derived.ambientDLI',
     ],
     'bipolaris-curvularia-engine': [
         'computed.disease.leafSpot',
@@ -123,6 +129,12 @@ const DECLARED_OUTPUTS = {
     'climate-engine': [
         'computed.climate',
         'derived.growthPotential',
+    ],
+    // GH-777 (queue item 4, slice 2): the pass's twelfth member, which the graph did not know about
+    // while the pass called it. Its output is in 14 of 14 stored rows since 25.09; what was missing was
+    // the declaration, and the walk that replaces the pass's hand-written gates reads the graph.
+    'confidence': [
+        'computed.confidence',
     ],
     'dew-prediction-engine': [
         'computed.dew',
@@ -264,11 +276,13 @@ const PRODUCED_BUT_NEVER_DECLARED = [
 const NOT_RUN_HERE = [
     'ambient-dli-engine', 'irrigation-forecast', 'pgr-forecast',
     'nutrient-demand-engine', 'soil-tissue-integration',
-    // GH-677: the soil temperature model is computed inside the orchestrator's
-    // `populateCanonicalState` and its `computed.soilTempPhysics` is written by the ROW
-    // PRODUCER rather than by the pass, so this bench pass does not produce it. Moving
-    // the call into the pass proper is queue item 3az.
-    'soil-temp-physics',
+    // GH-777 (queue item 4, slice 2): `soil-temp-physics` HAS LEFT THIS LIST. It was here because the
+    // pass did not take it on — the model runs inside `populateCanonicalState` and nothing declared it
+    // — and the walk over the graph's own nodes takes it on now, which is the whole point of the walk:
+    // a module of the pass that declares nothing cannot be told apart from one that failed. Where it is
+    // NOT computed it says so in its own words (`setting-missing`, `soil-moisture-unavailable`, GH-734).
+    // Measured on the stand before the walk: its result is a non-null object in the last row of all 13
+    // sites and in 90 of 94 rows, so no client run gains a gap from this.
     // GH-680 (item 6a): the three nodes that are not pass modules at all. Two compute on a
     // page and one is called by the ROW PRODUCER just before the single write, so a pass on
     // the orchestrator bench produces none of them — which is a fact about where they run,
@@ -293,7 +307,12 @@ describe('GH-584 — every engine the graph declares is in exactly one named buc
             // The pass's own bookkeeping, which is not a result: what it said,
             // what it skipped, what it took on, when it began and — GH-589 —
             // which input objects it read.
-            .filter((k) => !['warnings', 'skipped', 'attempted', 'passStartedAt', 'passInputs'].includes(k)));
+            // GH-777 (queue item 4, slice 2): `notApplicable` is the pass's THIRD ACCOUNT of
+            // itself, like `skipped` and `attempted` above, and not a result an engine produced.
+            // Counting it as one would put the word `notApplicable` in the list of engines that
+            // produce without declaring, which is the opposite of what it says.
+            .filter((k) => !['warnings', 'skipped', 'attempted', 'notApplicable',
+                'passStartedAt', 'passInputs'].includes(k)));
 
         process.stdout.write('[q64] graph declares ' + Object.keys(engines).length + ' engines, '
             + Object.values(engines).reduce((n, e) => n + e.roots.length + e.elsewhere.length, 0)
@@ -382,7 +401,10 @@ describe('GH-584 — every engine the graph declares is in exactly one named buc
         const live = Object.values(engines).reduce((n, e) => n + e.roots.length + e.elsewhere.length, 0);
 
         process.stdout.write('[q64] outputs pinned: ' + pinned + '\n');
-        expect(pinned).toBe(59);
+        // GH-777 (queue item 4, slice 2): 59 before the confidence node, which the pass called while the
+        // graph said nothing about it. The number is the ratchet — it moves only with a declaration
+        // somebody wrote — so it moves here, in the same edit that added the node.
+        expect(pinned).toBe(60);
         // `live` counts ROOTS, so nested paths collapse — it is the smaller
         // number and must never exceed the pinned one.
         expect(live).toBeLessThanOrEqual(pinned);
@@ -411,7 +433,9 @@ describe('GH-584 — every engine the graph declares is in exactly one named buc
         // from the account. It cannot: the function writes a note at the same
         // time, and the note is what remains.
         const src = fs.readFileSync(path.join(ROOT, 'assets/hub-orchestrator.js'), 'utf8');
-        const at = src.indexOf('function notApplicable(module, why)');
+        // GH-777 (slice 2): the signature gained `missing` — the inputs whose absence makes the
+        // module inapplicable — so the anchor is the name rather than the whole parameter list.
+        const at = src.indexOf('function notApplicable(module');
         expect(at).toBeGreaterThan(-1);
         const body = src.slice(at, src.indexOf('function producedSomething', at));
 

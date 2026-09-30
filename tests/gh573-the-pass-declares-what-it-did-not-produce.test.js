@@ -32,7 +32,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { load, computeAll, withSiteRow } = require('./lib/orchestrator-bench');
+const { load, computeAll, withSiteRow, withSamples } = require('./lib/orchestrator-bench');
 
 const FIXTURE = JSON.parse(fs.readFileSync(
     path.join(__dirname, 'fixtures', 'q31-federal-golf-climate.json'), 'utf8'));
@@ -119,7 +119,18 @@ describe('GH-573 — the account a pass gives of itself', () => {
         // result it took on.
         const skipped = withClimate.state.computed.skipped || [];
         process.stdout.write('[q31] skipped, with climate: ' + JSON.stringify(skipped) + '\n');
-        expect(skipped).toEqual([]);
+        /**
+         * GH-777 (queue item 4, slice 2) — ONE NAME, AND IT IS THE BENCH'S OWN STATE.
+         *
+         * The walk over the graph takes on every module of the pass, `soil-temp-physics` among them —
+         * it was the one module the pass ran without declaring. On this bench the physics model is not
+         * reached: the fixture carries no resolved construction and no soil moisture, so nothing
+         * computes and the sweep says so. That is the truthful account of THIS pass, not a change on a
+         * client's: measured on the stand, the model's result is a non-null object in the last row of
+         * all 13 sites and in 90 of 94 rows.
+         */
+        expect(skipped.map((s) => s.module)).toEqual(['soil-temp-physics']);
+        expect(skipped[0].reason).toBe('engine-produced-nothing');
     });
 
     test('the sweep names a module whose result is missing, with the key it looked at', async () => {
@@ -179,7 +190,9 @@ describe('GH-573 — the cascade adapter can reach the journal at last', () => {
         const before = (ctx.GaipOrchestrator.getState().computed.warnings || []).length;
 
         // The adapter's channel, used the way the adapter uses it.
-        ctx.GaipOrchestrator.recordProblem('cascade', 'MLSN engine failed:', new Error('e.toFixed is not a function'));
+        // GH-781 (delivery 5): the door names its writer now, and refuses a record that does not. The
+        // adapter passes its own `PRODUCER` -- the same word as the module here, in a different role.
+        ctx.GaipOrchestrator.recordProblem('cascade', 'MLSN engine failed:', new Error('e.toFixed is not a function'), 'cascade');
 
         const journal = ctx.GaipOrchestrator.getState().computed.warnings || [];
         expect(journal.length).toBe(before + 1);
@@ -191,7 +204,8 @@ describe('GH-573 — the cascade adapter can reach the journal at last', () => {
 
     test('and it can name a module that produced nothing', () => {
         const { ctx } = load();
-        ctx.GaipOrchestrator.noteSkipped('mlsn', 'mlsn', 'engine-produced-nothing', 'mlsn');
+        // GH-781 (delivery 5): as above -- a skipped step is recorded against a named producer.
+        ctx.GaipOrchestrator.noteSkipped('mlsn', 'mlsn', 'engine-produced-nothing', 'mlsn', 'cascade');
 
         const skipped = ctx.GaipOrchestrator.getState().computed.skipped || [];
         expect(skipped.map((s) => s.module)).toContain('mlsn');
@@ -212,6 +226,16 @@ describe('GH-573 — the cascade adapter can reach the journal at last', () => {
         const bench = load();
         const { ctx } = bench;
         ctx.mlsnEngine = function () { throw new TypeError('e.toFixed is not a function'); };
+        /**
+         * GH-777 (queue item 4, slice 3) — THE SITE HAS A SOIL SAMPLE, so this case still measures what it
+         * was written to measure.
+         *
+         * The MLSN node declares `requires: ["samples.soil"]`, and the gate now refuses to run an engine
+         * whose sample is absent. Without a sample here the engine would never be called, the positive
+         * control below ("the cascade really ran and really failed to produce") would be measuring the gate
+         * instead of the adapter's line to the journal, and Venya's finding would be unguarded again.
+         */
+        withSamples(bench, { soil: { id: 'soil_1', rawData: { K: 40 } } });
 
         const before = (ctx.GaipOrchestrator.getState().computed.warnings || []).length;
         const result = ctx.GilbaCascadeOrchestrator.runCascade({

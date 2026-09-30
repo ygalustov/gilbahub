@@ -253,17 +253,152 @@
         return out;
     }
 
+    /**
+     * GH-781 (delivery 5, the analyst's amendment of 30.09.2026) — THIS RUN'S OWN FACTS TRAVEL TO THE ROW,
+     * NOT THROUGH THE SHARED JOURNAL.
+     *
+     * WHY THE JOURNAL CANNOT CARRY THEM, measured: the row's body is built from arrays the runner CAPTURED by
+     * reference on `gaip:orchestrator-complete` (`_passSkipped = d.skipped`), and every cleanup —
+     * one at the end of each producer's pass (GH-781, delivery 7) — REPLACES those arrays with a
+     * filtered copy. A record written after one of them lands in the new array and the row never sees it.
+     * Measured on the bench: capture, then write, and the fact is in the body; capture, a cascade pass, then
+     * write, and it is in the journal and NOT in the body. On the stand, both rows that mention an unusable
+     * water sample carry the problem in `warnings` and an EMPTY `skipped`.
+     *
+     * AND IT IS ABOUT TO GET WORSE RATHER THAN BETTER: the repeat of the cascade now also listens to
+     * `gaip:spray-context-loaded`, which arrives after the capture and before this row is written, so the
+     * interleaving above stops being rare.
+     *
+     * SO THERE IS NO PRODUCER NAME HERE AND NOTHING TO CLEAR. The facts go into a list that belongs to ONE
+     * row-write, `cacheAnalysisResults` starts it empty and returns it, and `_writeResult` copies it into the
+     * body beside the pass's own account. No accumulation between two writes, because the list does not
+     * outlive one; no loss, because it never passes through an array somebody else may replace.
+     */
+    var _runnerFacts = null;
+
+    /** GH-781: the run could not tell whether its pass began before the weather. A fact of the row. */
+    var _passStartUnknown = false;
+
+    /** The list for ONE row-write, started empty. Anything written outside a row-write has nowhere to go. */
+    function _beginRunnerFacts() {
+        _runnerFacts = { skipped: [], warnings: [] };
+
+        return _runnerFacts;
+    }
+
     function noteWaterSampleUnresolved(reason, requestedId) {
         try {
-            if (global.GaipOrchestrator && typeof global.GaipOrchestrator.noteSkipped === 'function') {
-                global.GaipOrchestrator.noteSkipped('water', 'water', reason, 'water');
-            }
-            if (global.GaipOrchestrator && typeof global.GaipOrchestrator.recordProblem === 'function') {
-                global.GaipOrchestrator.recordProblem('water',
-                    'The water sample this run was asked for (' + requestedId + ') could not be used: ' + reason);
+            if (_runnerFacts) {
+                _runnerFacts.skipped.push({
+                    step: 'water', module: 'water', reason: reason, resultKey: 'water',
+                });
+                _runnerFacts.warnings.push({
+                    module: 'water', level: 'problem', at: Date.now(), data: null,
+                    message: 'The water sample this run was asked for (' + requestedId
+                        + ') could not be used: ' + reason,
+                });
             }
         } catch (e) { /* bookkeeping must not stop a run */ }
         console.warn('[GilbaPersist] requested water sample unusable:', requestedId, reason);
+    }
+
+    /**
+     * GH-781 (delivery 6) - THE JOURNAL AS IT STANDS RIGHT NOW, and which pass each half belongs to.
+     *
+     * Read from the orchestrator's own state at the moment the body is assembled, so that a record written by
+     * either producer after the capture is in the row rather than lost in an array nobody looks at. The marks
+     * are the two passes' own start times, which is how a reader tells one pass's account from another's.
+     *
+     * `passNotFinishedAtWrite` is the honest third answer: a producer whose pass had not finished when this
+     * was read, so its half of the account may be incomplete. IT DOES NOT MAKE THE RUN PARTIAL YET, and that
+     * is a boundary rather than an oversight: a cause the runner sends must carry a sentence or the panel
+     * prints the code itself (`Gh644NoIdentifierAnywhereTest`), and the words are the owner's - the same wall
+     * `cascade-pass-not-run` is waiting behind. Recorded here, named to her, and not invented.
+     */
+    function _journalAtWrite() {
+        try {
+            const o = global.GaipOrchestrator;
+            const computed = (o && typeof o.getState === 'function' && o.getState().computed) || {};
+            const unfinished = [];
+            if (o && typeof o.passInProgress === 'function' && o.passInProgress()) unfinished.push('orchestrator');
+            if (typeof global.gaip_cascadePassInProgress === 'function'
+                && global.gaip_cascadePassInProgress()) unfinished.push('cascade');
+            /**
+             * GH-781 (amendment (14)) - THE ACCEPTED PASS, never the last attempt.
+             *
+             * A repeat that failed becomes the last, and a body built from it carried that pass's mark and
+             * fingerprint beside the records and numbers of the pass before it. The accepted pass is published
+             * by the branch that accepts it, and the name of the last attempt does not appear in this file at
+             * all - so a return to it would be a new name here rather than one word changed.
+             */
+            const acceptedCascade = global.GAIP_ACCEPTED_CASCADE_PASS || null;
+
+            return {
+                skipped: Array.isArray(computed.skipped) ? computed.skipped.slice() : [],
+                warnings: Array.isArray(computed.warnings) ? computed.warnings.slice() : [],
+                notApplicable: Array.isArray(computed.notApplicable) ? computed.notApplicable.slice() : [],
+                marks: {
+                    cascadePass: (o && typeof o.acceptedPassOf === 'function')
+                        ? o.acceptedPassOf('cascade') : null,
+                    orchestratorPass: (o && typeof o.acceptedPassOf === 'function')
+                        ? o.acceptedPassOf('orchestrator') : null,
+                    passNotFinishedAtWrite: unfinished,
+                    /**
+                     * GH-781 (delivery 7, the analyst's amendment (12)) - WHICH SAMPLES THE CASCADE'S PASS
+                     * READ, in the pass's own words.
+                     *
+                     * Two of its writers fire when a NAMED soil sample is not in the store, and no field of a
+                     * row said so: the condition first written for them asked whether the soil block came out,
+                     * which is a second surface for the same question and can agree with itself. The pass
+                     * already answers it exactly - `gaip_passSampleIds` reads `soil:not-found` - so the row
+                     * carries that answer instead of a guess about it.
+                     */
+                    cascadeSampleIds: acceptedCascade ? (acceptedCascade.sampleIds || null) : null,
+                },
+            };
+        } catch (e) {
+            // A journal that cannot be read is not a journal that is empty, and the marks say which it was.
+            return { skipped: [], warnings: [], notApplicable: [],
+                marks: { cascadePass: null, orchestratorPass: null, passNotFinishedAtWrite: 'unreadable' } };
+        }
+    }
+
+    /** The facts of one row-write, in the shape the body expects, and an empty pair when there are none. */
+    function _runnerFactsOf(snap) {
+        const f = snap && snap.runnerFacts;
+        const skipped = (f && Array.isArray(f.skipped)) ? f.skipped.slice() : [];
+        // GH-781 (delivery 6): the runner's own fact about this row, beside the water ones.
+        if (_passStartUnknown) {
+            skipped.push({ step: 'orchestrator', module: 'orchestrator', reason: 'pass-start-unknown' });
+        }
+        /**
+         * GH-781 (amendment (5), landed with the owner's words of 30.09.2026) - A ROW WHOSE SOIL SIDE HAD NO
+         * ACCEPTED PASS SAYS SO, AND SO DOES ONE WRITTEN WHILE A PASS WAS STILL RUNNING.
+         *
+         * `cascade-pass-not-run` means there was no ACCEPTED pass - not that no event fired. A cascade may have
+         * run three times and produced nothing all three, and the row then carries no soil numbers; until now it
+         * carried no cause for them either. The runner does not WAIT for a pass (GH-588: such a requirement once
+         * stopped 24 runs from writing at all), so this names the gap instead of holding the write.
+         *
+         * Both carry the owner's sentence, composed per section: "{Module} was not calculated in this analysis.
+         * If this continues, contact us." The module is the section's own, which is why the sentence is composed
+         * rather than fixed - naming the producer would print a word of ours to a client.
+         */
+        const journal = _journalAtWrite();
+        if (!journal.marks.cascadePass) {
+            skipped.push({ step: 'cascade', module: 'cascade', reason: 'cascade-pass-not-run',
+                resultKey: 'soilNutrition' });
+        }
+        const unfinished = journal.marks.passNotFinishedAtWrite;
+        if (Array.isArray(unfinished) && unfinished.length) {
+            unfinished.forEach((who) => skipped.push({ step: who, module: who,
+                reason: 'pass-not-finished-at-write', resultKey: who }));
+        }
+
+        return {
+            skipped: skipped,
+            warnings: (f && Array.isArray(f.warnings)) ? f.warnings.slice() : [],
+        };
     }
 
     var RUN_BUDGET_MS = 15000;
@@ -349,6 +484,16 @@
         // staying in the browser's console.
         var _passSkipped  = [];
         var _passWarnings = [];
+        /**
+         * GH-777 (queue item 4, slice 2) — WHAT THE PASS SAID DOES NOT APPLY TO THIS SITE.
+         *
+         * The third account of a pass, beside what it could not compute and what it said while running.
+         * It has existed in the orchestrator since GH-573 as a journal sentence only, so it reached no
+         * row: 0 of 76 stored rows carry one, and the server's judgement of it (GH-675) has never had a
+         * live producer. Read from the completion event like the other two, because the event is what
+         * this runner hears.
+         */
+        var _passNotApplicable = [];
         var _runReported     = false;
         // Set SYNCHRONOUSLY when the write begins, not when it answers.
         // `_writeResult` awaits the bounded normals wait before it posts, and
@@ -617,15 +762,30 @@
                              * rather than dropped, because "the site has no tissue sample" and "the
                              * run did not record one" are different facts.
                              */
+                            /**
+                             * GH-778 — AND IT IS THE SAMPLE THE RUN COMPUTED ON, not the one it was told
+                             * about.
+                             *
+                             * This wrote the NAMED id where there was one, so the field said what the opener
+                             * asked for rather than what the engines read; where those differ the row was
+                             * wrong about itself and nothing could show it. Without a name it wrote `a.id` --
+                             * the client store's own key -- so the field held two kinds of name depending on
+                             * the path. Both are gone: the field carries the row id of the sample
+                             * `gaip_sampleInHand` handed to the calculation, and what the run was TOLD stays
+                             * recorded separately in `detail.runStart.named`. Two fields, and a disagreement
+                             * between them is visible from the row.
+                             */
                             var told = new URLSearchParams(global.location.search || '').get(type);
                             if (told === 'none') { out.samples[type] = 'none'; return; }
-                            if (told && told !== 'unknown') { out.samples[type] = told; return; }
 
-                            var a = (SM && typeof SM.getActiveSample === 'function') ? SM.getActiveSample(type) : null;
+                            var a = (typeof global.gaip_sampleInHand === 'function')
+                                ? global.gaip_sampleInHand(type)
+                                : null;
                             // The sample's IDENTITY, not its numbers: the numbers
                             // are already in the result, and a second copy of them
-                            // would be a second source.
-                            out.samples[type] = a ? (a.id || null) : null;
+                            // would be a second source. The identity is the row id,
+                            // which is a sample's one name (GH-777).
+                            out.samples[type] = (a && a.serverId != null) ? String(a.serverId) : null;
                         } catch (e) { out.samples[type] = null; }
                     });
                     try {
@@ -649,20 +809,20 @@
                 }
             })();
 
-            // GH-588 — STATE 1: this site has no soil sample at all.
-            //
-            // The run completes: the numbers it produced are real and are
-            // stored. The soil part is named as not computed, with a reason that
-            // tells the reader what to DO — add a soil sample — and, unlike the
-            // delivery failure, nothing suggests pressing Re-run, because
-            // pressing it again would change nothing.
-            if (_soilExpected.told === 'none') {
-                try {
-                    if (global.GaipOrchestrator && typeof global.GaipOrchestrator.noteSkipped === 'function') {
-                        global.GaipOrchestrator.noteSkipped('mlsn', 'mlsn', 'no-soil-sample', 'mlsn');
-                    }
-                } catch (e) { /* bookkeeping must not stop a run */ }
-            }
+            /**
+             * GH-588 STATE 1 — "this site has no soil sample at all" — IS NOT STATED HERE ANY MORE.
+             *
+             * GH-777 (queue item 4, slice 3): the MLSN node declares `requires: ["samples.soil"]`, and the
+             * gate of the pass records the module as not applicable with that input named. This check said
+             * the same thing in a second place and only for the soil half, while every other module of the
+             * cascade had nothing at all -- one fact stated twice drifts, and a fact stated for one module
+             * out of nine is not a rule. The run still completes and the soil part is still named; what
+             * names it is the declaration.
+             *
+             * WHAT IS STILL STATED HERE, a few hundred lines below, is `soil-sample-not-loaded`: the sample
+             * WAS named and did arrive, and no cascade pass began after it inside the budget. That is a
+             * delivery fact about this run, not an absent input, and no declaration can replace it.
+             */
 
             var _assumptions = (function () {
                 try {
@@ -681,9 +841,34 @@
                     site_id:     siteId,
                     detail: {
                         nulls:       _nulls,
-                        skipped:     _passSkipped,
-                        warnings:    _passWarnings,
+                        /**
+                         * GH-781 (delivery 6, the analyst's amendments (6)-(10)) - THE JOURNAL IS READ AT THE
+                         * MOMENT THE BODY IS BUILT, from the same state as the numbers.
+                         *
+                         * WHAT WAS WRONG, measured: the account came from arrays CAPTURED by reference on
+                         * `gaip:orchestrator-complete`, and every cleanup replaces those arrays, so a record
+                         * written after the capture went to the new array and the row never saw it. Six
+                         * writers of the two passes could lose their records that way, and delivery 4 made the
+                         * interleaving ordinary rather than rare. Measured on the bench: capture, a cascade
+                         * pass, then a write, and the fact is in the journal and not in the body.
+                         *
+                         * THE CAPTURE IS KEPT for one thing only - deciding whether the run may be written at
+                         * all (`_orchestratorDone`), which is what it was introduced for. What goes INTO the
+                         * row is read here, once, beside `computed`.
+                         *
+                         * `journal` says which pass each account belongs to, so a reader can tell "nothing to
+                         * say" from "read while a pass was still running".
+                         */
+                        skipped:     _journalAtWrite().skipped.concat(_runnerFactsOf(snap).skipped),
+                        warnings:    _journalAtWrite().warnings.concat(_runnerFactsOf(snap).warnings),
+                        journal:     _journalAtWrite().marks,
                         assumptions: _assumptions,
+                        // GH-777 (slice 2): the modules this site is not a case for, each with the
+                        // inputs whose absence made it so. The server judges every named input
+                        // against what existed when the run STARTED (GH-675) and decides which of
+                        // the owner's two sentences a person reads; an entry with nothing missing is
+                        // an engine that answered "not here", and no input is blamed for it.
+                        notApplicable: _journalAtWrite().notApplicable,
                     },
                     // GH-581: the column has existed since GH-550 and has been
                     // written `null` ever since, because nothing sent it.
@@ -811,7 +996,21 @@
         function _soilSampleState() {
             try {
                 var SM = global.GAIP_SampleManager;
-                var a = (SM && typeof SM.getActiveSample === 'function') ? SM.getActiveSample('soil') : null;
+                /**
+                 * GH-778 — THE DELIVERY OF THIS RUN'S SAMPLE, not of the page's selection.
+                 *
+                 * This asked the manager for the ACTIVE sample, so "has the soil arrived?" was answered about
+                 * whichever sample the page had selected. The server chooses the sample a run computes on and
+                 * names it on the frame's address; one function in the frame reads that answer. Waiting for
+                 * one sample while computing on another is the same mistake in two halves.
+                 *
+                 * `none` and "named but not in the store yet" stay apart: that distinction lives in
+                 * `_soilExpected.told`, which reads the address, and `gaip_sampleInHand` answers `null` for
+                 * both — which is why the caller consults `told` and not this alone.
+                 */
+                var a = (typeof global.gaip_sampleInHand === 'function')
+                    ? global.gaip_sampleInHand('soil')
+                    : null;
                 // GH-604 — THE TWIN OF THE GATE, AND THE SAME TWO DEAD BRANCHES.
                 //
                 // This read `a.normalized || a.rawData || a.values`, exactly as
@@ -947,11 +1146,13 @@
             _orchestratorDone = true;
             _passSkipped  = Array.isArray(d.skipped) ? d.skipped : [];
             _passWarnings = Array.isArray(d.warnings) ? d.warnings : [];
-            if (startedAt === null) {
-                _passSkipped = _passSkipped.concat([{
-                    step: 'orchestrator', module: 'orchestrator', reason: 'pass-start-unknown',
-                }]);
-            }
+            _passNotApplicable = Array.isArray(d.notApplicable) ? d.notApplicable : [];
+            /**
+             * GH-781 (delivery 6): this is the RUNNER's own fact about the row it is about to write, not the
+             * pass's, so it travels with the row's own facts. It used to be appended to the captured array,
+             * and the body no longer reads that array at all - appended there it would simply vanish.
+             */
+            if (startedAt === null) _passStartUnknown = true;
             _maybeComplete();
         });
 
@@ -1020,11 +1221,13 @@
             // returns `partial`, and the previous complete numbers are not
             // replaced by this one.
             if (_cascadeStale) {
-                try {
-                    if (global.GaipOrchestrator && typeof global.GaipOrchestrator.noteSkipped === 'function') {
-                        global.GaipOrchestrator.noteSkipped('mlsn', 'mlsn', 'soil-sample-not-loaded', 'mlsn');
-                    }
-                } catch (e) { /* bookkeeping must not stop a run */ }
+                /**
+                 * GH-781 (delivery 5): the record this used to write is written by the pass now, under the
+                 * cascade's name and inside the pass that holds the sample — which is where it can say
+                 * WHICH of the two happened (named and not arrived, or arrived with no reading the map
+                 * knows). Written here it was unnamed, so the orchestrator's next pass removed it as one of
+                 * its own, and after the capture it could not reach the body at all.
+                 */
                 // The gap is named now, so it no longer holds the write back:
                 // holding it further would turn a partial result into nothing
                 // at all.
@@ -1722,7 +1925,9 @@
      */
     function _cascadeTissueOfThisRun() {
         try {
-            var pass = global.GAIP_LAST_CASCADE_PASS;
+            // GH-781 (amendment (14)): the ACCEPTED pass. A failed repeat produced no tissue, and its result
+            // stood here as "this run's" only because it happened last.
+            var pass = global.GAIP_ACCEPTED_CASCADE_PASS;
             var computed = pass && pass.result && pass.result.state && pass.result.state.computed;
             return (computed && computed.tissue) || null;
         } catch (e) {
@@ -1731,6 +1936,9 @@
     }
 
     function cacheAnalysisResults() {
+        // GH-781: one row-write, one list of this runner's own facts. Started here because this is the
+        // function that assembles a row, and every writer of such a fact runs inside it.
+        const runnerFacts = _beginRunnerFacts();
         // Stamp the active siteId so standalone pages (e.g. morning briefing)
         // can identify which site this cache belongs to without SampleManager.
         // b35fix271: use GAIP_SiteContext for correct site ID on both GAIP and GSSH pages
@@ -1749,7 +1957,10 @@
             computed: null,
             
             // Key metrics for dashboard
-            dashboard: collectDashboardMetrics()
+            dashboard: collectDashboardMetrics(),
+
+            // GH-781: what this row-write itself found, for the body of this row and nowhere else.
+            runnerFacts: runnerFacts
         };
         
         // Get orchestrator results if available
@@ -2511,10 +2722,21 @@
                         // Not loaded yet — not the same as "not there".
                         noteWaterSampleUnresolved('water-samples-not-loaded', _wbRequestedId);
                     } else {
+                        /**
+                         * GH-777 (queue item 4) — BY THE ROW ID, which is the name the address carries.
+                         *
+                         * `cand.id` is the client store's own key (`client_uid`, a label, else
+                         * `sample_<id>`), and the opener names the row (`samples.id`). Measured on the
+                         * stand: of 64 live samples not one has a key equal to its row id, so this matched
+                         * only where the water happened to be named by the page rather than by the server --
+                         * which is exactly what `dashboard-ui.js` no longer does. The row id is in the
+                         * store, as `serverId`.
+                         */
                         var _wbFound = null;
                         Object.keys(_wbWater).forEach(function (k) {
                             var cand = _wbWater[k];
-                            if (cand && String(cand.id) === String(_wbRequestedId)) _wbFound = cand;
+                            if (cand && cand.serverId != null
+                                && String(cand.serverId) === String(_wbRequestedId)) _wbFound = cand;
                         });
                         if (_wbFound) {
                             var _wbPl = _wbFound.rawData || _wbFound.values || {};
@@ -2846,15 +3068,17 @@
                 } else if (global.GAIP_SampleManager) {
                     try {
                         var _sarHubSite = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
-                        var _wSampleForSAR = null;
-                        if (_sarHubSite && typeof global.GAIP_SampleManager.getAllSamples === 'function') {
-                            var _sAll = global.GAIP_SampleManager.getAllSamples();
-                            var _sWStore = _sAll.allSites && _sAll.allSites[_sarHubSite] && _sAll.allSites[_sarHubSite].water || {};
-                            var _sWActive = _sAll.allActive && _sAll.allActive[_sarHubSite] && _sAll.allActive[_sarHubSite].water;
-                            _wSampleForSAR = (_sWActive && _sWStore[_sWActive]) ||
-                                             Object.values(_sWStore).sort(function(a,b){return (b.date||'')>(a.date||'')?1:-1;})[0];
-                        }
-                        if (!_wSampleForSAR) _wSampleForSAR = global.GAIP_SampleManager.getActiveSample('water');
+                        /**
+                         * GH-778 — ONE CHOOSER FOR THE WATER TOO, and a rule of its own is what goes.
+                         *
+                         * This had a third rule for picking a sample: the page's active one, else the latest
+                         * by date, else the active one again. Three rules for "which sample" in one run is how
+                         * a lab SAR ends up read from a sample the rest of the run never touched. The server
+                         * names the water on the frame's address and `gaip_sampleInHand` reads that answer.
+                         */
+                        var _wSampleForSAR = (typeof global.gaip_sampleInHand === 'function')
+                            ? global.gaip_sampleInHand('water')
+                            : null;
                         // GH-722: the lab SAR through the lab reading names map. `SAR_ppm` was
                         // read here and is declared nowhere; no stored sample carries it.
                         var _sarDirect = _labReadingOf('water', _wSampleForSAR, 'SAR');

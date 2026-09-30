@@ -170,6 +170,26 @@
      * item, and needs words, which are the owner's.
      */
     var WAS_PRINTED_BEFORE = {
+        /**
+         * GH-777 (queue item 4, the page reader) — AND THE OTHER TWO SECTIONS THAT DRAW THEIR OWN EMPTINESS.
+         *
+         * The server has been composing a sentence for every section since O-9 -- the module's own word, the
+         * input's name and the place a person enters it -- and exactly one card on this page ever read it.
+         * So a run that recorded WHY a section is empty still printed "calculates automatically when
+         * analysis is run", which says nothing about this site. These two now ask the same reader `pgr` asks,
+         * and their old words move here word for word so that a section with no recorded cause prints today
+         * what it printed yesterday.
+         */
+        preEmergent: {
+            title: 'No pre-emergent data',
+            body: 'Pre-emergent timing calculates automatically when analysis is run.',
+            badge: ''
+        },
+        wear: {
+            title: 'No traffic data configured',
+            body: 'Recovery windows calculate from match and training schedule.',
+            badge: ''
+        },
         pgr: {
             title: 'No PGR application recorded',
             body: 'Log a PGR application in <a href="/data/spray-log" style="color:var(--gaip-accent)">Data → Spray Log</a> — select <strong>PGR</strong> as the category, then re-run the analysis. The GDD schedule will appear here.',
@@ -229,9 +249,14 @@
         var pe = computed && computed.preEmergent;
 
         if (!pe || !pe.success || !pe.results || !pe.results.length) {
-            body.innerHTML = emptyState('pre-emergent', 'No pre-emergent data',
-                'Pre-emergent timing calculates automatically when analysis is run.',
-                ['Run the Hub analysis to generate pre-emergent timing recommendations.']
+            // GH-777: the server's sentence when it has one, this card's own words when it has not. The
+            // steps are dropped with the sentence, because the sentence names the place itself.
+            var peEmpty = serverSection('preEmergent');
+            body.innerHTML = emptyState('pre-emergent', sectionTitle('preEmergent', peEmpty),
+                sectionBody('preEmergent', peEmpty),
+                (peEmpty && peEmpty.text)
+                    ? []
+                    : ['Run the Hub analysis to generate pre-emergent timing recommendations.']
             );
             return;
         }
@@ -534,9 +559,14 @@
 
         if (!wear && !matchesPerWeek && !sessionsPerWeek) {
             var _turfType = turf && turf.turfType;
-            body.innerHTML = emptyState('recovery', 'No traffic data configured',
-                'Recovery windows calculate from match and training schedule.',
-                _turfType === 'sports'
+            // GH-777: as above. A run that recorded which input is missing says so here instead of the
+            // general sentence, and the steps stand only while there is no such sentence.
+            var wearEmpty = serverSection('wear');
+            body.innerHTML = emptyState('recovery', sectionTitle('wear', wearEmpty),
+                sectionBody('wear', wearEmpty),
+                (wearEmpty && wearEmpty.text)
+                    ? []
+                    : _turfType === 'sports'
                     ? [
                         'Traffic &amp; Wear analysis applies to sports fields only',
                         'Open <a href="/settings#traffic" style="color:var(--gaip-link,#2563eb)">Settings → Traffic &amp; Wear</a> to configure your match and training schedule, then re-run the analysis',

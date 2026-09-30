@@ -92,6 +92,12 @@
         return out;
     }
 
+    /**
+     * GH-781: the name this adapter writes its journal entries under. One place, so that a new writer here
+     * cannot forget it and quietly have its record cleared by the next pass of the orchestrator.
+     */
+    const PRODUCER = 'cascade';
+
     const CASCADE_CONFIG = {
         version: '1.4.0',
         debug: false,
@@ -127,7 +133,16 @@
         var reached = false;
         try {
             if (global.GaipOrchestrator && typeof global.GaipOrchestrator.recordProblem === 'function') {
-                global.GaipOrchestrator.recordProblem('cascade', message, data);
+                /**
+                 * GH-781 (delivery 5) — THE SAME WORD TWICE, IN TWO ROLES, AND BOTH ARE MEANT.
+                 *
+                 * The first `'cascade'` is the MODULE a reader is told about; `PRODUCER` is WHO wrote the
+                 * record, which is what keeps it alive across the passes of the orchestrator. Measured
+                 * before this: a problem this adapter recorded was filed with no producer, and the next
+                 * `runComputePass` removed it as one of its own — so a cascade that failed on its first
+                 * pass reported nothing after the second.
+                 */
+                global.GaipOrchestrator.recordProblem('cascade', message, data, PRODUCER);
                 reached = true;
             }
         } catch (e) {
@@ -722,8 +737,8 @@
             // GH-681: the engines to run, and a refusal rather than a silent empty pass.
             // An empty engine list would produce a result with no modules in it and report
             // success -- the shape of "a run that answered nothing and said nothing".
-            const engines = options.includeEngines || Object.keys(CASCADE_CONFIG.engineMap);
-            if (!engines.length) {
+            const requested = options.includeEngines || Object.keys(CASCADE_CONFIG.engineMap);
+            if (!requested.length) {
                 /**
                  * NO CODE IS INVENTED HERE. A refusal the RUNNER reports carries a code, and a
                  * code must carry a sentence a client reads — `Gh644NoIdentifierAnywhere`
@@ -739,6 +754,46 @@
 
                 return { success: false, state: null, refusedWithoutTheGraph: true };
             }
+
+            /**
+             * GH-777 (queue item 4, slice 3) — THE GATE IS THE GRAPH, AND IT IS THE PASS'S OWN GATE.
+             *
+             * A node declares what it cannot work without (`requires`), and this adapter asks the
+             * orchestrator's `absentRequirementsOf` -- the same function that gates the pass -- rather than
+             * writing a second one here. Where a requirement is absent the engine is NOT RUN and the module
+             * is recorded as not applicable under its declared `module`, with the inputs named: that is what
+             * lets the server tell "this client has no tissue sample" from "the engine answered nothing",
+             * and what lets a section say why it is empty.
+             *
+             * WHAT THIS REPLACES. The tissue and MLSN engines used to run regardless and answer with
+             * nothing, and one hand-written check in the row producer said `no-soil-sample` for the soil
+             * half alone. A declaration in the graph covers both, and the check in the producer is gone --
+             * two statements of one fact is what this item removes.
+             */
+            const engines = requested.filter(function (id) {
+                const node = (GRAPH && GRAPH.nodes && GRAPH.nodes[id]) || null;
+                const pass = global.GaipOrchestrator;
+                if (!node || !pass || typeof pass.absentRequirementsOf !== 'function') return true;
+                const absent = pass.absentRequirementsOf(node);
+                if (!absent.length) return true;
+                // The module's own name, as the graph declares it; without one nothing can be recorded
+                // against it, which is the orchestrator's rule and it is not worked around here.
+                if (typeof node.module !== 'string' || !node.module) {
+                    warn('a node of the cascade is missing a requirement and declares no `module`,'
+                        + ' so nothing could be recorded for it: ' + id);
+
+                    return false;
+                }
+                if (typeof pass.notApplicable === 'function') {
+                    // GH-781: the record says who wrote it. A pass of the orchestrator clears its own
+                    // entries at its start, and this one is the cascade's -- before, it was wiped and the
+                    // reason never reached a stored row.
+                    pass.notApplicable(node.module, 'this site has no ' + absent.join(', ') + ', so '
+                        + node.module + ' does not apply to it', absent, PRODUCER);
+                }
+
+                return false;
+            });
 
             // ─────────────────────────────────────────────────────────────────
             // STAGE 1: Base engines (no dependencies)
@@ -769,18 +824,90 @@
             }
 
             if (engines.includes('nopt-engine')) {
-                const nRate = parseFloat(state.turf?.nProgramKgHaYr) || 0;
-                const monthlyN = parseFloat(state.fertility?.monthlyN) || 0;
-                const hasNData = monthlyN > 0;
+                /**
+                 * GH-781 (delivery 5, the reviewer's reading of 30.09.2026) — AN ENTERED ZERO IS A FIGURE
+                 * THE SITE GAVE, AND ABSENCE IS NOT A ZERO.
+                 *
+                 * `parseFloat(...) || 0` turned "nothing entered" into 0, and the branch below then turned
+                 * that 0 back into `null` with a second `||`. Two substitutions in three lines, cancelling
+                 * out for the absent case and erasing the one figure a site can enter that means something
+                 * definite: zero. That is the rule we burned on in GH-731, where `> 0` read an entered zero
+                 * as an unanswered question.
+                 *
+                 * The form is the one already used correctly elsewhere in this tree —
+                 * `nutrition-requirement-engine.js` asks `turf.nProgramKgHaYr != null` before using it.
+                 *
+                 * `monthlyN` below keeps its shape, and that is named rather than quietly fixed: a monthly
+                 * figure of 0 is indistinguishable there from none, which is the same class and a different
+                 * place (`state.fertility`, written by another producer). Not widened into this delivery.
+                 */
+                const nRateParsed = parseFloat(state.turf && state.turf.nProgramKgHaYr);
+                const nRate = isFinite(nRateParsed) ? nRateParsed : null;
+                /**
+                 * GH-781 (delivery 5, the reviewer's finding) - AND THE MONTHLY FIGURE TOO.
+                 *
+                 * The annual programme stopped being erased by `|| 0` in this same expression; this
+                 * one was left, and it carries the same fault one field along: a monthly figure
+                 * entered as ZERO came out indistinguishable from none entered, so a site that had
+                 * answered "none applied this month" was told "No monthly N figure entered".
+                 *
+                 * WHAT DOES NOT CHANGE, named rather than quietly kept: `hasNData` still asks for a
+                 * figure above zero, so the same sites run the engine as before. Whether a month with
+                 * zero applied should be computed rather than skipped is a question about the product.
+                 */
+                const monthlyParsed = parseFloat(state.fertility && state.fertility.monthlyN);
+                const monthlyN = isFinite(monthlyParsed) ? monthlyParsed : null;
+                const hasNData = monthlyN !== null && monthlyN > 0;
                 if (hasNData) {
                     computed.nitrogen = executeNoptEngine(state, weather);
                     executionOrder.push('nopt-engine');
                 } else {
                     // Skip N-opt when no monthly N rate entered — not an error
+                    /**
+                     * GH-781 (delivery 2) — NO PROGRAMME, NO NUMBER. The `200` that stood here was a
+                     * substitution: a site that has entered no annual nitrogen programme received one this
+                     * file chose. Measured before removing it: 4 of 110 stored rows carry `nitrogen.opt`
+                     * exactly 200, two sites of thirteen in their latest row, and no page or template of this
+                     * project prints `nitrogen.opt` at all -- so it reached nobody and was waiting for its
+                     * first reader. Absence travels as absence (the owner's rule of 17.09.2026).
+                     */
+                    /**
+                     * GH-781 (delivery 5) — AND THE SENTENCE BESIDE THE FIGURE SAYS WHICH CASE IT IS.
+                     *
+                     * One sentence stood here for two different situations, so a site whose annual programme
+                     * IS entered and whose monthly figure is not was told "No N programme entered" beside the
+                     * programme's own number. The figure and the words disagreed, and only the figure had a
+                     * guard.
+                     *
+                     * NAMED, NOT FIXED HERE: `status` is read as a VOCABULARY by `smith-kerns-model.js`,
+                     * which compares it with 'deficient' and 'low' and otherwise labels the modifier with
+                     * whatever string it finds. A sentence in a field of states is the wider defect; this
+                     * delivery makes the sentence true and leaves that question where it can be decided.
+                     */
+                    /**
+                     * GH-781 - THE OWNER'S DECISION OF 30.09.2026: put it back as it was.
+                     *
+                     * The annual figure of a site with no programme entered is 200 again, as it was before this
+                     * item's second delivery removed it. Measured then and reported to her: 4 of 110 stored rows
+                     * carried that figure, no page prints `nitrogen.opt`, and the disease model reads it as a
+                     * ratio against `applied: 0`, so the two sites without a programme are told "deficient" once
+                     * more. The wider question - the monthly field and whether Settings should ask for it - is
+                     * hers and is carried as an open question, not decided here.
+                     *
+                     * AND THE ENTERED ZERO IS STILL A FIGURE. Her answer was about "no programme entered"; an
+                     * annual programme entered AS zero is a different case and she did not name it, so it is not
+                     * turned into 200 by this. Measured before restoring: 0 of 21 site configs carry an annual
+                     * figure at all and 0 rows carry `opt: 0`, so nothing on the stand changes either way - the
+                     * distinction is kept because widening her decision would be our choice, not hers.
+                     */
                     computed.nitrogen = {
-                        opt: nRate || 200,
+                        opt: nRate === null ? 200 : nRate,
                         applied: 0,
-                        status: 'No N programme entered',
+                        status: nRate === null
+                            ? 'No N programme entered'
+                            : (monthlyN === null
+                                ? 'No monthly N figure entered, so the annual programme is not distributed'
+                                : 'Monthly N entered as zero, so the annual programme is not distributed'),
                         skipped: true
                     };
                     executionOrder.push('nopt-engine (skipped)');
@@ -890,9 +1017,38 @@
             // and not from anything written about it.
             try {
                 if (global.GaipOrchestrator && typeof global.GaipOrchestrator.noteSkipped === 'function') {
+                    /**
+                     * GH-781 — UNDER THE NAME THE SECTION LOOKS FOR, AND MARKED AS THE CASCADE'S.
+                     *
+                     * This wrote the `computed` KEY as the module (`soilStructure`, `turfManager`…), while the
+                     * server finds the cause of an empty section by the node's declared `module` (GH-777). For
+                     * the six engines that declared none the record could not be found at all; delivery 2 gave
+                     * them names. And the entry now says the cascade wrote it, so the next pass of the
+                     * orchestrator no longer clears it.
+                     */
+                    const moduleOfKey = {};
+                    if (GRAPH && GRAPH.nodes) {
+                        Object.keys(GRAPH.nodes).forEach(function (id) {
+                            const node = GRAPH.nodes[id] || {};
+                            const first = (node.outputs || []).find(function (o) {
+                                return typeof o === 'string' && o.indexOf('computed.') === 0;
+                            });
+                            if (!first || typeof node.module !== 'string' || !node.module) return;
+                            moduleOfKey[first.slice('computed.'.length).split('.')[0]] = node.module;
+                        });
+                    }
                     Object.keys(computed).forEach(function (key) {
                         if (producedSomething(computed[key])) return;
-                        global.GaipOrchestrator.noteSkipped(key, key, 'engine-produced-nothing', key);
+                        const module = moduleOfKey[key];
+                        if (!module) {
+                            warn('an engine of this adapter produced nothing under the key "' + key
+                                + '" and no node of the graph declares a module for it, so the run cannot'
+                                + ' record it against a name');
+
+                            return;
+                        }
+                        global.GaipOrchestrator.noteSkipped(module, module, 'engine-produced-nothing',
+                            key, PRODUCER);
                     });
                 }
             } catch (e) {
@@ -955,6 +1111,7 @@
 
         } catch (e) {
             warn('Cascade execution failed:', e);
+
             return {
                 success: false,
                 error: e.message || 'Unknown cascade error',

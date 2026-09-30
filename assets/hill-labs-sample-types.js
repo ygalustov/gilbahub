@@ -347,6 +347,48 @@
         listCodes: listCodes,
         pctBSToPpm: pctBSToPpm,
         meq100gToPpm: meq100gToPpm,
+        /**
+         * GH-782 (queue item 3ga, the analyst's answer of 30.09.2026) - THE SITE'S SPECIES FOR AA RANGES, ASKED
+         * IN ONE PLACE BY BOTH READERS.
+         *
+         * WHAT WAS WRONG, measured: the AA range overlay read the species from `state.turf.grassSpecies`, and
+         * that state is assembled from the `/hub` form field `.gaip-species` - the page, not the site. On the
+         * stand all five sites set to ammonium acetate carry their species in the CONFIG under `turf.species`
+         * and `turf.grassSpecies` is empty in every one of them, so `deriveCode` resolved nothing and potassium
+         * on sand stood at 50.0-116.0 ppm instead of the certificate's 78.2-195.5. Class of GH-459: what a
+         * document prints came from the state of a page rather than from the data of the site.
+         *
+         * THE RANGE VALIDATOR got the right value in the same run, and that is why this is one function rather
+         * than a copy of its path: it reads the published page state, where the correct species arrives only
+         * because a merge (b35fix391) lets the store's keys win. It was right by coincidence. Both readers ask
+         * here now, and the answer comes from the config of the site the run is for.
+         *
+         * NORMALISATION STAYS WITH `deriveCode` ("Browntop Bent (Greens)" -> browntopBent): this answers only
+         * WHICH species the site is, not how its name is spelled.
+         */
+        speciesOfTheSite: function (state) {
+            var cfg = null;
+            try {
+                var hub = (typeof window !== 'undefined' && window.GAIP_HUB_CONFIG)
+                    || (typeof globalThis !== 'undefined' && globalThis.GAIP_HUB_CONFIG) || null;
+                cfg = hub && (hub.gaipConfig || hub.siteConfig);
+            } catch (e) {
+                cfg = null;
+            }
+            var fromConfig = cfg && cfg.turf && (cfg.turf.species || cfg.turf.grassSpecies);
+            if (fromConfig) {
+                return fromConfig;
+            }
+            /**
+             * No config on the page is an OUTCOME, not a reason to reach for the form: a run without the site's
+             * settings has no species of the site to name, and `deriveCode` answers `null`, which keeps the
+             * texture-only ranges it already falls back to. The old form field is not consulted at all.
+             */
+            var turf = state && state.turf;
+
+            return (turf && turf.speciesForRanges) || null;
+        },
+
         deriveCode: deriveCode,
         resolveSoilTexture: resolveSoilTexture,
         getRangesPpm: getRangesPpm

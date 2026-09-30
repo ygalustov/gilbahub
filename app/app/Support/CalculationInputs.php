@@ -46,12 +46,197 @@ class CalculationInputs
         return array_keys(self::all()['inputs']);
     }
 
+    /**
+     * GH-777 (queue item 4, O-9) — EVERY PLACE THE LIST DECLARES, key to the words a person reads.
+     *
+     * The words belong to the owner and change without code changing, so what is checked of them is their
+     * SHAPE: a page and its tab, spelled the way the screen spells them. The `$comment` of the `places` map
+     * says the same from the other side.
+     *
+     * @return array<string,string>
+     */
+    public static function places(): array
+    {
+        $places = self::all()['places'] ?? [];
+        $words = [];
+        foreach ($places as $key => $value) {
+            if ($key === '$comment') {
+                continue;
+            }
+            $words[$key] = is_string($value) ? $value : '';
+        }
+
+        return $words;
+    }
+
     /** @return array<string,mixed>|null one input's declaration */
     public static function entry(string $key): ?array
     {
         $entry = self::all()['inputs'][$key] ?? null;
 
         return is_array($entry) ? $entry : null;
+    }
+
+    /**
+     * GH-777 (queue item 4, O-9) — THE HUMAN NAME OF AN INPUT, and it is data rather than code.
+     *
+     * The sentence a client reads about an empty section is the owner's, approved 24.09.2026:
+     * "{Module} was not calculated because {label} has not been entered. Add it in {place}." The words
+     * are the analyst's draft (her sections 49 and 49.4) and the owner may change any of them without a
+     * line of this code changing -- which is the point of keeping them in the list.
+     *
+     * `null` means no name has been written for that input, and then no sentence is composed at all:
+     * three inputs are deliberately without one (`pgr.enabled`, which has nowhere to be entered, and the
+     * two irrigation numbers the owner decided on 29.09.2026 are not asked for).
+     */
+    public static function label(string $key): ?string
+    {
+        $label = self::entry($key)['label'] ?? null;
+
+        return is_string($label) && trim($label) !== '' ? $label : null;
+    }
+
+    /**
+     * GH-777 (queue item 4, O-9) — MAY A CLIENT BE TOLD ABOUT THIS INPUT AT ALL?
+     *
+     * The switch the owner decided on 24.09.2026 at 17:24, in her words "it turns the message to the
+     * client off entirely". It is `false` for an input whose ADDRESS would be wrong or unreachable -- the
+     * root depth lives in a tab only a sports site is shown, one Settings field answers for two keys --
+     * and for the two irrigation numbers she decided are not asked for. A sentence with a wrong address
+     * is worse than none (the analyst's 49.1), and each `false` carries its reason beside it.
+     */
+    public static function explainToClient(string $key): bool
+    {
+        return (self::entry($key)['explainToClient'] ?? true) !== false;
+    }
+
+    /**
+     * GH-777 (queue item 4, O-9) — WHERE A PERSON GOES TO ENTER IT, in the words the list declares.
+     *
+     * `filledIn` carries the KEYS of the places; `places` carries their words, one per place rather than
+     * one per input. A step of the wizard is never the answer: a person does not go back to it (the
+     * analyst's 49.3).
+     *
+     * THE TRAFFIC & WEAR TAB IS SHOWN TO A SPORTS SITE ONLY (`settings.blade.php`), so it is a place for a
+     * sports site and for no other -- naming it elsewhere would send someone to a tab that is not there.
+     * Where an input has several places, the first that this site can actually reach is the answer.
+     *
+     * AND A SITE WHOSE KIND NOBODY NAMED IS NOT A SPORTS SITE EITHER. This read "no place is ruled out
+     * when the type is absent", which is a default in the shape of a caution: measured over the stand, 0 of
+     * 95 stored runs carry a turf type, so that branch answered for every live site there is and sent all
+     * of them to a tab 10 of 21 sites are not shown. An unknown kind of site is an outcome -- no place, and
+     * therefore no sentence -- exactly as an input with no place is (GH-777).
+     *
+     * `null` means there is nowhere to send a person, and then the sentence is not composed.
+     */
+    public static function placeFor(string $key, ?string $turfType = null): ?string
+    {
+        $places = self::all()['places'] ?? [];
+        foreach ((array) (self::entry($key)['filledIn'] ?? []) as $where) {
+            if (! is_string($where) || str_starts_with($where, 'wizard.')) {
+                continue;
+            }
+            if ($where === 'settings.trafficAndWear' && $turfType !== 'sports') {
+                continue;
+            }
+            $words = $places[$where] ?? null;
+            if (is_string($words) && $words !== '') {
+                return $words;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * GH-777 (queue item 4, slice 2, the analyst's answer of 29.09.2026) — WHICH INPUT OF THIS LIST A
+     * NAME FROM THE RUN'S OWN STATE BELONGS TO.
+     *
+     * TWO VOCABULARIES, ONE DECLARATION. The dependency graph names an input the way the run's state
+     * holds it -- `water.ecw`, `soil.CEC`, `turf.hoc` -- because that is what a gate in the pass can
+     * check. This list is keyed by the INPUT a person fills in (`samples.water`), and it already
+     * declares the state's spellings for each: `readAs`. Measured by the analyst over the graph's 66
+     * distinct names: 16 are keys of this list, 50 are `readAs` aliases, 0 are unknown, and no alias
+     * belongs to two entries.
+     *
+     * WHAT WENT WRONG WITHOUT IT. The walk of slice 2 records `missing: ['water.ecw']` for a site with
+     * no water, and the server looked for that name among the keys alone -- so it answered "the run
+     * named an input the list does not declare", which is OUR side and offers a re-run that cannot
+     * help. Nine of the thirteen sites with a run have no water sample and would have got that on their
+     * next pass, instead of "there is no water test for this site".
+     *
+     * `requires` IS NOT REWRITTEN, and that is the analyst's decision with its reason: `samples.water`
+     * covers eleven state names, so a gate on the sample would be coarser than a gate on the reading --
+     * a water test with no ECw would pass it and salinity would report a failure instead of an honest
+     * inapplicability. The browser reads no `readAs` either; the translation lives here, once.
+     *
+     * @return string|null the key of this list, or null when the list truly does not know the name
+     */
+    public static function inputFor(string $name): ?string
+    {
+        static $aliases = null;
+        if ($aliases === null) {
+            $aliases = [];
+            foreach (self::all()['inputs'] as $key => $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+                foreach ((array) ($entry['readAs'] ?? []) as $alias) {
+                    if (is_string($alias) && $alias !== '' && ! isset($aliases[$alias])) {
+                        $aliases[$alias] = $key;
+                    }
+                }
+            }
+        }
+        if (self::entry($name) !== null) {
+            return $name;
+        }
+
+        return $aliases[$name] ?? null;
+    }
+
+    /**
+     * GH-777 (queue item 4, the analyst's 76.4 B) — WHERE THIS INPUT'S VALUE LIVES.
+     *
+     * A different question from `filledIn`, which says where a PERSON enters it, and the two differ
+     * for three inputs of the list today: the soil texture override is a column of `sites`, and the
+     * two `pgr.*` inputs may be entered in the spray log. `RunStart` was reading the config for every
+     * input, so those came out "not filled" and the client was told it had not entered a value it had
+     * entered.
+     *
+     * `null` means the input is not declared at all — the caller must not read that as "nothing
+     * stores it", which is what an empty list says.
+     *
+     * @return array<int,string>|null
+     */
+    public static function storedIn(string $key): ?array
+    {
+        $entry = self::entry($key);
+        $stored = $entry['storedIn'] ?? null;
+
+        return is_array($stored) ? array_values(array_filter($stored, 'is_string')) : null;
+    }
+
+    /**
+     * GH-777 (the reviewer's return) — THE CONFIG PATHS THIS INPUT'S VALUE IS ACTUALLY WRITTEN AT.
+     *
+     * `storedIn` says the kind of storage; this says where inside the config, for the inputs whose key
+     * is not the path. Six are: the irrigation efficiency is saved as `irrigation.efficiency`, the soil
+     * moisture, the root depth and the three Clegg readings under `traffic.schedule.*`, the two LED
+     * fields under `turf.led.*`. A reader that walked the key instead found nothing and the server told
+     * the client it had entered nothing — measured on the stand, 3 sites for the first and 2 for the
+     * second.
+     *
+     * Empty list means the key is the path, which is the ordinary case.
+     *
+     * @return array<int,string>
+     */
+    public static function storedAs(string $key): array
+    {
+        $entry = self::entry($key);
+        $paths = $entry['storedAs'] ?? null;
+
+        return is_array($paths) ? array_values(array_filter($paths, 'is_string')) : [];
     }
 
     /**

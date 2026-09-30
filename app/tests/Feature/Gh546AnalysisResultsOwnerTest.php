@@ -218,10 +218,39 @@ class Gh546AnalysisResultsOwnerTest extends TestCase
         // site is SET to. The key travels here because this is the one place a reader of the panel is
         // handed facts about the site, and it is read from `config.turf.methodology` and from nowhere
         // else -- not from the coordinates, not from a sample's stamp, not from a field on a page.
+        // GH-777 (queue item 4) added `turfType`: the sentence about an empty section names WHERE to enter
+        // the missing input, and an address is only right where that page is there -- the Traffic & Wear tab
+        // is shown to a sports site alone. It is read from `config.turf.turfType`, beside the methodology
+        // and by the same rule: from the site's settings and from nowhere else, never from the row a
+        // browser posted.
             ['metrics', 'computed', 'analyzedAt', 'lastRun', 'status', 'numbersFrom', 'numbersRun',
-                'methodology'],
+                'methodology', 'turfType'],
             array_keys($p)
         );
+        // This site has no `gaip` config at all, and an absent kind of site is an outcome: null travels,
+        // nothing is substituted for it.
+        $this->assertNull($p['turfType']);
+
+        // AND THE STATE THAT ACTUALLY EXISTS, which the line above does not reach: the reviewer showed that
+        // substituting `'sports'` for the absent value left every case green, because no case held a site
+        // that HAS a config and no turf type in it. On the stand that is the only shape there is -- 0 sites
+        // with no config, 3 with a config and no type -- so it is asserted here.
+        SiteConfig::query()->create([
+            'site_id' => $site->id, 'namespace' => 'gaip',
+            'config' => ['turf' => ['methodology' => 'slan']],
+        ]);
+        $withAConfig = AnalysisResults::forSite($site->fresh());
+        // `?? 'MISSING'` would print the same word for an absent key and for a null value, and those are
+        // different facts: one is the projection forgetting the field, the other is the site having no type.
+        fwrite(STDOUT, '[gh546] a config with no turf type projects: '
+            .json_encode(['key present' => array_key_exists('turfType', $withAConfig),
+                'turfType' => $withAConfig['turfType'],
+                'methodology' => $withAConfig['methodology']]).PHP_EOL);
+        $this->assertArrayHasKey('turfType', $withAConfig);
+        $this->assertNull($withAConfig['turfType'],
+            'a config with no turf type was read as some kind of site');
+        $this->assertSame('slan', $withAConfig['methodology'],
+            'the config was not read at all, so the null above proves nothing');
         $this->assertSame(0.8, $p['metrics']['growthPotential']);
         $this->assertNotNull($p['analyzedAt']);
         $this->assertSame('complete', $p['status']);

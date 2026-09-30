@@ -121,11 +121,20 @@ const PASS_ACCOUNT = {
     warnings: 'the pass journal',
     passInputs: 'what the pass was handed, recorded by the pass',
     passStartedAt: 'the pass clock',
-    // MOVED HERE BY ITEM 6a, and the reason is measured rather than preferred:
+    // GH-777 (queue item 4, slice 2): the pass's THIRD account of itself, beside what it tried and what
+    // it skipped — the modules this site is not a case for, each with the inputs whose absence made it
+    // so. Not a result an engine produced, so a node for it would say the opposite of what it is.
+    notApplicable: 'the pass\'s own list of modules this site is not a case for',
+    // MOVED HERE BY ITEM 6a, and the reason was measured rather than preferred:
     // `GilbaEngineConfidence.getConfidenceSummary(_hubState)` is handed the PASS, not
     // an input. It reads no key of the inputs list, and its `after` would have to name
     // every node in the graph. A summary OF the graph is not a node IN it.
-    confidence: 'the pass\'s confidence summary, computed from the pass state and from no input',
+    //
+    // GH-777 (queue item 4, slice 2) — AND THAT IS NO LONGER WHERE IT LIVES. The walk that replaced the
+    // pass's hand-written declarations reads the graph to know who runs, so a member with no node would
+    // have lost its account of itself; the analyst's answer of 29.09.2026 was to declare it, `after`
+    // naming every other node of the pass, which is exactly what "it can only be last" means. It is a
+    // node now, so it is not listed here — the line stays as the record of why it was.
 };
 
 /**
@@ -394,6 +403,28 @@ function readsOf(handle, seen = new Set()) {
         const at = m2[1] + '.' + m2[2];
         if (!stopped.includes(at)) stopped.push(at);
     }
+    /**
+     * GH-777 (queue item 4, slice 3) — A CALL TO THE SAMPLE READER IS A READ OF THAT SAMPLE.
+     *
+     * A requirement of the "sample key" kind (`samples.tissue`) is satisfied by asking the one reader,
+     * `gaip_sampleReadings("tissue")` -- which is what the tissue body does, through
+     * `gaip_read_tissue_data`. The census read `<section>.<field>` only, so it could not see that call at
+     * all and every such declaration would have been reported unread. The kind is taken from the LITERAL
+     * argument: a call whose argument is computed is not counted and is printed below instead, because a
+     * census that guesses the kind invents a subject.
+     */
+    const sampleRe = /(?<![.\w])(?:gaip_sampleReadings|getActiveSample)\s*\(\s*(['"])([\w-]+)\1\s*\)/g;
+    let s;
+    while ((s = sampleRe.exec(fn.body)) !== null) {
+        const pth = 'samples.' + s[2];
+        if (!out.includes(pth)) out.push(pth);
+    }
+    const computedKindRe = /(?<![.\w])(?:gaip_sampleReadings|getActiveSample)\s*\(\s*(?!['"])([^)]*)\)/g;
+    let c;
+    while ((c = computedKindRe.exec(fn.body)) !== null) {
+        const at = fn.name + ': sample reader called with ' + c[1].trim();
+        if (!stopped.includes(at)) stopped.push(at);
+    }
     // Delegates reached through a global: the wrapper and the delegate are one module.
     const dre = /(?:global|window)\.(\w+)\s*\(/g;
     let d;
@@ -433,7 +464,13 @@ function upstreamOutputRoots(id) {
     const out = new Set();
     ((NODES[id] || {}).after || []).forEach((up) => {
         ((NODES[up] || {}).outputs || []).forEach((o) => {
-            out.add(o.replace(/^computed\./, '').replace(/^window\./, '').split('.')[0]);
+            // GH-777 (queue item 4, slice 2): `derived.` too. A read of an upstream node's DERIVED
+            // output is as much a result as a read of its `computed` one — the ambient DLI engine's
+            // number is the case: it never becomes a row key, it goes onto the state for the shade
+            // engine, and the graph says so with `derived.ambientDLI`. Leaving the prefix out would
+            // have made shade's read of it look undeclared.
+            out.add(o.replace(/^computed\./, '').replace(/^window\./, '')
+                .replace(/^derived\./, '').split('.')[0]);
         });
     });
 
@@ -540,7 +577,12 @@ describe('GH-676 — (a) what a real pass wrote against what the graph declares'
          */
         const NEVER_PRODUCED = {
             derived: 'not a `computed` root at all: the state\'s own derived section, which several nodes write into beside their result',
-            ambientDLI: 'the ambient DLI engine\'s value goes onto the shade builder\'s state and never into `computed`; it reaches the row only inside `shade`',
+            // GH-777 (queue item 4, slice 2): the `ambientDLI` allowance is GONE, and it went the way this
+            // list's own rule says — the node stopped declaring a root no pass produces. It declared
+            // `computed.ambientDLI`; measured, absent from all 14 stored rows since 25.09 and written by
+            // neither pass. It declares `derived.ambientDLI` now, which is what the value is: work
+            // carried on the state for the shade engine. An allowance whose reason has been repaired is
+            // an allowance that must go, or the list outlives its reasons.
             nutrientDemand: 'no pass writes it — the file is used as a LIBRARY from inside the tissue engine (see the node\'s `noRunnerBecause`)',
             soilTissueIntegration: 'computes on a page, not in a pass; waits for item 3ayu',
             irrigationForecast: 'the orchestrator has a comment where the call would be — "Irrigation scheduler would be called here"; it renders on a page',
@@ -641,13 +683,11 @@ describe('GH-676 — (d) the graph against the inputs list, both directions', ()
             'soil.clay': 'added to the list by the analyst as a sample reading in its own right; '
                 + 'no module reads it yet, and it is the one entry here that is expected to gain a '
                 + 'reader rather than lose its row.',
-            // GH-725 (queue item 3bo, the reviewer's return): read by the CONVERTER
-            // (`hub-tissue-v3.js` / `gaip_transformToCascadeFormat`), which assembles the state the
-            // run hands the modules and is not a node of the graph. The modules read it under its
-            // assembled name, `turf.pgrActive`, which the list declares as derived from this one.
-            'pgr.enabled': 'read by the converter that assembles the run\'s state '
-                + '(`hub-tissue-v3.js` / `gaip_transformToCascadeFormat`) rather than by a node; the '
-                + 'modules see it as `turf.pgrActive`, declared derived from it.',
+            // GH-780 (queue item 3vc): the allowance for `pgr.enabled` is gone with the entry it
+            // allowed. The owner removed the PGR switch on 29.09.2026 -- a site is using a PGR when its
+            // spray journal holds an application within the engine's ninety-day window -- so nothing
+            // reads the config field, the list no longer declares it, and an allowance for an input that
+            // does not exist is a permission nobody needs.
             /**
              * GH-755 (queue item 3bz) — TEN INPUTS WHOSE ONLY READER WAS A REMOVED BUILDER.
              *
@@ -903,7 +943,8 @@ describe('GH-676 — (c) what a body reads, with the receiver from its own signa
                     if (placeless.has(p) || placeless.has(raw)) return;
                     // A READ OF AN UPSTREAM NODE'S OUTPUT IS A RESULT, and `after` is
                     // what says so. `shade-engine` reads `ambientDLI.current`; the
-                    // ambient DLI engine writes `computed.ambientDLI` and stands in
+                    // ambient DLI engine declares `derived.ambientDLI` (GH-777: it was
+                    // `computed.ambientDLI`, a row key no pass writes) and stands in
                     // shade's `after`. Deriving this from the graph rather than listing
                     // the spelling means `after` earns its place instead of being
                     // decoration, and a result read from a node NOT declared upstream
@@ -948,6 +989,7 @@ describe('GH-676 — (c) what a body reads, with the receiver from its own signa
         // a declaration the current extractor cannot find in the node's own bodies is named.
         const aliases = cascadeSectionAliases();
         const unread = [];
+        const viaTheSection = [];
         let compared = 0;
         Object.entries(NODES).filter(([, n]) => handlesOf(n).length).forEach(([id, n]) => {
             const seen = new Set();
@@ -958,11 +1000,35 @@ describe('GH-676 — (c) what a body reads, with the receiver from its own signa
             }));
             [...(n.requires || []), ...(n.uses || [])].forEach((d) => {
                 compared += 1;
-                if (!seen.has(d)) unread.push(id + ' declares ' + d);
+                if (seen.has(d)) return;
+                /**
+                 * GH-777 (slice 3) — A SAMPLE IS READ IN ONE OF TWO SHAPES, and both are derived from the
+                 * code rather than allowed by name.
+                 *
+                 * The tissue body asks the reader itself (`gaip_sampleReadings("tissue")`), which the
+                 * extractor above now sees. The MLSN body does not: the run's state carries a `soil` block
+                 * assembled from the soil sample (`gaip_soilFromActiveSample`) and the engine reads
+                 * `soil.CEC`, `soil.ppm` and the rest out of it. So reading `<kind>.<field>` IS reading
+                 * that sample -- there is nowhere else a `soil` block comes from -- and a declaration of
+                 * `samples.<kind>` is satisfied by either shape. What is not satisfied by either is still
+                 * named: a `samples.x` whose body reads neither the reader nor one `x.` field.
+                 */
+                if (d.indexOf('samples.') === 0) {
+                    const kind = d.slice('samples.'.length);
+                    const viaTheState = [...seen].filter((r) => r.indexOf(kind + '.') === 0);
+                    if (viaTheState.length) {
+                        viaTheSection.push(id + ' reads ' + d + ' as ' + JSON.stringify(viaTheState.sort()));
+
+                        return;
+                    }
+                }
+                unread.push(id + ' declares ' + d);
             });
         });
         process.stdout.write('[gh676] declarations compared against the reads of their own bodies: '
-            + compared + '\n[gh676] declared but not read by the current extractor ('
+            + compared + '\n[gh676] sample keys read through the state block they assemble ('
+            + viaTheSection.length + '): ' + JSON.stringify(viaTheSection)
+            + '\n[gh676] declared but not read by the current extractor ('
             + unread.length + '): ' + JSON.stringify(unread) + '\n');
 
         expect({ declaredButNotRead: unread }).toEqual({ declaredButNotRead: [] });

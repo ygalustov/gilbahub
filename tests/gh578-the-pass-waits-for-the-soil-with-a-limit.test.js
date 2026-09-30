@@ -120,6 +120,19 @@ function makeGate({ sample, budget = 15000 }) {
     };
 
     const ctx = vm.createContext(sandbox);
+    /**
+     * GH-777 (queue item 4, slice 3) — THE GATE'S READERS ARE THE PRODUCT'S, cut from the same file.
+     *
+     * The gate no longer asks the sample manager for the ACTIVE sample: a run is given its sample by name on
+     * the frame's address, and it asks `gaip_sampleReadings` -- the one reader the engine's own body and the
+     * pass's gate both ask -- plus `gaip_sampleInHand` for the third state of GH-612. A bench that left
+     * those out would be measuring a gate with no reader at all, which is what it measured for four cases
+     * the moment they were introduced: `has` fell to false and every wait began.
+     */
+    ['gaip_namedSample', 'gaip_sampleInHand', 'gaip_sampleReadings'].forEach((name) => {
+        vm.runInContext(slice(HUB, name), ctx, { filename: name });
+        expect(typeof ctx[name]).toBe('function');
+    });
     vm.runInContext(slice(HUB, '_gaipSoilSampleReadyOrGivenUp'), ctx, { filename: 'gate' });
     expect(typeof ctx._gaipSoilSampleReadyOrGivenUp).toBe('function');
 
@@ -164,26 +177,36 @@ describe('GH-578 — the pass waits for the sample, then goes on', () => {
         expect(g.gate()).toBe(false);
         expect(g.calls.retries).toBe(1);
 
-        // Past the budget, the record says which state this was.
+        /**
+         * GH-781 (delivery 5): past the budget the gate STEPS ASIDE and says nothing. The record that used
+         * to be written from here — which of the two states it was — is written by the pass now, under the
+         * cascade's name, because the run's wait is not a pass: unnamed entries were removed by the
+         * orchestrator's next pass, and once the journal began refusing unnamed writers this fact stopped
+         * being written at all. The two states are still two records, and they are measured where they are
+         * written: `gh781-a-producer-that-names-itself-is-also-cleared-by-itself.test.js`.
+         *
+         * WHAT THIS CASE STILL HOLDS is what it is named for: the gate waits, then goes on.
+         */
         g.advance(20000);
         expect(g.gate()).toBe(true);
-        const delivered = g.calls.notes.filter((n) => /delivered=true/.test(String(n[2])));
-        expect(delivered).toHaveLength(1);
-        expect(String(delivered[0][1])).toContain('carried no reading');
+        expect(g.calls.notes).toEqual([]);
 
-        // THE CONTROL, and it is the point: the same run WITHOUT a sample files
-        // the other note, so the two states are two records rather than one.
+        // THE CONTROL, and it is still the point: the same run WITHOUT a sample reaches the same place by
+        // the same route, so "it waited and went on" is not confused with "it never waited".
         const none = makeGate({ sample: null });
         expect(none.gate()).toBe(false);
         none.advance(20000);
         expect(none.gate()).toBe(true);
-        const absent = none.calls.notes.filter((n) => /delivered=false/.test(String(n[2])));
-        expect(absent).toHaveLength(1);
-        expect(String(absent[0][1])).toContain('no soil sample was present');
-
-        // And the sentence a person reads is still the same one for both — the
-        // open half, asserted so that nobody reads this file as if it were done.
-        expect(g.calls.problems[0][1]).toBe(none.calls.problems[0][1]);
+        /**
+         * GH-781 (delivery 5): both states used to be told apart HERE, by two notes from the run's wait.
+         * They are told apart by the pass now — "named and not in the store" against "in the store with no
+         * reading the map knows" — under the cascade's name, which is the producer whose cleanup exists. So
+         * what this file holds about them is that the gate itself files neither, and the distinction is
+         * measured where it is drawn.
+         */
+        expect(none.calls.notes).toEqual([]);
+        expect(none.calls.skipped).toEqual([]);
+        expect(none.calls.problems).toEqual([]);
     });
 
     test('GH-600: the branches the gate could never take are gone', () => {
@@ -201,8 +224,18 @@ describe('GH-578 — the pass waits for the sample, then goes on', () => {
         const body = src.slice(at, src.indexOf('function triggerAutoRun', at))
             .replace(/\/\*[\s\S]*?\*\//g, '')
             .split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
-        expect(body).toContain('SM.readingsOf("soil", active)');
+        /**
+         * GH-777 (queue item 4, slice 3): THE DECLARED READER IS NOW A FUNCTION, NOT A CALL ON THE MANAGER.
+         *
+         * The claim is unchanged -- the gate consults the declared reader and nothing derived or lossy -- and
+         * what the declared reader IS has moved: `gaip_sampleReadings("soil")`, which the engine's own body
+         * and the pass's gate ask as well, and which asks `SM.readingsOf` inside. Asserting the old spelling
+         * would be asserting the place of a call rather than what the gate rests on, and the gate rests on
+         * the run's OWN sample now instead of whatever the page has selected.
+         */
+        expect(body).toContain('gaip_sampleReadings("soil")');
         expect(body).not.toMatch(/active\.normalized/);
+        expect(body).not.toMatch(/getActiveSample\s*\(\s*"soil"\s*\)/);
     });
 
     test('THE LIVE CASE: no sample yet, the pass holds and tries again', () => {
@@ -235,9 +268,13 @@ describe('GH-578 — the pass waits for the sample, then goes on', () => {
         expect(g.gate()).toBe(true);
 
         expect(g.ctx.GAIP_SOIL_SAMPLE_UNAVAILABLE).toBe(true);
-        expect(g.calls.skipped).toEqual([['mlsn', 'mlsn', 'soil-sample-not-loaded', 'mlsn']]);
-        expect(g.calls.problems[0][0]).toBe('mlsn');
-        expect(g.calls.problems[0][1]).toMatch(/did not arrive inside the run budget/);
+        /**
+         * GH-781 (delivery 5): the naming of what was not computed moved into the pass, for the reason given
+         * in the case above. The flag this gate sets is what the rest of the run reads, and it is still set
+         * here; the journal entry is the pass's and is measured in the pass's own file.
+         */
+        expect(g.calls.skipped).toEqual([]);
+        expect(g.calls.problems).toEqual([]);
     });
 
     test('one second before the limit it is still waiting', () => {

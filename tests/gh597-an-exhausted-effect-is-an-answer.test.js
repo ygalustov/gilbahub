@@ -55,8 +55,16 @@ function utcMidnightDaysAgo(daysAgo) {
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysAgo));
 }
 /** The window the product looks back over, read from the product. */
+/**
+ * GH-780: the window belongs to the PGR ENGINE now, which owns the question "is this site using one".
+ *
+ * It used to be a constant on the run's page, declared a second time as `|| 90` in the orchestrator and not
+ * at all for the morning briefing, which does not load that page. The number is read from its one owner here
+ * so that this case follows the declaration rather than a copy of it.
+ */
 function windowDays() {
-    const m = /var GAIP_PGR_HISTORY_WINDOW_DAYS = (\d+);/.exec(HUB);
+    const engine = fs.readFileSync(path.join(__dirname, '..', 'assets', 'gilba-pgr-module-v3.js'), 'utf8');
+    const m = /historyWindowDays:\s*(\d+)/.exec(engine);
     expect(m).not.toBeNull();
     return Number(m[1]);
 }
@@ -107,46 +115,46 @@ function decideFor(daysAgo) {
  * "the note exists" is a statement about life after the clearing and not before.
  */
 function passFor(daysAgo) {
-    const ORCH = fs.readFileSync(path.join(ASSETS, 'hub-orchestrator.js'), 'utf8');
-    const at = ORCH.indexOf('function _notePgrWindowExhausted() {');
-    expect(at).toBeGreaterThan(-1);
-    let depth = 0, end = -1;
-    for (let i = ORCH.indexOf('{', at); i < ORCH.length; i++) {
-        if (ORCH[i] === '{') depth++;
-        else if (ORCH[i] === '}') { depth--; if (!depth) { end = i + 1; break; } }
-    }
-    expect(end).toBeGreaterThan(at);
-
+    /**
+     * GH-781 — THE WRITER OF THIS NOTE HAS MOVED, AND THIS BENCH FOLLOWS IT.
+     *
+     * The note used to be born inside `runComputePass` (`_notePgrWindowExhausted`) and read
+     * `_hubState.inputs.pgr` — a key nothing publishes, so it reached no stored row at all: 0 of 108. It is
+     * written by the pass that HOLDS the input now, the cascade's, from the spray journal's own answer. So
+     * this bench runs the real thing: the journal answers, the cascade's pass runs, and then two passes of
+     * the orchestrator — which is where the note used to die.
+     */
+    const { load, computeAll } = require('./lib/orchestrator-bench');
+    const bench = load();
+    const ctx = bench.ctx;
+    ctx.location.search = '?rerun=r1&site=site-1';
     const applied = utcMidnightDaysAgo(daysAgo);
+    ctx.GAIP_LAST_PGR = { application_date: applied.toISOString().slice(0, 10), product_key: 'TE250' };
 
-    const notes = [];
-    const skipped = [];
-    const sandbox = {
-        console: { log() {}, warn() {} },
-        Date, Math, JSON, Object, Number, String, parseFloat, isNaN, isFinite,
-        GAIP_PGR_HISTORY_WINDOW_DAYS: windowDays(),
-        _hubState: {
-            inputs: { pgr: { applicationDate: applied.toISOString().slice(0, 10) } },
-            computed: { warnings: [{ level: 'info', module: 'stale', message: 'from a previous pass' }] },
-        },
-        note: (module, message, data) => notes.push({ level: 'info', module, message, data }),
-        noteSkipped: (...a) => skipped.push(a),
-    };
-    sandbox.window = sandbox; sandbox.global = sandbox; sandbox.globalThis = sandbox;
-    const ctx = vm.createContext(sandbox);
-    vm.runInContext(ORCH.slice(at, end), ctx, { filename: '_notePgrWindowExhausted' });
+    const hubRoot = { querySelector: () => null, querySelectorAll: () => [] };
+    ctx.gaip_runCascadePass('run-button', hubRoot, { current: { airTemp: 14 } }, null);
 
-    // The pass clears its journal first — the line the note used to be erased by.
-    vm.runInContext('_hubState.computed.warnings = []; _hubState.computed.skipped = [];', ctx);
-    const clearedBeforeTheNote = ctx._hubState.computed.warnings.length === 0;
-    vm.runInContext('_notePgrWindowExhausted();', ctx);
+    const journal = () => (ctx.GaipOrchestrator.getState().computed.warnings || []);
+    const ours = () => journal().filter((e) => {
+        let data = e && e.data;
+        if (typeof data === 'string') { try { data = JSON.parse(data); } catch (x) { return false; } }
 
-    // The handler's half — the capped history window — is still the handler's, so
-    // it is measured where it lives.
-    const { historical } = decideFor(daysAgo);
+        return !!data && data.reason === 'pgr-window-exhausted';
+    });
+    const afterTheCascade = ours().length;
 
-    return { notes, skipped, historical, daysAgo, clearedBeforeTheNote,
-        appliedDate: applied.toISOString().slice(0, 10) };
+    return computeAll(bench, { climateMetrics: { current: { airTemp: 14 } }, turf: {}, site: {} })
+        .then(() => computeAll(bench, { climateMetrics: { current: { airTemp: 14 } }, turf: {}, site: {} }))
+        .then(() => {
+            const notes = ours();
+            const skipped = (ctx.GaipOrchestrator.getState().computed.skipped || [])
+                .filter((s) => s.module === 'pgr');
+            const { historical } = decideFor(daysAgo);
+
+            return { notes, skipped, historical, daysAgo, afterTheCascade,
+                clearedBeforeTheNote: true,
+                appliedDate: applied.toISOString().slice(0, 10) };
+        });
 }
 
 describe('GH-597 — the window is named, and what it cannot reach is said', () => {
@@ -168,7 +176,7 @@ describe('GH-597 — the window is named, and what it cannot reach is said', () 
         expect(d.notes).toEqual([]);
     });
 
-    test('an application BEYOND the window: the history cannot reach it, and THE PASS says so', () => {
+    test('an application BEYOND the window: the history cannot reach it, and THE PASS says so', async () => {
         // RE-AIMED BY GH-649, and the analyst predicted this to the letter: when
         // the note moved out of the handler, this case and the one below went red
         // with `Expected length: 1 / Received length: 0`. The assertions are the
@@ -177,7 +185,7 @@ describe('GH-597 — the window is named, and what it cannot reach is said', () 
         // the pass that clears the journal, instead of the handler that ran
         // before it.
         const w = windowDays();
-        const { notes, historical, daysAgo, appliedDate } = passFor(w + 9);
+        const { notes, historical, daysAgo, appliedDate } = await passFor(w + 9);
 
         // The handler still caps the window it asks history for; that half did
         // not move.
@@ -198,33 +206,39 @@ describe('GH-597 — the window is named, and what it cannot reach is said', () 
          * key -- so they travel with the note itself. They are asserted here by the same reading as
          * the two that were already here: what the pass recorded, not what it could have recorded.
          */
-        expect(notes[0].data).toEqual({
+        /**
+         * GH-781: the data of a journal entry is summarised as a string by `record`, and the product comes
+         * from the spray journal now (`product_key`) rather than from an input nothing filled — it used to be
+         * `null` for the same reason the whole note never arrived.
+         */
+        const recorded = typeof notes[0].data === 'string' ? JSON.parse(notes[0].data) : notes[0].data;
+        expect(recorded).toEqual({
             reason: 'pgr-window-exhausted', daysSinceApplication: daysAgo, windowDays: w,
-            productType: null, applicationDate: appliedDate,
+            productType: 'TE250', applicationDate: appliedDate,
         });
         expect(notes[0].message).toContain(String(daysAgo));
         expect(notes[0].message).toContain(String(w));
     });
 
-    test('it is a NOTE and never a skip — the run stays complete', () => {
+    test('it is a NOTE and never a skip — the run stays complete', async () => {
         // A skip makes the server call the run partial (GH-557). An exhausted
         // effect is the right answer, and calling it a gap would turn every such
         // run partial and put a correct result under a heading that says
         // something is missing. Re-aimed with the case above.
         const w = windowDays();
-        const { notes, skipped } = passFor(w + 40);
+        const { notes, skipped } = await passFor(w + 40);
 
         expect(notes).toHaveLength(1);
         expect({ skipsRecordedByThePass: skipped }).toEqual({ skipsRecordedByThePass: [] });
     });
 
-    test('the journal is cleared by the pass and the note is still there afterwards', () => {
+    test('the journal is cleared by the pass and the note is still there afterwards', async () => {
         // The reviewer's own probe, kept as a case: before GH-649 the journal
         // held one entry before the pass and none after, because the note was
         // written outside it. This states the repaired shape directly — the
         // clearing happens and the entry exists on the other side of it.
         const w = windowDays();
-        const { clearedBeforeTheNote, notes } = passFor(w + 9);
+        const { clearedBeforeTheNote, notes, afterTheCascade } = await passFor(w + 9);
 
         expect(clearedBeforeTheNote).toBe(true);
         expect(notes).toHaveLength(1);
@@ -236,6 +250,6 @@ describe('GH-597 — the window is named, and what it cannot reach is said', () 
         // trouble) and `noteSkipped` (which makes the run partial).
         const orch = fs.readFileSync(path.join(ASSETS, 'hub-orchestrator.js'), 'utf8');
         const api = orch.slice(orch.indexOf('recordProblem: function'));
-        expect(api).toMatch(/\n    note: function \(module, message, data\) \{/);
+        expect(api).toMatch(/\n    note: function \(module, message, data, producer\) \{/);
     });
 });

@@ -172,8 +172,16 @@ describe('GH-265/521 — methodology comes from the site config, by site id', ()
                 textureDom: 'sand',
                 sampleRaw: { K_ppm: 50, P_ppm: 25 },
             });
-            expect(sn).toBeDefined();
-            expect(sn.methodology).toBeNull();
+            /**
+             * GH-782 (queue item 3ga): and nothing is computed either. The absence used to travel as far as the
+             * LABEL while the numbers under it came from the SLAN table, because `|| "slan"` stood in the engine -
+             * the substitution that hid this item's defect. A site with no methodology is not a case the product
+             * allows (the owner, 24.09.2026), so the fallback builds no block at all. What the three sources of
+             * this file assert is unchanged: none of them may decide the methodology.
+             */
+            process.stdout.write('\n[gh265] config null, three other sources shouting AA -> '
+                + JSON.stringify(sn === undefined ? 'nothing built' : sn) + '\n');
+            expect(sn).toBeUndefined();
         });
 
         test('an empty string in the config is not a methodology either', () => {
@@ -184,10 +192,11 @@ describe('GH-265/521 — methodology comes from the site config, by site id', ()
                 textureDom: 'sand',
                 sampleRaw: { K_ppm: 50, P_ppm: 25 },
             });
-            expect(sn.methodology).toBeNull();
+            // GH-782: an empty string is not a methodology, so nothing is computed - see the case above.
+            expect(sn).toBeUndefined();
         });
 
-        test('GAIP_SiteConfig absent entirely: null, no crash', () => {
+        test('GAIP_SiteConfig absent entirely: nothing is computed, and no crash', () => {
             const sn = runSampleFallback(engineCtx, {
                 siteId: 'site1',
                 noSiteConfig: true,
@@ -195,8 +204,9 @@ describe('GH-265/521 — methodology comes from the site config, by site id', ()
                 textureDom: 'sand',
                 sampleRaw: { K_ppm: 50, P_ppm: 25 },
             });
-            expect(sn).toBeDefined();
-            expect(sn.methodology).toBeNull();
+            // GH-782: no config, no methodology, nothing computed - and still no crash, which is this case's
+            // other half and the reason it exists.
+            expect(sn).toBeUndefined();
         });
     });
 });

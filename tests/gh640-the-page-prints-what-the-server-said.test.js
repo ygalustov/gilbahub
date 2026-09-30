@@ -86,11 +86,13 @@ function planSandbox(sections) {
         }
         throw new Error(name + ' never closes');
     };
-    ['esc', 'safeNum', 'clamp', 'emptyState', 'sectionTitle', 'sectionBody', 'cardWord', 'serverSection', 'renderPGR']
+    ['esc', 'safeNum', 'clamp', 'emptyState', 'sectionTitle', 'sectionBody', 'cardWord', 'serverSection',
+        'renderPGR', 'renderPreEmergent', 'renderRecovery']
         .forEach((fn) => vm.runInContext(lift(fn), ctx, { filename: fn }));
     // Two tables the lifted functions read, taken from the file itself rather
     // than retyped: the icon map and the PGR status map.
-    vm.runInContext('var EMPTY_ICONS = { pgr: "<svg/>", nutrition: "<svg/>" };', ctx);
+    vm.runInContext('var EMPTY_ICONS = { pgr: "<svg/>", nutrition: "<svg/>",'
+        + ' "pre-emergent": "<svg/>", recovery: "<svg/>" };', ctx);
     // What the page printed before link 11, taken from the page itself rather
     // than retyped here — the sentence under test must be the product's.
     const wasPrinted = PLAN_UI.slice(PLAN_UI.indexOf('var WAS_PRINTED_BEFORE = {'));
@@ -189,8 +191,15 @@ describe('GH-640 — an empty section prints what the server said', () => {
         // is compared for EQUALITY against the sentence this page printed BEFORE
         // link 11 — taken from the page's own `WAS_PRINTED_BEFORE`, not retyped
         // in this file — and any word added to it, however reasonable, reddens.
-        const before = /body: '([\s\S]*?)'\s*,\s*\n\s*badge:/.exec(PLAN_UI);
+        /**
+         * THE RECORD OF THIS SECTION, not the first record in the file. GH-777 added two more entries to
+         * `WAS_PRINTED_BEFORE` ahead of `pgr`, and this anchor took whichever came first -- the silent first
+         * match, which is the class this repository keeps finding. Anchored on the key now.
+         */
+        const pgrEntry = PLAN_UI.slice(PLAN_UI.indexOf('pgr: {', PLAN_UI.indexOf('var WAS_PRINTED_BEFORE')));
+        const before = /body: '([\s\S]*?)'\s*,\s*\n\s*badge:/.exec(pgrEntry);
         expect(before).not.toBeNull();
+        expect(before[1]).toContain('PGR');
 
         const { ctx, nodes } = planSandbox({ pgr: { class: 'not-recorded', cause: null, text: null } });
         ctx.renderPGR({ pgr: null });
@@ -207,6 +216,85 @@ describe('GH-640 — an empty section prints what the server said', () => {
         const said = /<div class="plan-empty-body">([\s\S]*?)<\/div>\s*<\/div>$/
             .exec(withText.nodes['plan-pgr-body'].innerHTML);
         expect(said[1]).toBe('SENTINEL-pgr');
+    });
+
+    /**
+     * GH-777 (queue item 4, the page reader) — EVERY SECTION THAT DRAWS ITS OWN EMPTINESS ASKS THE SERVER.
+     *
+     * Measured before this: the server composes a sentence for each of the 17 declared section keys, and
+     * ONE card on this page read it. A run that recorded which of the client's inputs is missing therefore
+     * printed "calculates automatically when analysis is run" -- true of the product, silent about the site.
+     */
+    test.each([
+        ['preEmergent', 'renderPreEmergent', { preEmergent: null }, 'plan-pe-body'],
+        ['wear', 'renderRecovery', { wear: null }, 'plan-rec-body'],
+    ])('the %s card prints the server\'s sentence when there is one', (key, fn, computed, nodeId) => {
+        const sentence = 'SENTINEL-' + key + ' was not calculated because a thing has not been entered.';
+        const { ctx, nodes } = planSandbox({
+            [key]: { class: 'input-absent', cause: 'input-not-entered', text: sentence, module: key },
+        });
+        ctx[fn](computed, { turf: { turfType: 'sports' } });
+        process.stdout.write('[gh640] ' + key + ' card: ' + JSON.stringify(nodes[nodeId].innerHTML) + '\n');
+
+        expect(nodes[nodeId].innerHTML).toContain(sentence);
+        // and the general sentence this card used to print is not reached
+        expect(nodes[nodeId].innerHTML).not.toContain('calculates automatically');
+        expect(nodes[nodeId].innerHTML).not.toContain('Recovery windows calculate');
+    });
+
+    test.each([
+        ['preEmergent', 'renderPreEmergent', { preEmergent: null }, 'plan-pe-body', 'No pre-emergent data'],
+        ['wear', 'renderRecovery', { wear: null }, 'plan-rec-body', 'No traffic data configured'],
+    ])('and with no sentence the %s card prints what it printed yesterday', (key, fn, computed, nodeId, was) => {
+        const { ctx, nodes } = planSandbox({});
+        ctx[fn](computed, { turf: { turfType: 'sports' } });
+        process.stdout.write('[gh640] ' + key + ' card with no cause: '
+            + JSON.stringify(nodes[nodeId].innerHTML.slice(0, 160)) + '\n');
+
+        expect(nodes[nodeId].innerHTML).toContain(was);
+    });
+
+    test('and NO section that draws its own emptiness is left without the reader', () => {
+        /**
+         * THE UNIVERSE IS THE FILE, not a list kept here: every `emptyState(` call in `plan-ui.js` is found,
+         * the function around it is cut out by brace balance, and it must ask `serverSection`. A section
+         * added later with its own empty state reddens this the day it is written.
+         *
+         * ONE DECLARED EXCEPTION, with its reason: the seasonal-N card is empty when the SETTING
+         * `turf.nProgram` is unset. No engine computes it, the result form declares no key for it, and the
+         * server composes no sentence about it -- so there is nothing to read, and asking would be asking
+         * for a key that does not exist.
+         */
+        const NO_SECTION_OF_ITS_OWN = ['renderSeasonalN'];
+        const without = [];
+        const asked = [];
+        for (const m of PLAN_UI.matchAll(/emptyState\(/g)) {
+            let body = null;
+            let name = null;
+            for (const f of PLAN_UI.slice(0, m.index).matchAll(/function\s+([\w$]+)\s*\(/g)) {
+                let depth = 0;
+                let end = -1;
+                for (let i = PLAN_UI.indexOf('{', f.index); i < PLAN_UI.length; i++) {
+                    if (PLAN_UI[i] === '{') depth++;
+                    else if (PLAN_UI[i] === '}') { depth--; if (!depth) { end = i + 1; break; } }
+                }
+                if (end <= m.index) continue;
+                body = PLAN_UI.slice(f.index, end);
+                name = f[1];
+            }
+            if (name === null || name === 'emptyState') continue;
+            if (body.includes('serverSection(')) { if (!asked.includes(name)) asked.push(name); continue; }
+            if (NO_SECTION_OF_ITS_OWN.includes(name)) continue;
+            if (!without.includes(name)) without.push(name);
+        }
+        process.stdout.write('[gh640] sections drawing an empty state that ask the server: '
+            + JSON.stringify(asked) + '\n[gh640] and those that do not: ' + JSON.stringify(without)
+            + ' (declared as having no section of their own: '
+            + JSON.stringify(NO_SECTION_OF_ITS_OWN) + ')\n');
+
+        expect(asked.length).toBeGreaterThan(2);
+        expect({ sectionsThatDrawEmptinessWithoutAskingTheServer: without })
+            .toEqual({ sectionsThatDrawEmptinessWithoutAskingTheServer: [] });
     });
 
     test('the page holds the OLD sentence in one named place, and composes nothing beside it', () => {

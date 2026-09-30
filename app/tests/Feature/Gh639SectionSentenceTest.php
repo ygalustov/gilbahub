@@ -173,9 +173,15 @@ class Gh639SectionSentenceTest extends TestCase
         //  - `applicationWindow` is declared `assembledFrom: []` — no step stands
         //    behind it, measured: it appears in none of the 66 stored rows.
         //    `not-recorded` is the truth about it.
-        //  - `tissue`: its engine is `tissue-engine` and the run warns under
-        //    `tissue-corrective`, a spelling neither declared source derives from
-        //    the other. Named here rather than papered over.
+        /**
+         * GH-777 (queue item 4, slice 3): `tissue` HAS LEFT THIS LIST, and by a declaration rather than by
+         * a loosening. It stood here because its engine is `tissue-engine` while the run warns under
+         * `tissue-corrective` -- a spelling neither declared source derives from the other. The node now
+         * declares its own name, `module: "tissue"`, which is also the name its gate records against, so
+         * the key resolves by the first declared path like the rest. The sentence for an empty tissue
+         * section depended on exactly this: a cause recorded under `tissue` that the composer looked for
+         * under nothing.
+         */
         /**
          * GH-734: `soilTempPhysics` HAS LEFT THIS LIST, and the reason is a step, not a loosening.
          * It stood here because nothing recorded a cause for it and `STEP_NAMES` had no word for
@@ -184,7 +190,8 @@ class Gh639SectionSentenceTest extends TestCase
          * already carried for that engine, so the key now resolves by the first declared path —
          * the engine the graph names for it — like the other fifteen.
          */
-        $this->assertSame(['applicationWindow', 'tissue'], $withoutStep);
+        $this->assertSame(['applicationWindow'], $withoutStep);
+        $this->assertContains('tissue', $withStep);
         $this->assertContains('soilTempPhysics', $withStep);
         // and the key link 11 exists for is resolved now
         $this->assertContains('soilNutrition', $withStep);
@@ -259,9 +266,10 @@ class Gh639SectionSentenceTest extends TestCase
         fwrite(STDOUT, '[gh641] keys with no step and no declaration: '.json_encode($undeclared).PHP_EOL);
         fwrite(STDOUT, '[gh641] assembling steps the run does not warn under: '.json_encode($unknownSteps).PHP_EOL);
 
-        // `tissue` is the one hole, and it is a spelling rather than a missing
-        // declaration — the boundary named in the case above.
-        $this->assertSame(['tissue'], $undeclared);
+        // No hole left: `tissue` was the one, a spelling rather than a missing declaration, and the node
+        // declaring its own `module` closed it (GH-777, slice 3). A key that resolves by neither path would
+        // appear here, which is what this case is for.
+        $this->assertSame([], $undeclared);
         $this->assertSame([], $unknownSteps);
     }
 

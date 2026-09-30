@@ -28,7 +28,9 @@ function produce(rawData, named = true, activeOther = null) {
     expect(SRC).toContain(exportLine);
     const testSrc = SRC.replace(exportLine, exportLine + '\n    global.__test_cacheAnalysisResults = cacheAnalysisResults;');
     const { sm } = loadManager(MAP);
-    const sample = { id: 'sample_w1', rawData };
+    // GH-777: the store keys a sample by the client's own key and holds the row id in `serverId`; the
+    // address names the row, which is a sample's one name.
+    const sample = { id: 'sample_w1', serverId: 114, rawData };
     const sandbox = {
         console: { log() {}, warn() {}, error() {} },
         setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {},
@@ -39,7 +41,7 @@ function produce(rawData, named = true, activeOther = null) {
         },
         // Named: the water the run was told about (`&water=`), read as the chosen sample.
         // Not named: the row's own fallback finds the site's water sample in the store.
-        location: { search: '?rerun=r&site=site-1' + (named ? '&water=' + sample.id : '') },
+        location: { search: '?rerun=r&site=site-1' + (named ? '&water=' + sample.serverId : '') },
         URLSearchParams, Date, JSON, Math, Object, Array, String, Number, parseFloat, parseInt, isNaN, Promise,
         fetch: () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) }),
     };
@@ -55,7 +57,7 @@ function produce(rawData, named = true, activeOther = null) {
         // `activeOther`: a second water sample on the site, marked active, so the row's own
         // fallback finds IT and not the named one — the named road is then the only road.
         getAllSamples: () => (activeOther
-            ? { allSites: { 'site-1': { water: { w0: sample, w9: { id: 'sample_w9', rawData: activeOther } } } },
+            ? { allSites: { 'site-1': { water: { w0: sample, w9: { id: 'sample_w9', serverId: 115, rawData: activeOther } } } },
                 allActive: { 'site-1': { water: 'w9' } }, allMeta: {}, sites: {} }
             : { allSites: { 'site-1': { water: { w0: sample } } }, allActive: {}, allMeta: {}, sites: {} }),
     };

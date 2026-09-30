@@ -377,7 +377,34 @@ var GAIP_USE_CASCADE = true; // Always enabled in SSOT mode
  * rather than something the code declines to. Named here so the number is not a
  * bare literal at the one place that used to carry it.
  */
-var GAIP_PGR_HISTORY_WINDOW_DAYS = 90;
+/**
+ * GH-780 — THE JOURNAL'S ANSWER ABOUT THIS RUN'S SITE, chosen once.
+ *
+ * `GAIP_LAST_PGR` is the server's answer to one request (GH-771) and it is not cleared when the page moves
+ * to another site, so every reader has to check whose application it is. Two readers were doing that check
+ * separately; this is the one place it happens.
+ *
+ * THREE ANSWERS, because they are three different facts: `undefined` -- the journal was never answered for
+ * this page; `null` -- it answered, and this site has no PGR application; the application itself otherwise.
+ */
+function gaip_lastPgrForThisRun() {
+    var answer = window.GAIP_LAST_PGR;
+    if (answer === undefined) return undefined;
+    if (!answer) return null;
+    var runSite = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId) || null;
+    var itsSite = !answer.site_id || !runSite || answer.site_id === runSite;
+
+    return itsSite ? answer : null;
+}
+
+/**
+ * GH-780: the ninety-day window is declared by the PGR engine, which owns the question "is this site using
+ * one" (`GAIP_PGR.historyWindowDays`). It was declared here as well, and a third time as `|| 90` in the
+ * orchestrator's note, while the morning briefing -- which does not load this file -- had no window at all.
+ * This name is kept only because the orchestrator's note reads it off the page's globals; it carries the
+ * engine's number rather than one of its own.
+ */
+var GAIP_PGR_HISTORY_WINDOW_DAYS = (window.GAIP_PGR && window.GAIP_PGR.historyWindowDays) || null;
 
 /**
  * Transform DOM state to cascade orchestrator format
@@ -470,16 +497,18 @@ function gaip_transformToCascadeFormat(domState, weather) {
                  * sites -- and that is why it is a trap rather than a defect: the first site to
                  * switch PGR on would have been judged as though it had not.
                  */
-                pgrActive: (function () {
-                    try {
-                        var cfg = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.gaipConfig;
-                        var answered = cfg && cfg.pgr && cfg.pgr.enabled;
-
-                        return answered === undefined || answered === null ? null : !!answered;
-                    } catch (err) {
-                        return null;
-                    }
-                })(),
+                /**
+                 * GH-780 — THE FLAG IS TAKEN FROM THE STATE, NOT WORKED OUT AGAIN.
+                 *
+                 * Its one producer is the `turf` block of `gaip_build_state`, which is what the
+                 * orchestrator's pass reads (`GAIP_STATE.turf`) and therefore what reaches a stored row. A
+                 * second computation here would be a second owner of the same question, and the first
+                 * version of this repair was exactly that: it computed the flag in this converter, the
+                 * cascade saw it, the pass did not, and the row kept saying `false`.
+                 */
+                pgrActive: (domState.turf && domState.turf.pgrActive !== undefined)
+                    ? domState.turf.pgrActive
+                    : null,
             },
             // Soil inputs
             soil: {
@@ -540,6 +569,25 @@ function gaip_transformToCascadeFormat(domState, weather) {
                 LOI: domState.soil?.LOI ?? null,
                 ppm: domState.soil?.ppm || {},
                 meq: domState.soil?.meq || {},
+                /**
+                 * GH-782 (queue item 3ga, the analyst's answer of 30.09.2026) - THREE FIELDS THE ENGINE READS
+                 * AND THIS LIST DID NOT CARRY.
+                 *
+                 * MEASURED: 43 stored rows of ammonium-acetate sites since 23.09, and 41 of them declare
+                 * `soilNutrition.methodology: "ammonium_acetate"` while carrying no `rangeSource` at all - so
+                 * they were computed by the SLAN table and labelled AA. The engine reads
+                 * `state.soil.methodology` and falls back to `"slan"`, it reads `soilTexture` to derive the Hill
+                 * Labs code, and it reads `depthCm`; this hand-written list carried none of the three, so every
+                 * AA site was computed on the wrong table, the certificate could never resolve whatever species
+                 * was found, and the depth was substituted.
+                 *
+                 * The same class as GH-459 and as the journal of GH-781: an input rewritten by a second list and
+                 * quietly lost on the way. The remedy here is to carry what the engine reads, from the state
+                 * that already holds it, rather than to add three more hand-written lines somewhere else.
+                 */
+                methodology: domState.soil?.methodology ?? null,
+                soilTexture: domState.soil?.soilTexture ?? null,
+                depthCm: domState.soil?.depthCm ?? null,
             },
             // Water inputs
             water: {
@@ -770,28 +818,240 @@ function gaip_carryRunComputedInto(state, previous) {
  * before the store holds anything (GH-588), so a clock would order a pass
  * against nothing.
  */
-function gaip_activeSampleIds() {
+function gaip_passSampleIds() {
+    /**
+     * GH-777 (queue item 4, the analyst's answer of 29.09.2026) — THE FINGERPRINT OF A PASS'S INPUTS IS
+     * BUILT BY THE SAME CHOOSER THE PASS READS WITH.
+     *
+     * WHAT WAS WRONG, measured live on `Russley` and `Test5 - NZ`: this asked `getActiveSample`, while every
+     * reader of a sample asks `gaip_sampleInHand` -- the sample the run WAS NAMED, and the active one only
+     * when it was named none. A named sample never becomes active, so its arrival changed nothing here, the
+     * repeat of GH-589 never fired, and the tissue was computed exactly once -- on the first pass, while the
+     * store was still empty. Both sites stored an empty tissue section with no cause, which is the one
+     * outcome this queue item forbids.
+     *
+     * `not-found` IS PART OF THE FINGERPRINT, and that is the whole mechanism: a named sample that the store
+     * does not hold yet reads `tissue:not-found`, and when it arrives the same expression reads
+     * `tissue:142`. The change is what tells the repeat that the inputs of the pass are not what they were.
+     *
+     * Nothing else moves: the budget (`GilbaPersistence.RUN_BUDGET_MS`), the cap of three repeats and the
+     * event that triggers them stay as they are. What changes is the definition of "the inputs of this
+     * pass", which now matches what the pass actually reads.
+     */
+    /**
+     * GH-781 — THE JOURNAL'S ANSWER ABOUT THE PGR IS PART OF WHAT THIS PASS READ.
+     *
+     * WHAT WAS WRONG, measured live on `Test5 - NZ`, whose application is 106 days old: the note about an
+     * exhausted window is written by the pass that holds the input, and that input arrives from the server
+     * AFTER the pass — `loadSprayContext` is started from `gaip:analysis-complete`. So `state.pgr` was
+     * empty, the pass wrote nothing, and no repeat corrected it, because the fingerprint of a pass named
+     * only its samples: `has_pgr_note` stayed 0 of 5 rows for 29.09.
+     *
+     * The answer therefore joins the fingerprint, and the repeat GH-589 already owns does the delivery.
+     * It is built by the same chooser the pass reads the input with, `gaip_lastPgrForThisRun`, so the two
+     * cannot disagree about which site the answer belongs to, and it keeps that chooser's three answers
+     * apart: the journal was never answered, it answered that there is no application, or the application
+     * itself. A site with no PGR reads the same value on every pass after the answer lands, so it compares
+     * equal and orders no further repeat.
+     */
+    var pgrPart;
+    try {
+        var pgrAnswer = (typeof gaip_lastPgrForThisRun === "function") ? gaip_lastPgrForThisRun() : undefined;
+        if (pgrAnswer === undefined) {
+            pgrPart = "pgr:unanswered";
+        } else if (!pgrAnswer) {
+            pgrPart = "pgr:none";
+        } else {
+            // The journal row's own id. An answer carrying none cannot be told apart from another such
+            // answer here, and that is said rather than papered over with a number of ours.
+            pgrPart = "pgr:" + (pgrAnswer.log_id != null ? "log_" + pgrAnswer.log_id : "unnamed");
+        }
+    } catch (e) {
+        pgrPart = "pgr:unreadable";
+    }
+    var samplePart;
     try {
         var SM = window.GAIP_SampleManager;
-        if (!SM || typeof SM.getActiveSample !== "function") return "no-store";
-        return ["soil", "water", "tissue"].map(function (kind) {
-            var active = SM.getActiveSample(kind);
-            return kind + ":" + ((active && active.id) || "-");
-        }).join("|");
+        if (!SM || typeof SM.getActiveSample !== "function") {
+            samplePart = "no-store";
+        } else {
+            /**
+             * IS THE STORE READABLE AT ALL — asked here, because the readers below cannot answer it.
+             *
+             * `gaip_namedSample` and `gaip_sampleInHand` each catch their own failures and answer `null`,
+             * which is right for them: a reader that throws must not take a run down. But it makes "the
+             * store blew up" indistinguishable from "this site has no samples", and those two must not
+             * compare equal -- a repeat would then be decided on a failure that nobody saw. The previous
+             * form asked `getActiveSample` directly and so could still tell them apart; this asks once, on
+             * purpose.
+             */
+            SM.getSamples("soil");
+            samplePart = ["soil", "water", "tissue"].map(function (kind) {
+                var told = (typeof gaip_namedSample === "function") ? gaip_namedSample(kind) : null;
+                if (told === "none" || told === "not-found") return kind + ":" + told;
+                var chosen = (typeof gaip_sampleInHand === "function") ? gaip_sampleInHand(kind) : null;
+                // The ROW ID, which is the one name of a sample (GH-777); the client store's own key stands
+                // in only for a sample that has no row yet, so that such a sample is still distinguishable
+                // here.
+                return kind + ":" + ((chosen && (chosen.serverId || chosen.id)) || "-");
+            }).join("|");
+        }
     } catch (e) {
-        return "unreadable";
+        samplePart = "unreadable";
     }
+    return samplePart + "|" + pgrPart;
 }
 
 var GAIP_LAST_CASCADE_PASS = null;
 
+/**
+ * GH-781 (delivery 6): whether a pass of the cascade is running right now. Read by the writer of the
+ * row, which must not mistake a half-written account for a finished one, and set on every exit of the
+ * pass through `finally`.
+ */
+var GAIP_CASCADE_PASS_RUNNING = false;
+if (typeof window !== "undefined") {
+    window.gaip_cascadePassInProgress = function () {
+        return !!GAIP_CASCADE_PASS_RUNNING;
+    };
+}
+
 function gaip_runCascadePass(reason, hubRoot, weather, previousState) {
+    /**
+     * GH-781 (delivery 6, the analyst's amendments (7)-(10)) - THIS PASS SAYS WHEN IT IS RUNNING.
+     *
+     * The row's body is assembled from the journal as it stands at that moment, so the assembler must
+     * be able to say "a pass of this producer was still running when I looked" rather than take a
+     * half-written account for a finished one. The orchestrator already had such a boundary in its one
+     * caller; this function had none, so it gets one here - and on EVERY exit, which is what `finally`
+     * is for: the return below, the throw above it, and any early return inside.
+     */
+    GAIP_CASCADE_PASS_RUNNING = true;
+    try {
     if (typeof GilbaCascadeOrchestrator === "undefined") {
         throw new Error("GilbaCascadeOrchestrator is required for SSOT operation");
     }
+    /**
+     * GH-781 — THIS PASS DROPS WHAT IT ITSELF SAID LAST TIME, and nobody else's.
+     *
+     * GH-557's rule, applied to the cascade: the journal is per pass, so a module this producer could not
+     * compute on its previous pass and computed on this one must not stay listed. Up to three repeats run in
+     * one frame (GH-589), and without this each would stack the same record again.
+     */
     var passStartedAt = Date.now();
+    /**
+     * GH-781 (delivery 7) - THIS PASS NAMES ITSELF, and its records are accepted or dropped at its end.
+     *
+     * It used to clear its own account here, at the START, and that could not tell a pass that finished from
+     * one that failed: a repeat that threw had already removed the account of the pass whose numbers the row
+     * would carry. The mark is the pass's own start time, the same value the row reports as `cascadePass`.
+     */
+    /**
+     * GH-781 (delivery 7) - THIS PASS NAMES ITSELF, and its records are accepted or dropped at its end.
+     *
+     * It used to clear its own account here, at the START, and that could not tell a pass that finished from
+     * one that failed: a repeat that threw had already removed the account of the pass whose numbers the row
+     * would carry. The mark is this pass's own start time, the same value the row reports as `cascadePass`.
+     *
+     * THE PASS IS THIS FUNCTION, not the adapter call inside it: the soil facts and the PGR note are written
+     * here, BEFORE the engines run, so a mark set inside `runCascade` would leave them belonging to no pass
+     * and the commit would drop them. Measured while writing this - three cases went red at once.
+     */
+    var _passAccepted = false;
+    try {
+        if (window.GaipOrchestrator && typeof window.GaipOrchestrator.beginPass === "function") {
+            window.GaipOrchestrator.beginPass("cascade", passStartedAt);
+        }
+    } catch (e) { /* bookkeeping must not stop a run */ }
     var state = gaip_carryRunComputedInto(gaip_build_state(hubRoot), previousState);
-    var sampleIds = gaip_activeSampleIds();
+
+    /**
+     * GH-781 — THE NOTE ABOUT AN EXHAUSTED PGR WINDOW IS WRITTEN HERE, BY THE PASS THAT HAS THE INPUT.
+     *
+     * TWO BREAKS, ONE AFTER THE OTHER, and this closes both. The note was first written by the run button's
+     * handler, before any pass, and the orchestrator's journal reset wiped it (the subject of this item).
+     * GH-649 then moved it INTO the orchestrator's pass, where it read `_hubState.inputs.pgr` -- a key no
+     * publisher of state ever fills. Measured: 0 of 108 stored rows carry the note, and `Test5 - NZ`, whose
+     * application is 105 days old, has 0 of 5 rows for 29.09.
+     *
+     * So the writer is the pass that HOLDS the input: this one. `state.pgr` comes from the spray journal
+     * through `gaip_lastPgrForThisRun`, which checks the answer belongs to this run's site, and the window is
+     * the PGR engine's — no number of our own, and no note at all without the engine. The entry is the
+     * cascade's, so the orchestrator's pass does not clear it, and a repeat of this pass drops its own copy
+     * first, so there is never more than one.
+     */
+    try {
+        var _pgrNoteEngine = window.GAIP_PGR;
+        var _pgrNoteApplied = state.pgr && state.pgr.applicationDate;
+        var _pgrNoteWindow = (_pgrNoteEngine && _pgrNoteEngine.historyWindowDays) || null;
+        if (_pgrNoteApplied && _pgrNoteWindow !== null
+            && window.GaipOrchestrator && typeof window.GaipOrchestrator.note === "function") {
+            var _pgrNoteDays = _pgrNoteEngine.daysSinceApplication(_pgrNoteApplied);
+            if (_pgrNoteDays !== null && _pgrNoteDays > _pgrNoteWindow) {
+                window.GaipOrchestrator.note("pgr",
+                    "plant-growth-regulator applied " + _pgrNoteDays + " days ago, beyond the "
+                    + _pgrNoteWindow + "-day history window: no effect left to compute",
+                    {
+                        reason: "pgr-window-exhausted",
+                        daysSinceApplication: _pgrNoteDays,
+                        windowDays: _pgrNoteWindow,
+                        // GH-772: the product and the date travel with the note, because the sentence a
+                        // person reads names them and a stored row carries no `inputs.pgr` to look them up in.
+                        productType: (state.pgr && state.pgr.productType) || null,
+                        applicationDate: _pgrNoteApplied,
+                    },
+                    "cascade");
+            }
+        }
+    } catch (e) { /* bookkeeping must not stop a run */ }
+    /**
+     * GH-781 (delivery 5) — WHAT HAPPENED TO THE SOIL SAMPLE THIS PASS WAS NAMED, SAID BY THIS PASS.
+     *
+     * Three facts used to be written from the run's wait (`_gaipSoilSampleReadyOrGivenUp`), which is not a
+     * pass: they were unnamed, so the orchestrator's next pass cleared them, and GH-612's fact stopped being
+     * written at all when the journal began refusing unnamed entries. Here the producer is the cascade, whose
+     * moment of cleanup already exists (`commitPass`/`rollbackPass` at the end of this pass), so a repeat
+     * that DOES get the sample replaces this account instead of leaving it standing.
+     *
+     * THREE ANSWERS, because they are three different facts, and the pass can tell them apart:
+     * the run was told there is no soil sample (nothing is said here — the gate records the module as not
+     * applicable); it was named one and the store does not hold it; it was named one, the store holds it, and
+     * nothing in it is a reading the map recognises.
+     */
+    try {
+        var _soilTold = (typeof gaip_namedSample === "function") ? gaip_namedSample("soil") : null;
+        if (_soilTold && _soilTold !== "none" && window.GaipOrchestrator) {
+            var _soilReadings = (typeof gaip_sampleReadings === "function") ? gaip_sampleReadings("soil") : null;
+            var _soilCount = _soilReadings ? Object.keys(_soilReadings).length : 0;
+            if (_soilCount === 0) {
+                var _soilInHand = (typeof gaip_sampleInHand === "function") ? !!gaip_sampleInHand("soil") : false;
+                if (typeof window.GaipOrchestrator.note === "function") {
+                    /**
+                     * GH-781 (delivery 7, the reviewer's third finding) - THE TWO STATES CARRY TWO REASONS.
+                     *
+                     * Both are `cascade | note | mlsn`, so a registry built on producer, door and module alone
+                     * cannot tell "the sample arrived and nothing in it is readable" from "the sample was
+                     * named and is not in the store" - and the identity of a writer is declared as four
+                     * fields, the fourth being the reason. The words may be rephrased; the reason is the key a
+                     * reader and a registry can both ask for.
+                     */
+                    window.GaipOrchestrator.note("mlsn", _soilInHand
+                        ? "soil sample was delivered and carried no reading the map recognises"
+                        : "the soil sample this run was named was not in the store when the pass ran",
+                        {
+                            reason: _soilInHand ? "soil-sample-unreadable" : "soil-sample-not-in-store",
+                            delivered: _soilInHand, readings: _soilCount, named: _soilTold,
+                        },
+                        "cascade");
+                }
+                if (typeof window.GaipOrchestrator.noteSkipped === "function") {
+                    window.GaipOrchestrator.noteSkipped("mlsn", "mlsn", "soil-sample-not-loaded", "mlsn",
+                        "cascade");
+                }
+            }
+        }
+    } catch (e) { /* bookkeeping must not stop a run */ }
+    var sampleIds = gaip_passSampleIds();
 
     var cascadeState = gaip_transformToCascadeFormat(state, weather);
     console.log("📦 Cascade state prepared (" + reason + "):", Object.keys(cascadeState.inputs));
@@ -812,9 +1072,43 @@ function gaip_runCascadePass(reason, hubRoot, weather, previousState) {
         result: result,
         extracted: (result && result.success) ? gaip_extractCascadeResults(result, state, weather) : null,
     };
+    /**
+     * GH-781 (amendment (14)) - THE LAST ATTEMPT, for the repeat, and THE ACCEPTED PASS, for the row.
+     *
+     * The repeat needs the last attempt by its own purpose: it compares what that attempt read with what the
+     * store holds now. The row needs the ACCEPTED pass, which is a different thing - a repeat that failed
+     * became the last, and the row then carried its mark beside the numbers of the pass before it. So the two
+     * are two names, and the accepted one is published in the accepting branch below, never here.
+     */
     GAIP_LAST_CASCADE_PASS = pass;
     window.GAIP_LAST_CASCADE_PASS = pass;
+    /**
+     * GH-781 (delivery 7): ACCEPTED means this pass produced a result. A cascade that answered
+     * `success: false` finished without numbers, so its half-written account must not replace the account of
+     * the pass whose numbers the row will carry - which is the whole subject of this delivery.
+     */
+    _passAccepted = !!(result && result.success);
+    // GH-781 (amendment (14)): published ONLY here, in the branch that accepts the pass, and with the same
+    // condition. A second writer of this name would undo the words "only on success" without touching a case,
+    // which is why the census of its writers is part of this delivery.
+    if (_passAccepted) window.GAIP_ACCEPTED_CASCADE_PASS = pass;
+
     return pass;
+    } finally {
+        GAIP_CASCADE_PASS_RUNNING = false;
+        /**
+         * GH-781 (delivery 7): both ends of the pass, on every exit - the return above, a throw from the
+         * cascade or from the state build, and any early return. Accepted: this pass's records stand and the
+         * previous ones go. Not accepted: its own go, and the previous account is left for the row to carry.
+         */
+        try {
+            var _j = window.GaipOrchestrator;
+            if (_j && typeof _j.commitPass === "function" && typeof _j.rollbackPass === "function") {
+                if (_passAccepted) _j.commitPass("cascade");
+                else _j.rollbackPass("cascade");
+            }
+        } catch (e) { /* bookkeeping must not stop a run */ }
+    }
 }
 
 /**
@@ -843,6 +1137,20 @@ function gaip_republishCascadePass(pass) {
     next.soil = pass.state.soil;
     next.water = pass.state.water;
     next.tissue = pass.state.tissue;
+    /**
+     * GH-781 (queue item 3vc's one line, the coordinator's decision of 30.09.2026) — ONE FIELD OF `turf`,
+     * NOT THE SECTION.
+     *
+     * `turf.pgrActive` is produced by the state assembly of THIS pass from the journal's answer (GH-780),
+     * and everything else under `turf` comes from places a repeat does not recompute. Copying the previous
+     * `turf` wholesale, which is what the loop above does, therefore republishes the first pass's answer
+     * about the PGR even when this pass had the journal and the first one did not. The field is carried the
+     * way the first pass's publication carries it, by asking whether the key is there rather than by
+     * turning its absence into `false`.
+     */
+    if (next.turf && pass.state.turf && "pgrActive" in pass.state.turf) {
+        next.turf = Object.assign({}, next.turf, { pgrActive: pass.state.turf.pgrActive });
+    }
     next.mlsnResults = x.l;
     next.mlsnRows = x.lRows;
     next.waterResults = x.d;
@@ -927,7 +1235,26 @@ function safeNum(e, t) {
 function gaip_soilFromActiveSample() {
     try {
         var SM = window.GAIP_SampleManager;
-        var active = (SM && typeof SM.getActiveSample === "function") ? SM.getActiveSample("soil") : null;
+        /**
+         * GH-778 — THE SAMPLE OF THIS RUN, NOT THE ONE THE PAGE HAS SELECTED.
+         *
+         * The server chooses which sample a run computes on and names it on the frame's address; in the frame
+         * one function reads that answer, `gaip_sampleInHand`. This block asked the sample manager for the
+         * ACTIVE sample instead, so the soil numbers of a stored row came from whatever the page happened to
+         * have selected -- the class of GH-459, and the same fault that cost a client one site's climate under
+         * another site's name.
+         *
+         * WHAT THIS CHANGES ON A SCREEN TODAY: nothing, and that is measured rather than hoped. On the four
+         * stand sites holding more than one live soil sample the active sample and the server's choice agree
+         * (`Burns` 53, `New test - location` 125, `Hoxton` 325, `Russley` 105). Two of those four agree only
+         * because a TIE of lab dates is broken the same way by accident: the server takes the higher id,
+         * while what makes a sample active on the page is set in four unrelated places, none of which knows
+         * that rule. So this removes a coincidence, not a visible defect.
+         *
+         * THE NAME OF THIS FUNCTION IS HISTORICAL. It is called from fourteen files; renaming it would make
+         * this repair a rename, so it stays and says here what it does.
+         */
+        var active = (typeof gaip_sampleInHand === "function") ? gaip_sampleInHand("soil") : null;
         if (!active) return null;
 
         // GH-591 — THE READINGS COME FROM THE DECLARED NORMALISER, AND NOT FROM
@@ -1041,13 +1368,54 @@ function gaip_namedSample(kind) {
         if (told === "none") return "none";
         var SM = window.GAIP_SampleManager;
         if (!SM || typeof SM.getSamples !== "function") return null;
+        /**
+         * GH-777 (queue item 4, the analyst's answer of 29.09.2026) — THE NAME OF A SAMPLE IS ITS ROW IN THE
+         * DATABASE, AND THE STORE KEEPS IT IN `serverId`.
+         *
+         * MEASURED LIVE, 29.09.2026. The opener asks the server which sample to use and puts the ROW ID on
+         * the frame's address (`dashboard-ui.js`, `askServerForSample`). The client store keys a sample by
+         * something of its own -- `client_uid`, else a label, else `sample_<id>` (`sample-persistence.js`) --
+         * and that key is what `.id` holds. This compared the row id against that key, so it matched on no
+         * site at all: of the 64 live samples not one has a key equal to its row id. The frame answered
+         * `not-found` for every named soil and tissue sample, the tissue engine ran on an empty store, the
+         * repeat of the pass never saw its inputs change, and `computed.tissue` was an empty object in 0 of
+         * 95 stored rows. The promise of GH-724 -- "the run computes on the sample the server named" -- had
+         * never once been kept on this stand.
+         *
+         * The row id is in the store already: every sample restored from the server carries
+         * `serverId: sample.id`. One name, one place it lives. A sample with no `serverId` is not found by
+         * name, which is honest: nothing in it says which row it is.
+         */
         var all = SM.getSamples(kind) || [];
         for (var i = 0; i < all.length; i++) {
-            if (all[i] && String(all[i].id) === String(told)) return all[i];
+            if (all[i] && all[i].serverId != null && String(all[i].serverId) === String(told)) return all[i];
         }
         // Named and not found: an outcome of its own, and it must not silently become "the active
         // one" -- that is how a run computes on a sample nobody asked for (the GH-586 class).
         return "not-found";
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * GH-777 (queue item 4, slice 3) — WHICH SAMPLE OF THIS KIND THE RUN HAS IN HAND, chosen once.
+ *
+ * The choice used to live inside `gaip_sampleReadings` alone, so anything that needed the SAMPLE rather
+ * than its readings -- the soil delivery wait, which has to tell "no sample" from "a sample nothing could
+ * read" (GH-612) -- had to reach for the active sample itself and so judged by the page's selection instead
+ * of by what the run was given. One chooser, two callers, no second rule.
+ *
+ * Named by the opener, that sample. Named and not found, or named as "none": nothing in hand.
+ */
+function gaip_sampleInHand(kind) {
+    try {
+        var SM = window.GAIP_SampleManager;
+        if (!SM || typeof SM.getActiveSample !== "function") return null;
+        var named = gaip_namedSample(kind);
+        if (named === "none" || named === "not-found") return null;
+
+        return named || SM.getActiveSample(kind) || null;
     } catch (e) {
         return null;
     }
@@ -1067,10 +1435,7 @@ function gaip_sampleReadings(kind) {
          * the same rule the project settled after GH-459: what a result is about comes from the
          * data of the object it is about, not from the state the page happens to be in.
          */
-        var named = gaip_namedSample(kind);
-        if (named === "none" || named === "not-found") return null;
-
-        var chosen = named || SM.getActiveSample(kind);
+        var chosen = gaip_sampleInHand(kind);
         if (!chosen) return null;
         var readings = SM.readingsOf(kind, chosen);
         if (!readings || !Object.keys(readings).length) return null;
@@ -1787,6 +2152,29 @@ function gaip_build_state(e) {
                 };
             })(),
             turf: {
+                /**
+                 * GH-780 — IS THIS SITE USING A PGR, PRODUCED ONCE, WHERE THE PASS READS IT.
+                 *
+                 * The owner's decision of 29.09.2026: there is no PGR switch; a site is using one when its
+                 * spray journal holds an application within the engine's ninety-day window.
+                 *
+                 * WHY IT IS HERE AND NOT IN THE CONVERTER, measured live on `Russley` (71 days): it was
+                 * computed in `gaip_transformToCascadeFormat`, and the shade advice that reaches a stored row
+                 * comes from the ORCHESTRATOR's pass, which reads `GAIP_STATE.turf` -- this block. So the
+                 * flag never arrived: the row said `currentlyActive: false` before the repair and after it,
+                 * for the same reason, and `shade-engine-pure.js` turns an absent flag into `false`. One
+                 * producer, in the state both passes read.
+                 */
+                pgrActive: (function () {
+                    try {
+                        var engine = window.GAIP_PGR;
+                        if (!engine || typeof engine.isInUse !== "function") return null;
+
+                        return engine.isInUse(gaip_lastPgrForThisRun());
+                    } catch (err) {
+                        return null;
+                    }
+                })(),
                 turfType:
                     // Cotula/bowls: turfType from GAIP_STATE takes precedence over DOM
                     // since TurfProfileController may have fallen back to 'lawns'
@@ -1872,10 +2260,8 @@ function gaip_build_state(e) {
                  * `GAIP_PGR_HISTORY_WINDOW_DAYS` arrives and the engine records that its effect is
                  * spent, which is a different thing from no application at all.
                  */
-                var _lastPGR  = window.GAIP_LAST_PGR;
-                var _runSite  = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId) || null;
-                var _isThisSite = !!_lastPGR && (!_lastPGR.site_id || !_runSite || _lastPGR.site_id === _runSite);
-                var _fromLog  = _isThisSite ? _lastPGR : null;
+                // GH-780: one chooser for whose application this is, shared with `turf.pgrActive` above.
+                var _fromLog  = gaip_lastPgrForThisRun() || null;
                 return {
                     productType:     (_fromLog && _fromLog.product_key) || "",
                     applicationDate: (_fromLog && _fromLog.application_date) || null,
@@ -1897,10 +2283,34 @@ function gaip_build_state(e) {
                 };
             })(),
             irrigation: {
-                method: e.querySelector(".gaip-irr-method")?.value || "sprinkler",
-                efficiency: safeNum(e.querySelector(".gaip-irr-efficiency")?.value, 75) / 100,
-                rainfallEffectiveness: safeNum(e.querySelector(".gaip-irr-rain-eff")?.value, 80) / 100,
-                costPerKL: safeNum(e.querySelector(".gaip-irr-cost")?.value, 3),
+                /**
+                 * GH-779 — THE EFFICIENCY OF THIS SITE'S SYSTEM COMES FROM ITS SETTINGS, AND FROM NOWHERE
+                 * ELSE.
+                 *
+                 * WHAT WAS WRONG. Settings writes `config.irrigation.efficiency` (per cent) and the run read
+                 * a field of the old hub's form instead -- a field whose markup has `value="75"` hardcoded
+                 * and which nothing ever fills from the config. So every run computed on 75 % whatever the
+                 * site had entered: not a stale value, a literal. The same shape as GH-459 -- a number taken
+                 * off a page instead of from the object it is about.
+                 *
+                 * NO SUBSTITUTE WHERE THERE IS NO VALUE. `null` travels, and the scheduler then reports no
+                 * runtime rather than minutes computed on a figure nobody chose. On this stand three sites of
+                 * twenty-one carry a value and all three carry exactly 75, so no number already computed from
+                 * a site's own setting changes; what goes are the minutes of the sites that never had one.
+                 *
+                 * AND THE THREE FIELDS BESIDE IT ARE GONE, not moved: `method`, `rainfallEffectiveness` and
+                 * `costPerKL` were read off the same form with the same literals and no engine reads them --
+                 * the scheduler takes its own method, nothing reads the rainfall figure, and the cost is
+                 * printed by the `/hub` panel from its own field. Dead reads with a default in them are the
+                 * next 75 waiting to happen.
+                 */
+                efficiency: (function () {
+                    var cfg = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.gaipConfig) || null;
+                    var pct = cfg && cfg.irrigation ? cfg.irrigation.efficiency : null;
+                    var n = (pct === null || pct === undefined || pct === '') ? null : parseFloat(pct);
+
+                    return (n === null || isNaN(n)) ? null : n / 100;
+                })(),
                 daysSinceIrrigation: safeNum(e.querySelector(".gaip-days-since-irrigation")?.value, 1),
                 soilVWC: safeNum(e.querySelector(".gaip-soil-vwc")?.value, 0) || null,
                 // GH-757 (queue item 3ah): the site's own root depth first. Settings saves it as
@@ -2984,12 +3394,33 @@ function mlsnEngine(state, weather) {
     const soilPPM = (state.soil && state.soil.ppm) || {};
 
     // Rootzone parameters with defaults
+    // GH-782: the depth the run was given. The converter used to drop it and this default stood in for every
+    // cascade pass; it now arrives, and the default is what it always was for a form that carries none.
     const rootzoneDepth = safeNum(state.soil && state.soil.depthCm, 10);
     const bulkDensity = safeNum(state.soil && state.soil.bulkDensity, 1.4);
 
     // Turf profile
     const turfProfile = state.turf || {};
-    const methodology = (state.soil && state.soil.methodology) || "slan";
+    /**
+     * GH-782 (queue item 3ga, step 2) - NO METHODOLOGY IS AN OUTCOME, NOT A REASON TO PICK ONE.
+     *
+     * `|| "slan"` stood here and is what hid the defect this item is about: the converter dropped the field on
+     * the way to the engine, every site set to ammonium acetate silently fell into the SLAN table, and the row
+     * still declared `soilNutrition.methodology: "ammonium_acetate"` from the state BEFORE the converter.
+     * Measured: 43 rows of such sites since 23.09, 41 of them declaring AA with no `rangeSource` at all.
+     *
+     * Methodology is a REQUIRED input (the owner, 24.09.2026): the whole calculation rests on it, a site cannot
+     * finish its wizard without one, and nothing may fill it - not `mlsn`, not `slan`. So a run that reaches
+     * here without one computes nothing and says so, in the shape the cascade already recognises as "produced
+     * nothing" (`status: 'Not available'`), which is what puts the cause in the row and the owner's sentence on
+     * the page rather than an empty section.
+     */
+    const methodology = (state.soil && state.soil.methodology) || null;
+    if (!methodology) {
+        console.warn('[GH-782] soil analysis not computed: the site has no methodology, and none is substituted');
+
+        return { status: 'Not available', recommendations: [], html: '', nutrients: null };
+    }
 
     // Determine soil type from construction
     const construction = (turfProfile.construction || "").toLowerCase();
@@ -3266,7 +3697,18 @@ function mlsnEngine(state, weather) {
         const _hlst = (typeof window !== "undefined" && window.HillLabsSampleTypes) ||
             (typeof globalThis !== "undefined" && globalThis.HillLabsSampleTypes) ||
             null;
-        const aaSampleTypeCode = _hlst && _hlst.deriveCode ? _hlst.deriveCode(species, generalSoilTexture) : null;
+        /**
+         * GH-782 (queue item 3ga) - THE SPECIES FOR THESE RANGES COMES FROM THE SITE, NOT FROM THE PAGE.
+         *
+         * `species` above is `state.turf.grassSpecies`, assembled from the `/hub` form field `.gaip-species`,
+         * and on the stand that key is empty in all five sites set to ammonium acetate - their species lives in
+         * the config under `turf.species`. So no code resolved and potassium on sand stood at 50.0-116.0 ppm
+         * where the certificate says 78.2-195.5. One function answers "which species is this site" for this
+         * reader and for the range validator, so the two cannot drift apart again.
+         */
+        const aaSpecies = (_hlst && typeof _hlst.speciesOfTheSite === 'function')
+            ? _hlst.speciesOfTheSite(state) : species;
+        const aaSampleTypeCode = _hlst && _hlst.deriveCode ? _hlst.deriveCode(aaSpecies, generalSoilTexture) : null;
         // GH-304 (D07 item 7): track, per nutrient, whether its range came
         // from a real certificate match or stayed on the texture-only
         // fallback -- defaults to 'texture-fallback' for every nutrient
@@ -6290,7 +6732,18 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
             });
         if (c) {
             var Re;
-            if (!hasSoilData) {
+            /**
+             * GH-777 (queue item 4, slice 3) — AND A TABLE THAT WAS NOT COMPUTED IS READ AS ABSENT, NOT
+             * CRASHED ON.
+             *
+             * `r` is the MLSN table, and `gaip_extractCascadeResults` substitutes
+             * `{status: "Not computed"}` for it when the engine did not run. `.indexOf` on that object
+             * threw `Ie.indexOf is not a function`, the frame reported `calculation-error`, and the whole
+             * run was stored as `failed` -- measured live on two sites, both of which had every other
+             * number. A section with no table is the same fact as a section with no soil test: there is
+             * nothing to state a status from, and `NO_DATA` is what this page already says for that.
+             */
+            if (!hasSoilData || typeof r !== "string") {
                 // No soil data entered - show informational status instead of misleading ACCEPTABLE
                 Re = "NO_DATA";
             } else {
@@ -7927,6 +8380,21 @@ function initTurfTypeMode() {
                             var _b35fix391_mergedTurf = _b35fix391_freshTurf
                                 ? Object.assign({}, t.turf || {}, _b35fix391_freshTurf)
                                 : t.turf;
+                            /**
+                             * GH-780 — AND THIS RUN'S OWN ANSWER ABOUT THE PGR IS NOT OVERWRITTEN BY THE
+                             * PREVIOUS RUN'S.
+                             *
+                             * The merge above lets the FRESH `inputs.turf` win, which is right for the routed
+                             * writes it was built for (b35fix391): those happen during a run and the local
+                             * snapshot is stale about them. `pgrActive` is the opposite case -- it is
+                             * produced by THIS run's state assembly from the journal, while
+                             * `GAIP_STATE.inputs.turf` still carries what the previous pass concluded. Two
+                             * runs in one frame, with an application recorded between them, would have stored
+                             * the older answer.
+                             */
+                            if (_b35fix391_mergedTurf && t.turf && "pgrActive" in t.turf) {
+                                _b35fix391_mergedTurf.pgrActive = t.turf.pgrActive;
+                            }
                             (xe ? (xe.style.display = "block") : console.warn("GAIP: .gaip-results container not found"),
                                 console.log("GAIP: Preparing state dispatch..."),
                                 (window.GAIP_STATE = {
@@ -8104,7 +8572,7 @@ function initTurfTypeMode() {
             var budget = (window.GilbaPersistence && window.GilbaPersistence.RUN_BUDGET_MS) || null;
             if (budget && Date.now() - pass.passStartedAt > budget) return;
 
-            if (gaip_activeSampleIds() === pass.sampleIds) return;
+            if (gaip_passSampleIds() === pass.sampleIds) return;
 
             var root = document.querySelector("#gaip-hub");
             if (!root) return;
@@ -8136,6 +8604,18 @@ function initTurfTypeMode() {
 
         document.addEventListener("gaip:sample-loaded", _scheduleCascadeRepeat);
         document.addEventListener("gaip:site-samples-ready", _scheduleCascadeRepeat);
+        /**
+         * GH-781 — THE SPRAY JOURNAL IS AN INPUT THAT ARRIVES LATE, LIKE A SAMPLE.
+         *
+         * `loadSprayContext` is started from `gaip:analysis-complete`, so the journal's answer about the
+         * PGR reaches the page after the pass that needed it. `gaip:spray-context-loaded` is fired once
+         * the answer is in the state (`spray-log-cascade.js`), and it is the only signal that says so.
+         *
+         * Nothing else is added: the same debounce, the same cap of three, and the same comparison of what
+         * the pass read decide whether a pass actually follows. A site whose journal holds no PGR answers
+         * that once and then compares equal, so this listener costs it one repeat, not a stream of them.
+         */
+        document.addEventListener("gaip:spray-context-loaded", _scheduleCascadeRepeat);
     }),
     document.addEventListener("DOMContentLoaded", function() {
         (document.querySelectorAll(".gaip-card-header").forEach(function(e) {
@@ -8400,15 +8880,40 @@ document.addEventListener("DOMContentLoaded", function() {
         // here is the very thing the owner's rule forbids. So the record can
         // now answer "was it delivered?", and the screen still says what it
         // said this morning. That half is open and is named in the queue.
+        /**
+         * GH-777 (queue item 4, slice 3) — THIS WAITS FOR THE SAMPLE THE RUN WAS GIVEN, AND STAYS SILENT
+         * WHERE THE GRAPH ALREADY SPEAKS.
+         *
+         * TWO FAULTS, both found by the reviewer on the slice that declared `requires: ["samples.soil"]`.
+         *
+         *  1. IT JUDGED BY THE ACTIVE SAMPLE. `getActiveSample("soil")` answers about whatever the page has
+         *     selected, while a run is given its sample by name on the frame's address. So a run told
+         *     `soil=none` could be held waiting by a sample it was never given, and one told `soil=<id>`
+         *     could be released by a different sample entirely -- the class of GH-459. It asks
+         *     `gaip_sampleReadings("soil")` now: the one reader, the same one the gate of the pass and the
+         *     engine's own body ask.
+         *  2. IT WROTE A SECOND COPY OF A REASON THE GRAPH DECLARES. When the site has no soil sample at
+         *     all, `soil-sample-not-loaded` said what the MLSN node's requirement now says -- and said it
+         *     as a SKIP, so the module stood in two mutually exclusive accounts and the run came out
+         *     `partial` where nothing had gone wrong. Reachable on 3 of the stand's 13 sites.
+         *
+         * SO THE TWO CASES ARE SEPARATED BY WHAT THE RUN WAS TOLD. Told `none`: there is nothing to wait
+         * for, the pass goes on at once and says nothing -- the gate records the module as not applicable
+         * with `samples.soil` named. Told an id: this is a delivery wait, and everything below is about
+         * delivery, which no declaration can state.
+         */
+        var told = (typeof gaip_namedSample === "function") ? gaip_namedSample("soil") : null;
+        if (told === "none") return true;
+
         var has = false;
         var delivered = false;
         var readingCount = 0;
         try {
-            var SM = window.GAIP_SampleManager;
-            var active = (SM && typeof SM.getActiveSample === "function") ? SM.getActiveSample("soil") : null;
-            delivered = !!active;
-            var readings = (active && SM && typeof SM.readingsOf === "function")
-                ? SM.readingsOf("soil", active) : null;
+            var readings = (typeof gaip_sampleReadings === "function") ? gaip_sampleReadings("soil") : null;
+            // `delivered` is still the third state of GH-612 -- a sample reached the store and nothing in it
+            // could be read -- and it asks for the SAMPLE, through the one chooser, never for the page's
+            // active selection.
+            delivered = (typeof gaip_sampleInHand === "function") ? !!gaip_sampleInHand("soil") : false;
             readingCount = readings ? Object.keys(readings).length : 0;
             has = readingCount > 0;
         } catch (e) {
@@ -8438,26 +8943,21 @@ document.addEventListener("DOMContentLoaded", function() {
         // without — so the result comes out partial with a reason rather than
         // confidently empty.
         window.GAIP_SOIL_SAMPLE_UNAVAILABLE = true;
-        try {
-            // GH-612: which of the two it was, filed where a reader can ask.
-            // `note` is level `info` and never reaches the panel, so this adds
-            // a fact to the run and not a sentence to the client.
-            if (window.GaipOrchestrator && typeof window.GaipOrchestrator.note === "function") {
-                window.GaipOrchestrator.note("mlsn", delivered
-                    ? "soil sample was delivered and carried no reading the map recognises"
-                    : "no soil sample was present when the run budget ran out",
-                    "delivered=" + delivered + " readings=" + readingCount);
-            }
-        } catch (e) { /* bookkeeping must not stop the run */ }
-        try {
-            if (window.GaipOrchestrator && typeof window.GaipOrchestrator.noteSkipped === "function") {
-                window.GaipOrchestrator.noteSkipped("mlsn", "mlsn", "soil-sample-not-loaded", "mlsn");
-            }
-            if (window.GaipOrchestrator && typeof window.GaipOrchestrator.recordProblem === "function") {
-                window.GaipOrchestrator.recordProblem("mlsn",
-                    "Soil sample did not arrive inside the run budget; the soil analysis is not computed for this run");
-            }
-        } catch (e) { /* bookkeeping must not stop the run */ }
+        /**
+         * GH-781 (delivery 5, the analyst's choice (b)) — THE THREE RECORDS THAT USED TO BE
+         * WRITTEN HERE ARE WRITTEN BY THE PASS, AND THE PASS IS WHERE THEY CAN LIVE.
+         *
+         * They were written from here, which is the run's WAIT and not a pass: unnamed, so the orchestrator's
+         * next pass removed them as its own; and since this item's third delivery the exported `note` refuses
+         * an unnamed entry outright, so GH-612's fact — which of the two happened — was not written at all
+         * and a complaint about the writer took its place at level `problem`.
+         *
+         * WHY NOT A NAME OF THIS RUN'S OWN: if the sample arrives late and a repeat computes the soil, a
+         * record saying "it did not arrive" written under the run's name would outlive the fact and the row
+         * would come out partial with no cause. The pass knows both things at once, so the pass says them.
+         *
+         * WHAT IS LEFT HERE is the run's own decision to stop waiting, which is this function's subject.
+         */
         console.warn("[GH-578] soil sample did not arrive in " + budget + " ms — running without it");
         return true;
     }

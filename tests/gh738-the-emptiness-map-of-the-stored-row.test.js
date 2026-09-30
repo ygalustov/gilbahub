@@ -44,8 +44,8 @@ const { stubSampleManager } = require('./lib/sample-readings');
  */
 const ASSEMBLY = ['safeNum', 'collectGridValues', 'convertDateToISO', 'calculateEndDate',
     'gaip_readSoilForm', 'gaip_soilFromActiveSample', 'gaip_soilStateFrom', 'gaip_namedSample',
-    'gaip_sampleReadings', 'gaip_waterFromActiveSample', 'calculateC3C4Fractions',
-    'enforceHemisphereTurfRules', 'gaip_build_state'];
+    'gaip_sampleInHand', 'gaip_sampleReadings', 'gaip_waterFromActiveSample', 'calculateC3C4Fractions',
+    'enforceHemisphereTurfRules', 'gaip_lastPgrForThisRun', 'gaip_build_state'];
 
 /**
  * The samples the assembly is given: real lab spellings, so `gaip_sampleReadings` recognises them

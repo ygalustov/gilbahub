@@ -78,6 +78,15 @@ function declaredAs(p) {
     if (LIST.notInputs[p]) where.push('notInput');
     Object.entries(LIST.inputs).forEach(([k, v]) => {
         if (v && Array.isArray(v.readAs) && v.readAs.includes(p)) where.push('readAs of ' + k);
+        /**
+         * GH-779 — AND `storedAs` COUNTS, because a run may read a value where it is STORED.
+         *
+         * `readAs` is how a path is spelled in the run's own state; `storedAs` is where the value sits in the
+         * site's config. The irrigation efficiency is read straight out of the config now -- the field of the
+         * old hub's form that used to supply it had `75` hardcoded in its markup -- so the path the run reads
+         * is the stored one. Both are declarations in the same list, by the same entry.
+         */
+        if (v && Array.isArray(v.storedAs) && v.storedAs.includes(p)) where.push('storedAs of ' + k);
     });
 
     return where;
@@ -92,11 +101,17 @@ describe('GH-725 — every config field the run reads is declared in the inputs 
                 + JSON.stringify(ps.map((r) => r.path + '@' + r.line))).join('\n') + '\n');
 
         const flat = Object.values(all).flat().map((r) => r.path);
-        expect(flat).toContain('pgr.enabled');
+        /**
+         * GH-780: this named `pgr.enabled`, and that read is gone — the owner removed the PGR switch, and the
+         * run asks the spray journal through the PGR engine instead. The control keeps its job with a read
+         * that exists: `irrigation.efficiency`, which GH-779 moved off a form field of the old hub and into
+         * the site's own config, and which is reached through a local variable exactly as the old one was.
+         */
+        expect(flat).toContain('irrigation.efficiency');
         expect(flat).toContain('turf.methodology');
         // The read that escaped the guards was written through a local variable; if the indirection
         // stopped being resolved this case would quietly cover less than it says.
-        expect(configReadsIn('hub-tissue-v3.js').map((r) => r.path)).toContain('pgr.enabled');
+        expect(configReadsIn('hub-tissue-v3.js').map((r) => r.path)).toContain('irrigation.efficiency');
     });
 
     test('and every field among them is declared — a section on its own is a container, not a field', () => {

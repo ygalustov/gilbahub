@@ -113,7 +113,11 @@
             bigGunPrecipRate: 10,
             dripPrecipRate: 4,
             uniformity: 0.8,
-            efficiency: 0.75
+            // GH-779: the efficiency has no default here any more. It has one owner,
+            // `config.irrigation.efficiency`, and a site without a value gets no runtime rather than minutes
+            // computed on a figure this file chose. Removed rather than left unread: an unread default is
+            // the next literal 75 waiting for a caller.
+            efficiency: null
         },
         
         scheduling: {
@@ -608,7 +612,15 @@
     function calculateRuntime(depthMm, systemConfig) {
         const precipRate = systemConfig.precipRate || CONFIG.sprinklerDefaults.rotorPrecipRate;
         const uniformity = systemConfig.uniformity || CONFIG.sprinklerDefaults.uniformity;
-        const efficiency = systemConfig.efficiency || CONFIG.sprinklerDefaults.efficiency;
+        /**
+         * GH-779 — NO EFFICIENCY, NO MINUTES. The substitution that stood here (0.75) is what made a site
+         * that had entered nothing receive a runtime as confident as a site that had: the figure came from
+         * this file, and the row said it was the system's. `null` travels and the caller reports no runtime.
+         */
+        const efficiency = systemConfig.efficiency;
+        if (efficiency === null || efficiency === undefined || !(efficiency > 0)) {
+            return { totalRuntime: null, cycles: null, runPerCycle: null, soakTime: null, grossDepth: null };
+        }
         const infiltrationRate = systemConfig.soilInfiltration || 25;
         
         const grossDepth = depthMm / (uniformity * efficiency);
@@ -706,7 +718,8 @@
         const systemConfig = {
             precipRate: irrigation.precipRate || CONFIG.sprinklerDefaults.rotorPrecipRate,
             uniformity: irrigation.uniformity || CONFIG.sprinklerDefaults.uniformity,
-            efficiency: irrigation.efficiency || CONFIG.sprinklerDefaults.efficiency,
+            // GH-779: the site's own value or nothing; a stand-in here is a number nobody chose.
+            efficiency: (irrigation.efficiency === undefined ? null : irrigation.efficiency),
             soilInfiltration: waterBalance.soilProps.infiltrationRate
         };
         
@@ -874,7 +887,8 @@
         const systemConfig = {
             precipRate: irrigation.precipRate || CONFIG.sprinklerDefaults.rotorPrecipRate,
             uniformity: irrigation.uniformity || CONFIG.sprinklerDefaults.uniformity,
-            efficiency: irrigation.efficiency || CONFIG.sprinklerDefaults.efficiency,
+            // GH-779: the site's own value or nothing; a stand-in here is a number nobody chose.
+            efficiency: (irrigation.efficiency === undefined ? null : irrigation.efficiency),
             soilInfiltration: waterBalance.soilProps.infiltrationRate
         };
         
@@ -1010,7 +1024,8 @@
             const systemConfig = {
                 precipRate: irrigation.precipRate || 15,
                 uniformity: irrigation.uniformity || 0.8,
-                efficiency: irrigation.efficiency || 0.75,
+                // GH-779: the site's own value or nothing; a stand-in here is a number nobody chose.
+                efficiency: (irrigation.efficiency === undefined ? null : irrigation.efficiency),
                 soilInfiltration: waterBalance.soilProps.infiltrationRate
             };
             const runtime = calculateRuntime(waterBalance.refillDepth, systemConfig);

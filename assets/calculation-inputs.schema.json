@@ -20,6 +20,27 @@
     "    zone, the effective species. Those are named in `derived` below so the equality",
     "    test can exclude them BY NAME, with a reason, instead of by a rule.",
     "",
+    "`storedAs` SAYS AT WHICH PATH, when the config path is not the input's own key. GH-777, the",
+    "reviewer's return: `storedIn: config` alone was not enough, because the reader walked the KEY as",
+    "a path and six inputs are written elsewhere - `schedule.efficiency` lands in",
+    "`irrigation.efficiency`, `soil.moisture` and `turf.rootDepth` and the three Clegg readings in",
+    "`traffic.schedule.*`, the two LED fields in `turf.led.*`. Measured on the stand: 3 sites carry an",
+    "irrigation efficiency and 2 a soil moisture, and every one of them was reported to its own owner",
+    "as not entered. The paths are read from the writers in `assets/settings-init.js`; absent",
+    "`storedAs`, the key IS the path.",
+    "",
+    "`storedIn` SAYS WHERE THE VALUE LIVES WHEN IT EXISTS, and it is a different fact from",
+    "`filledIn`, which says where a PERSON enters it. GH-777 (queue item 4): the server records",
+    "what a site had when a run started, and it was reading the site's config for every input -",
+    "so an input stored elsewhere came out 'not filled' and the client was told it had not",
+    "entered a value it had entered. Measured on the stand: 5 of 21 sites carry",
+    "`sites.soil_texture_override` in the column, and 2 sites carry their PGR application only in",
+    "the spray log. Blame on the client is the worst direction for an error, so the storage is",
+    "declared here and read by name: `config`, `siteColumn`, `sprayLog`, `sampleSet`. An empty",
+    "list means nothing stores it, and the guard holds that against `filledIn` in both",
+    "directions - an input nobody fills is an input nothing stores, and a storage with no reader",
+    "on the server is red on the day it is declared.",
+    "",
     "`required: null` MEANS THE OWNER HAS NOT DECIDED, and it travels with `decision`.",
     "It is not a guess and not a default: a warning built from this list stays silent",
     "about such an input until she answers.",
@@ -40,11 +61,15 @@
         "wizard.step1",
         "settings.site"
       ],
+      "storedIn": [
+        "config"
+      ],
       "readAs": [
         "climate.lat",
         "climate.latitude",
         "turf.lat"
-      ]
+      ],
+      "label": "the site latitude"
     },
     "location.lon": {
       "required": true,
@@ -52,16 +77,24 @@
         "wizard.step1",
         "settings.site"
       ],
+      "storedIn": [
+        "config"
+      ],
       "readAs": [
         "climate.lon"
-      ]
+      ],
+      "label": "the site longitude"
     },
     "turf.turfType": {
       "required": true,
       "filledIn": [
         "wizard.step2",
         "settings.turf"
-      ]
+      ],
+      "storedIn": [
+        "config"
+      ],
+      "label": "the turf type"
     },
     "turf.subCategory": {
       "required": false,
@@ -83,10 +116,14 @@
       "filledIn": [
         "settings.turf"
       ],
+      "storedIn": [
+        "config"
+      ],
       "readAs": [
         "turf.surfaceType",
         "soil.surfaceType"
-      ]
+      ],
+      "label": "the surface or area"
     },
     "turf.species": {
       "required": true,
@@ -94,9 +131,13 @@
         "wizard.step3",
         "settings.turf"
       ],
+      "storedIn": [
+        "config"
+      ],
       "readAs": [
         "turf.grassSpecies"
-      ]
+      ],
+      "label": "the grass species"
     },
     "turf.variety": {
       "required": true,
@@ -104,15 +145,22 @@
         "wizard.step3",
         "settings.turf"
       ],
+      "storedIn": [
+        "config"
+      ],
       "readAs": [
         "turf.cultivar"
-      ]
+      ],
+      "label": "the cultivar or variety"
     },
     "turf.construction": {
       "required": true,
       "filledIn": [
         "wizard.step3",
         "settings.turf"
+      ],
+      "storedIn": [
+        "config"
       ],
       "readAs": [
         "site.construction",
@@ -282,7 +330,8 @@
             "slanSoilType": "others"
           }
         }
-      }
+      },
+      "label": "the construction type"
     },
     "turf.rootDepth": {
       "required": false,
@@ -291,15 +340,27 @@
         "settings.trafficAndWear",
         "settings.turf"
       ],
+      "storedIn": [
+        "config"
+      ],
+      "storedAs": [
+        "traffic.schedule.rootDepth"
+      ],
       "readAs": [
         "schedule.rootDepth"
-      ]
+      ],
+      "label": "the estimated root depth",
+      "explainToClient": false,
+      "explainToClientBecause": "GH-777 (queue item 4) - NO SENTENCE, and the reason is the address rather than the words. The field stands in Settings -> Traffic & Wear, a tab `settings.blade.php` shows only to a sports site, so for golf and lawns the sentence would send a person to a tab they do not have (the analyst's 49.1). The label stays for an administrator's Details; the client's sentence waits for the field to move (item 3ah)."
     },
     "turf.methodology": {
       "required": true,
       "filledIn": [
         "wizard.step3",
         "settings.turf"
+      ],
+      "storedIn": [
+        "config"
       ],
       "readAs": [
         "soil.methodology"
@@ -360,7 +421,8 @@
           "lab": "Hill Labs NZ",
           "description": "Hill Labs NZ — Olsen P + NH₄OAc extraction."
         }
-      }
+      },
+      "label": "the soil test methodology"
     },
     "turf.nProgram": {
       "required": null,
@@ -368,87 +430,135 @@
       "filledIn": [
         "settings.turf"
       ],
+      "storedIn": [
+        "config"
+      ],
       "readAs": [
         "turf.plannedNRate",
         "turf.nProgramKgHaYr",
         "turf.nRate"
-      ]
+      ],
+      "label": "the annual nitrogen target"
     },
     "turf.hoc": {
       "required": false,
       "filledIn": [
         "settings.turf"
       ],
+      "storedIn": [
+        "config"
+      ],
       "readAs": [
         "turf.heightOfCut",
         "pgr.mowingHeightMM"
-      ]
+      ],
+      "label": "the height of cut"
     },
     "turf.overseedStatus": {
       "required": false,
       "filledIn": [
         "settings.turf"
-      ]
+      ],
+      "storedIn": [
+        "config"
+      ],
+      "label": "the overseed status"
     },
     "turf.overseedSpecies": {
       "required": false,
       "filledIn": [
         "settings.turf"
-      ]
+      ],
+      "storedIn": [
+        "config"
+      ],
+      "label": "the overseed species",
+      "explainToClient": false,
+      "explainToClientBecause": "GH-777 (queue item 4) - NO SENTENCE while two keys answer for one field. `turf.overseedSpecies` and `turf.coolOverseed` are both written from `stg-turf-cool-overseed`, and which of the two a reader should be pointed at is item 3ah's subject (the analyst's 49.1). Naming the wrong one is worse than naming none."
     },
     "turf.overseedVariety": {
       "required": false,
       "filledIn": [
         "settings.turf"
-      ]
+      ],
+      "storedIn": [
+        "config"
+      ],
+      "label": "the overseed variety"
     },
     "turf.summerIntent": {
       "required": false,
       "filledIn": [
         "settings.turf"
       ],
+      "storedIn": [
+        "config"
+      ],
       "readAs": [
         "turf.overseedSummerIntent"
-      ]
+      ],
+      "label": "the summer management intent"
     },
     "turf.coolOverseed": {
       "required": false,
       "filledIn": [
         "settings.turf"
-      ]
+      ],
+      "storedIn": [
+        "config"
+      ],
+      "label": "the overseed species",
+      "explainToClient": false,
+      "explainToClientBecause": "GH-777 (queue item 4) - NO SENTENCE, the twin of `turf.overseedSpecies`: one Settings field, two keys, and item 3ah decides which is the one to name."
     },
     "turf.companionSpecies": {
       "required": false,
       "filledIn": [
         "settings.turf"
-      ]
+      ],
+      "storedIn": [
+        "config"
+      ],
+      "label": "the fairway and tee species"
     },
     "turf.poaPercent": {
       "required": false,
       "filledIn": [
         "settings.turf"
-      ]
+      ],
+      "storedIn": [
+        "config"
+      ],
+      "label": "the Poa annua content"
     },
     "turf.percentC3Cover": {
       "required": false,
       "$comment": "GH-757 (queue item 3ah) - NOBODY FILLS THIS IN. The entry said `settings.turf`, and Settings carries no such field: measured, `percentC3Cover` appears 0 times in settings.blade.php and in settings-init.js, and the value is absent on all 14 stand sites. FIVE places READ it - climate-module-v2.js, disease-integration.js twice, climate-module-v2-ui.js, gaip-field-log-analysis.js - so the entry stays: a read with no entry is the defect this file exists against. What changes is the promise: `filledIn` is empty because no surface fills it.",
-      "filledIn": []
+      "filledIn": [],
+      "storedIn": [],
+      "label": "the C3 cover"
     },
     "turf.warmBase": {
       "required": false,
       "$comment": "GH-757 (queue item 3ah) - NOBODY FILLS THIS IN either. `warmBase` appears 0 times in Settings and is absent on all 14 stand sites, while climate-module-v2.js, disease-integration.js, ambient-dli-engine.js and contradiction-detector.js twice read it. The entry stays for the readers; the promise of a writer does not.",
-      "filledIn": []
+      "filledIn": [],
+      "storedIn": [],
+      "label": "the warm-season base grass"
     },
     "sites.soil_texture_override": {
       "required": false,
       "filledIn": [
         "settings.turf"
       ],
+      "storedIn": [
+        "siteColumn"
+      ],
       "readAs": [
         "soil.soilTexture",
         "soil.type",
         "site.soilType"
-      ]
+      ],
+      "label": "the soil texture"
     },
     "traffic.schedule": {
       "required": false,
@@ -457,6 +567,9 @@
       ],
       "filledIn": [
         "settings.trafficAndWear"
+      ],
+      "storedIn": [
+        "config"
       ],
       "readAs": [
         "traffic.level",
@@ -473,66 +586,66 @@
         "traffic.restDays",
         "traffic.matchCode",
         "traffic.trainingCode"
-      ]
-    },
-    "pgr.enabled": {
-      "required": false,
-      "filledIn": [
-        "settings.turf"
       ],
-      "readAs": [
-        "turf.pgrActive"
-      ],
-      "$comment": [
-        "GH-725 (queue item 3bo, the reviewer's return) - THE ANSWER THE PERSON GIVES ABOUT PGR, AND",
-        "IT WAS READ BEFORE IT WAS DECLARED. The repair of this very item made the run read",
-        "`config.pgr.enabled` in `gaip_transformToCascadeFormat`, and the list said nothing about it:",
-        "the rule is that a new input joins this list FIRST, and the guards of this file stayed green",
-        "because they see the reads that are declared, not the reads that exist.",
-        "",
-        "Filled in by the PGR switch in Settings; the run assembles it into `turf.pgrActive`, which is",
-        "declared under `derived` rather than here, because it is worked out from this answer.",
-        "",
-        "WHAT ITS ABSENCE COSTS: the shade engine's `currentlyActive` and `conflictDetected` have no",
-        "answer to give, so a PGR conflict is neither asserted nor denied. That effect is NOT written",
-        "as a `whenAbsent` pair yet, and the reason is a rule rather than an oversight: a declared pair",
-        "must have a module that RECORDS it, the guard holds both directions, and the recorder for the",
-        "run's own side is the next delivery of item 3ay. Declaring the pair today would make that",
-        "guard red about nothing."
-      ]
+      "label": "the match and training schedule"
     },
     "pgr.productType": {
       "required": false,
       "filledIn": [
         "settings.turf",
         "data.sprayLog"
-      ]
+      ],
+      "storedIn": [
+        "config",
+        "sprayLog"
+      ],
+      "label": "a PGR application"
     },
     "pgr.applicationDate": {
       "required": false,
       "filledIn": [
         "settings.turf",
         "data.sprayLog"
-      ]
+      ],
+      "storedIn": [
+        "config",
+        "sprayLog"
+      ],
+      "label": "a PGR application"
     },
     "schedule.efficiency": {
       "required": false,
       "filledIn": [
-        "settings.turf"
-      ]
+        "settings.irrigation"
+      ],
+      "storedIn": [
+        "config"
+      ],
+      "storedAs": [
+        "irrigation.efficiency"
+      ],
+      "label": "the irrigation system efficiency",
+      "explainToClient": false,
+      "explainToClientBecause": "GH-777 (queue item 4) - NO SENTENCE while the address is wrong. This entry promises `settings.turf`; the field is in Settings -> Site settings, in the irrigation block (the analyst's 49.1). A sentence with a wrong address is worse than none. GH-779 corrected the address -- `filledIn` now says `settings.irrigation`, where the field actually is -- so the reason for this switch is spent. Turning the sentence ON is a change to what a client reads and belongs to the owner; it has not been decided, so the switch stands and says why."
     },
     "schedule.uniformity": {
       "required": false,
-      "filledIn": [
-        "settings.turf"
+      "decided": "owner, 29.09.2026: these two are NOT asked for, and a person is not told that nothing fills them in. The entry stays because a reader exists; no field is added to Settings and no sentence is added for a client. GH-777.",
+      "$comment": "GH-777 (queue item 4) - NOBODY FILLS IT IN, AND THE ENTRY SAYS SO. Measured: `uniformity` has 0 input surfaces - not Settings, not the wizard, not the /hub form - and 0 of the 21 live sites carry it under any path. Its one reader is `assets/irrigation-scheduler.js`, which substitutes 0.8 in four places (`:609-610`, `:707-708`, `:875-876`, `:1011-1012`), and what the two of them change is the irrigation RUNTIME in minutes and the gross depth (`:614-618`) - printed on the hidden /hub panel only, so no client screen changes either way. The entry stays because a read with no entry is the defect this file exists against, and the promise of a writer goes. THE OWNER ANSWERED on 29.09.2026 and `decided` carries it: the two numbers are not asked for and the person is not told they are unfilled, so `required` is `false` rather than the open `null` it was for the few hours between the question and her answer. Her decision lives here rather than only in a conversation, which is the form eight records were lost in on 25.09. The reader's path is declared under `readAs`: nothing STORES this input, so it has no `storedIn` path to give. The analyst's working-out is `PLAN-irrigation-uniformity-precip-entries-RU.md`, 29.09.2026.",
+      "filledIn": [],
+      "storedIn": [],
+      "readAs": [
+        "irrigation.uniformity"
       ]
     },
     "schedule.precipRate": {
       "required": false,
-      "filledIn": [
-        "settings.turf"
-      ],
+      "decided": "owner, 29.09.2026: these two are NOT asked for, and a person is not told that nothing fills them in. The entry stays because a reader exists; no field is added to Settings and no sentence is added for a client. GH-777.",
+      "$comment": "GH-777 (queue item 4) - NOBODY FILLS IT IN, AND THE ENTRY SAYS SO. Measured: `precipRate` has 0 input surfaces - not Settings, not the wizard, not the /hub form - and 0 of the 21 live sites carry it under any path. Its one reader is `assets/irrigation-scheduler.js`, which substitutes 15 mm/h in four places (`:609-610`, `:707-708`, `:875-876`, `:1011-1012`), and what the two of them change is the irrigation RUNTIME in minutes and the gross depth (`:614-618`) - printed on the hidden /hub panel only, so no client screen changes either way. The entry stays because a read with no entry is the defect this file exists against, and the promise of a writer goes. THE OWNER ANSWERED on 29.09.2026 and `decided` carries it: the two numbers are not asked for and the person is not told they are unfilled, so `required` is `false` rather than the open `null` it was for the few hours between the question and her answer. Her decision lives here rather than only in a conversation, which is the form eight records were lost in on 25.09. The reader's path is declared under `readAs`: nothing STORES this input, so it has no `storedIn` path to give. The analyst's working-out is `PLAN-irrigation-uniformity-precip-entries-RU.md`, 29.09.2026.",
+      "filledIn": [],
+      "storedIn": [],
       "readAs": [
+        "irrigation.precipRate",
         "schedule.sprinklerPrecipRate"
       ]
     },
@@ -541,14 +654,21 @@
       "filledIn": [
         "settings.site"
       ],
+      "storedIn": [
+        "config"
+      ],
       "readAs": [
         "climate.manual"
-      ]
+      ],
+      "label": "the manual weather values"
     },
     "samples.soil": {
       "required": false,
       "filledIn": [
         "data.soil"
+      ],
+      "storedIn": [
+        "sampleSet"
       ],
       "readings": "readingKeysFor:soil",
       "whenAbsent": {
@@ -602,12 +722,16 @@
         "soil.pH",
         "soil.pH_Water",
         "soil.soil_ph"
-      ]
+      ],
+      "label": "a soil test"
     },
     "samples.water": {
       "required": false,
       "filledIn": [
         "data.water"
+      ],
+      "storedIn": [
+        "sampleSet"
       ],
       "readings": "readingKeysFor:water",
       "readAs": [
@@ -622,52 +746,71 @@
         "water.B",
         "water.HCO3",
         "water.recycledWater"
-      ]
+      ],
+      "label": "a water test"
     },
     "samples.tissue": {
       "required": false,
       "filledIn": [
         "data.tissue"
       ],
+      "storedIn": [
+        "sampleSet"
+      ],
       "readings": "readingKeysFor:tissue",
       "readAs": [
         "tissue.N"
-      ]
+      ],
+      "label": "a tissue test"
     },
     "soil.bulkDensity": {
       "required": null,
       "decision": "owner: is bulk density a property of the sample or of the site",
       "filledIn": [],
+      "storedIn": [],
       "readAs": [
         "soil.bd"
-      ]
+      ],
+      "label": "the soil bulk density"
     },
     "soil.samplingDepth": {
       "required": null,
       "decision": "owner: is sampling depth a property of the sample or of the site",
       "filledIn": [],
+      "storedIn": [],
       "readAs": [
         "soil.depthCm"
-      ]
+      ],
+      "label": "the soil sampling depth"
     },
     "soil.clay": {
       "required": false,
       "$comment": "GH-757 (queue item 3ah) - THE DATA PAGE DOES NOT TAKE IT. The entry said `data.soil`, and measured, `clay` appears 0 times in data.blade.php; the value is absent on all 14 stand sites. One reader: soil-structure-engine.js, which falls back to 20 when it is missing - a substitution named here rather than left in the engine's argument list.",
       "filledIn": [],
-      "readings": "readingKeysFor:soil"
+      "storedIn": [],
+      "readings": "readingKeysFor:soil",
+      "label": "the clay content of the soil test"
     },
     "irrigation.method": {
       "filledIn": [
         "settings.irrigation"
       ],
-      "required": false
+      "storedIn": [
+        "config"
+      ],
+      "required": false,
+      "label": "the irrigation method"
     },
     "turf.drainage": {
       "$comment": "read by the firmness engine through the cascade delegate `gaip_firmness_engine(e, t)` — the read GH-644 could not see (analyst 59.1)",
       "filledIn": [
         "settings.turf"
       ],
-      "required": false
+      "storedIn": [
+        "config"
+      ],
+      "required": false,
+      "label": "the drainage rate"
     },
     "turf.cleggHammer": {
       "$comment": "the three Clegg readings the firmness engine takes: mean Gmax, hardest zone, softest zone",
@@ -678,19 +821,42 @@
       "filledIn": [
         "settings.trafficAndWear"
       ],
-      "required": false
+      "storedIn": [
+        "config"
+      ],
+      "storedAs": [
+        "traffic.schedule.cleggMean",
+        "traffic.schedule.cleggHard",
+        "traffic.schedule.cleggSoft"
+      ],
+      "required": false,
+      "label": "the Clegg hammer readings"
     },
     "turf.ledPPFD": {
       "filledIn": [
         "settings.turf"
       ],
-      "required": false
+      "storedIn": [
+        "config"
+      ],
+      "storedAs": [
+        "turf.led.ppfd"
+      ],
+      "required": false,
+      "label": "the LED light intensity (PPFD)"
     },
     "turf.ledHours": {
       "filledIn": [
         "settings.turf"
       ],
-      "required": false
+      "storedIn": [
+        "config"
+      ],
+      "storedAs": [
+        "turf.led.hours"
+      ],
+      "required": false,
+      "label": "the LED hours per day"
     },
     "soil.moisture": {
       "readAs": [
@@ -699,8 +865,37 @@
       "filledIn": [
         "settings.trafficAndWear"
       ],
-      "required": false
+      "storedIn": [
+        "config"
+      ],
+      "storedAs": [
+        "traffic.schedule.moisture"
+      ],
+      "required": false,
+      "label": "the current soil moisture"
     }
+  },
+  "places": {
+    "$comment": [
+      "GH-777 (queue item 4) - WHERE A PERSON GOES, one name per place and not one per input.",
+      "",
+      "The sentence a client reads is `{Module} was not calculated because {label} has not been entered.",
+      "Add it in {place}.` -- the owner's form, approved 24.09.2026. `filledIn` carries the KEY of a place;",
+      "these are its words, written once. An input with no place gets no sentence at all, which is the",
+      "analyst's rule of 49.1: an address that is wrong is worse than none.",
+      "",
+      "The wizard's steps are deliberately absent: a person does not go back to them (the analyst's 49.3).",
+      "Words drafted by the analyst from the tab buttons of `settings.blade.php` and `data.blade.php`, and",
+      "they are hers to change without a line of code changing."
+    ],
+    "settings.site": "Settings -> Site settings",
+    "settings.turf": "Settings -> Turf profile",
+    "settings.trafficAndWear": "Settings -> Traffic & Wear",
+    "settings.irrigation": "Settings -> Site settings",
+    "data.soil": "Data -> Soil",
+    "data.water": "Data -> Water",
+    "data.tissue": "Data -> Tissue",
+    "data.sprayLog": "Data -> Spray Log"
   },
   "notInputs": {
     "$comment": [
@@ -729,7 +924,7 @@
     "site.country": "READ BY TWO ENGINES AND FILLED BY NOTHING, measured under GH-725: `assets/gilba-hub-v2.js` / `country: null` is the only place it is set, so both readers always see null -- `assets/ambient-dli-engine.js` / `detectRegion(lat, lon, state?.site?.country)`, where it is only an alternative to a coordinate box. GH-727 left it with that one reader: the pre-emergent builder keyed a New Zealand branch on it, and it now asks the site's own coordinates by id instead. Whether it should be asked for is not settled here"
   },
   "derived": {
-    "turf.pgrActive": "from `pgr.enabled`, the PGR switch in Settings, assembled by `assets/hub-tissue-v3.js` / `gaip_transformToCascadeFormat`. GH-725 (queue item 3bo) made this true and the record did not follow: it used to say NOT PRODUCED ANYWHERE and that the engines consulting it always see false, which was measured and correct until the same item's repair. An unanswered switch stays `null` rather than becoming `false`. The reviewer's return named this record: a list that is wrong about itself is the defect this item exists to remove.",
+    "turf.pgrActive": "from the last PGR application in the spray journal and the window the PGR engine owns (`GAIP_PGR.isInUse`, ninety days), assembled by `assets/hub-tissue-v3.js` / `gaip_transformToCascadeFormat`. GH-780 (queue item 3vc) moved it off `pgr.enabled`, the switch the owner removed on 29.09.2026: there is no switch, and a site is using a PGR when its journal says so. Three answers, not two: an application inside the window is `true`, one outside it or none at all is `false` -- the journal is the complete record -- and no answer from the journal is `null`, so the shade advice neither asserts nor denies a conflict.",
     "$comment": [
       "Not inputs: worked out from an input rather than asked for. Named one by one so",
       "the equality test excludes them with a reason instead of by a rule that would",

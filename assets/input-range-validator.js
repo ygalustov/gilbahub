@@ -411,7 +411,18 @@
         // matter for the AA certificate lookup).
         const methodology = state.soil && state.soil.methodology;
         const texture = state.soil && state.soil.soilTexture;
-        const species = state.turf && (state.turf.grassSpecies || state.turf.warmBase);
+        /**
+         * GH-782 (queue item 3ga) - THE SAME ONE FUNCTION as the AA range overlay asks.
+         *
+         * This read the published page state and got the right species - but only because a merge lets the
+         * store's keys win (b35fix391). It was right by coincidence while the calculation beside it was wrong,
+         * which is exactly how two readers of one question drift. Both ask the site now.
+         */
+        const HLS_SPECIES = (typeof window !== 'undefined' && window.HillLabsSampleTypes)
+            || (typeof globalThis !== 'undefined' && globalThis.HillLabsSampleTypes) || null;
+        const species = (HLS_SPECIES && typeof HLS_SPECIES.speciesOfTheSite === 'function')
+            ? HLS_SPECIES.speciesOfTheSite(state)
+            : (state.turf && (state.turf.grassSpecies || state.turf.warmBase));
 
         const soil = validateSoil(state.soil, methodology, texture, species);
         const water = validateWater(state.water);

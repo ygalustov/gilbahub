@@ -58,6 +58,9 @@ const asset = (f) => path.join(__dirname, '..', 'assets', f);
 const READ_BUT_NOT_CLEARED = {
     GaipOrchestrator:           { perSite: false, is: 'the engine module; asked for state, does not keep it across sites' },
     GAIP_SampleManager:         { perSite: false, is: 'the sample module; every read is by site id' },
+    // GH-778: the one function that answers "which sample is this run computing on". It reads the frame's
+    // own address and the sample module, and keeps nothing, so a site switch has nothing to clear in it.
+    gaip_sampleInHand:          { perSite: false, is: 'the chooser of this run’s sample; reads the address, keeps nothing' },
     GAIP_SiteContext:           { perSite: false, is: 'the pointer to the site being run, which is the question, not an answer' },
     GaipZoneKey:                { perSite: false, is: 'zone-key.js, a pure naming helper' },
     GilbaMulders:               { perSite: false, is: 'mulders-interaction-checker.js, a calculator' },

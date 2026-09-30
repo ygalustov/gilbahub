@@ -32,8 +32,46 @@
   ],
   "version": 1,
   "nodes": {
+    "confidence": {
+      "id": "confidence",
+      "module": "confidence",
+      "label": "Analysis Confidence Summary",
+      "labelFrom": "GH-777 (queue item 4, slice 2): the words a person reads for this step are the panel's (`STEP_NAMES['confidence']` = `Analysis confidence`), and GH-572's rule is that the panel takes its words FROM the node's label -- so the label has to carry them. `Engine Confidence Summary` was my own wording and would have made the module the one exception to that rule.",
+      "category": "integration",
+      "outputs": [
+        "computed.confidence"
+      ],
+      "after": [
+        "climate-engine",
+        "soil-temp-physics",
+        "dew-prediction-engine",
+        "shade-engine",
+        "salinity-penalty-engine",
+        "stress-aggregator",
+        "disease-engine",
+        "wear-recovery-engine",
+        "stress-trajectory-engine",
+        "disease-forecast",
+        "pre-emergent-engine"
+      ],
+      "runner": "orchestrator",
+      "handle": "assets/engine-confidence.js:getConfidenceSummary",
+      "page": [
+        "hub",
+        "reports/export",
+        "reports/forensic",
+        "reports/scenarios",
+        "stadium"
+      ],
+      "pageIsIntent": "DECLARED INTENT, and it is a SECOND caller rather than a second producer. `assets/confidence-ui-integration.js:64` asks for the summary to decorate what is already on the screen, and that file is loaded by these five views -- which is why the walk finds the pair on each of them. The pass is what PRODUCES `computed.confidence`; the page's call writes nothing and stores nothing. Measured for GH-777: `getConfidenceSummary` has exactly two callers in `assets`, this decorator and the pass.",
+      "requires": [],
+      "uses": [],
+      "measured": "GH-777 (queue item 4, slice 2) - A MEMBER OF THE PASS THAT THE GRAPH DID NOT KNOW. The pass has called this last since v1.3.0 (`hub-orchestrator.js`, `attempting(\"confidence\")` then `GilbaEngineConfidence.getConfidenceSummary(_hubState)`), and its result is in 14 of 14 rows since 25.09 as `computed.confidence` - while the graph said nothing about it. The walk that replaces the pass's eleven hand-written gates reads THIS file to know who runs, so a member with no node would have lost its account of itself the day the walk arrived. `runner` and `handle` come from that call site, the output from the stored rows. `after` is every other node of the pass, because the summary reads the whole state the pass has built and can only be last. `requires` is empty on purpose: a summary of what the other engines did needs no input of the client's, and its absence is a module that failed to load rather than a site that is not a case for it.",
+      "sightBoundary": "`assets/gilba-hub-v2.js:1546` installs a STUB `GilbaEngineConfidence` when the real module did not load, and the stub answers `wrapEngineOutput` only. So `getConfidenceSummary` is absent rather than wrong in that case, the pass produces no summary, and the end-of-pass sweep names it - which is the truth: nothing was computed. Measured, not reasoned: the stub carries no `getConfidenceSummary` key."
+    },
     "climate-engine": {
       "id": "climate-engine",
+      "module": "climate",
       "label": "Climate Engine",
       "category": "foundation",
       "outputs": [
@@ -62,6 +100,7 @@
     },
     "soil-temp-physics": {
       "id": "soil-temp-physics",
+      "module": "soil-temp-physics",
       "label": "Soil Temperature",
       "category": "foundation",
       "outputs": [
@@ -88,8 +127,9 @@
       "label": "Ambient DLI Engine",
       "category": "foundation",
       "outputs": [
-        "computed.ambientDLI"
+        "derived.ambientDLI"
       ],
+      "outputWasCalled": "GH-777 (queue item 4, slice 2) - `computed.ambientDLI`, A ROW KEY NOBODY WRITES. Measured: absent from all 14 stored rows since 25.09, and no writer exists in either pass. What the engine's number actually does is go INTO another engine's input -- the pass calls it inside `buildShadeInputs` (`hub-orchestrator.js:3201`) and puts the value in `shadeState.turf.ambientDLI`, and where it reaches the row is `computed.shade.modular.ambientDLI`, written by the shade engine. So the node has no output of its own, and saying otherwise is what would have broken the pass: the walk of this slice registers a node as something the run must produce, and this one would have been reported as produced-nothing on every site -- 13 of 13 turning partial and a client reading `Ambient DLI was not calculated`. `derived.*` is the graph's own word for work that is not a row key -- `climate-engine` declares `derived.growthPotential` the same way -- and it is what the shade engine reads as `ambientDLI.current`. The node keeps its runners and its handle: both passes do reach it.",
       "after": [
         "climate-engine"
       ],
@@ -109,6 +149,7 @@
     },
     "dew-prediction-engine": {
       "id": "dew-prediction-engine",
+      "module": "dew",
       "label": "Dew Prediction Engine",
       "category": "environmental",
       "outputs": [
@@ -133,6 +174,7 @@
     },
     "shade-engine": {
       "id": "shade-engine",
+      "module": "shade",
       "label": "Shade Engine",
       "category": "environmental",
       "outputs": [
@@ -197,6 +239,7 @@
     },
     "salinity-penalty-engine": {
       "id": "salinity-penalty-engine",
+      "module": "salinity",
       "label": "Salinity Penalty Engine",
       "category": "environmental",
       "outputs": [
@@ -254,6 +297,7 @@
     },
     "soil-structure-engine": {
       "id": "soil-structure-engine",
+      "module": "soilStructure",
       "label": "Soil Structure",
       "category": "environmental",
       "outputs": [
@@ -278,6 +322,7 @@
     },
     "phytotoxicity-engine": {
       "id": "phytotoxicity-engine",
+      "module": "phytotoxicity",
       "label": "Phytotoxicity Engine",
       "category": "environmental",
       "outputs": [
@@ -308,6 +353,7 @@
     },
     "stress-aggregator": {
       "id": "stress-aggregator",
+      "module": "stress",
       "label": "Stress Aggregator",
       "category": "integration",
       "outputs": [
@@ -331,6 +377,7 @@
     },
     "tissue-engine": {
       "id": "tissue-engine",
+      "module": "tissue",
       "label": "Tissue Engine",
       "category": "nutrition",
       "outputs": [
@@ -339,7 +386,9 @@
       "after": [],
       "runner": "cascade",
       "handle": "assets/cascade-orchestrator.js:executeTissueEngine",
-      "requires": [],
+      "requires": [
+        "samples.tissue"
+      ],
       "uses": [
         "soil.pH_cacl2",
         "soil.pH_water",
@@ -356,6 +405,7 @@
     },
     "mlsn-calculator": {
       "id": "mlsn-calculator",
+      "module": "mlsn",
       "label": "MLSN Calculator",
       "category": "nutrition",
       "outputs": [
@@ -367,7 +417,9 @@
       ],
       "runner": "cascade",
       "handle": "assets/cascade-orchestrator.js:executeMLSNEngine",
-      "requires": [],
+      "requires": [
+        "samples.soil"
+      ],
       "uses": [
         "climate.lat",
         "climate.latitude",
@@ -493,6 +545,7 @@
     },
     "disease-engine": {
       "id": "disease-engine",
+      "module": "disease",
       "label": "Disease Engine",
       "category": "analysis",
       "outputs": [
@@ -556,6 +609,7 @@
     },
     "wear-recovery-engine": {
       "id": "wear-recovery-engine",
+      "module": "wear",
       "label": "Wear & Recovery Engine",
       "category": "analysis",
       "outputs": [
@@ -601,6 +655,7 @@
     },
     "firmness-engine": {
       "id": "firmness-engine",
+      "module": "firmness",
       "label": "Firmness Engine",
       "category": "analysis",
       "outputs": [
@@ -648,7 +703,8 @@
     },
     "nopt-engine": {
       "id": "nopt-engine",
-      "label": "N-Opt Engine",
+      "module": "nitrogen",
+      "label": "Nitrogen Programme Engine",
       "category": "analysis",
       "outputs": [
         "computed.nitrogen.opt",
@@ -679,6 +735,7 @@
     },
     "traffic-engine": {
       "id": "traffic-engine",
+      "module": "traffic",
       "label": "Traffic Engine",
       "category": "analysis",
       "outputs": [
@@ -711,6 +768,7 @@
     },
     "turf-manager-engine": {
       "id": "turf-manager-engine",
+      "module": "turfManager",
       "label": "Turf Manager Engine",
       "category": "planning",
       "outputs": [
@@ -773,6 +831,7 @@
     },
     "water-blender": {
       "id": "water-blender",
+      "module": "water",
       "label": "Water Quality",
       "category": "planning",
       "outputs": [
@@ -795,6 +854,7 @@
     },
     "stress-trajectory-engine": {
       "id": "stress-trajectory-engine",
+      "module": "stress-trajectory",
       "label": "Stress Trajectory Engine",
       "category": "forecast",
       "outputs": [
@@ -858,6 +918,7 @@
     },
     "disease-forecast": {
       "id": "disease-forecast",
+      "module": "forecast",
       "label": "Disease Forecast",
       "category": "forecast",
       "outputs": [
@@ -915,6 +976,7 @@
     },
     "pre-emergent-engine": {
       "id": "pre-emergent-engine",
+      "module": "pre-emergent",
       "label": "Pre-Emergent Timing",
       "category": "advisory",
       "outputs": [

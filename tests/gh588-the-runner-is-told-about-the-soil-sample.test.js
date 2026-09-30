@@ -29,6 +29,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { pressRerun, queryOf } = require('./lib/rerun-opener');
+const { giveItTheChooser } = require('./lib/sample-chooser');
 const { realReadingsOf } = require('./lib/sample-readings');
 
 const ASSETS = path.join(__dirname, '..', 'assets');
@@ -83,6 +84,10 @@ function loadOpener(serverAnswer) {
     };
     sandbox.window = sandbox; sandbox.global = sandbox; sandbox.globalThis = sandbox;
     const ctx = vm.createContext(sandbox);
+    // GH-778: the write path asks one function which sample this run computes on, and that function lives
+    // in `hub-tissue-v3.js`. A bench executing the producer alone has none, and every such place answers
+    // `null`. The product's own chooser is lifted in, not stubbed.
+    giveItTheChooser(ctx);
     vm.runInContext(testSrc, ctx, { filename: 'dashboard-ui.js' });
     expect(typeof ctx.__test_askServerForSoilSample).toBe('function');
     return { ask: ctx.__test_askServerForSoilSample, requested };
@@ -136,6 +141,8 @@ describe('GH-588 — the opener asks the server, and three answers stay three', 
  * holding the timer the runner sets.
  */
 function runRunner({ soilParam, sampleArrivesAt, search, sampleColumns = { K: 40, Ca: 803 } }) {
+                // GH-778: the store keys a sample by the client's own key and holds its row id in
+                // `serverId`; the address names the row, which is a sample's one name.
     const src = fs.readFileSync(path.join(ASSETS, 'hub-persistence.js'), 'utf8');
     const exportLine = 'global.GilbaPersistence = GilbaPersistence;';
     expect(src).toContain(exportLine);
@@ -205,14 +212,19 @@ function runRunner({ soilParam, sampleArrivesAt, search, sampleColumns = { K: 40
     // fixtures came to describe a sample shape the run never meets.
     sandbox.GAIP_SampleManager = {
         readingsOf: realReadingsOf(),
-        getSamples: () => [],
+        // GH-778: a named sample is looked up in the store BY ITS ROW ID, so a bench whose store is empty
+        // describes a page that holds nothing — which is not the state these three cases are about.
+        getSamples: (t) => ((t === 'soil' && sampleThere)
+            ? [{ id: 'sample_141', serverId: 141, rawData: sampleColumns }] : []),
         getAllSamples: () => ({ allSites: {}, allActive: {}, allMeta: {}, sites: {} }),
         getActiveSample: (t) => (t === 'soil' && sampleThere
-            ? { id: 'sample_141', rawData: sampleColumns } : null),
+            ? { id: 'sample_141', serverId: 141, rawData: sampleColumns } : null),
     };
     sandbox.GaipOrchestrator = { noteSkipped: (...a) => skipped.push(a), recordProblem() {}, getState: () => ({ computed: {} }) };
 
     const ctx = vm.createContext(sandbox);
+    // GH-778: this bench executes the row producer too, so it needs the product's chooser of a sample.
+    giveItTheChooser(ctx);
     vm.runInContext(src.replace(exportLine, exportLine + '\n    global.__test_state = function () { return { skipped: skipped }; };'),
         ctx, { filename: 'hub-persistence.js' });
 
@@ -257,11 +269,24 @@ describe('GH-588 — the runner receives a fact and the three states end differe
     test('STATE 2: told there is a sample, and it is there — the result is written', async () => {
         // The control the other two are read against. Without it "nothing was
         // written" below could mean the harness never got that far.
-        const h = runRunner({ soilParam: 'sample_141', sampleArrivesAt: 0 });
+        const h = runRunner({ soilParam: '141', sampleArrivesAt: 0 });
         driveAnOrdinaryPass(h);
         await settle();
 
         expect(h.posted.map((p) => p[0])).toEqual(['result']);
+
+        /**
+         * GH-778 — AND THE BODY SAYS WHICH SAMPLE THE RUN USED, by its row id.
+         *
+         * The field used to carry the NAMED id where there was one, so it said what the opener asked for
+         * rather than what the engines read; with nothing named it carried the client store's own key, so the
+         * field held two kinds of name depending on the path. It carries the row id of the sample the chooser
+         * handed to the calculation, and what the run was told stays separately in `detail.runStart.named`.
+         */
+        const body = h.posted[0][1];
+        process.stdout.write('[gh588] the body says it computed on: '
+            + JSON.stringify(body && body.inputs && body.inputs.samples) + '\n');
+        expect(body.inputs.samples.soil).toBe('141');
     });
 
     test('STATE 1: told there is NO sample — the run still completes, and says why the soil is absent', async () => {
@@ -270,11 +295,22 @@ describe('GH-588 — the runner receives a fact and the three states end differe
         await settle();
 
         expect(h.posted.map((p) => p[0])).toEqual(['result']);
-        expect(h.skipped.map((s) => s.slice(0, 3))).toContainEqual(['mlsn', 'mlsn', 'no-soil-sample']);
+        /**
+         * GH-777 (queue item 4, slice 3) — WHO SAYS IT HAS CHANGED, AND THE CONSEQUENCE HAS NOT.
+         *
+         * The row producer used to write `no-soil-sample` here by hand. The MLSN node declares
+         * `requires: ["samples.soil"]` now, and the gate of the pass records the module as not applicable
+         * with the input named -- one declaration for every module of the cascade instead of one check for
+         * the soil half alone. This bench executes the PRODUCER only, with a stub orchestrator, so the
+         * record cannot appear in it; what it can hold, and does, is that the producer no longer states the
+         * fact itself. The recorded reason is measured on the real adapter in
+         * `tests/gh777-what-a-node-cannot-run-without.test.js`.
+         */
+        expect(h.skipped.map((s) => s.slice(0, 3))).not.toContainEqual(['mlsn', 'mlsn', 'no-soil-sample']);
     });
 
     test('STATE 3: told there is one and it never arrives — the run FAILS on delivery, writing nothing', async () => {
-        const h = runRunner({ soilParam: 'sample_141', sampleArrivesAt: null });
+        const h = runRunner({ soilParam: '141', sampleArrivesAt: null });
         driveAnOrdinaryPass(h);
         await settle();
         h.advance(20000);
@@ -290,7 +326,7 @@ describe('GH-588 — the runner receives a fact and the three states end differe
     test('STATE 3 becomes STATE 2 when the sample lands inside the budget', async () => {
         // The distinguisher: two runs differing only in whether the sample
         // arrives, and they end differently.
-        const h = runRunner({ soilParam: 'sample_141', sampleArrivesAt: 2200 });
+        const h = runRunner({ soilParam: '141', sampleArrivesAt: 2200 });
         driveAnOrdinaryPass(h);
         await settle();
         h.advance(3000);
@@ -330,14 +366,14 @@ describe('GH-588 — the runner receives a fact and the three states end differe
         expect(Object.keys(realReadingsOf()('soil', { values: { Potassium_as_K_Mehlich: '40' } }))).toEqual([]);
 
         const unreadable = runRunner({
-            soilParam: 'sample_141',
+            soilParam: '141',
             sampleArrivesAt: 0,
             sampleColumns: { Potassium_as_K_Mehlich: '40', Note: 'see attached' },
         });
         driveAnOrdinaryPass(unreadable);
         unreadable.advance(20000);
 
-        const absent = runRunner({ soilParam: 'sample_141', sampleArrivesAt: null });
+        const absent = runRunner({ soilParam: '141', sampleArrivesAt: null });
         driveAnOrdinaryPass(absent);
         absent.advance(20000);
         await settle();
@@ -476,6 +512,8 @@ describe('GH-588 — the join: the server’s answer becomes the parameter the r
         await settle();
 
         expect(h.posted.map((p) => p[0])).toEqual(['result']);
-        expect(h.skipped.map((s) => s.slice(0, 3))).toContainEqual(['mlsn', 'mlsn', 'no-soil-sample']);
+        // The same change as in STATE 1 above: the producer states no soil reason of its own, and what does
+        // state it is the node's declaration, held on the real adapter (GH-777).
+        expect(h.skipped.map((s) => s.slice(0, 3))).not.toContainEqual(['mlsn', 'mlsn', 'no-soil-sample']);
     });
 });

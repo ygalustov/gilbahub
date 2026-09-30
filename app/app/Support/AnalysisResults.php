@@ -456,11 +456,28 @@ class AnalysisResults
          * of sites. Reading the configs directly needs neither the `Site` rows nor the relation.
          */
         $methodologies = [];
+        $turfTypes = [];
         foreach (SiteConfig::query()->whereIn('site_id', $ids)->where('namespace', 'gaip')
             ->get(['site_id', 'config']) as $record) {
             $config = is_array($record->config) ? $record->config : [];
             $value  = $config['turf']['methodology'] ?? null;
             $methodologies[$record->site_id] = (is_string($value) && $value !== '') ? $value : null;
+            /**
+             * GH-777 (queue item 4, the reviewer's return on O-9) — AND THE KIND OF SITE TRAVELS WITH IT,
+             * from the same config and by the same reasoning.
+             *
+             * An address is only right where the page it names is there: the Traffic & Wear tab is shown to
+             * a sports site alone (`settings.blade.php`), so the sentence "add it in Settings -> Traffic &
+             * Wear" is right for a sports site and wrong for the other 13 of the stand's 21. The composer
+             * had nothing to tell them apart with -- no run records a turf type, 0 of 95 rows carry one
+             * anywhere -- so it either sent everybody to that tab or, once that was corrected, nobody. This
+             * is the fact that decides it, read from the site's own settings and from nowhere else: not
+             * from the row a browser posted, not from a field on a page (GH-459).
+             *
+             * It costs no query: the configs are already in hand for the methodology.
+             */
+            $kind = $config['turf']['turfType'] ?? null;
+            $turfTypes[$record->site_id] = (is_string($kind) && $kind !== '') ? $kind : null;
         }
 
         $out = [];
@@ -468,6 +485,7 @@ class AnalysisResults
             $projection = self::project($completed->get($id), $attempts->get($id), $partials->get($id));
             if (is_array($projection)) {
                 $projection['methodology'] = $methodologies[$id] ?? null;
+                $projection['turfType'] = $turfTypes[$id] ?? null;
             }
             $out[$id] = $projection;
         }

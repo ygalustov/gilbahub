@@ -34,7 +34,7 @@
 
 'use strict';
 
-const { load } = require('./lib/orchestrator-bench');
+const { load, withSamples } = require('./lib/orchestrator-bench');
 
 /** `samples` id 141, Test5 - NZ, as the column holds it after GH-574. */
 const SAMPLE = {
@@ -65,6 +65,16 @@ describe('GH-575 — from the sample to the nutrient rows, every link', () => {
         // Link 0, the positive control this whole file rests on: a bench where
         // a script failed to load answers every question below with silence.
         expect(bench.failed).toEqual([]);
+
+        /**
+         * GH-777 (queue item 4, slice 3) — AND THE SITE OF THIS CHAIN HAS THE SAMPLE THE CHAIN IS ABOUT.
+         *
+         * The MLSN node declares `requires: ["samples.soil"]`, and the gate does not run an engine whose
+         * sample is absent. This file's subject is a run that HAS a soil sample, so the sample is now stated
+         * here instead of being implied by the state object below: with none, link 5 would be measuring the
+         * gate rather than the engine.
+         */
+        withSamples(bench, { soil: { id: 'soil_141', rawData: { K: 40, Ca: 803, CEC: 5.9, pH: 6 } } });
 
         const result = bench.ctx.GilbaCascadeOrchestrator.runCascade(CASCADE_STATE, {}, { fullRecompute: true });
         cascadeComputed = (result && result.state && result.state.computed) || {};

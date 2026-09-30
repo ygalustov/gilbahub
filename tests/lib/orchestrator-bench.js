@@ -26,6 +26,7 @@
  */
 
 const vm = require('vm');
+const { realReadingsOf } = require('./sample-readings');
 const fs = require('fs');
 const path = require('path');
 
@@ -118,6 +119,18 @@ function makeSandbox() {
      * the page gives — the alternative is a bench measuring the absence of its own setup.
      * Found by the gate's first full run: six suites went red at once, all of them here.
      */
+    /**
+     * GH-782 (queue item 3ga) - THE SITE'S METHODOLOGY, because a site without one cannot exist.
+     *
+     * The owner settled on 24.09.2026 that methodology is a required field: the setup wizard cannot be closed
+     * without it and no calculation runs for a site until then. The soil engine now computes NOTHING when it is
+     * absent, instead of falling into the SLAN table - which is the defect of this item: the converter dropped
+     * the field, every ammonium-acetate site was computed by the wrong table, and the row still declared AA. So a
+     * bench with no methodology describes a site the product does not allow, and it supplies one here. A case
+     * about a particular methodology sets its own.
+     */
+    s.GAIP_HUB_CONFIG = { gaipConfig: { turf: { methodology: 'slan' } } };
+
     s.GAIP_DEPENDENCY_GRAPH = JSON.parse(require('fs').readFileSync(
         require('path').join(__dirname, '..', '..', 'assets', 'dependency-graph.json'), 'utf8'));
     // GH-722: and the lab reading names, for the same reason — the sample manager builds its
@@ -227,4 +240,38 @@ function withSiteRow(bench, row) {
     return bench;
 }
 
-module.exports = { load, computeAll, hubScripts, makeSandbox, withSiteRow };
+/**
+ * GH-777 (queue item 4, slice 3): GIVE THE BENCH THE SAMPLES THE RUN WAS GIVEN.
+ *
+ * Nodes declare requirements of the "sample key" kind now -- `samples.soil` for MLSN, `samples.tissue` for
+ * the tissue engine -- and the gate asks `gaip_sampleReadings`, which asks the sample manager. A bench with
+ * no manager is a site with no samples, so those engines are correctly not run; a case whose subject is
+ * what one of them PRODUCES therefore has to say which samples the run had, out loud, here.
+ *
+ * `rows` is keyed by kind: `{ soil: { id, serverId, rawData }, tissue: {...} }`. The normaliser is the
+ * product's own (`realReadingsOf`), so the reading names are the sample manager's and not a bench's
+ * invention.
+ *
+ * GH-777: A NAMED SAMPLE IS FOUND BY ITS ROW ID, which the store keeps in `serverId` while `id` holds the
+ * client store's own key (`client_uid`, a label, else `sample_<id>`). A caller that wants a sample to be
+ * findable by name gives it a `serverId`; nothing is invented here, so a row without one is simply not
+ * found by name — which is what the product does.
+ *
+ * @param {object} bench  the loaded bench
+ * @param {Object<string,{id: string, rawData: object}>} rows  the samples this run was given, by kind
+ */
+function withSamples(bench, rows) {
+    const store = rows || {};
+    bench.ctx.GAIP_SampleManager = {
+        readingsOf: realReadingsOf(),
+        getSamples: (kind) => (store[kind] ? [store[kind]] : []),
+        getActiveSample: (kind) => store[kind] || null,
+        getActiveSampleId: (kind) => (store[kind] ? store[kind].id : null),
+        getAllSamples: () => ({ allSites: {}, allActive: {}, allMeta: {}, sites: {} }),
+        getActiveSiteId: () => 'site-1',
+    };
+
+    return bench;
+}
+
+module.exports = { load, computeAll, hubScripts, makeSandbox, withSiteRow, withSamples };

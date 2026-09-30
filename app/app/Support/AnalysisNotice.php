@@ -74,6 +74,23 @@ final class AnalysisNotice
         'engine-error' => ['class' => 'run-incomplete', 'text' => 'the engine stopped with an error'],
         'pass-start-unknown' => ['class' => 'run-incomplete', 'text' => 'the run could not tell whether it finished before or after the weather arrived'],
         'values-not-computed' => ['class' => 'run-incomplete', 'text' => 'some values were not computed'],
+        /**
+         * GH-781 (delivery 6 and 7) - TWO CAUSES ON OUR SIDE, WITH THE OWNER'S OWN SENTENCE.
+         *
+         * Her words, given on 30.09.2026 for both: "{Module} was not calculated in this analysis. If this
+         * continues, contact us." - the same phrase she approved on 24.09 for a run whose data was there and
+         * did not arrive. The text is composed rather than fixed, because `{Module}` is the module of the
+         * SECTION a person is looking at: `section()` takes it from the graph through `stepWriting`, so it is
+         * never a producer's name and never this file's own word.
+         *
+         * `cascade-pass-not-run` means NO ACCEPTED PASS, not "no event": a cascade may have run three times and
+         * produced nothing all three. `pass-not-finished-at-write` means a pass of some producer had not
+         * finished when the row was assembled, so its half of the account may be short.
+         */
+        'cascade-pass-not-run' => ['class' => 'run-incomplete', 'text' => null, 'composed' => true,
+            'sectionOnly' => true],
+        'pass-not-finished-at-write' => ['class' => 'run-incomplete', 'text' => null, 'composed' => true,
+            'sectionOnly' => true],
         'schema-unavailable' => ['class' => 'run-incomplete', 'text' => 'the page was not given the declared form of a result'],
         // GH-588 (link 4) — THE TWO SOIL STATES, AND THEY MUST NOT READ
         // ALIKE. The first is a fact about the site and has one action: add a
@@ -105,10 +122,41 @@ final class AnalysisNotice
         // has (GH-649). `text: null` is a decision here, not an omission, and the
         // case in `Gh638` asserts that only an `answer` may be wordless, so this one
         // is named there by its class.
+        //
+        // GH-777 (queue item 4) -- AND IT WAS NOT IN THIS TABLE AT ALL. The comment above described
+        // an entry nobody had written: the judge has been filing `input-not-entered` since GH-675,
+        // and measured, `classOf` answered `run-incomplete` for it -- our side, a re-run may fix it --
+        // while the fact is that the client has not entered the value, which a re-run cannot fix.
+        // `reasonText` answered `the run reported "input-not-entered"`, a technical identifier in
+        // front of a client. It is declared now, in the class the owner's second sentence belongs to
+        // (`input-absent`, the class `no-soil-sample` already carries) and still wordless.
+        // GH-777 (queue item 4, the analyst's 76.4 A and B) — TWO CAUSES THAT WERE BORROWING OTHER
+        // CAUSES' SENTENCES.
+        //
+        // `input-not-in-list`: the run named an input the inputs list does not declare. It used to be
+        // filed as `run-start-not-recorded`, which states that the start was not recorded while it
+        // was — the shape of a timer named as an event. The broken link is between the run's
+        // vocabulary and the list, and that is ours.
+        //
+        // `input-not-judged`: the input's value lives in a storage the server cannot read. It used to
+        // be filed as `input-not-entered`, which tells a client it entered nothing; measured on the
+        // stand, 5 of 21 sites carry a soil texture override in the column of `sites` and 2 carry
+        // their PGR application only in the spray log.
+        //
+        // BOTH CARRY NO TEXT, for the reason `input-not-entered` above carries none: the sentence a
+        // client reads is the owner's, and for our-side causes her words are the general phrase of
+        // 24.09.2026 — «{Module} was not calculated in this analysis. If this continues, contact us.»
+        // The two sentences already in this table for our side say «the data was there but did not
+        // reach this analysis», and neither of these two knows that. Writing a third phrase would be
+        // my words in front of a client, so the class travels, the administrator sees the code in
+        // `Details`, and the page keeps the sentence it already prints.
+        'input-not-entered' => ['class' => 'input-absent', 'text' => null, 'wordsFrom' => 'owner'],
         'input-did-not-arrive' => ['class' => 'run-incomplete',
             'text' => 'the data was there but did not reach this analysis. If this continues, contact us'],
         'run-start-not-recorded' => ['class' => 'run-incomplete',
             'text' => 'the data was there but did not reach this analysis. If this continues, contact us'],
+        'input-not-in-list' => ['class' => 'run-incomplete', 'text' => null, 'wordsFrom' => 'owner'],
+        'input-not-judged' => ['class' => 'run-incomplete', 'text' => null, 'wordsFrom' => 'owner'],
         'no-soil-sample' => ['class' => 'input-absent', 'text' => 'there is no soil sample for this site, so the soil and nutrition analysis was not computed. Add a soil test on the Data page'],
         'soil-sample-not-delivered' => ['class' => 'run-incomplete', 'text' => 'the soil sample data did not arrive in time'],
         // GH-586 (D6): the run was asked for a particular water sample and
@@ -212,6 +260,22 @@ final class AnalysisNotice
         'tissue-corrective' => 'tissue',
         'mlsn'              => 'MLSN',
         'water'             => 'water quality',
+        /**
+         * GH-781 (delivery 2) — THE SIX ENGINES OF THE CASCADE THAT HAD NO WORD HERE.
+         *
+         * Until now the cascade's account of what it could not produce never reached a stored row: the next
+         * pass of the orchestrator wiped the journal (`runComputePass`, GH-557). Delivery 3 makes those
+         * records survive, and a module recorded with no word here is printed to a person as its own
+         * identifier -- which is what `gh572` reddens on. The words come from each node's `label` in the
+         * dependency graph, as every other entry of this map does, with the engine suffix dropped: the graph
+         * names an ENGINE, this map names the thing a person reads about.
+         */
+        'soilStructure'     => 'soil structure',
+        'phytotoxicity'     => 'phytotoxicity',
+        'firmness'          => 'firmness',
+        'nitrogen'          => 'nitrogen programme',
+        'traffic'           => 'traffic',
+        'turfManager'       => 'turf manager',
         // No engine of their own.
         'cascade'           => 'the downstream engines',
         'canonical'         => 'site identity',
@@ -232,6 +296,26 @@ final class AnalysisNotice
      * sending someone round that loop is worse than saying nothing. What that
      * site needs is a soil test, and the reason says so.
      */
+    /**
+     * GH-777 (queue item 4) — A CAUSE OF A SECTION WHOSE SENTENCE IS THE OWNER'S, DECLARED.
+     *
+     * Until now the table had one shape for a wordless cause — class `answer` — and `Gh638` held that
+     * rule: anything else without a sentence is an omission rather than a decision. That rule was
+     * right and it is kept; what it did not have a name for is the shape slice 1 of this item created.
+     * The judge writes three causes about an INPUT, and each sentence needs the input's human name,
+     * which is the owner's draft (`label`, her words, section 49 of the analyst's plan). So they carry
+     * no text on purpose, and the mark says so instead of leaving the gap to look like forgetfulness.
+     *
+     * WHAT THE MARK BUYS, and both are properties a guard can hold:
+     *   - a marked cause MUST have no text, so the mark cannot hide a sentence somebody wrote;
+     *   - a marked cause is a SECTION cause and never a run's `reason`. It therefore never reaches the
+     *     panel or the opener, which is what keeps the raw code off a client's screen: `clientTexts`
+     *     already drops a code with no sentence, and the opener would otherwise frame the identifier.
+     *
+     * The mark leaves with the words: when she gives the sentence, the text replaces the mark.
+     */
+    public const WORDS_FROM_THE_OWNER = 'owner';
+
     private const CLASSES_A_RETRY_CANNOT_FIX = ['input-absent', 'setting-missing', 'answer'];
 
     /** The class of a code, or `not-recorded` when there is no code at all. */
@@ -245,6 +329,12 @@ final class AnalysisNotice
     }
 
     /** Whether pressing again can change this outcome — derived, never listed. */
+    /** Is this cause one whose sentence is still the owner's, declared in the table? */
+    public static function awaitsHerWords(?string $code): bool
+    {
+        return ($code !== null ? (self::REASONS[$code]['wordsFrom'] ?? null) : null) === self::WORDS_FROM_THE_OWNER;
+    }
+
     public static function retryCanHelp(?string $code): bool
     {
         return ! in_array(self::classOf($code), self::CLASSES_A_RETRY_CANNOT_FIX, true);
@@ -346,7 +436,7 @@ final class AnalysisNotice
              */
             'module' => $step === null ? null : self::stepName($step, $projection),
             'retry'  => $code === null ? false : self::retryCanHelp($code),
-            'text'   => self::sectionText($code, $step, $projection['numbersRun'] ?? null),
+            'text'   => self::sectionText($code, $step, $projection['numbersRun'] ?? null, $projection),
         ];
     }
 
@@ -394,7 +484,26 @@ final class AnalysisNotice
         //
         // A key neither path resolves gets NO step, and the equality test names
         // it. Nothing is restated in this file.
-        $engine = $graphKeys[$key] ?? null;
+        /**
+         * GH-777 (queue item 4, slice 2) — THE DECLARED NAME FIRST, AND THE OLD GUESS ONLY WHERE NOTHING
+         * IS DECLARED YET.
+         *
+         * A node that declares `module` answers with it: one spelling for the pass, the sweep and this
+         * composer, and no derivation to go wrong. Fourteen nodes declare it — the twelve of the pass
+         * plus the two the row producer writes under (`mlsn`, `water`) — which is the set the analyst
+         * measured from the calls.
+         *
+         * The ladder below is what the rest still stand on: the cascade's six, the tissue engine and the
+         * page nodes have no `module` yet, and it arrives with their own gate in slice 3. Removing it now
+         * would have answered `pgr-module` for the PGR section and `tissue-engine` for tissue -- names no
+         * journal writes -- and those sections would have lost their sentence. Measured: with the ladder
+         * gone, 19 server cases went red.
+         */
+        $named = $graphKeys[$key] ?? null;
+        if (is_array($named) && $named['module'] !== null) {
+            return $named['module'];
+        }
+        $engine = is_array($named) ? $named['id'] : null;
         if ($engine !== null) {
             foreach (self::stepCandidates($key, $engine) as $candidate) {
                 if (isset(self::STEP_NAMES[$candidate])) {
@@ -426,27 +535,7 @@ final class AnalysisNotice
         return null;
     }
 
-    /**
-     * The spellings a step may be known by, given the key and the engine the
-     * graph names for it. Derived, in order of how directly it is declared.
-     *
-     * @return array<int,string>
-     */
-    private static function stepCandidates(string $key, string $engine): array
-    {
-        $parts = explode('-', $engine);
-        $out = [$engine];
-        if (count($parts) > 1) {
-            $out[] = implode('-', array_slice($parts, 0, -1)); // `stress-trajectory-engine` -> `stress-trajectory`
-            $out[] = $parts[0];                                 // `pgr-module` -> `pgr`
-        }
-        $out[] = $key;
-        $out[] = self::kebab($key);
-
-        return array_values(array_unique($out));
-    }
-
-    /** `stressTrajectory` -> `stress-trajectory`, the tree's other spelling. */
+/** `stressTrajectory` -> `stress-trajectory`, the tree's other spelling. */
     private static function kebab(string $key): string
     {
         return strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', $key));
@@ -498,9 +587,26 @@ final class AnalysisNotice
                 // the orchestrator warns under `firmness`. The first declarer of a root
                 // keeps it, as before.
                 $root = explode('.', substr($output, strlen('computed.')))[0];
-                if ($root !== '' && ! isset($out[$root])) {
-                    $out[$root] = $id;
+                if ($root === '' || isset($out[$root])) {
+                    continue;
                 }
+                /**
+                 * GH-777 (queue item 4, slice 2) — THE MODULE'S NAME COMES FROM THE NODE, DECLARED.
+                 *
+                 * This kept the node's ID and the reader below worked the name out of it by dropping
+                 * suffixes until `STEP_NAMES` recognised one. That rule is wrong for one node and wrong
+                 * silently: `disease-forecast` gives `disease`, so the cause of an empty FORECAST was
+                 * looked for under the disease step while the pass writes it under `forecast`. Measured
+                 * on the stand: 11 of 12 pass nodes agreed, one did not, and the rows where it would
+                 * show are 0 of 94 -- which is why nobody saw it.
+                 *
+                 * The node declares `module` now (the analyst's answer of 29.09.2026), the pass
+                 * registers under that same field, and there is one spelling instead of two rules.
+                 */
+                $out[$root] = [
+                    'module' => is_string($node['module'] ?? null) ? $node['module'] : null,
+                    'id' => (string) $id,
+                ];
             }
         }
 
@@ -509,6 +615,31 @@ final class AnalysisNotice
         }
 
         return $out;
+    }
+
+    /**
+     * The spellings a step may be known by, given the key and the engine the graph names for it.
+     *
+     * GH-777 (queue item 4, slice 2): THIS IS THE FALLBACK NOW, not the rule. A node that declares
+     * `module` is answered from that field; this ladder serves the nodes that do not yet -- the cascade's
+     * six, the tissue engine, the page nodes -- and goes when slice 3 declares them. It is kept because
+     * it is wrong only where it was always wrong, and removing it today would take the sentence off the
+     * PGR and tissue sections.
+     *
+     * @return array<int,string>
+     */
+    private static function stepCandidates(string $key, string $engine): array
+    {
+        $parts = explode('-', $engine);
+        $out = [$engine];
+        if (count($parts) > 1) {
+            $out[] = implode('-', array_slice($parts, 0, -1)); // `stress-trajectory-engine` -> `stress-trajectory`
+            $out[] = $parts[0];                                 // `pgr-module` -> `pgr`
+        }
+        $out[] = $key;
+        $out[] = self::kebab($key);
+
+        return array_values(array_unique($out));
     }
 
     /**
@@ -523,8 +654,40 @@ final class AnalysisNotice
 
         foreach (['notApplicable', 'skipped'] as $where) {
             foreach (($numbersRun[$where] ?? []) as $entry) {
-                if (is_array($entry) && self::entryStep($entry) === $step && ($entry['reason'] ?? null)) {
+                if (! is_array($entry) || self::entryStep($entry) !== $step) {
+                    continue;
+                }
+                if ($entry['reason'] ?? null) {
                     return (string) $entry['reason'];
+                }
+                /**
+                 * GH-777 (queue item 4, O-9) — THE JUDGED ENTRY, WHOSE SHAPE IS NOT `reason`.
+                 *
+                 * The pass records `{module, missing: [input, …]}` and the server judges each name into
+                 * `{input, declaredAs, cause}` (GH-675, GH-777). This reader looked for `reason` only, so
+                 * every judgement the slices of this item produced reached the row and stopped there: the
+                 * section stayed silent and the page kept printing the sentence it always printed. That is
+                 * promise O-9 of the analyst's 22.1, and the gap was named in `Gh675…` rather than hidden.
+                 *
+                 * The FIRST named input decides the cause. A module can lack several inputs; they share
+                 * one cause almost always, and where they differ the first is the one the sentence names,
+                 * which is the same rule the assembled-key path already uses for several steps.
+                 *
+                 * An input whose entry says the client is not to be told is skipped — the switch the owner
+                 * decided on 24.09.2026 — and if that leaves nothing, the section has no cause, which is
+                 * what "no sentence" means here.
+                 */
+                foreach ((array) ($entry['missing'] ?? []) as $missing) {
+                    if (! is_array($missing) || ! is_string($missing['cause'] ?? null)) {
+                        continue;
+                    }
+                    $input = is_string($missing['declaredAs'] ?? null) ? $missing['declaredAs']
+                        : (is_string($missing['input'] ?? null) ? $missing['input'] : null);
+                    if ($input !== null && ! CalculationInputs::explainToClient($input)) {
+                        continue;
+                    }
+
+                    return (string) $missing['cause'];
                 }
             }
         }
@@ -545,6 +708,77 @@ final class AnalysisNotice
         }
 
         return null;
+    }
+
+    /**
+     * GH-777 (queue item 4, O-9) — the owner's sentence, with its three parts taken from the run.
+     *
+     * The module's words come from the graph through `STEP_NAMES`, exactly as every other section's title
+     * does; the input's name and its place come from the inputs list. The input is the one the judgement
+     * named, so a section that lacks two inputs names the first -- and an input the owner decided not to
+     * explain is skipped by the reader above, so it never reaches this.
+     *
+     * `null` -- no sentence -- whenever a part is not there: no name written for that input, or nowhere to
+     * send a person. The turf type decides whether a place exists at all for the two inputs that live in
+     * the Traffic & Wear tab, which only a sports site is shown.
+     */
+    private static function inputNotEnteredText(?string $step, ?array $numbersRun,
+        ?array $projection = null): ?string
+    {
+        if ($step === null || ! is_array($numbersRun)) {
+            return null;
+        }
+        $input = null;
+        foreach ((array) ($numbersRun['notApplicable'] ?? []) as $entry) {
+            if (! is_array($entry) || self::entryStep($entry) !== $step) {
+                continue;
+            }
+            foreach ((array) ($entry['missing'] ?? []) as $missing) {
+                if (! is_array($missing) || ($missing['cause'] ?? null) !== 'input-not-entered') {
+                    continue;
+                }
+                $named = is_string($missing['declaredAs'] ?? null) ? $missing['declaredAs']
+                    : (is_string($missing['input'] ?? null) ? $missing['input'] : null);
+                if ($named !== null && CalculationInputs::explainToClient($named)) {
+                    $input = $named;
+                    break 2;
+                }
+            }
+        }
+        if ($input === null) {
+            return null;
+        }
+        $label = CalculationInputs::label($input);
+        $place = CalculationInputs::placeFor($input, self::turfTypeOf($projection));
+        if ($label === null || $place === null) {
+            return null;
+        }
+
+        /**
+         * THE MODULE'S WORDS ARE THE SECTION'S OWN, not a second spelling. `stepName` is what the card's
+         * title shows, and for the soil step it follows the site's methodology (GH-742: `MLSN`, `SLAN`,
+         * or the step's own word where none is set). A sentence that said `MLSN` under a title that said
+         * `soil nutrition` would be two names for one thing on one screen -- which is what the guard of
+         * this case caught when the sentence used the table directly.
+         */
+        return ucfirst((string) self::stepName($step, $projection)).' was not calculated because '.$label
+            .' has not been entered. Add it in '.$place.'.';
+    }
+
+    /**
+     * The site's turf type, as the projection carries it from `config.turf.turfType` (GH-777).
+     *
+     * It decides one thing here: whether the Traffic & Wear tab is a place a person can reach. THE ROW IS
+     * NOT ASKED. A fact about a site comes from the site's settings, and a run's own account of it could
+     * disagree with them -- the class of GH-459 -- so a turf type inside `numbersRun` is ignored here and a
+     * case holds that. Absent, the tab is not named: no place, therefore no sentence, which is a named
+     * absence rather than a wrong address.
+     */
+    private static function turfTypeOf(?array $projection): ?string
+    {
+        $type = is_array($projection) ? ($projection['turfType'] ?? null) : null;
+
+        return is_string($type) && $type !== '' ? $type : null;
     }
 
     /**
@@ -653,7 +887,8 @@ final class AnalysisNotice
 
     private const UNWORDED_ALLOWED = ['none', 'interim', 'legacy'];
 
-    private static function sectionText(?string $code, ?string $step = null, ?array $numbersRun = null): ?string
+    private static function sectionText(?string $code, ?string $step = null, ?array $numbersRun = null,
+        ?array $projection = null): ?string
     {
         if ($code === null) {
             return null;
@@ -676,6 +911,41 @@ final class AnalysisNotice
          */
         if ($code === 'pgr-window-exhausted') {
             return self::pgrWindowExhaustedText($step, $numbersRun);
+        }
+
+        /**
+         * GH-777 (queue item 4, O-9) — THE SENTENCE FOR AN INPUT NOBODY ENTERED, COMPOSED PER RUN.
+         *
+         * The owner's form, approved 24.09.2026: "{Module} was not calculated because {label} has not
+         * been entered. Add it in {place}." Every part of it is data rather than a literal here -- the
+         * module's own words from the graph's label (GH-572), the input's name and the place from the
+         * inputs list, where they are the analyst's draft and the owner's to change.
+         *
+         * THE SENTENCE IS NOT COMPOSED AT ALL when any part is missing, and that is the analyst's rule
+         * of 49.1 rather than a fallback: an input with no name, or one whose address would send a person
+         * to a tab their site does not have, gets silence and the page keeps the phrase it printed
+         * before. A wrong address is worse than none.
+         */
+        if ($code === 'input-not-entered') {
+            return self::inputNotEnteredText($step, $numbersRun, $projection);
+        }
+
+        /**
+         * GH-781 - THE OWNER'S GENERAL PHRASE, composed with the section's own module.
+         *
+         * Declared by `composed` in the table above rather than by a list of codes here, so a third cause of
+         * ours joins it by its own declaration. `{Module}` is the module of the section being explained, which
+         * is why this is composed at all: a fixed string could not carry it, and naming the producer instead
+         * would print a word of ours to a client.
+         */
+        if (! empty(self::REASONS[$code]['composed'])) {
+            $module = self::stepName($step, $projection);
+            if ($module === null || $module === '') {
+                return null;
+            }
+
+            return ucfirst((string) $module)
+                .' was not calculated in this analysis. If this continues, contact us.';
         }
 
         // No words yet: the section carries its class and the page keeps its own
@@ -908,6 +1178,20 @@ final class AnalysisNotice
         }
 
         return $out;
+    }
+
+    /**
+     * GH-781 - DOES THIS CAUSE EVER EXPLAIN A WHOLE RUN, or only a section of one?
+     *
+     * The runner writes `cascade-pass-not-run` and `pass-not-finished-at-write` into `detail.skipped`, which
+     * explains a SECTION; nothing puts either into a run's `reason`. The difference matters because the owner's
+     * sentence for them names the module of the section, and a run-level panel has no section to name - asking
+     * for their words there would print the code itself to a client, which is what `Gh646` forbids. Declared in
+     * the table rather than listed in a test, so a third such cause is covered by its own declaration.
+     */
+    public static function explainsASectionOnly(?string $code): bool
+    {
+        return $code !== null && ! empty(self::REASONS[$code]['sectionOnly']);
     }
 
     /** The reason in words, for a code the runner sent. */

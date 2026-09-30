@@ -261,8 +261,16 @@
             // there is no copy of the server's data to go stale.
             var _waterSampleId = '';
             try {
+                /**
+                 * GH-777 (queue item 4): THE ROW ID, like the other two kinds.
+                 *
+                 * Soil and tissue are named by asking the server, which answers with the row id. The water
+                 * was taken off the page, where a sample carries the client store's own key -- so it
+                 * happened to be found while the frame compared keys, and would stop being found the moment
+                 * the frame compares row ids. Both sides name the same thing now: `samples.id`.
+                 */
                 var _aws = global._gilbaActiveWaterSample;
-                if (_aws && _aws.id != null) _waterSampleId = String(_aws.id);
+                if (_aws && _aws.serverId != null) _waterSampleId = String(_aws.serverId);
             } catch(_e) {}
 
             // GH-547 (stage 2): the runner is told WHAT it is and WHICH

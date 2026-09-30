@@ -200,6 +200,7 @@
       "$comment": "Carried by the producer, stored with the row, returned by the projection and printed by the panel.",
       "nulls": "required metrics the run could not compute",
       "skipped": "[{step, module, reason}] - steps that did not run, from the orchestrator's own account",
+  "notApplicable": "[{module, missing}] - GH-777 (queue item 4, slice 2): modules this SITE is not a case for, which is a third answer beside a value and a gap. `missing` names the inputs of the calculation list whose absence makes the module inapplicable, and is EMPTY when the engine itself ran and answered `not here` - dew is that case. The server judges each named input against the set recorded when the run started (GH-675), so the client is told either `you have not entered it` or `it was there and did not reach us`, and never the wrong one of the two. An entry here does NOT make a run partial: a site without irrigation water is not an incomplete analysis.",
       "warnings": "[{module, message, at, data}] - everything the pass said while running",
       "assumptions": "[{key, displayName, providedValue, assumedValue, impact, confidencePenalty, affectedEngines, settingsField, settingsLabel, reason}] - GH-581: what the run PUT IN PLACE of something it was not given. Not the same as `skipped`: an assumption is a run that went ahead on a stand-in, a skip is a part that did not run at all, and the reader needs that difference. Taken from `GilbaIdentityEnforcement.getIdentityState().assumptions`, not re-derived."
     },

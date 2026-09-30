@@ -37,7 +37,7 @@ const HUB = fs.readFileSync(path.join(ROOT, 'assets', 'hub-tissue-v3.js'), 'utf8
 const ASSEMBLY = ['safeNum', 'collectGridValues', 'convertDateToISO', 'calculateEndDate',
     'gaip_readSoilForm', 'gaip_soilFromActiveSample', 'gaip_soilStateFrom', 'gaip_namedSample',
     'gaip_sampleReadings', 'gaip_waterFromActiveSample', 'calculateC3C4Fractions',
-    'enforceHemisphereTurfRules', 'gaip_build_state'];
+    'enforceHemisphereTurfRules', 'gaip_lastPgrForThisRun', 'gaip_build_state'];
 
 function declaredIn(src, name) {
     const at = src.indexOf('function ' + name + '(');

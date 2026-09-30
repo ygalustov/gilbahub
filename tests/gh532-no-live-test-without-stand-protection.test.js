@@ -49,6 +49,32 @@ const REMEDIES = ['guardStand', 'captureConfigsOnce', 'restoreConfigs', 'fillOwn
  * backlog, not an argument that they are safe.
  */
 const EXEMPT = {
+    'gh782-the-aa-ranges-on-the-stand-live.test.js': {
+        why: 'ITS SUBJECT IS THE WRITE, for the same reason as the file below. Every site set to ammonium '
+            + 'acetate stored its nutrient bands from the texture-only fallback instead of the Hill Labs '
+            + 'certificate -- potassium 50.0-116.0 where the certificate says 78.2-195.5 -- because the range '
+            + 'overlay read the species off the `/hub` form rather than off the site. Whether a REAL run now '
+            + 'resolves the code from the site\'s settings can only be answered by a run whose row lands, and '
+            + '`guardStand` holds every POST to `/api/analysis-cache`, which is the measurement itself. It '
+            + 'presses Re-run ONLY on the site handed in through `GILBA_E2E_GH782_SITES`, and it carries its '
+            + 'own protection instead of the remedy: its last case reads the last row id of EVERY site with a '
+            + 'stored row, reddens if one outside that list moved, and asserts that the pressed site GAINED a '
+            + 'row rather than having one rewritten. It writes no data of its own and edits nothing.',
+        until: '2026-10-15',
+    },
+    'gh777-the-tissue-and-the-screen-live.test.js': {
+        why: 'ITS SUBJECT IS THE WRITE, and the write is a stored row. The tissue section was empty in 13 '
+            + 'of 13 rows with no cause recorded; queue item 4 declares the requirement and gates the '
+            + 'cascade on the sample the run was given, and whether a REAL run names its sample and whether '
+            + 'the sentence reaches a card can only be answered by a run whose row lands -- `guardStand` '
+            + 'holds every POST to `/api/analysis-cache`, which is the measurement itself. It presses '
+            + 'Re-run ONLY on the sites handed in through `GILBA_E2E_GH777_SITES`, so it reaches no site '
+            + 'the window was not opened for, and it carries its own protection instead of the remedy: its '
+            + 'last case reads the last row id of EVERY site with a stored row and reddens if one outside '
+            + 'that list moved. It writes no data of its own and edits nothing: it presses the product\'s '
+            + 'own button and reads.',
+        until: '2026-10-15',
+    },
     'gh727-the-weed-set-on-the-stand-live.test.js': {
         why: 'ITS SUBJECT IS THE WRITE, and the write is a stored row. `/plan` draws the row, so '
             + 'whether a client still sees the old set of weeds after the repair can only be answered '

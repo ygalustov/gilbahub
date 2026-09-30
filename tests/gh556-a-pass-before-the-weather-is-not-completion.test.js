@@ -174,19 +174,46 @@ describe('GH-556 — a pass that ran before the weather counts as completion', (
         expect(skipped.map((s) => s.reason)).toContain('pass-start-unknown');
     });
 
-    test('the completion event carries the account, and the body carries it on', async () => {
+    test('the account of the pass reaches the body, read where the pass keeps it', async () => {
+        /**
+         * GH-781 (delivery 6): the body used to be built from the arrays the completion EVENT handed over, and
+         * it is built from the journal as it stands when the row is assembled. On a page those are the same
+         * arrays; the difference is that a record written after the event now reaches the row instead of
+         * landing in an array nobody reads. So the account is put where the pass keeps it, and the event
+         * keeps its own job - saying that the run may be written at all.
+         */
         const h = runner();
-        h.doc._fire('gaip:weather-ready', {});
-        h.doc._fire('gaip:orchestrator-complete', {
-            passStartedAt: Date.now() + 1000,
+        const account = {
             skipped: [{ step: 'disease', module: 'disease', reason: 'climate-late' }],
             warnings: [{ module: 'disease', message: 'Skipping disease computeAll pass', at: 1, data: null }],
+            notApplicable: [],
+            passStartedAt: Date.now() + 1000,
+        };
+        global.GaipOrchestrator = {
+            getState: () => ({ computed: account }),
+            passInProgress: () => false,
+        };
+        global.window.GaipOrchestrator = global.GaipOrchestrator;
+        h.doc._fire('gaip:weather-ready', {});
+        h.doc._fire('gaip:orchestrator-complete', {
+            passStartedAt: account.passStartedAt,
+            skipped: account.skipped,
+            warnings: account.warnings,
         });
         h.doc._fire('gaip:analysis-complete', { state: {} });
         await h.settle();
 
         const detail = h.results()[0].body.detail;
-        expect(detail.skipped).toEqual([{ step: 'disease', module: 'disease', reason: 'climate-late' }]);
+        /**
+         * GH-781: the body carries the PASS's account and, beside it, the facts of the row-write itself - here
+         * `cascade-pass-not-run`, because this harness runs no cascade at all and the row says so rather than
+         * leaving its soil side unexplained. What this case is about is unchanged: the account the pass keeps
+         * arrives intact.
+         */
+        expect(detail.skipped.filter((e) => e.module !== 'cascade'))
+            .toEqual([{ step: 'disease', module: 'disease', reason: 'climate-late' }]);
+        expect(detail.skipped.filter((e) => e.module === 'cascade').map((e) => e.reason))
+            .toEqual(['cascade-pass-not-run']);
         expect(detail.warnings[0].message).toMatch(/Skipping disease/);
         // and the body says which required values have no number
         expect(Array.isArray(detail.nulls)).toBe(true);

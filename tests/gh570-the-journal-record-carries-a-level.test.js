@@ -171,8 +171,18 @@ describe('GH-570 — the GAIP_DISEASE_RESULT receipts are written by note, in th
         // and it is reached only from those two. A third writer would be a
         // fourth kind of record with no level agreed anywhere.
         const pushes = [...SRC.matchAll(/computed\.warnings[^\n]*push\(|log\.push\(/g)];
-        const inRecord = SRC.slice(SRC.indexOf('function record(level, module, message, data)'),
-                                   SRC.indexOf('function note(module, message, data)'));
+        /**
+         * GH-781: both signatures gained `producer`, and delivery 6 gave them `door` as well — every entry of
+         * the journal says who wrote it and which door it came through. The anchors are the function NAMES
+         * rather than their full parameter lists, so the next parameter does not silently empty this slice:
+         * when it did, `inRecord` became '' and the case failed on an empty haystack rather than on a writer.
+         */
+        const from = SRC.indexOf('function record(level, module, message');
+        const to = SRC.indexOf('function note(module, message');
+        expect(from).toBeGreaterThan(-1);
+        expect(to).toBeGreaterThan(from);
+        const inRecord = SRC.slice(from, to);
+        expect(inRecord).toContain('log.push({');
         pushes.forEach((p) => {
             expect(inRecord).toContain(SRC.slice(p.index, p.index + 10));
         });

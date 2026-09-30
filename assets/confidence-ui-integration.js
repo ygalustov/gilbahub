@@ -152,6 +152,21 @@
         }
         
         indicator.style.display = 'inline-flex';
+        /**
+         * GH-777 (queue item 4, slice 2) — THE CALL THAT COULD REACH A MODULE THAT IS NOT THERE.
+         *
+         * `gilba-hub-v2.js` installs a STUB `GilbaEngineConfidence` when the real module did not load,
+         * and the stub carries `wrapEngineOutput` and nothing else. The other call in this file has
+         * asked since it was written (`if (!global.GilbaEngineConfidence) return;`); this one asked
+         * nothing, so on a page where the module failed to load it threw inside a decorator and took the
+         * rest of the decoration with it. Found by declaring the confidence node in the graph, which is
+         * what let GH-726's rule see this call at all. An absent renderer leaves the indicator alone
+         * rather than substituting a number nobody computed.
+         */
+        if (!global.GilbaEngineConfidence
+            || typeof global.GilbaEngineConfidence.renderCompactConfidence !== 'function') {
+            return;
+        }
         indicator.innerHTML = global.GilbaEngineConfidence.renderCompactConfidence(confidence.score, true);
         
         // Store confidence for details panel

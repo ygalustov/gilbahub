@@ -135,12 +135,44 @@ describe('GH-285 — methodology-aware "typical" ranges', () => {
         expect(result.warnings.some(w => w.includes('500') && w.includes('3000'))).toBe(true);
     });
 
-    test('validateState() resolves methodology/texture/species from state.soil/state.turf and threads them through', () => {
+    test('validateState() resolves methodology and texture from the state, and the SPECIES FROM THE SITE', () => {
+        /**
+         * GH-782 (queue item 3ga) - THE SPECIES NO LONGER COMES FROM THE PAGE'S STATE, and this case says so.
+         *
+         * It used to be read from `state.turf.grassSpecies` here and in the AA range overlay beside it. On the
+         * stand that key is empty for every ammonium-acetate site while the species sits in the site's config,
+         * so the overlay resolved no certificate and potassium stood at 50.0-116.0 ppm instead of 78.2-195.5 -
+         * while THIS reader got the right value only because a merge lets the store's keys win on the published
+         * state. Right by coincidence beside a calculation that was wrong. Both ask one function now, and it
+         * asks the site.
+         */
         const state = {
             soil: { Ca: 220, methodology: 'ammonium_acetate', soilTexture: 'sand' },
-            turf: { grassSpecies: 'browntopBent' },
+            // Deliberately the WRONG species on the page: it must not decide the range.
+            turf: { grassSpecies: 'kikuyu' },
         };
+        ctx.window.GAIP_HUB_CONFIG = { gaipConfig: { turf: { species: 'browntopBent' } } };
         const result = Validator.validateState(state);
+
+        process.stdout.write('\n[gh285] page said "kikuyu", the site says "browntopBent" -> '
+            + JSON.stringify(result.soil.warnings) + '\n');
+
+        // The certificate band of the SITE's species, not of the page's.
         expect(result.soil.warnings.some(w => w.includes('400') && w.includes('800'))).toBe(true);
+    });
+
+    test('and with no site config the page\'s species does NOT stand in', () => {
+        /**
+         * The other half of the same rule: a run without the site's settings has no species of the site, and the
+         * form's value is not consulted. The certificate range is then absent rather than taken from the page.
+         */
+        ctx.window.GAIP_HUB_CONFIG = null;
+        const result = Validator.validateState({
+            soil: { Ca: 220, methodology: 'ammonium_acetate', soilTexture: 'sand' },
+            turf: { grassSpecies: 'browntopBent' },
+        });
+        process.stdout.write('[gh285] no site config -> ' + JSON.stringify(result.soil.warnings) + '\n');
+
+        expect(result.soil.warnings.some(w => w.includes('400') && w.includes('800'))).toBe(false);
     });
 });

@@ -46,12 +46,22 @@ const SRC = fs.readFileSync(path.join(ASSETS, 'hub-persistence.js'), 'utf8');
  * `samples` id 141's water sibling, as the store holds it — the external fact
  * every assertion below is measured against.
  */
+/**
+ * GH-777: A SAMPLE IS NAMED BY ITS ROW, AND KEYED BY THE CLIENT'S OWN KEY — two different things, which is
+ * what this fixture used to blur. The store keys a restored sample by `client_uid`, a label, else
+ * `sample_<id>` (`sample-persistence.js`) and keeps the row id in `serverId`; the opener puts the ROW ID on
+ * the frame's address. Measured on the stand: of 64 live samples not one has a key equal to its row id, so
+ * a fixture whose address names the key describes a shape that does not occur. The addresses below name
+ * `serverId` now, exactly as `dashboard-ui.js` does.
+ */
 const WATER_141 = {
     id: 'sample_w1',
+    serverId: 114,
     rawData: { _label: 'Bore water', EC: '0.5', Ca: '3', Mg: '5', Na: '2', pH: '7.1', HCO3: '2' },
 };
 const WATER_OTHER = {
     id: 'sample_w2',
+    serverId: 115,
     rawData: { _label: 'Dam', EC: '2.4', Ca: '40', Mg: '18', Na: '90', pH: '8.2' },
 };
 
@@ -66,8 +76,12 @@ function produce({ search, waterSamples }) {
     const testSrc = SRC.replace(exportLine,
         exportLine + '\n    global.__test_cacheAnalysisResults = cacheAnalysisResults;');
 
-    const skipped = [];
-    const problems = [];
+    // GH-781 (delivery 5): what the runner writes about a water sample no longer goes through the shared
+    // journal -- the row's body carries it, because the journal's arrays are replaced by every cleanup and
+    // the runner captured them by reference. These two collect what would have gone to the journal, so a
+    // regression that starts writing there again is visible rather than merely absent from the new place.
+    const journalSkipped = [];
+    const journalProblems = [];
     // `null` means the store has not loaded for this site — no entry at all,
     // which is what the runner sees during the first seconds. An EMPTY map is a
     // different fact: the store loaded and the site has no water samples.
@@ -110,22 +124,32 @@ function produce({ search, waterSamples }) {
         }),
     };
     sandbox.GaipOrchestrator = {
-        noteSkipped: (...a) => skipped.push(a),
-        recordProblem: (...a) => problems.push(a),
+        noteSkipped: (...a) => journalSkipped.push(a),
+        recordProblem: (...a) => journalProblems.push(a),
         getState: () => ({ computed: {} }),
     };
 
     const ctx = vm.createContext(sandbox);
     vm.runInContext(testSrc, ctx, { filename: 'hub-persistence.js' });
     const snap = ctx.__test_cacheAnalysisResults();
-    return { snap, skipped, problems, water: (snap.computed && snap.computed.waterBalance) || null };
+    const facts = snap.runnerFacts || { skipped: [], warnings: [] };
+
+    return {
+        snap,
+        // GH-781: the same facts, read where they now travel -- in the body of this row-write.
+        skipped: (facts.skipped || []).map((e) => [e.step, e.module, e.reason]),
+        problems: facts.warnings || [],
+        journalSkipped,
+        journalProblems,
+        water: (snap.computed && snap.computed.waterBalance) || null,
+    };
 }
 
 describe('GH-586 — the run parameter names the sample, and the sample supplies the numbers', () => {
     test('the harness reaches the block at all', () => {
         // Positive control. Without it every assertion below could pass on a
         // producer that never got as far as the water.
-        const { snap } = produce({ search: '?rerun=r&site=site-1&water=sample_w1', waterSamples: [WATER_141] });
+        const { snap } = produce({ search: '?rerun=r&site=site-1&water=114', waterSamples: [WATER_141] });
         expect(snap).toBeTruthy();
         expect(snap.computed).toBeTruthy();
     });
@@ -135,7 +159,7 @@ describe('GH-586 — the run parameter names the sample, and the sample supplies
         // producer took "the site's last water sample" instead, this is where it
         // shows — and the numbers come from `WATER_OTHER`, not from a literal.
         const { snap } = produce({
-            search: '?rerun=r&site=site-1&water=sample_w2',
+            search: '?rerun=r&site=site-1&water=115',
             waterSamples: [WATER_141, WATER_OTHER],
         });
 
@@ -145,7 +169,7 @@ describe('GH-586 — the run parameter names the sample, and the sample supplies
     });
 
     test('the numbers are the sample’s own, not a copy carried through the browser', () => {
-        const { snap } = produce({ search: '?rerun=r&site=site-1&water=sample_w1', waterSamples: [WATER_141] });
+        const { snap } = produce({ search: '?rerun=r&site=site-1&water=114', waterSamples: [WATER_141] });
         const printed = JSON.stringify(snap.computed || {});
 
         // Measured against the fixture, which is where the numbers come from.
@@ -156,13 +180,15 @@ describe('GH-586 — the run parameter names the sample, and the sample supplies
     test('an id that names nothing is an OUTCOME, and it is not another sample', () => {
         // The substitution this ticket removes: a run asked for sample A, could
         // not find it, and answered with sample B under the same numbers.
-        const { snap, skipped, problems } = produce({
-            search: '?rerun=r&site=site-1&water=sample_missing',
+        const { snap, skipped, problems, journalSkipped } = produce({
+            search: '?rerun=r&site=site-1&water=999',
             waterSamples: [WATER_141, WATER_OTHER],
         });
 
-        expect(skipped.map((s) => s.slice(0, 3))).toContainEqual(['water', 'water', 'water-sample-not-found']);
+        expect(skipped).toContainEqual(['water', 'water', 'water-sample-not-found']);
         expect(problems.length).toBeGreaterThan(0);
+        // GH-781: and it did not go into the shared journal, where a later cleanup would have taken it.
+        expect(journalSkipped).toEqual([]);
         const printed = JSON.stringify(snap.computed || {});
         expect(printed).not.toContain('Bore water');
         expect(printed).not.toContain('Dam');
@@ -172,8 +198,8 @@ describe('GH-586 — the run parameter names the sample, and the sample supplies
         // Two facts, two reasons: "it is not on this site" and "its list had not
         // arrived". Collapsing them would tell a person to go and add a sample
         // they already have.
-        const { skipped } = produce({ search: '?rerun=r&site=site-1&water=sample_w1', waterSamples: null });
-        expect(skipped.map((s) => s.slice(0, 3))).toContainEqual(['water', 'water', 'water-samples-not-loaded']);
+        const { skipped } = produce({ search: '?rerun=r&site=site-1&water=114', waterSamples: null });
+        expect(skipped).toContainEqual(['water', 'water', 'water-samples-not-loaded']);
     });
 
     test('with no parameter the producer does not go looking in the browser', () => {
@@ -227,7 +253,8 @@ describe('GH-586 — the join: the chosen sample becomes the parameter the runne
         const pressed = await pressRerun({
             siteId: 'site-1',
             serverAnswer: { data: [{ id: 'sample_141' }] },
-            chosenWaterId: WATER_OTHER.id,
+            // The page holds the sample with its client key and its row id; the opener names the row.
+            chosenWaterId: { id: WATER_OTHER.id, serverId: WATER_OTHER.serverId },
         });
         // Positive control: a press that built no address would make every
         // claim below vacuous.
@@ -272,7 +299,7 @@ describe('GH-586 — the join: the chosen sample becomes the parameter the runne
             search: '?' + query.toString(),
             waterSamples: [WATER_141],
         });
-        expect(skipped.map((s) => s[0])).not.toContain('water');
+        expect(skipped.map((s) => s[1])).not.toContain('water');
     });
 });
 
@@ -310,8 +337,8 @@ describe('GH-602 — the naming of a sample’s columns, and a measured zero', (
         alias.rawData[aliasFor('Mg')] = '5';
         alias.rawData.EC_dSm = '0.5';
 
-        const a = produce({ search: '?rerun=r&site=site-1&water=sample_w1', waterSamples: [plain] });
-        const b = produce({ search: '?rerun=r&site=site-1&water=sample_w1', waterSamples: [alias] });
+        const a = produce({ search: '?rerun=r&site=site-1&water=114', waterSamples: [plain] });
+        const b = produce({ search: '?rerun=r&site=site-1&water=114', waterSamples: [alias] });
 
         const ionsOf = (r) => (r.water && r.water.ions) || {};
         // Positive control: the plain spelling reaches the row at all.
@@ -340,11 +367,11 @@ describe('GH-602 — the naming of a sample’s columns, and a measured zero', (
         // travel in `traceIons` in the sample's own units. BOTH are asserted,
         // because either one alone leaves the collapse standing somewhere.
         const withZero = produce({
-            search: '?rerun=r&site=site-1&water=sample_w1',
+            search: '?rerun=r&site=site-1&water=114',
             waterSamples: [{ id: 'sample_w1', rawData: { _label: 'Bore', EC: '0.5', Ca: '3', B: '0' } }],
         });
         const without = produce({
-            search: '?rerun=r&site=site-1&water=sample_w1',
+            search: '?rerun=r&site=site-1&water=114',
             waterSamples: [{ id: 'sample_w1', rawData: { _label: 'Bore', EC: '0.5', Ca: '3' } }],
         });
 
@@ -364,11 +391,11 @@ describe('GH-602 — the naming of a sample’s columns, and a measured zero', (
         // was stated on, and it is a real zero on six of the eight live water
         // samples.
         const co3Zero = produce({
-            search: '?rerun=r&site=site-1&water=sample_w1',
+            search: '?rerun=r&site=site-1&water=114',
             waterSamples: [{ id: 'sample_w1', rawData: { _label: 'Bore', EC: '0.5', Ca: '3', CO3: '0' } }],
         });
         const co3Absent = produce({
-            search: '?rerun=r&site=site-1&water=sample_w1',
+            search: '?rerun=r&site=site-1&water=114',
             waterSamples: [{ id: 'sample_w1', rawData: { _label: 'Bore', EC: '0.5', Ca: '3' } }],
         });
 

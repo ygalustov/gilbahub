@@ -67,6 +67,7 @@ class Gh644NoIdentifierAnywhereTest extends TestCase
         $reasons = (new \ReflectionClass(AnalysisNotice::class))->getConstant('REASONS');
         $unworded = [];
         $answersNotReachingThePanel = [];
+        $sectionCauses = [];
         foreach ($this->codesTheRunnerSends() as $code) {
             // GH-649 SHARPENED THIS SIGN, and a real case forced it: the runner
             // now also writes `reason: 'pgr-window-exhausted'` INSIDE a journal
@@ -80,12 +81,25 @@ class Gh644NoIdentifierAnywhereTest extends TestCase
                 $answersNotReachingThePanel[] = $code;
                 continue;
             }
+            /**
+             * GH-781 - AND A CAUSE THAT EXPLAINS A SECTION gets its words from `section()`, where the module of
+             * that section is there to be named, and never from `reasonText()`. The run-level panel has no
+             * section, so such a code cannot reach it as a run reason - which the table declares and
+             * `Gh646PanelNeverPrintsAnIdentifierTest` holds from the other side. What it DOES print is measured
+             * in `Gh781TheOwnersSentenceForOurOwnCausesTest`, word for word.
+             */
+            if (AnalysisNotice::explainsASectionOnly($code)) {
+                $sectionCauses[] = $code;
+                continue;
+            }
             if (! isset($reasons[$code]['text'])) {
                 $unworded[] = $code;
             }
         }
         fwrite(STDOUT, '[gh644] codes that are answers and so never a panel reason: '
             .json_encode($answersNotReachingThePanel).PHP_EOL);
+        fwrite(STDOUT, '[gh644] codes that explain a section, worded by `section()`: '
+            .json_encode($sectionCauses).PHP_EOL);
         fwrite(STDOUT, '[gh644] codes with no sentence: '.json_encode($unworded).PHP_EOL);
 
         $this->assertSame([], $unworded,

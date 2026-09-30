@@ -342,6 +342,19 @@ class AnalysisCacheController extends Controller
      *     is our side too, because the client cannot be blamed for a fact nobody
      *     wrote down.
      *
+     * GH-777 (queue item 4, the analyst's 76.4 A and B) — TWO MORE, BECAUSE THE THREE ABOVE WERE
+     * ANSWERING FOR CASES THAT ARE NOT THEIRS:
+     *   - the run named an input the inputs list does not declare, or a sample type outside the three
+     *     -> `input-not-in-list`. This fell into `run-start-not-recorded`, which SAID THE START WAS
+     *     NOT RECORDED WHEN IT WAS: a fact stated about a record that exists, and the broken link is
+     *     between the run's vocabulary and the list, on our side;
+     *   - the input's storage is one the server cannot read -> `input-not-judged`. It used to fall
+     *     into `input-not-entered`, which tells the client it entered nothing. Measured on the stand:
+     *     5 of 21 sites carry a soil texture override in the column and 2 carry their PGR application
+     *     only in the spray log, so this was not hypothetical.
+     *
+     * Both are `run-incomplete`: ours, never the client's.
+     *
      * @param  array<string,mixed>|null  $detail
      * @param  array<string,mixed>|null  $startSet
      * @return array<int,array<string,mixed>>
@@ -364,8 +377,18 @@ class AnalysisCacheController extends Controller
                 $had = RunStart::had($startSet, $input);
                 $reasons[] = [
                     'input' => $input,
-                    'cause' => $had === null ? 'run-start-not-recorded'
-                        : ($had ? 'input-did-not-arrive' : 'input-not-entered'),
+                    // GH-777 (slice 2): BOTH SIDES OF THE LINK, because an administrator reading this in
+                    // a month needs to see which entry of the inputs list the run's own name was matched
+                    // to. `water.ecw` is how the pass's gate names it; `samples.water` is where a person
+                    // fills it in, and the list declares the second as a spelling of the first.
+                    'declaredAs' => \App\Support\CalculationInputs::inputFor($input),
+                    'cause' => match (true) {
+                        $had === null => 'run-start-not-recorded',
+                        $had === RunStart::UNDECLARED => 'input-not-in-list',
+                        $had === RunStart::UNKNOWN => 'input-not-judged',
+                        $had === true => 'input-did-not-arrive',
+                        default => 'input-not-entered',
+                    },
                 ];
             }
             $out[] = ['module' => $module, 'missing' => $reasons];

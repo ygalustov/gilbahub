@@ -44,18 +44,34 @@ const SRC = fs.readFileSync(path.join(ASSETS, 'hub-tissue-v3.js'), 'utf8');
  * assembles comes from there rather than from the state. Passing nothing leaves the config absent,
  * which is its own case.
  */
-function transform(domState, gaipConfig) {
+function transform(domState, gaipConfig, lastPGR) {
     const sandbox = {
         console: { log() {}, warn() {}, error() {} },
         document: { querySelector: () => null, querySelectorAll: () => [] },
         Date, JSON, Math, Object, Array, String, Number, parseFloat, parseInt, isNaN,
     };
     if (arguments.length > 1) sandbox.GAIP_HUB_CONFIG = { gaipConfig };
+    // GH-780: the journal's answer and the engine that owns the question, both as the page has them.
+    if (arguments.length > 2) sandbox.GAIP_LAST_PGR = lastPGR;
+    sandbox.GAIP_PGR = require('./lib/pgr-engine').engine();
     sandbox.window = sandbox;
     sandbox.global = sandbox;
     sandbox.globalThis = sandbox;
 
     const ctx = vm.createContext(sandbox);
+    // The chooser of whose application this is, lifted from the product beside the converter.
+    ['gaip_lastPgrForThisRun'].forEach((name) => {
+        const from = SRC.indexOf('function ' + name + '(');
+        expect(from).toBeGreaterThan(-1);
+        let d = 0;
+        for (let i = SRC.indexOf('{', from); i < SRC.length; i += 1) {
+            if (SRC[i] === '{') d += 1;
+            else if (SRC[i] === '}') {
+                d -= 1;
+                if (!d) { vm.runInContext(SRC.slice(from, i + 1), ctx, { filename: name }); break; }
+            }
+        }
+    });
     const at = SRC.indexOf('function gaip_transformToCascadeFormat(');
     expect(at).toBeGreaterThan(-1);
     let depth = 0;
@@ -72,9 +88,18 @@ function transform(domState, gaipConfig) {
 }
 
 /** What `gaip_build_state()` produces for a sample with no organic matter. */
-const STATE_WITHOUT_OM = { soil: { LOI: null, OM_pct: null, CEC: 5.9, pH_water: 6.1 }, water: {}, turf: {} };
+/**
+ * GH-782 (queue item 3ga): the converter carries three more fields the engine reads - `methodology`,
+ * `soilTexture` and `depthCm` - which its hand-written list had dropped, so every site set to ammonium acetate
+ * was computed by the SLAN table while its row declared AA. They are in these fixtures because this file's claim
+ * is that what the converter builds and what a state supplies agree, and they now must.
+ */
+const SOIL_FIELDS_THE_ENGINE_READS = { methodology: 'ammonium_acetate', soilTexture: 'sand', depthCm: 75 };
+const STATE_WITHOUT_OM = { soil: Object.assign({ LOI: null, OM_pct: null, CEC: 5.9, pH_water: 6.1 },
+    SOIL_FIELDS_THE_ENGINE_READS), water: {}, turf: {} };
 /** And for one that has it. */
-const STATE_WITH_OM = { soil: { LOI: 2.9, OM_pct: 2.9, CEC: 5.9, pH_water: 6.1 }, water: {}, turf: {} };
+const STATE_WITH_OM = { soil: Object.assign({ LOI: 2.9, OM_pct: 2.9, CEC: 5.9, pH_water: 6.1 },
+    SOIL_FIELDS_THE_ENGINE_READS), water: {}, turf: {} };
 
 describe('GH-618 — what the engines are handed', () => {
     test('the converter ran and produced a soil block at all', () => {
@@ -113,24 +138,40 @@ describe('GH-618 — what the engines are handed', () => {
         expect(transform({ soil: {}, water: { SAR: 0 }, turf: {} }).inputs.water.SAR).toBe(0);
     });
 
-    test('GH-725: PGR activity is the answer in the site config, and silence is not `off`', () => {
-        const on = transform({ soil: {}, water: {}, turf: {} }, { pgr: { enabled: true } });
-        const off = transform({ soil: {}, water: {}, turf: {} }, { pgr: { enabled: false } });
-        const silent = transform({ soil: {}, water: {}, turf: {} }, { turf: {} });
-        const noConfig = transform({ soil: {}, water: {}, turf: {} });
-        process.stdout.write('[gh725] turf.pgrActive — config on: ' + JSON.stringify(on.inputs.turf.pgrActive)
-            + ' | off: ' + JSON.stringify(off.inputs.turf.pgrActive)
-            + ' | config silent: ' + JSON.stringify(silent.inputs.turf.pgrActive)
-            + ' | no config at all: ' + JSON.stringify(noConfig.inputs.turf.pgrActive) + '\n');
-        expect(on.inputs.turf.pgrActive).toBe(true);
-        expect(off.inputs.turf.pgrActive).toBe(false);
-        expect(silent.inputs.turf.pgrActive).toBeNull();
-        expect(noConfig.inputs.turf.pgrActive).toBeNull();
-        // And it is NOT taken from the state, which nothing fills: a state claiming otherwise
-        // must not win over the site's own answer.
-        const stateSaysTrue = transform({ soil: {}, water: {}, turf: { pgrActive: true } },
-            { pgr: { enabled: false } });
-        expect(stateSaysTrue.inputs.turf.pgrActive).toBe(false);
+    test('GH-780: the converter CARRIES the PGR answer of the state, and works out nothing itself', () => {
+        /**
+         * WHERE THE ANSWER IS MADE, and why this case no longer asks the converter to make it. The owner
+         * removed the PGR switch on 29.09.2026: a site is using one when its journal holds an application
+         * within the engine's ninety-day window. The first version of that repair computed the answer HERE --
+         * and the shade advice that reaches a stored row comes from the orchestrator's pass, which reads
+         * `GAIP_STATE.turf` and never saw it. Measured live on `Russley`, 71 days: the row said
+         * `currentlyActive: false` before and after, for the same reason.
+         *
+         * So the flag has one producer, the `turf` block of `gaip_build_state`, and this converter carries
+         * it. What it must not do is invent one: absence stays absence, and the config's old switch is not
+         * consulted at all.
+         */
+        const carried = (turfBlock, cfg) => transform({ soil: {}, water: {}, turf: turfBlock }, cfg)
+            .inputs.turf.pgrActive;
+
+        const inUse = carried({ pgrActive: true }, {});
+        const notInUse = carried({ pgrActive: false }, {});
+        const unknown = carried({ pgrActive: null }, {});
+        const absent = carried({}, {});
+        const switchOn = carried({}, { pgr: { enabled: true } });
+        process.stdout.write('[gh780] the converter carries — true: ' + JSON.stringify(inUse)
+            + ' | false: ' + JSON.stringify(notInUse)
+            + ' | null: ' + JSON.stringify(unknown)
+            + ' | absent from the state: ' + JSON.stringify(absent)
+            + ' | config switch on, state silent: ' + JSON.stringify(switchOn) + '\n');
+
+        expect(inUse).toBe(true);
+        expect(notInUse).toBe(false);
+        expect(unknown).toBeNull();
+        // Absent in the state is not `false`: the shade advice then neither asserts nor denies a conflict.
+        expect(absent).toBeNull();
+        // And the switch cannot bring the old behaviour back through this door.
+        expect(switchOn).toBeNull();
     });
 
     test('a measured reading arrives unchanged', () => {
@@ -200,6 +241,9 @@ describe('GH-618 — what the engines are handed', () => {
             bulkDensity: 1.55, surfaceType: 'sand carpet',
             pH_water: 6.1, pH_cacl2: 5.4, CEC: 5.9, LOI: 4.2,
             ppm: { K: 41 }, meq: { K: 0.11 },
+            // GH-782 (queue item 3ga): three fields the engine reads and the converter used to drop, so a site
+            // on ammonium acetate was computed by the SLAN table while its row declared AA.
+            methodology: 'ammonium_acetate', soilTexture: 'sand', depthCm: 75,
         },
         water: {
             ecw: 0.5, EC: 1.2, pH: 7.1,

@@ -53,6 +53,10 @@ function stubEl(id) {
  * @param {*}        opts.serverAnswer    what `/api/samples` replies with; the
  *                                        string 'throw' rejects, 'http-500'
  *                                        answers not-ok
+ * GH-777: the opener puts the ROW ID of the chosen water on the address (`_aws.serverId`), because the row
+ * is a sample's one name and the client store's key is not. So the page's chosen sample is given here the
+ * way the page holds it: a client key in `id` and the row in `serverId`.
+ *
  * @param {?string}  opts.chosenWaterId   `_gilbaActiveWaterSample`, or null for
  *                                        a page where no water sample is chosen
  * @returns {Promise<{url: ?string, requested: string[]}>}
@@ -101,7 +105,11 @@ async function pressRerun({ siteId, serverAnswer, chosenWaterId }) {
     sandbox.GAIP_HUB_CONFIG = { activeSiteId: siteId };
     // The page's chosen water sample, where there is one. This is the global the
     // water-balance screen sets; `null` is a dashboard where nobody chose.
-    if (chosenWaterId != null) sandbox._gilbaActiveWaterSample = { id: chosenWaterId };
+    if (chosenWaterId != null) {
+        sandbox._gilbaActiveWaterSample = (typeof chosenWaterId === 'object')
+            ? chosenWaterId
+            : { id: chosenWaterId, serverId: chosenWaterId };
+    }
 
     const ctx = vm.createContext(sandbox);
     vm.runInContext(src, ctx, { filename: 'dashboard-ui.js' });

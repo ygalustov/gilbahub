@@ -885,11 +885,13 @@
         // b35fix210: product/date/rate NOT restored from config — spray log cascade
         // is the authoritative source and will populate them after analysis-complete.
         // Only restore the GDD threshold override (user setting) and checkbox state.
+        /**
+         * GH-780: THE SWITCH IT USED TO RESTORE NO LONGER EXISTS. The owner decided there is no PGR switch --
+         * a site is using a PGR when its journal holds an application within ninety days -- so the checkbox
+         * was removed from `/hub`'s markup, and a read of an element that is not there is dead code pointing
+         * at a setting nothing writes. The GDD threshold below is a real setting and is restored as before.
+         */
         var pgr = config.pgr || {};
-        var pgrChk = document.querySelector('.gaip-enable-pgr');
-        if (pgrChk && pgrChk.type === 'checkbox') {
-            pgrChk.checked = pgr.enabled !== undefined ? !!pgr.enabled : false;
-        }
         // Restore GDD threshold override if user had set one
         if (pgr.gddThreshold) {
             setDomVal('.gaip-pgr-gdd', pgr.gddThreshold);
@@ -974,7 +976,7 @@
             setDomVal('.gaip-pgr-rate',  '');
             setDomVal('.gaip-pgr-product', '');
             setDomVal('.gaip-dmi-date',  '');
-            try { document.querySelector('.gaip-enable-pgr') && (document.querySelector('.gaip-enable-pgr').checked = false); } catch(e) {}
+
             // b35fix394: also strip lingering cotula identity keys from inputs.turf.
             // First-visit-on-this-device sites don't have a saved config, so
             // restoreConfig() doesn't run and the non-bowls branch above doesn't

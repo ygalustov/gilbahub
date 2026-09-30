@@ -23,7 +23,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { load } = require('./lib/orchestrator-bench');
+const { load, withSamples } = require('./lib/orchestrator-bench');
 
 /** `samples` id 141, Test5 - NZ, as the column holds it. */
 const SOIL = {
@@ -113,6 +113,16 @@ describe('GH-692 — what each candidate node cannot compute without', () => {
     beforeAll(() => {
         bench = load();
         expect(bench.failed).toEqual([]);
+        /**
+         * GH-777 (queue item 4, slice 3): the question here is "with ONE input taken away, does the node
+         * still produce" -- so every OTHER input has to be present, and a site's samples are inputs now.
+         * Nodes declaring `samples.soil` / `samples.tissue` are not run at all without them, which would
+         * remove them from the judgeable set for a reason that has nothing to do with the input under test.
+         */
+        withSamples(bench, {
+            soil: { id: 'soil_1', rawData: { K: 40, Ca: 803, CEC: 5.9, pH: 6 } },
+            tissue: { id: 'tissue_1', rawData: { N: 3.6, K: 2.4 } },
+        });
     });
 
     test('POSITIVE CONTROL: with every input present, every candidate produces something', () => {

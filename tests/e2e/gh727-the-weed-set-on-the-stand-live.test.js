@@ -34,6 +34,11 @@
  * for until it is the element at its own centre, whatever stands over it is PRINTED with enough of its
  * markup to be recognised, and a button still covered is recorded as an outcome and the run goes on.
  *
+ * WHAT THE SCREEN IS HANDED, added under GH-777 (queue item 4): after the press the probe opens a page
+ * and reads what the server gave it about the sections — the topbar pill and `GAIP_ANALYSIS_TEXTS`.
+ * Until now this file measured the stored row only, and a claim about what a person sees was being made
+ * from a reading of the database; a claim about behaviour is settled by behaviour.
+ *
  * Run: GILBA_E2E=1 GILBA_E2E_GH727=1 GILBA_E2E_GH727_SITES='<name>;<name>' \
  *      npx jest tests/e2e/gh727-the-weed-set-on-the-stand-live.test.js
  */
@@ -120,6 +125,7 @@ if (!ENABLED) {
         let after = {};
         const pressed = [];
         let refused = null;
+        let screen = null;
 
         beforeAll(async () => {
             if (!EMAIL || !PASSWORD) throw new Error('no credentials — see tests/e2e/.e2e-credentials.example.json');
@@ -264,6 +270,33 @@ if (!ENABLED) {
                 }
             }
 
+            // GH-777: what the page is handed about the sections, read from a page rather than from the
+            // row. `partials/topbar.blade.php` renders `GAIP_ANALYSIS_TEXTS` from `AnalysisNotice`, so
+            // this is the same composer the row's judgement reaches — seen from the client's side.
+            if (pressed.some((p) => p.pressed && p.row)) {
+                await page.goto(BASE_URL + '/plan?setup=0', { waitUntil: 'domcontentloaded' });
+                await page.waitForTimeout(4000);
+                screen = await page.evaluate(() => {
+                    const texts = window.GAIP_ANALYSIS_TEXTS || null;
+                    const sections = (texts && texts.sections) || null;
+                    const pill = (document.getElementById('db-analysis-ts') || {}).textContent || null;
+                    const notice = document.getElementById('db-analysis-notice');
+                    const body = String(document.body.textContent || '');
+
+                    return {
+                        pill: pill ? pill.trim() : null,
+                        noticeShown: !!(notice && notice.style.display !== 'none'),
+                        noticeText: (document.getElementById('db-analysis-notice-text') || {}).textContent || null,
+                        sectionKeys: sections ? Object.keys(sections) : null,
+                        waterBalance: sections ? sections.waterBalance : '(no sections at all)',
+                        pgr: sections ? sections.pgr : '(no sections at all)',
+                        saysSalinity: /salinity/i.test(body),
+                        invitesARerunInProse: /re-?run (it|the analysis) again|try re-?run/i.test(body),
+                    };
+                });
+                say('SCREEN: ' + JSON.stringify(screen));
+            }
+
             after = standNow();
             say('AFTER — the same list, side by side with before:');
             Object.keys(after).sort().forEach((k) => {
@@ -307,7 +340,35 @@ if (!ENABLED) {
                 .toEqual(PRESSING.map((name) => [name, 'as the plan says']));
         });
 
-        test('and no site outside the list has a new row — this file’s own stand protection', () => {
+        test('THE SCREEN: the page is handed the section answers, and none of them offers a re-run', () => {
+        /**
+         * GH-777 (queue item 4, slice 2) — THE HALF THAT WAS READ AND NOT SEEN.
+         *
+         * The repair makes a site with no water test say "there is no water test" instead of "our fault,
+         * try again", and the class of the first cannot offer a re-run. That was measured in the row and
+         * in the composer; this is the same fact seen from the page: the pill carries no re-run mark, the
+         * panel is not shown, and the answer the page is handed for the water section carries no cause.
+         *
+         * `pgr` is the positive control and the boundary in one: it is the ONE section a page reads today
+         * (`plan-ui.js`, `serverSection`), so the map reaching the browser is real rather than empty —
+         * and no page prints a cause for the water section at all yet. That is what the texts part of
+         * this item is for, and it is why nothing a person reads changes with this slice.
+         */
+        say('what the screen was handed: ' + JSON.stringify(screen));
+        expect(screen).not.toBeNull();
+        // The map arrived, with the declared consumer keys in it.
+        expect(Array.isArray(screen.sectionKeys)).toBe(true);
+        expect(screen.sectionKeys).toContain('waterBalance');
+        expect(screen.sectionKeys).toContain('pgr');
+        // No cause for the water section, so nothing to print and nothing to offer.
+        expect(screen.waterBalance).toBeNull();
+        // And the run is not dressed as incomplete: the pill and the panel say nothing.
+        expect(String(screen.pill || '')).not.toMatch(/incomplete/i);
+        expect(screen.noticeShown).toBe(false);
+        expect(screen.invitesARerunInProse).toBe(false);
+    });
+
+    test('and no site outside the list has a new row — this file’s own stand protection', () => {
             const moved = Object.keys(before)
                 .filter((name) => PRESSING.indexOf(name) < 0)
                 .filter((name) => (after[name] || {}).rowId !== before[name].rowId)

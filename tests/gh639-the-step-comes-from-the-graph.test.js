@@ -104,6 +104,11 @@ describe('GH-639 — the composer’s reading of the graph', () => {
             // declarations stopped disagreeing. `STEP_NAMES` had no word for `soil-temp-physics`,
             // so the composer could name no step for the key that engine writes; the map takes the
             // graph's own label for it now, and the key resolves by the first declared path.
-            ['applicationWindow', 'confidence',  'soilNutrition', 'tissue', 'waterBalance']);
+            // GH-777 (queue item 4, slice 2): `confidence` HAS LEFT IT, third time for the same kind of
+            // reason. The pass has called the confidence summary since v1.3.0 and its result is in 14 of
+            // 14 stored rows, while the graph said nothing about it at all — so the composer had no step
+            // to name for the key. The node is declared now, measured from that call site, and the key
+            // resolves like any other.
+            ['applicationWindow', 'soilNutrition', 'tissue', 'waterBalance']);
     });
 });

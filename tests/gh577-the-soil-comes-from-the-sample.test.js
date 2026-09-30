@@ -95,6 +95,10 @@ function buildState({ sample, formValues }) {
     };
     vm.runInContext(slice('safeNum'), ctx, { filename: 'safeNum' });
     vm.runInContext(slice('collectGridValues'), ctx, { filename: 'collectGridValues' });
+    // GH-778: the soil block asks `gaip_sampleInHand` for the run's own sample now — the server names it on
+    // the frame's address and one function in the frame reads that answer. A bench lifting the block alone
+    // would be measuring a block with no reader.
+    ['gaip_namedSample', 'gaip_sampleInHand'].forEach((n) => vm.runInContext(slice(n), ctx, { filename: n }));
     vm.runInContext(slice('gaip_soilFromActiveSample'), ctx, { filename: 'gaip_soilFromActiveSample' });
     // GH-628: the assembly, so a claim about the soil state can be executed
     // rather than read off the source.

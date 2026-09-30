@@ -718,9 +718,15 @@
         // GH-771: the server's answer, and no copy of it. The application used to be written to
         // `localStorage` under `gilba_last_pgr_<siteId>` and restored from there on the next load, so
         // the run could be given a figure nobody had asked the server for. The answer is the source.
-        if (context.lastPGR) {
-            global.GAIP_LAST_PGR = context.lastPGR;
-        }
+        /**
+         * GH-780 — AND AN ANSWER WITH NO APPLICATION IN IT IS STILL AN ANSWER.
+         *
+         * This wrote the global only when the journal held one, so "the server said there is none" and "the
+         * server was never asked" both left it `undefined`. A site using no PGR and a page whose request
+         * failed are different facts, and the run now tells them apart: `null` is the journal answering
+         * nothing, absent is no answer at all.
+         */
+        global.GAIP_LAST_PGR = context.lastPGR || null;
     }
 
     // =========================================================================
