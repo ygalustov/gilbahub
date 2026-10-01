@@ -108,6 +108,15 @@ function makeGate({ sample, budget = 15000 }) {
         getActiveSample: (t) => (t === 'soil' && sample
             ? { id: 'sample_141', rawData: sample }
             : null),
+        /**
+         * GH-796 (queue item 3vyu): the calculation's question, answered with the sample this bench hands
+         * over -- that sample is the premise of its cases, the run is about it. The reasoning is the shared
+         * stub's, in `tests/lib/sample-readings.js`; a case that needs the two questions to answer
+         * DIFFERENTLY is `tests/gh796-the-calculation-sample-is-not-the-active-one.test.js`.
+         */
+        calculationSample: (t) => (t === 'soil' && sample
+            ? { id: 'sample_141', rawData: sample }
+            : null),
     };
     sandbox.GaipOrchestrator = {
         noteSkipped: (...a) => calls.skipped.push(a),
@@ -252,7 +261,9 @@ describe('GH-578 — the pass waits for the sample, then goes on', () => {
     test('the sample arrives during the wait: the pass starts with it', () => {
         const g = makeGate({ sample: null });
         expect(g.gate()).toBe(false);
-        g.ctx.GAIP_SampleManager.getActiveSample = () => ({ id: 'sample_141', rawData: SAMPLE_141 });
+        // GH-796 (queue item 3vyu): the sample arriving is the one the CALCULATION was told to use, which is
+        // the question the pass now asks. The page's selection is a different method and not this one.
+        g.ctx.GAIP_SampleManager.calculationSample = () => ({ id: 'sample_141', rawData: SAMPLE_141 });
         g.advance(2134);
         expect(g.gate()).toBe(true);
         expect(g.ctx.GAIP_SOIL_SAMPLE_UNAVAILABLE).toBeUndefined();

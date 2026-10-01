@@ -1118,8 +1118,11 @@
                 '</a>';
         }
 
+        // GH-792 (queue item 79): the panel's empty words are the composer's. What stood here named "Hub",
+        // which is not a page of this product, and told a person to run an analysis there.
         body.innerHTML = html ||
-            '<p style="color:var(--gaip-text-muted,#6b8878);font-size:13px;padding:8px 0">No data available — run analysis in Hub first.</p>';
+            '<p style="color:var(--gaip-text-muted,#6b8878);font-size:13px;padding:8px 0">'
+                + (global.GilbaEmptySection ? global.GilbaEmptySection.words('dashboard.panel') : '') + '</p>';
         if (key === 'disease-risk') enrichDashboardResidual();
         panel.classList.add('open');
         if (backdrop) backdrop.classList.add('open');

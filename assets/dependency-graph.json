@@ -627,10 +627,10 @@
       ],
       "requires": [],
       "uses": [
-        "schedule.traffic",
         "soil.LOI",
         "soil.OM_pct",
         "soil.moisture",
+        "traffic.schedule",
         "turf.construction",
         "turf.hoc",
         "turf.overseedStatus",
@@ -666,7 +666,8 @@
         "STORED at rather than the names the page's state used: `turf.hoc` where it said `turf.heightOfCut`,",
         "`traffic.schedule.rootDepth` and `traffic.schedule.moisture` where the form supplied them, plus",
         "`turf.species` -- which the assembly used to take from the canonical state of the PAGE, five sources deep.",
-        "`site.construction` is gone with the `|| \"native\"` chain that read it, and the two inputs the form used to supply are named by their KEY in the inputs list (`soil.moisture`, `turf.rootDepth`) while the assembly reads them at the path that list declares they are stored at."
+        "`site.construction` is gone with the `|| \"native\"` chain that read it, and the two inputs the form used to supply are named by their KEY in the inputs list (`soil.moisture`, `turf.rootDepth`) while the assembly reads them at the path that list declares they are stored at.",
+        "GH-790 (queue item 9) - THE LOAD COMES FROM THE SITE'S OWN SCHEDULE, so the input's name changes with its source. `schedule.traffic` was `_hubState.inputs.schedule`, which no writer in the product ever fills -- so this engine was handed no load on any run, while the cascade built one out of fifteen fields of the `/hub` markup. Both paths now take `traffic.schedule` of the config of the site the run is for, through one transform, and GH-776's rule travels inside it: a site that is not a sports field, and a sports field with no schedule, carry no traffic."
       ]
     },
     "firmness-engine": {
@@ -857,7 +858,9 @@
       "after": [],
       "runner": "cascade",
       "handle": "assets/cascade-orchestrator.js:executeWaterEngine",
-      "requires": [],
+      "requires": [
+      "samples.water"
+    ],
       "uses": [
         "water.ecw",
         "water.ions",

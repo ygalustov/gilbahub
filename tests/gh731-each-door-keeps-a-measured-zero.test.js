@@ -76,6 +76,10 @@ function produce({ search, store, ecwField }) {
         getSamples: (kind) => (kind === 'water' && store ? Object.values(store) : []),
         getActiveSample: (kind) => (kind === 'water' && store ? Object.values(store)[0] : null),
         getActiveSiteId: () => 'site-1',
+        // GH-796 (queue item 3vyu): the water sample this row's calculation is about. The stub says
+        // which one, because the bench hands over exactly one -- before this item the door found it
+        // by sorting the browser's own copy by date, which is the server's rule guessed at.
+        calculationSample: (kind) => (kind === 'water' && store ? Object.values(store)[0] : null),
         getAllSamples: () => ({
             allSites: store ? { 'site-1': { water: store } } : {},
             allActive: {}, allMeta: {}, sites: {},
@@ -98,6 +102,10 @@ function produce({ search, store, ecwField }) {
 /** A tank of rainwater: the lab looked at conductivity and found zero. */
 const EC_ZERO = {
     id: 'sample_w7',
+    // GH-796 (queue item 3vyu): the run is TOLD which sample to compute, so the fixture carries the row id
+    // the frame's address names. Without it the pass reads no sample at all, and the door under test is
+    // never reached -- the same trap this file's own comment describes for the ions.
+    serverId: 731007,
     rawData: { _label: 'Rainwater tank', EC: '0', Ca: '3', Mg: '5', Na: '2', pH: '7.1', HCO3: '2' },
 };
 /**
@@ -109,6 +117,7 @@ const EC_ZERO = {
  */
 const SAR_ZERO = {
     id: 'sample_w8',
+    serverId: 731008,
     rawData: { _label: 'Rainwater tank', EC: '0.4', pH: '7.1', SAR: '0' },
 };
 
@@ -139,7 +148,7 @@ describe('GH-731 — the three doors that had no case', () => {
     });
 
     test('THE LAB SAR: a lab that reports SAR 0 has measured it, and the row carries the zero', () => {
-        const wb = produce({ search: '?rerun=r&site=site-1', store: { w0: SAR_ZERO } });
+        const wb = produce({ search: '?rerun=r&site=site-1&water=731008', store: { w0: SAR_ZERO } });
         process.stdout.write('[gh731] lab SAR -> ' + JSON.stringify(wb && { SAR: wb.SAR, ecw: wb.ecw, source: wb.source }) + '\n');
 
         expect(wb).not.toBeNull();

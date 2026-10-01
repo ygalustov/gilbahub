@@ -81,6 +81,22 @@ if (!ENABLED) {
                 null, { timeout: 30000 });
             await page.waitForTimeout(8000);
 
+            /**
+             * GH-796 (queue item 3vyu) — THE CALCULATION-SAMPLE ANSWER IS ASKED FOR TWICE, ON PURPOSE.
+             *
+             * `calculationSample` asks the server which sample the site's calculation is about and answers
+             * from that reply; until it arrives the answer is "no sample", because the one thing it must
+             * never answer with is the sample the page has open. A recorder that asked once would therefore
+             * write `null` into the fixture, and a null is not a shape -- the same trap this file already
+             * records for a site with no water sample. So the question is put first, the reply is given a
+             * moment, and the shape is read below from the second asking.
+             */
+            await page.evaluate(() => {
+                const SM = window.GAIP_SampleManager;
+                if (SM && typeof SM.calculationSample === 'function') SM.calculationSample('soil');
+            });
+            await page.waitForTimeout(3000);
+
             live = await page.evaluate(() => {
                 const shape = (obj) => {
                     if (obj === null || obj === undefined) return null;
@@ -153,6 +169,10 @@ if (!ENABLED) {
                     'getConfig(id)': answerShape(cfg),
                     'getSite(id)': answerShape(SC && SC.getSite ? SC.getSite(siteId) : null),
                     'getActiveSample(soil)': answerShape(soil),
+                    // GH-796 (queue item 3vyu): the OTHER question the page asks about a sample -- which one
+                    // the calculation is about, as against which one the visitor has open. Warmed above.
+                    'calculationSample(soil)': answerShape(
+                        SM && SM.calculationSample ? SM.calculationSample('soil') : null),
                     // GH-474: four more the sandbox stubs and nothing recorded.
                     // A stub of a method whose answer shape nobody has seen is
                     // a stub written from memory, which is the whole class.

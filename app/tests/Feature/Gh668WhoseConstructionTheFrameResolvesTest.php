@@ -45,7 +45,8 @@ class Gh668WhoseConstructionTheFrameResolvesTest extends TestCase
             'created_by_user_id' => $user->id, 'modified_by_user_id' => $user->id,
         ]);
         $make = function (string $name, string $construction) use ($user, $account) {
-            $site = Site::query()->create([
+            // GH-797 (queue item 3ashch): the texture the lock now wants, on the row.
+            $site = Site::query()->create($this->columnsThePageLockAccepts() + [
                 'account_id' => $account->id, 'name' => $name,
                 'slug' => strtolower($name).'-'.substr((string) $user->id, -4),
                 'site_type' => 'sports',

@@ -813,10 +813,12 @@
             if (window.GilbaMulders) {
                 try {
                     var mNutrients = [];
+                    // GH-796 (queue item 3vyu): Mulders ratios pick the products a client is told to buy,
+                    // so the sample behind them is the calculation's, not the page's selection.
                     var soilSrc = null;
                     var SM = window.GAIP_SampleManager;
-                    if (SM && typeof SM.getActiveSample === 'function') {
-                        soilSrc = SM.getActiveSample('soil');
+                    if (SM && typeof SM.calculationSample === 'function') {
+                        soilSrc = SM.calculationSample('soil');
                     }
                     if (soilSrc) {
                         var normData = soilSrc.normalized || soilSrc.rawData || {};

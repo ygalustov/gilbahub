@@ -564,10 +564,14 @@ describe('GH-684 — the wizard asks for everything the list requires of it', ()
          * to a type — the golf surface and the sports schedule — and a loop over one type's branch
          * passes over both while looking complete.
          */
+        // GH-797 (queue item 3ashch): the soil texture joined the required set on 01.10.2026, asked on
+        // step 3. Without it here "with everything answered" is short of one input, and the positive
+        // control below reads as a gate that never opens.
         const answeredFor = (turfType) => Object.assign({
             'location.lat': -37.8, 'location.lon': 144.9, 'turf.turfType': turfType,
             'turf.species': 'Perennial Ryegrass', 'turf.variety': 'generic',
             'turf.construction': 'sand_profile', 'turf.methodology': 'slan',
+            'sites.soil_texture_override': 'sand',
         }, turfType === 'golf' ? { 'turf.subCategory': 'greens' } : {},
             turfType === 'sports' ? { 'traffic.schedule': { matchesPerWeek: 0, sessionsPerWeek: 0 } } : {});
 
@@ -773,10 +777,13 @@ describe('GH-684 — the wizard asks for everything the list requires of it', ()
      * than being passed over on the way to step 3.
      */
     test('a sports field with no schedule opens at step 2, and a lawn with the same answers does not open', () => {
+        // GH-797: everything but the schedule -- the soil texture included, or the lawn below would
+        // open for a missing texture and the "does not open" half would prove nothing.
         const sports = openWith(null, {
             'location.lat': -37.8, 'location.lon': 144.9, 'turf.turfType': 'sports',
             'turf.species': 'Perennial Ryegrass', 'turf.variety': 'generic',
             'turf.construction': 'sand_profile', 'turf.methodology': 'slan',
+            'sites.soil_texture_override': 'sand',
         });
         let shownForSports = 0;
         sports.W.show = () => { shownForSports++; };
@@ -786,6 +793,7 @@ describe('GH-684 — the wizard asks for everything the list requires of it', ()
             'location.lat': -37.8, 'location.lon': 144.9, 'turf.turfType': 'lawns',
             'turf.species': 'Tall Fescue', 'turf.variety': 'generic',
             'turf.construction': 'sand_profile', 'turf.methodology': 'slan',
+            'sites.soil_texture_override': 'sand',
         });
         let shownForLawn = 0;
         lawn.W.show = () => { shownForLawn++; };

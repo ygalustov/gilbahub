@@ -229,7 +229,17 @@
         },
         NO_DATA: {
             cls:'no_data', title:'Irrigation Water Quality: No Data',
-            sub:'No water quality data available.',
+            /**
+             * GH-792 (queue item 79) — MEASURED: THIS CARD IS NEVER DRAWN FOR NO DATA.
+             *
+             * `renderWbVerdict` opens with `if (!meta.observation) return '';` and this entry's observation is
+             * null, so neither the title's sentence nor any row below it ever reached a screen. The composer
+             * holds no words for this place for that reason: declaring a sentence nobody prints is the same
+             * fault one level up, and the next reader would take the literal for what a person sees. The
+             * owner's approved words for the heading that IS printed live with the composer, under
+             * `waterBalance`.
+             */
+            sub:null,
             observation:null, mechanism:null, consequence:null, determination:null,
         },
     };
@@ -1068,7 +1078,16 @@
         container.innerHTML =
             '<div class="wb-empty">'+
             '<div class="wb-empty-title">No Water Balance Data</div>'+
-            '<div class="wb-empty-body">Add Water Quality data in the Hub and run the analysis to see results here.</div>'+
+            /**
+             * GH-792 (queue item 79): the body is the composer's answer. What stood here sent a person to
+             * "the Hub" -- the plugin-era page that is not part of the product and that no client can reach --
+             * and told them to run an analysis. The heading is correct and stays.
+             */
+            (function () {
+                var words = global.GilbaEmptySection ? global.GilbaEmptySection.words('waterBalance') : '';
+
+                return words ? '<div class="wb-empty-body">' + words + '</div>' : '';
+            }())+
             '</div>';
     }
 

@@ -56,8 +56,11 @@ class RunStart
      * set so the judgement can tell "the client did not enter it" from "we could not look where it
      * lives" — and the second must never reach a client as the first. Blame on the client is the
      * worst direction for an error to point.
+     *
+     * GH-797 (queue item 3ashch): one declaration of the word, in the class that answers the question
+     * now. The cases that compare against `RunStart::UNKNOWN` keep reading it here.
      */
-    public const UNKNOWN = 'unknown';
+    public const UNKNOWN = CalculationInputs::UNKNOWN;
 
     /** An input the set does not carry at all — not declared in the list the run and the server share. */
     public const UNDECLARED = 'undeclared';
@@ -190,48 +193,15 @@ class RunStart
      */
     private static function heldAnywhere(Site $site, array $config, string $key)
     {
-        $stored = CalculationInputs::storedIn($key);
-        if ($stored === null) {
-            return self::UNKNOWN;
-        }
-        $held = false;
-        foreach ($stored as $storage) {
-            $answer = match ($storage) {
-                'config' => self::filledSomewhereInTheConfig($config, $key),
-                'siteColumn' => self::filledInSiteColumn($site, $key),
-                'sprayLog' => self::filledInSprayLog($site, $key),
-                default => self::UNKNOWN,
-            };
-            if ($answer === self::UNKNOWN) {
-                return self::UNKNOWN;
-            }
-            $held = $held || $answer;
-        }
-
-        return $held;
-    }
-
-    /**
-     * A column of `sites`, named by the input's own key: `sites.soil_texture_override`.
-     *
-     * A column this model does not carry is unknown rather than empty — the alternative is telling a
-     * client it entered nothing because we looked in the wrong table.
-     *
-     * @return bool|string
-     */
-    private static function filledInSiteColumn(Site $site, string $key)
-    {
-        $column = substr($key, strlen('sites.'));
-        if (! str_starts_with($key, 'sites.') || $column === '') {
-            return self::UNKNOWN;
-        }
-        $attributes = $site->getAttributes();
-        if (! array_key_exists($column, $attributes)) {
-            return self::UNKNOWN;
-        }
-        $value = $attributes[$column];
-
-        return $value !== null && trim((string) $value) !== '';
+        /**
+         * GH-797 (queue item 3ashch): the match over `storedIn`, the config walk and the site column
+         * moved to `CalculationInputs::heldForInput` — the setup lock and the server's refusal need the
+         * same answer, and they were walking the config alone. The spray log stays here: it is a table
+         * with its own column map, declared below, and this is its only consumer.
+         */
+        return CalculationInputs::heldForInput($key, $config, $site, [
+            'sprayLog' => fn (string $k) => self::filledInSprayLog($site, $k),
+        ])['held'];
     }
 
     /**
@@ -260,62 +230,6 @@ class RunStart
             ->whereNotNull($column)
             ->where($column, '<>', '')
             ->exists();
-    }
-
-    /**
-     * GH-777 (the reviewer's return) — AT THE PATH THE WRITER WRITES, not at the input's own key.
-     *
-     * `filled()` walked the key as a path in the config, and for six inputs of the list the writer puts
-     * the value somewhere else — the list now declares those paths (`storedAs`). Measured on the stand
-     * before this: `irrigation.efficiency` on 3 sites and `traffic.schedule.moisture` on 2, and every
-     * one of them would be reported to its own owner as "not entered". That is the error pointing at
-     * the client, which is the whole thing this record was built to stop.
-     *
-     * An input with several paths — the three Clegg readings are one input — is filled when ANY of
-     * them carries a value: the input is the reading, and a person who entered one entered it.
-     *
-     * @param  array<string,mixed>  $config
-     */
-    private static function filledSomewhereInTheConfig(array $config, string $key): bool
-    {
-        $paths = CalculationInputs::storedAs($key);
-        if ($paths === []) {
-            return self::filled($config, $key);
-        }
-        foreach ($paths as $path) {
-            if (self::filled($config, $path)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * GH-789 (queue item 7) — ONE RULE OF "FILLED", ASKED OF THE LIST.
-     *
-     * This held the rule itself, and the setup lock held a second copy of it (`EnsureSiteIsSetUp::isBlank`).
-     * They agreed on everything but an OBJECT: both called a non-empty array filled, so a schedule of nothing
-     * but `null`s read as entered — and the Settings form sends every key it has on every save. The rule now
-     * lives in `CalculationInputs`, beside the declaration it has to read (`filledWhenAnyOf`), and both
-     * callers ask it. A zero is filled, which is what the comment here has said since GH-675.
-     *
-     * The walk down the dotted path stays here: it is about where a value sits in THIS config, not about what
-     * counts as a value.
-     *
-     * @param  array<string,mixed>  $config
-     */
-    private static function filled(array $config, string $key): bool
-    {
-        $value = $config;
-        foreach (explode('.', $key) as $segment) {
-            if (! is_array($value) || ! array_key_exists($segment, $value)) {
-                return false;
-            }
-            $value = $value[$segment];
-        }
-
-        return CalculationInputs::isFilled($key, $value);
     }
 
     /** @return array<string,mixed> */

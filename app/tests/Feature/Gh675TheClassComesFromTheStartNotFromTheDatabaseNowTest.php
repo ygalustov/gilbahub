@@ -61,7 +61,8 @@ class Gh675TheClassComesFromTheStartNotFromTheDatabaseNowTest extends TestCase
             'owner_user_id' => $user->id, 'display_name' => 'A',
             'created_by_user_id' => $user->id, 'modified_by_user_id' => $user->id,
         ]);
-        $site = Site::query()->create([
+        // GH-797 (queue item 3ashch): the texture the lock now wants, on the row.
+        $site = Site::query()->create($this->columnsThePageLockAccepts() + [
             'account_id' => $account->id, 'name' => 'Site', 'slug' => 'site-'.$user->id,
             'site_type' => 'sports',
             'created_by_user_id' => $user->id, 'modified_by_user_id' => $user->id,

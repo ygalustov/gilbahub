@@ -80,6 +80,22 @@
     "methodologySnapshot": "string",
     "soilTextureSnapshot": "string"
    },
+   "calculationSample(soil)": {
+    "_answer": "object",
+    "id": "string",
+    "serverId": "number",
+    "label": "string",
+    "date": "string",
+    "notes": "string",
+    "zoneType": "string",
+    "source": "string",
+    "turfProfile": "null",
+    "rawData": "object",
+    "normalized": "object",
+    "values": "object",
+    "methodologySnapshot": "string",
+    "soilTextureSnapshot": "string"
+   },
    "getSamples(soil)": {
     "_answer": "array",
     "_rowKeys": {
@@ -370,5 +386,6 @@
    "lon": "number",
    "name": "string"
   }
- }
+ },
+ "_whyOneAnswerIsNewerThanTheRest": "GH-796 (queue item 3vyu): `calculationSample(soil)` was recorded from the live page on 01.10.2026 and inserted on its own. A full re-recording was run first and reverted: it also picked up fourteen days of the stand drifting -- six sites added, `methodology_override` gone from the config shape, and eight keys added to the sample shape -- which reddened eight suites written against the shape as it was. That drift is real and is a finding of its own; adopting it inside this item would have been a snapshot standing in for an edit."
 }

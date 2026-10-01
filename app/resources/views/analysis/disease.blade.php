@@ -20,7 +20,11 @@
             userId:       {{ auth()->id() ?? 0 }},
             activeSiteId: @json($activeSite?->id),
             siteUrl:      "{{ url('/') }}",
-            hubUrl:       "{{ route('hub') }}",
+            {{-- GH-792 (queue item 79): `hubUrl` is gone from this view. It was an address of the old
+                 plugin-era page in the config of a client page, with no reader in `assets` -- measured, the
+                 only mention left is a comment saying a card no longer navigates there. An address nobody
+                 uses is the next link somebody adds by finding it here. The runner's own layout
+                 (`layouts/app.blade.php`) keeps it: that page IS the runner. --}}
             turfSpecies:  @json($turfSpecies),
             turfMethodology: @json($turfMethodology),
         });

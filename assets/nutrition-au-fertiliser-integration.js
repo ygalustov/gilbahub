@@ -304,14 +304,13 @@
                                  document.querySelector('#gaip-methodology');
             if (methodSelect?.value) return methodSelect.value;
 
-            // 6. Active sample extractant from SampleManager
-            try {
-                const SM = window.GAIP_SampleManager;
-                if (SM && typeof SM.getActiveSample === 'function') {
-                    const s = SM.getActiveSample('soil');
-                    if (s && s.extractant) return s.extractant;
-                }
-            } catch(e) {}
+            /**
+             * GH-796 (queue item 3vyu) — THE SIXTH FALLBACK IS GONE RATHER THAN MOVED, and the reason is a
+             * project rule, not a preference: a site's methodology has exactly one owner,
+             * `config.turf.methodology`, and nothing may derive it from a sample -- not from the page's
+             * sample, and not from the calculation's either. Settled by the owner on 18.09.2026. So this
+             * step needed no sample at all; it needed deleting.
+             */
 
             return 'mlsn'; // genuine default when no methodology is set
         },
@@ -357,10 +356,11 @@
                     var _mNutrients = [];
                     var _soilSrc = null;
 
-                    // Priority 1: active soil sample from SampleManager
+                    // GH-796 (queue item 3vyu): priority 1 is the sample this calculation is about, not the
+                    // one selected on the page -- these ratios choose the products in a client's programme.
                     var _SM = window.GAIP_SampleManager;
-                    if (_SM && typeof _SM.getActiveSample === 'function') {
-                        _soilSrc = _SM.getActiveSample('soil');
+                    if (_SM && typeof _SM.calculationSample === 'function') {
+                        _soilSrc = _SM.calculationSample('soil');
                     }
 
                     if (_soilSrc) {

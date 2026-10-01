@@ -391,6 +391,10 @@
       "multiplicity",
       "GH-781: a repeat of the cascade replaces its own record rather than adding a second, which is what the count is about"
     ],
-    "tests/hoxton-nutrition-requirement-no-fabricated-gp.test.js | expect(result.facility.monthlyN).toHaveLength(12) #1": "pending-list"
+    "tests/hoxton-nutrition-requirement-no-fabricated-gp.test.js | expect(result.facility.monthlyN).toHaveLength(12) #1": "pending-list",
+    "app/tests/Feature/Gh791TheFiveCasesDoNotDependOnTheWallClockTest.php | assertCount(15, $report, 'five stamps at three clocks is fifteen readings'); #1": [
+      "multiplicity",
+      "GH-791 (queue item 3gp): the number IS the subject of this line -- five stamps at three points of the wall clock is fifteen readings, and a report shorter than that means a stamp or a clock was skipped. What each reading SAYS is compared as a list on the next line (every reading whose panel is not 'silent' is named), so the count is the positive control beside the comparison rather than instead of it."
+    ]
   }
 }

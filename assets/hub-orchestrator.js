@@ -1740,6 +1740,8 @@
       const resultKey = rowKeys[0].slice('computed.'.length).split('.')[0];
       const absent = absentRequirementsOf(node);
       if (absent.length) {
+        // GH-795: the module is still not attempted -- but the reason belongs to the pass, not to this gate.
+        if (absent.every(absenceIsAnotherWriters)) return;
         gate.missing[module] = absent;
         notApplicable(module, 'this site has no ' + absent.join(', ') + ', so ' + module
           + ' does not apply to it', absent);
@@ -1766,6 +1768,25 @@
    * @param  {object} node  a node of the dependency graph
    * @return {string[]}     the declared requirements this run cannot satisfy
    */
+  /**
+   * GH-795 (queue item 3vae) — AN ABSENCE THIS GATE DOES NOT SPEAK FOR.
+   *
+   * A gate that finds a requirement missing says "this site has no X, so the module does not apply to it",
+   * and the panel turns that into "add it in Data -> ...". That sentence is false when the reason the input
+   * is missing is OURS: the run asked the server which sample to compute and the request failed, so the
+   * address carries `unknown`. The site may hold the test. The pass records that fact itself, by its own
+   * reason, and this says so -- one condition, asked by every gate that records, rather than a rule written
+   * twice.
+   */
+  function absenceIsAnotherWriters(input) {
+    const asked = String(input);
+    if (asked.indexOf('samples.') !== 0) return false;
+    const namedSample = global.gaip_namedSample;
+    const told = (typeof namedSample === 'function') ? namedSample(asked.slice('samples.'.length)) : null;
+
+    return told === 'unknown';
+  }
+
   function absentRequirementsOf(node) {
     return (((node || {}).requires) || []).filter(function (input) {
       return !inputIsThere(input);
@@ -3905,8 +3926,22 @@
      * purpose -- the block's census counts a file that spells a class as one of its readers, so naming
      * it in prose would make this file look like one.
      */
-    let schedule = _hubState.inputs.schedule;
-    let trafficData = schedule?.traffic || schedule || null;
+    /**
+     * GH-790 (queue item 9) — THE LOAD COMES FROM THE SITE'S SCHEDULE, THROUGH THE TRANSFORM THE CASCADE
+     * STATE USES.
+     *
+     * What stood here read `_hubState.inputs.schedule`, and no writer in the product ever fills it: the
+     * census of its writers found none, so the engine was handed no load on every run, for every site.
+     * Meanwhile the cascade built its own load out of fifteen fields of the `/hub` markup. One
+     * calculation, two assemblies, and the one the plan page prints was working from nothing.
+     *
+     * The same function answers for both now, so a schedule entered in Settings reaches the figure a
+     * person reads and the figure in the document, or reaches neither. GH-776's rule travels inside it: a
+     * site that is not a sports field, and a sports field with no schedule, carry no traffic.
+     *
+     * A page without the transform gets `null` -- no load, which is what an absent schedule already
+     * means -- rather than a load assembled here by a second rule.
+     */
     /**
      * GH-787 (queue item 3vy) — EVERY INPUT FROM ITS OWNER, AT THE KEY IT IS STORED UNDER.
      *
@@ -3924,6 +3959,24 @@
     const siteCfg = siteConfigOfThisRun();
     const cfgTurf = (siteCfg && siteCfg.turf) || {};
     const cfgSchedule = (siteCfg && siteCfg.traffic && siteCfg.traffic.schedule) || {};
+    /**
+     * GH-790 (queue item 9) — THE LOAD COMES FROM THE SITE'S SCHEDULE, THROUGH THE TRANSFORM THE CASCADE
+     * STATE USES.
+     *
+     * What stood above read `_hubState.inputs.schedule`, and no writer in the product ever fills it: the
+     * census of its writers found none, so the engine was handed no load on every run, for every site, while
+     * the cascade built its own out of fifteen fields of the `/hub` markup. One calculation, two assemblies,
+     * and the one the plan page prints was working from nothing.
+     *
+     * The same function answers for both now, so a schedule entered in Settings reaches the figure a person
+     * reads and the figure in the document, or reaches neither. GH-776's rule travels inside it: a site that
+     * is not a sports field, and a sports field with no schedule, carry no traffic. A page without the
+     * transform gets `null` -- no load, which is what an absent schedule already means.
+     */
+    let trafficData = (!siteCfg || !siteCfg.traffic || !siteCfg.traffic.schedule
+        || typeof global.GAIP_TrafficFromSchedule !== 'function')
+        ? null
+        : global.GAIP_TrafficFromSchedule(siteCfg);
 
     /**
      * The construction, from the input `turf.construction` — a required input, so a site without one is a
@@ -4149,9 +4202,27 @@
    * they stand: each is about a different question (the pre-run config, the species of the canonical
    * state), and moving them is not this item.
    */
+  /**
+   * GH-790 (queue item 9) — THE CONFIG OF THE SITE THIS RUN IS FOR, BY ID.
+   *
+   * It read `GAIP_HUB_CONFIG.gaipConfig`, which is written once when the page is rendered and updated by
+   * no writer in `assets`. In the combined export's loop -- which switches site and runs the analysis once
+   * per sample -- it therefore describes whichever site the page was drawn with, so from the second
+   * document onward the nine wear inputs and the season's latitude belonged to a neighbouring site. That
+   * is the GH-459 class, and queue item 3vy had been delivered before the answer to it existed.
+   *
+   * One function answers it for this file and for the run-state assembly alike, and it refuses to
+   * substitute the page's config for another site's: `null` is a run with no config, which is an outcome.
+   */
   function siteConfigOfThisRun() {
-    const hub = global.GAIP_HUB_CONFIG;
-    return (hub && (hub.gaipConfig || hub.siteConfig)) || null;
+    try {
+      const NPI = global.GAIP_NutritionProgramInputs;
+      if (NPI && typeof NPI.runSiteConfig === 'function') {
+        return NPI.runSiteConfig();
+      }
+    } catch (e) { /* the reader is not on this page; answered below */ }
+
+    return null;
   }
 
   /**
@@ -5937,6 +6008,7 @@
      * second gate written there would be the second copy this item exists to remove.
      */
     absentRequirementsOf: absentRequirementsOf,
+    absenceIsAnotherWriters: absenceIsAnotherWriters,
     notApplicable: function (module, why, missing, producer) {
       if (typeof producer !== 'string' || !producer) {
         warn('orchestrator', 'a module was declared not applicable without naming the producer and was not'

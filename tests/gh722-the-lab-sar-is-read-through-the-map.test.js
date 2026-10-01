@@ -56,6 +56,11 @@ function produce(rawData, named = true, activeOther = null) {
         getActiveSiteId: () => 'site-1',
         // `activeOther`: a second water sample on the site, marked active, so the row's own
         // fallback finds IT and not the named one — the named road is then the only road.
+        //
+        // GH-796 (queue item 3vyu): and that fallback no longer looks at what is marked active -- it asks
+        // which sample the site's calculation is about. The stub answers with the sample this bench is
+        // about, so the case still measures the named road rather than the pointer.
+        calculationSample: (kind) => (kind === 'water' ? sample : null),
         getAllSamples: () => (activeOther
             ? { allSites: { 'site-1': { water: { w0: sample, w9: { id: 'sample_w9', serverId: 115, rawData: activeOther } } } },
                 allActive: { 'site-1': { water: 'w9' } }, allMeta: {}, sites: {} }

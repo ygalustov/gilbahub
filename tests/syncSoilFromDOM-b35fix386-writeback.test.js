@@ -124,7 +124,9 @@ describe('b35fix386 — writeback routed through hub-store inputs.soil', () => {
         // SampleManager-priority read. SM block must still appear before
         // DOM scan; activeSoil.normalized must still be the source.
         expect(calendarSrc).toMatch(/GAIP_SampleManager/);
-        expect(calendarSrc).toMatch(/getActiveSample\(['"]soil['"]\)/);
+        // GH-796 (queue item 3vyu): the method was renamed with the question it answers -- the sample a
+        // programme is computed from is the server's choice for the site, not the visitor's selection.
+        expect(calendarSrc).toMatch(/calculationSample\(['"]soil['"]\)/);
         expect(calendarSrc).toMatch(/activeSoil\.normalized/);
         const smIdx = calendarSrc.indexOf('GAIP_SampleManager');
         const domIdx = calendarSrc.indexOf("document.querySelector(`[data-mlsn=");

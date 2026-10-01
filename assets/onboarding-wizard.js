@@ -33,6 +33,9 @@
             // field and `0` is an answer, so neither is ever turned into the other.
             matchesPerWeek:  null,
             sessionsPerWeek: null,
+            // GH-797 (queue item 3ashch): the soil texture, asked on step 3. It is the one draft field
+            // whose value does not go into the config -- the list keeps it in a column of `sites`.
+            soilTexture:  null,
         },
 
         /**
@@ -58,6 +61,12 @@
              * instead, and the lock did not ask for it at all.
              */
             'turf.subCategory':  { get: function (d) { return d.subCategory; },  set: function (d, v) { d.subCategory = v; } },
+            /**
+             * GH-797 (queue item 3ashch): the soil texture, required by the owner's decision of
+             * 01.10.2026 and asked on step 3. The only bound input whose value does not live in the
+             * config -- the list keeps it in a column of `sites`, and `_save` sends it as its own request.
+             */
+            'sites.soil_texture_override': { get: function (d) { return d.soilTexture; }, set: function (d, v) { d.soilTexture = v; } },
             /**
              * GH-789 (queue item 7) — THE MATCH AND TRAINING SCHEDULE, AND IT IS AN OBJECT.
              *
@@ -736,6 +745,23 @@
                     return '<option value="' + self._esc(v.id) + '"' + (self.d.construction === v.id ? ' selected' : '') + '>'
                         + self._esc(v.label) + '</option>';
                 }).join('');
+            /**
+             * GH-797 (queue item 3ashch) — THE SOIL TEXTURE, ASKED HERE FOR THE FIRST TIME.
+             *
+             * The owner made it required on 01.10.2026 and no wizard step collected it, so a site made
+             * here arrived at the dashboard short of it and the only way to answer was a Settings page the
+             * lock does not open. The six come from the server with the rest of the setup state, out of the
+             * inputs list, as the constructions beside it do.
+             *
+             * IT OPENS EMPTY, like the cultivar and the construction: nothing is chosen on the person's
+             * behalf. And it is sent only when it has an answer, so a draft that never reached this field
+             * cannot blank a texture the site already carries.
+             */
+            var textureOpt = '<option value="">— Select soil texture —</option>'
+                + (((cfg.setup || {}).soilTextureValues) || []).map(function (v) {
+                    return '<option value="' + self._esc(v.id) + '"' + (self.d.soilTexture === v.id ? ' selected' : '') + '>'
+                        + self._esc(v.label) + '</option>';
+                }).join('');
 
             var speciesTopt = '<option value="">— Select species —</option>' +
                 options.map(function (s) {
@@ -760,17 +786,24 @@
                 '<select id="wiz-construction" data-input="turf.construction" style="width:100%;padding:9px 12px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)">' +
                 constructionOpt + '</select>' +
                 '</div>' +
+                '<div style="margin-bottom:16px">' +
+                '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Soil texture</label>' +
+                '<select id="wiz-soil-texture" data-input="sites.soil_texture_override" style="width:100%;padding:9px 12px;border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;font-size:14px;font-family:inherit;color:var(--gaip-text,#17231f);background:var(--gaip-surface,#fff)">' +
+                textureOpt + '</select>' +
+                '</div>' +
                 '<div>' +
                 '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Soil interpretation method</label>' +
                 '<div data-input="turf.methodology" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + methodHtml + '</div>' +
                 '</div>' +
                 this._methodNote();
 
-            ['wiz-variety', 'wiz-construction'].forEach(function (id) {
+            // GH-797: and the texture beside them, written to the draft the same way.
+            ['wiz-variety', 'wiz-construction', 'wiz-soil-texture'].forEach(function (id) {
                 var el = document.getElementById(id);
                 if (!el) return;
                 el.addEventListener('change', function () {
                     if (id === 'wiz-variety') { self.d.variety = this.value || null; }
+                    else if (id === 'wiz-soil-texture') { self.d.soilTexture = this.value || null; }
                     else { self.d.construction = this.value || null; }
                     self._render();
                 });
@@ -968,6 +1001,23 @@
                         location_name: self.d.location.name,
                         latitude:      self.d.location.lat,
                         longitude:     self.d.location.lon,
+                    }));
+                }
+
+                /**
+                 * GH-797 (queue item 3ashch) — THE TEXTURE TRAVELS AS ITS OWN REQUEST.
+                 *
+                 * It is a column of `sites`, so it does not belong in the config patch below. And it is
+                 * NOT attached to the location request above: `location.lat`/`.lon` have no `set` in
+                 * `_answers`, so a wizard opened on an existing site never fills the draft's location and
+                 * that request is not sent at all -- the texture would have gone with it into nothing.
+                 *
+                 * Only when there is an answer, by this file's own rule: a field nobody filled is not a
+                 * change, and sending an empty one would blank a texture the site already carries.
+                 */
+                if (self.d.soilTexture) {
+                    tasks.push(self._api('PATCH', 'sites/' + encodeURIComponent(siteId), {
+                        soil_texture_override: self.d.soilTexture,
                     }));
                 }
 

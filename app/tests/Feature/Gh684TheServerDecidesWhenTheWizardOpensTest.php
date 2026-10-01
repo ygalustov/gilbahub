@@ -101,7 +101,7 @@ class Gh684TheServerDecidesWhenTheWizardOpensTest extends TestCase
              * route: a week with no load, which is an answer.
              */
             'traffic' => ['schedule' => ['matchesPerWeek' => 0, 'sessionsPerWeek' => 0]],
-        ]);
+        ], $this->columnsThePageLockAccepts());
 
         $setup = $this->setupFromThePage($user);
         fwrite(STDOUT, '[gh684] a complete site is told: '.json_encode($setup['missing']).PHP_EOL);
@@ -180,15 +180,22 @@ class Gh684TheServerDecidesWhenTheWizardOpensTest extends TestCase
         return json_decode($m[1], true);
     }
 
-    /** @return array{0:User,1:Site} */
-    private function siteWith(array $config): array
+    /**
+     * GH-797 (queue item 3ashch): `$columns` are the required inputs the list keeps in a column of
+     * `sites` — the soil texture today. A case about a COMPLETE site answers them; a case about a site
+     * short of something leaves them out, as it leaves config keys out.
+     *
+     * @param  array<string,mixed>  $columns
+     * @return array{0:User,1:Site}
+     */
+    private function siteWith(array $config, array $columns = []): array
     {
         $user = User::factory()->create();
         $account = Account::query()->firstOrCreate(
             ['owner_user_id' => $user->id],
             ['display_name' => $user->name, 'created_by_user_id' => $user->id, 'modified_by_user_id' => $user->id]
         );
-        $site = Site::query()->create([
+        $site = Site::query()->create($columns + [
             'account_id' => $account->id, 'name' => 'Setup site',
             'slug' => 'setup-site-'.substr((string) $user->id, -6),
             'site_type' => 'sports', 'timezone' => 'UTC',

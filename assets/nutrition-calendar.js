@@ -942,9 +942,11 @@
             };
             if (tissuePercent.N == null || tissuePercent.P == null || tissuePercent.K == null) {
                 try {
+                    // GH-796 (queue item 3vyu): the sample this PROGRAMME is about, not the one the visitor
+                    // has selected on the page. The programme is stored and exported; it is about the site.
                     const SM = window.GAIP_SampleManager;
-                    const activeTissue = (SM && typeof SM.getActiveSample === 'function')
-                        ? SM.getActiveSample('tissue') : null;
+                    const activeTissue = (SM && typeof SM.calculationSample === 'function')
+                        ? SM.calculationSample('tissue') : null;
                     if (activeTissue) {
                         // GH-722: through the lab reading names map, as the calculation reads it.
                         const tRead = (typeof SM.readingsOf === 'function' && SM.readingsOf('tissue', activeTissue)) || {};
@@ -1243,9 +1245,12 @@
      * Sync soil data from DOM inputs and SampleManager active sample to GAIP_STATE
      * Ensures state is current before generating program.
      *
-     * b35fix383: Source of truth is SampleManager.getActiveSample('soil').normalized
-     * (where the lab values actually live). DOM inputs are a fallback for
-     * manually-typed values that haven't been persisted to a sample yet.
+     * b35fix383: the source of truth is the sample's `normalized` values (where the lab values actually
+     * live). DOM inputs are a fallback for manually-typed values that haven't been persisted to a sample
+     * yet.
+     *
+     * GH-796 (queue item 3vyu): and the sample is the CALCULATION's -- `SM.calculationSample('soil')` --
+     * not the one a visitor has selected. This comment named the old method until then.
      *
      * Pre-fix this function only read DOM `[data-mlsn="X"]` fields. When the
      * user wasn't on the soil tab those inputs were empty/unrendered, so
@@ -1322,10 +1327,12 @@
         // (authoritative lab values, present regardless of which tab the user
         // is currently viewing). This was the missing branch that caused the
         // live preview to compute K=0 when the soil tab DOM was empty.
+        // GH-796 (queue item 3vyu): the calculation's sample, for the same reason as the tissue read
+        // above -- these ppm become `soilState.ppm` of a programme that is saved and printed.
         try {
             var SM = window.GAIP_SampleManager;
-            var activeSoil = (SM && typeof SM.getActiveSample === 'function')
-                ? SM.getActiveSample('soil') : null;
+            var activeSoil = (SM && typeof SM.calculationSample === 'function')
+                ? SM.calculationSample('soil') : null;
             if (activeSoil) {
                 // Sample structure: { id, label, date, rawData, normalized: {P, K, Ca, Mg, S, Fe, Mn, Zn, Cu, Na, ...} }
                 var src = activeSoil.normalized || activeSoil.rawData || {};

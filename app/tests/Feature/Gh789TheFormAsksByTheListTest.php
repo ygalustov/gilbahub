@@ -306,7 +306,9 @@ class Gh789TheFormAsksByTheListTest extends TestCase
             ['owner_user_id' => $user->id],
             ['display_name' => $user->name, 'created_by_user_id' => $user->id, 'modified_by_user_id' => $user->id]
         );
-        $site = Site::query()->create([
+        // GH-797 (queue item 3ashch): the soil texture is required and kept in a column of `sites`, so
+        // without it on the row the lock sends /settings to the wizard and this page is never drawn.
+        $site = Site::query()->create($this->columnsThePageLockAccepts($turfType) + [
             'account_id' => $account->id, 'name' => 'GH-789 '.$turfType,
             'slug' => 'gh789-form-'.$turfType.'-'.substr(bin2hex(random_bytes(6)), 0, 8),
             'site_type' => $turfType === 'golf' ? 'golf' : 'sports', 'timezone' => 'UTC',

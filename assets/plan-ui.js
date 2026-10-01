@@ -199,12 +199,10 @@
          */
         preEmergent: {
             title: 'No pre-emergent data',
-            body: 'Pre-emergent timing calculates automatically when analysis is run.',
             badge: ''
         },
         wear: {
             title: 'No traffic data configured',
-            body: 'Recovery windows calculate from match and training schedule.',
             badge: ''
         },
         pgr: {
@@ -214,16 +212,35 @@
         }
     };
 
+    /**
+     * GH-792 (queue item 79) — THE HEADING IS THIS PAGE'S, THE BODY IS THE COMPOSER'S.
+     *
+     * The composer answers every place now, including the third case it used to leave to the pages -- an
+     * analysis with no recorded cause. So the fallback body below is never reached, and the sentences move out
+     * of this page entirely. The MODULE's own word still becomes the heading where a cause was recorded, which
+     * is what GH-777 established and what a person reading about a named module expects; where no cause was
+     * recorded the section keeps its own heading, because the owner's edits of 29.09.2026 were to the advice
+     * under the heading and not to the heading.
+     */
     function sectionTitle(key, answer) {
-        if (answer && answer.text && answer.module) return answer.module;
+        if (answer && answer.cause && answer.module) return answer.module;
 
         return (WAS_PRINTED_BEFORE[key] || {}).title || '';
     }
 
+    /**
+     * GH-792: the composer's text, escaped as before. `WAS_PRINTED_BEFORE` keeps exactly one body -- the PGR
+     * sentence, which carries a link (see the note in the table) -- and it is reached only for that place.
+     */
     function sectionBody(key, answer) {
-        if (answer && answer.text) return esc(answer.text);
+        // A RECORDED CAUSE WINS, which is what GH-640 established: the run knows why this section is empty and
+        // says so, and the old sentence is not reached.
+        if (answer && answer.text && answer.cause) return esc(answer.text);
+        // The one body this page still holds: the PGR sentence, because it carries a link (see the table).
+        var held = (WAS_PRINTED_BEFORE[key] || {}).body;
+        if (held) return held;
 
-        return (WAS_PRINTED_BEFORE[key] || {}).body || '';
+        return (answer && answer.text) ? esc(answer.text) : '';
     }
 
     /** The badge's word: the module's own name, or the word this card used before. */
@@ -233,12 +250,16 @@
         return (WAS_PRINTED_BEFORE[key] || {}).badge || '';
     }
 
+    /**
+     * GH-792 (queue item 79, the reviewer's return) — THIS PAGE ASKS THE ONE READER, like the other six.
+     *
+     * It had a reader of its own, written here before the shared one existed, and the two agreed only by
+     * accident: his mutation silenced `GilbaEmptySection` and six pages lost their sentence while this one
+     * kept printing. A second reader of one answer is the drift this item exists to remove, and the comment
+     * over the shared reader claims to be the only one -- so the claim was false while this function stood.
+     */
     function serverSection(key) {
-        var texts = global.GAIP_ANALYSIS_TEXTS;
-        var sections = texts && texts.sections;
-        var answer = sections ? sections[key] : undefined;
-
-        return answer || null;
+        return global.GilbaEmptySection ? global.GilbaEmptySection.of(key) : null;
     }
 
     function emptyState(iconKey, title, body, steps) {
@@ -269,12 +290,14 @@
             // GH-777: the server's sentence when it has one, this card's own words when it has not. The
             // steps are dropped with the sentence, because the sentence names the place itself.
             var peEmpty = serverSection('preEmergent');
+            /**
+             * GH-792 (queue item 79): the step list is empty, and the sentence that stood in it is gone. It
+             * told a person to "run the Hub analysis" -- the plugin-era page that is not part of the product
+             * and that no client can open. The composer answers this place, so the branch that could choose
+             * that sentence could never be taken anyway.
+             */
             body.innerHTML = emptyState('pre-emergent', sectionTitle('preEmergent', peEmpty),
-                sectionBody('preEmergent', peEmpty),
-                (peEmpty && peEmpty.text)
-                    ? []
-                    : ['Run the Hub analysis to generate pre-emergent timing recommendations.']
-            );
+                sectionBody('preEmergent', peEmpty), []);
             return;
         }
 
@@ -557,19 +580,14 @@
         var wear = computed && computed.wear;
         var turf = siteConfig && siteConfig.turf;
 
-        // GH-394: the Settings > Traffic & Wear schedule is persisted in the
-        // site's gaip config (config.traffic.schedule) as of D31 stage 3 — the
-        // same record the nutrition traffic modifier derives from — so read it
-        // there first and keep the localStorage mirror only as a same-device
-        // fallback for schedules saved before this ticket. Without the config
-        // read, Recovery showed "No traffic data configured" on any browser
-        // that had not itself saved the form.
-        var _trafficSaved = {};
-        try {
-            var _tsid = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId) || 'default';
-            _trafficSaved = (siteConfig && siteConfig.traffic && siteConfig.traffic.schedule) ||
-                JSON.parse(localStorage.getItem('gilba_traffic_state_' + _tsid) || '{}');
-        } catch(_) {}
+        /**
+         * GH-394 put the schedule in the site's config; GH-790 (queue item 9) removes the mirror that stood
+         * beside it. This page read `localStorage` whenever the config had no schedule, so the Recovery
+         * section could print numbers this browser remembered for a site that carries none -- and on any
+         * other device the same site showed "No traffic data configured". One record, the site's own, and
+         * the existing empty state says so when there is none.
+         */
+        var _trafficSaved = (siteConfig && siteConfig.traffic && siteConfig.traffic.schedule) || {};
 
         /**
          * GH-789 (queue item 7) — NOUGHT MATCHES IS A NUMBER, and a number is never a reason to look elsewhere.
@@ -605,6 +623,17 @@
                     : _turfType === 'sports'
                     ? [
                         'Traffic &amp; Wear analysis applies to sports fields only',
+                        /**
+                         * GH-792 (queue item 79) — HELD ON THE PAGE, AND THE REASON IS MEASURED, NOT A
+                         * PREFERENCE.
+                         *
+                         * The owner decided this sentence does not change. It carries a LINK, and the
+                         * composer's text is printed through `esc()` on this page -- so moving it word for
+                         * word would print the anchor as visible characters, and moving it without the anchor
+                         * would change her words. Either way something changes that is not mine to change, so
+                         * the sentence stays here and the coordinator has the fork. The other twenty-three
+                         * places are the composer's.
+                         */
                         'Open <a href="/settings#traffic" style="color:var(--gaip-link,#2563eb)">Settings → Traffic &amp; Wear</a> to configure your match and training schedule, then re-run the analysis',
                         'LOI / OM soil test improves the estimate (optional)'
                       ]
@@ -766,6 +795,8 @@
                 '<span><div class="plan-traffic-legend-dot" style="background:var(--gaip-good-bg);border:1px solid var(--gaip-good-border)"></div> Rest</span>' +
                 '</div>';
         } else if (!wear) {
+            // GH-792 (queue item 79): held on the page for the same measured reason as the step above -- the
+            // sentence carries a link and the composer's channel is escaped.
             html += '<div style="font-size:12px;color:var(--gaip-text-muted);padding:10px 0">Open <a href="/settings#traffic" style="color:var(--gaip-link,#2563eb)">Settings → Traffic &amp; Wear</a> to configure your match and training schedule, then re-run analysis to generate wear forecasts.</div>';
         }
 
@@ -804,7 +835,11 @@
             }
         }
 
-        body.innerHTML = html || '<div class="plan-empty"><div class="plan-empty-title">No wear data available — run analysis first.</div></div>';
+        // GH-792 (queue item 79): the composer's words for the wear place. "Run analysis first" was printed to
+        // people whose analysis had run and produced no forecast.
+        body.innerHTML = html || '<div class="plan-empty"><div class="plan-empty-title">'
+            + (global.GilbaEmptySection ? global.GilbaEmptySection.words('wear') : '')
+            + '</div></div>';
     }
 
     // ── SECTION: Nutrition Program ────────────────────────────────────────────

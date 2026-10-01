@@ -24,6 +24,10 @@ class Gh772ThePgrWindowExhaustedSentenceTest extends TestCase
     private function sectionFor(array|string $noteData, string $step = 'pgr'): ?array
     {
         $projection = [
+            // GH-792 (queue item 79): the run's stamp, because every case here is about a run that HAPPENED.
+            // A section with no stamp is answered "No analysis has been run for this site yet.", which is a
+            // different subject from the one this file states.
+            'analyzedAt' => '2026-09-24T00:00:00.000Z',
             'computed' => ['pgr' => null],
             'numbersRun' => [
                 'notes' => [[
@@ -90,7 +94,16 @@ class Gh772ThePgrWindowExhaustedSentenceTest extends TestCase
             $section = $this->sectionFor($note);
             fwrite(STDOUT, '[gh772] without '.$missing.': '.json_encode($section['text'] ?? null).PHP_EOL);
 
-            $this->assertNull($section['text'] ?? null, 'a sentence was composed without its '.$missing);
+            /**
+             * GH-792 (queue item 79): the claim is that the NOTE composed nothing without its figures, and the
+             * place's own words now come from the composer for every site. So the answer with a note missing a
+             * figure equals the answer for a run that recorded no note at all -- if a sentence had been
+             * composed from an incomplete note, it would differ here. No sentence is copied into this file.
+             */
+            $withoutANote = AnalysisNotice::section('pgr', ['computed' => ['pgr' => null],
+                'numbersRun' => null, 'analyzedAt' => '2026-09-24T00:00:00.000Z'])['text'];
+            $this->assertSame($withoutANote, $section['text'] ?? null,
+                'a sentence was composed without its '.$missing);
         }
     }
 

@@ -81,6 +81,10 @@ function produce(sample) {
         getSamples: () => [],
         getActiveSample: () => null,
         getActiveSiteId: () => 'site-1',
+        // GH-796 (queue item 3vyu): the water sample this row's calculation is about. The stub says
+        // which one, because the bench hands over exactly one -- before this item the door found it
+        // by sorting the browser's own copy by date, which is the server's rule guessed at.
+        calculationSample: (kind) => (kind === 'water' ? sample : null),
         getAllSamples: () => ({
             allSites: { 'site-1': { water: { w0: sample } } },
             allActive: {}, allMeta: {}, sites: {},

@@ -66,6 +66,21 @@ function fingerprint({ search, store, active, noManager, throws }) {
 
             return (active || {})[kind] || null;
         },
+        /**
+         * GH-796 (queue item 3vyu) — THE CALCULATION'S QUESTION, WITH THE REAL FUNCTION'S CONTRACT.
+         *
+         * In a run frame the address answers, through the frame's own chooser; the real function then asks
+         * the server when nothing was named, and a sandbox has no server -- so that branch is "no sample",
+         * which is what it means here. The page's selection is never the answer.
+         */
+        calculationSample: (kind) => {
+            const chooser = sandbox.gaip_namedSample;
+            if (typeof chooser !== 'function') return null;
+            const told = chooser(kind);
+            if (told === 'none' || told === 'unknown' || told === 'not-found') return null;
+
+            return told || null;
+        },
         readingsOf: (kind, sample) => (sample && sample.readings) || null,
     };
     vm.createContext(sandbox);
@@ -144,16 +159,21 @@ describe('GH-777 — the repeat of a pass follows the sample the run was named',
         expect(withOneActive).toContain('tissue:142');
     });
 
-    test('and with no sample named at all, the active one is still the pass\'s own', () => {
-        // Openers exist that name nothing (GH-724). Then the active sample IS what the pass reads, and a
-        // change of it is a change of the pass's inputs — which is the behaviour this had before.
+    test('and with no sample named at all, changing the page\'s selection changes nothing', () => {
+        /**
+         * REWRITTEN BY GH-796 (queue item 3vyu). This used to assert the opposite -- that with nothing named
+         * the active sample IS what the pass reads, so changing it changes the pass's inputs. That was the
+         * behaviour the owner ended on 30.09.2026: a pass computes the sample the server names, and where
+         * nothing is named it asks the server rather than reading the page. The fingerprint of such a pass
+         * is therefore the same whichever sample a visitor happens to have open, which is what this now says.
+         */
         const before = fingerprint({ search: '?rerun=r1&site=A', active: {} });
         const after = fingerprint({ search: '?rerun=r1&site=A', active: { tissue: TISSUE_120 } });
         process.stdout.write('[gh777] unnamed, no active: ' + before
             + '\n[gh777] unnamed, one active : ' + after + '\n');
 
         expect(before).toContain('tissue:-');
-        expect(after).toContain('tissue:120');
-        expect(after).not.toBe(before);
+        expect(after).toContain('tissue:-');
+        expect(after).toBe(before);
     });
 });

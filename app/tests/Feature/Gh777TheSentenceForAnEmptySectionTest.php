@@ -44,7 +44,13 @@ class Gh777TheSentenceForAnEmptySectionTest extends TestCase
                 ]],
             ]],
         ];
-        $projection = ['computed' => [], 'numbersRun' => $run];
+        /**
+         * GH-792 (queue item 79): the projection carries the run's stamp, because every case here is about a
+         * run that HAPPENED and recorded something. A section now answers "No analysis has been run for this
+         * site yet." when there is no stamp, so a fixture without one would be answered about a site that was
+         * never analysed -- a different subject from the one each case below states.
+         */
+        $projection = ['computed' => [], 'numbersRun' => $run, 'analyzedAt' => '2026-09-24T00:00:00.000Z'];
         if ($turfType !== null) {
             // THE KIND OF SITE TRAVELS WHERE THE METHODOLOGY TRAVELS (GH-742, GH-777): on the projection
             // itself, read from `config.turf.turfType` by its one owner, `AnalysisResults::forSites`. No
@@ -68,6 +74,35 @@ class Gh777TheSentenceForAnEmptySectionTest extends TestCase
 
         // And the sentence is the owner's form filled from the declarations — asserted as a composition,
         // so that her changing a word changes the sentence and breaks nothing.
+        $label = CalculationInputs::label('samples.water');
+        $place = CalculationInputs::placeFor('samples.water');
+        $this->assertNotNull($label);
+        $this->assertNotNull($place);
+        $this->assertSame(
+            'Water quality was not calculated because '.$label.' has not been entered. Add it in '.$place.'.',
+            $section['text']
+        );
+    }
+
+    public function test_a_missing_water_test_reaches_the_same_sentence_as_a_missing_reading(): void
+    {
+        /**
+         * GH-794 (queue item 3gh) — THE WATER NODE NOW DECLARES `samples.water`, and the section speaks for
+         * that input through the same composition as for `water.ecw` above.
+         *
+         * Before it, `water-blender` required nothing: 51 stored rows across 6 sites carried a water quality
+         * letter although no water test was in effect when the run happened, and all 51 carried the SAME
+         * letter -- "Low salinity risk" computed on `safeNum(..., 0)` zeros. The panel said nothing about it,
+         * because a run that answers cannot be told from a run that had something to answer from.
+         */
+        $section = AnalysisNotice::section('waterBalance', $this->projection('water', 'samples.water'));
+        fwrite(STDOUT, PHP_EOL.'[gh794] the section says: '.json_encode($section, JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $this->assertSame('input-not-entered', $section['cause']);
+        $this->assertSame('input-absent', $section['class']);
+        $this->assertFalse($section['retry'], 'a re-run was offered for a test nobody entered');
+
+        // Composed from the declarations, not written here: the owner's wording is hers to change.
         $label = CalculationInputs::label('samples.water');
         $place = CalculationInputs::placeFor('samples.water');
         $this->assertNotNull($label);
@@ -102,7 +137,20 @@ class Gh777TheSentenceForAnEmptySectionTest extends TestCase
         fwrite(STDOUT, '[gh777] an input with no name: '.json_encode($section, JSON_UNESCAPED_SLASHES).PHP_EOL);
 
         $this->assertSame('input-not-entered', $section['cause']);
-        $this->assertNull($section['text']);
+        /**
+         * GH-792 (queue item 79) — THE CAUSE STILL ADDS NOTHING, which is what this case is about; the words
+         * of the empty section itself are the owner's and now come from the composer's declared table.
+         *
+         * So the claim is made without a copy of any sentence: the answer for this place is the SAME whether
+         * the unworded cause is recorded or not. A copy of the words here would be this file agreeing with the
+         * composer rather than checking it -- the GH-409 class.
+         */
+        $this->assertSame(
+            AnalysisNotice::section('pgr', ['computed' => [], 'numbersRun' => null,
+                'analyzedAt' => '2026-09-24T00:00:00.000Z'])['text'],
+            $section['text'],
+            'the unworded cause put a sentence of its own in front of a client'
+        );
     }
 
     public function test_an_input_with_nowhere_to_be_entered_gets_no_sentence(): void
@@ -114,7 +162,20 @@ class Gh777TheSentenceForAnEmptySectionTest extends TestCase
         $section = AnalysisNotice::section('soilNutrition', $this->projection('mlsn', 'soil.clay'));
         fwrite(STDOUT, '[gh777] an input with no place: '.json_encode($section, JSON_UNESCAPED_SLASHES).PHP_EOL);
 
-        $this->assertNull($section['text']);
+        /**
+         * GH-792 (queue item 79) — THE CAUSE STILL ADDS NOTHING, which is what this case is about; the words
+         * of the empty section itself are the owner's and now come from the composer's declared table.
+         *
+         * So the claim is made without a copy of any sentence: the answer for this place is the SAME whether
+         * the unworded cause is recorded or not. A copy of the words here would be this file agreeing with the
+         * composer rather than checking it -- the GH-409 class.
+         */
+        $this->assertSame(
+            AnalysisNotice::section('soilNutrition', ['computed' => [], 'numbersRun' => null,
+                'analyzedAt' => '2026-09-24T00:00:00.000Z'])['text'],
+            $section['text'],
+            'the unworded cause put a sentence of its own in front of a client'
+        );
     }
 
     public function test_an_input_the_owner_decided_not_to_explain_is_not_even_a_cause(): void
@@ -128,7 +189,20 @@ class Gh777TheSentenceForAnEmptySectionTest extends TestCase
         fwrite(STDOUT, '[gh777] an input switched off: '.json_encode($section, JSON_UNESCAPED_SLASHES).PHP_EOL);
 
         $this->assertNull($section['cause'], 'a client is told about an input the owner switched off');
-        $this->assertNull($section['text']);
+        /**
+         * GH-792 (queue item 79) — THE CAUSE STILL ADDS NOTHING, which is what this case is about; the words
+         * of the empty section itself are the owner's and now come from the composer's declared table.
+         *
+         * So the claim is made without a copy of any sentence: the answer for this place is the SAME whether
+         * the unworded cause is recorded or not. A copy of the words here would be this file agreeing with the
+         * composer rather than checking it -- the GH-409 class.
+         */
+        $this->assertSame(
+            AnalysisNotice::section('irrigation', ['computed' => [], 'numbersRun' => null,
+                'analyzedAt' => '2026-09-24T00:00:00.000Z'])['text'],
+            $section['text'],
+            'the unworded cause put a sentence of its own in front of a client'
+        );
     }
 
     public function test_a_place_only_a_sports_site_can_reach_is_a_place_only_for_a_sports_site(): void
@@ -153,10 +227,18 @@ class Gh777TheSentenceForAnEmptySectionTest extends TestCase
         $this->assertNotNull($sports['text']);
         $this->assertStringContainsString((string) CalculationInputs::placeFor('soil.moisture', 'sports'),
             (string) $sports['text']);
-        $this->assertNull($golf['text'], 'a golf site was sent to a tab it does not have');
+        /**
+         * GH-792 (queue item 79): these two claims are about the CAUSE's sentence -- whether a person is sent
+         * to a tab their site does not have -- and the words of the empty section itself now come from the
+         * composer's declared table for every site. So the claim is made on what the cause contributed: the
+         * answer for a site whose kind cannot be named is the same as for a run with no cause recorded at all.
+         */
+        $withoutACause = AnalysisNotice::section('soilTempPhysics',
+            ['computed' => [], 'numbersRun' => null, 'analyzedAt' => '2026-09-24T00:00:00.000Z'])['text'];
+        $this->assertSame($withoutACause, $golf['text'], 'a golf site was sent to a tab it does not have');
         $this->assertNull(CalculationInputs::placeFor('soil.moisture'),
             'a tab only a sports site is shown was named for a site whose kind nobody named');
-        $this->assertNull($unnamed['text'],
+        $this->assertSame($withoutACause, $unnamed['text'],
             'a site of unknown kind was sent to a tab that may not be there');
     }
 
@@ -173,7 +255,15 @@ class Gh777TheSentenceForAnEmptySectionTest extends TestCase
             .json_encode($section, JSON_UNESCAPED_SLASHES).PHP_EOL);
 
         $this->assertSame('input-not-entered', $section['cause']);
-        $this->assertNull($section['text'],
+        /**
+         * GH-792 (queue item 79): the claim is that the RUN's own account of the kind of site contributed
+         * nothing, and the section's own words now come from the composer's table for every site. So the
+         * answer with the run claiming `sports` equals the answer for a run that recorded no cause at all --
+         * if the claim had been taken for the settings, a sentence naming the sports tab would appear here.
+         */
+        $withoutACause = AnalysisNotice::section('soilTempPhysics',
+            ['computed' => [], 'numbersRun' => null, 'analyzedAt' => '2026-09-24T00:00:00.000Z'])['text'];
+        $this->assertSame($withoutACause, $section['text'],
             'the run\'s own account of the kind of site was taken for the settings of the site');
     }
 

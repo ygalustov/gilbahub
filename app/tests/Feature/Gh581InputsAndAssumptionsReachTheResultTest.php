@@ -140,6 +140,10 @@ class Gh581InputsAndAssumptionsReachTheResultTest extends TestCase
 
         $this->assertSame([], $row->detail['nulls']);
         $this->assertSame([], $row->detail['skipped']);
+        // GH-791 (queue item 3gp): the subject is what an ASSUMPTION does to the panel, so the row's age is
+        // held at nothing -- otherwise the panel speaks about the calendar and the case reads it as the
+        // assumption having been counted.
+        $this->clockAtRowAge('2026-09-22T00:00:00Z');
         $this->assertNull(AnalysisNotice::panel(AnalysisResults::forSite($site->fresh()), 'UTC'),
             'the warning panel fired on a run where nothing is missing');
     }

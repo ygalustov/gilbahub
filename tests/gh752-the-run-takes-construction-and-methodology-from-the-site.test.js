@@ -50,9 +50,23 @@ function build(fields, site = SITE) {
         Date, JSON, Math, Object, Array, String, Number, parseFloat, parseInt, isNaN,
     };
     box.window = box; box.global = box; box.globalThis = box;
-    box.GAIP_HUB_CONFIG = site;
+    box.GAIP_HUB_CONFIG = Object.assign({ activeSiteId: 'site-1' }, site);
     box.GAIP_SampleManager = stubSampleManager({ soil: { pH: '6.2', K: '40' } });
+    /**
+     * GH-790 (queue item 9): THE SITE IS REACHED BY ID NOW, so the fixture says which site -- the id the sample
+     * manager answers with, which is what the reader asks -- and hands over the
+     * store that answers for it.
+     *
+     * The claim of this file is unchanged -- the run carries the SITE's construction and methodology whatever
+     * the field says -- and it is now stronger: `GAIP_HUB_CONFIG.gaipConfig` is written once when the page is
+     * rendered and never updated, so in the combined export's loop it described the site the page was drawn
+     * with. The reader is the product's own (`nutrition-program-inputs.js`), not a stub, or this fixture would
+     * let a broken reader pass.
+     */
+    box.GAIP_SiteConfig = { getConfig: (id) => (id === 'site-1' ? site.gaipConfig : null) };
     const ctx = vm.createContext(box);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../assets/nutrition-program-inputs.js'), 'utf8'),
+        ctx, { filename: 'nutrition-program-inputs.js' });
     ASSEMBLY.forEach((n) => vm.runInContext(declared(n), ctx, { filename: n }));
     const hub = {
         querySelector: (sel) => (sel in fields ? { value: fields[sel], dataset: {} } : null),

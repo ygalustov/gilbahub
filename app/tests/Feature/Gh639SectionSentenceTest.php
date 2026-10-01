@@ -134,7 +134,21 @@ class Gh639SectionSentenceTest extends TestCase
 
         $this->assertNull($out['cause']);
         $this->assertSame('not-recorded', $out['class']);
-        $this->assertNull($out['text']);
+        /**
+         * GH-792 (queue item 79) — THE PLACE HAS WORDS NOW, AND THE CAUSE STILL ADDS NONE.
+         *
+         * This asserted that a section with nothing recorded carries no sentence, because the composer had
+         * none for that third case and every page held its own. The owner approved words for all of them on
+         * 29.09.2026 and they live with the composer, so the claim is made on what the CAUSE contributed: the
+         * answer is the same as for a run that recorded nothing at all. No sentence is copied here -- a copy
+         * would make this file agree with the composer instead of checking it.
+         */
+        $this->assertSame(
+            AnalysisNotice::section('pgr', ['computed' => ['pgr' => null], 'numbersRun' => null,
+                'analyzedAt' => '2026-09-24T00:00:00.000Z'])['text'],
+            $out['text'],
+            'the cause put a sentence of its own in front of a client'
+        );
         $this->assertFalse($out['retry']);
     }
 
@@ -387,7 +401,21 @@ class Gh639SectionSentenceTest extends TestCase
         // An answer is not something a second press can change.
         $this->assertFalse($out['retry']);
         // AND NO SENTENCE: not the code, not a phrase of ours.
-        $this->assertNull($out['text']);
+        /**
+         * GH-792 (queue item 79) — THE PLACE HAS WORDS NOW, AND THE CAUSE STILL ADDS NONE.
+         *
+         * This asserted that a section with nothing recorded carries no sentence, because the composer had
+         * none for that third case and every page held its own. The owner approved words for all of them on
+         * 29.09.2026 and they live with the composer, so the claim is made on what the CAUSE contributed: the
+         * answer is the same as for a run that recorded nothing at all. No sentence is copied here -- a copy
+         * would make this file agree with the composer instead of checking it.
+         */
+        $this->assertSame(
+            AnalysisNotice::section('pgr', ['computed' => ['pgr' => null], 'numbersRun' => null,
+                'analyzedAt' => '2026-09-24T00:00:00.000Z'])['text'],
+            $out['text'],
+            'the cause put a sentence of its own in front of a client'
+        );
     }
 
     public function test_the_composers_reading_of_the_graph_matches_an_independent_count_of_the_same_file(): void

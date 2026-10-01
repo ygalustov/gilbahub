@@ -109,7 +109,7 @@ class EnsureSiteIsSetUp
             if (! in_array($key, $asked, true)) {
                 continue;
             }
-            if (! CalculationInputs::isFilled($key, self::valueAt($config, $key))) {
+            if (self::heldBy($site, $config, $key) !== true) {
                 $missing[] = $key;
             }
         }
@@ -135,9 +135,9 @@ class EnsureSiteIsSetUp
 
         $out = [];
         foreach ($keys as $key) {
-            $value = self::valueAt($config, $key);
-            if (CalculationInputs::isFilled($key, $value)) {
-                $out[$key] = $value;
+            $answer = CalculationInputs::heldForInput($key, $config, $site);
+            if ($answer['held'] === true) {
+                $out[$key] = $answer['value'];
             }
         }
 
@@ -145,15 +145,28 @@ class EnsureSiteIsSetUp
     }
 
     /**
-     * `turf.species` and the like, read out of the config by the list's own key.
+     * `turf.species` and the like, and the soil texture — read from whichever storage the list declares
+     * for the input.
      *
-     * GH-789 (queue item 7): the reading itself lives in `CalculationInputs` now, because the server's
-     * refusal at a Settings place needs the same one. Two readers spelling a path differently would have
-     * one of them answer "missing" while the other answers "here is your value" about one field.
+     * GH-789 (queue item 7): the reading itself lives in `CalculationInputs`, because the server's refusal
+     * at a Settings place needs the same one. Two readers spelling a path differently would have one of
+     * them answer "missing" while the other answers "here is your value" about one field.
+     *
+     * GH-797 (queue item 3ashch): and it is `heldForInput` now, not `valueIn`. The config was the only
+     * storage this middleware knew, and the soil texture lives in a column of `sites` — so the obligation
+     * the owner decided on 01.10.2026 would have read as unanswered on every site, the ones that carry a
+     * texture included, and this lock would have closed all of them.
+     *
+     * AN UNKNOWN STORAGE COUNTS AS MISSING, which is the harsher of the two readings and the same one
+     * this file gave before: an input kept somewhere this server cannot look was judged on the config and
+     * came out empty. It is unreachable for what the lock asks about — every required input the wizard
+     * collects is stored in the config or in a column of `sites`, and the site row is always in hand here.
+     *
+     * @return bool|string
      */
-    private static function valueAt(array $config, string $key)
+    private static function heldBy($site, array $config, string $key)
     {
-        return CalculationInputs::valueIn($config, $key);
+        return CalculationInputs::heldForInput($key, $config, $site)['held'];
     }
 
     /**

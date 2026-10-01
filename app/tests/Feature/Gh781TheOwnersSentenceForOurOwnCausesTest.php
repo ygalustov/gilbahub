@@ -36,7 +36,15 @@ class Gh781TheOwnersSentenceForOurOwnCausesTest extends TestCase
 
     public function test_both_of_our_causes_print_her_sentence_with_the_sections_own_module(): void
     {
-        foreach (['cascade-pass-not-run', 'pass-not-finished-at-write'] as $code) {
+        /**
+         * GH-795 (queue item 3vae) adds two more causes of ours to the same sentence: the request that asks
+         * the server which sample to compute failed (`sample-not-named`), and a named tissue sample did not
+         * reach the store (`tissue-sample-not-loaded`). Both are ours, so neither may say "you have not
+         * entered a test" -- the site may hold one. They are asserted here together with the first two,
+         * because the point is that one sentence answers for all of them and the SECTION is what differs.
+         */
+        foreach (['cascade-pass-not-run', 'pass-not-finished-at-write',
+            'sample-not-named', 'tissue-sample-not-loaded'] as $code) {
             $section = AnalysisNotice::section('tissue', $this->projectionWithCause($code));
 
             $this->assertIsArray($section, $code.' produced no section answer at all');
@@ -79,6 +87,10 @@ class Gh781TheOwnersSentenceForOurOwnCausesTest extends TestCase
          * the sentence it printed before. A key no engine declares has no step, so there is nothing to name.
          */
         $section = AnalysisNotice::section('notAKeyAnyEngineWrites', [
+            // GH-792 (queue item 79): the run's stamp, so the answer is about this section rather than about a
+            // site that was never analysed. A key no engine writes has no approved words either, so silence
+            // is still the answer -- which is what this case says.
+            'analyzedAt' => '2026-09-24T00:00:00.000Z',
             'computed' => ['notAKeyAnyEngineWrites' => null],
             'numbersRun' => ['skipped' => [['step' => 'tissue', 'module' => 'tissue',
                 'reason' => 'cascade-pass-not-run', 'resultKey' => 'tissue']], 'warnings' => [],

@@ -744,6 +744,12 @@
 
                     return false;
                 }
+                // GH-795 (queue item 3vae): an absence whose reason is the pass's own is recorded by the
+                // pass. The engine is still not run; what changes is who says why.
+                if (typeof pass.absenceIsAnotherWriters === 'function'
+                    && absent.every(pass.absenceIsAnotherWriters)) {
+                    return false;
+                }
                 if (typeof pass.notApplicable === 'function') {
                     // GH-781: the record says who wrote it. A pass of the orchestrator clears its own
                     // entries at its start, and this one is the cascade's -- before, it was wiped and the

@@ -135,6 +135,13 @@ class Gh548AnalysisNoticeTest extends TestCase
         $p = AnalysisResults::forSite($site->fresh());
         $this->assertSame('complete', $p['status']);
         $this->assertSame('run-better', $p['lastRun']['runId']);
+        /**
+         * GH-791 (queue item 3gp): the case is about a run that has just replaced a failure, so the clock
+         * stands where that run finished. Read on any later day, the panel is right to call the row stale and
+         * this assertion was failing on the calendar rather than on the subject. The other cases of this file
+         * keep their own dates -- the clock is pinned per case, not per file.
+         */
+        $this->clockAtRowAge('2026-09-22T09:00:00Z');
         $this->assertNull(AnalysisNotice::panel($p, 'UTC'), 'the sign survived the run that should have cleared it');
     }
 

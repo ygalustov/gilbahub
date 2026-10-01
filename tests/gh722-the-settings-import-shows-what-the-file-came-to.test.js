@@ -121,7 +121,18 @@ describe('GH-722 — the Settings import shows what the file came to, and clears
         expect(p.requests).toContain('POST /api/samples/sync');
         expect(p.get('imp-msg').textContent).toMatch(message);
         expect(p.get('imp-success-msg').innerHTML).toBe('');
-        expect({ removed: p.storage.removed, set: p.storage.set }).toEqual({ removed: [], set: [] });
+        /**
+         * GH-790 (queue item 9): THE TWO KEYS REMOVED AT LOAD ARE NAMED, and they are not the import's doing.
+         *
+         * The traffic mirror `gilba_traffic_state_<site>` was withdrawn by queue item 9, and its key is cleared
+         * once when Settings loads -- before any import is attempted -- the same way the last-PGR key was
+         * cleared when its store went. This case is about what a REFUSED IMPORT clears, which is still nothing:
+         * the two names below are the load's, and anything else appearing here would be the import's.
+         */
+        expect({ removed: p.storage.removed, set: p.storage.set }).toEqual({
+            removed: ['gilba_traffic_state_site-1', 'gilba_traffic_state_default'],
+            set: [],
+        });
     });
 
     test('and after a real answer the conveniences are cleared, so the refusal case is not vacuous', async () => {

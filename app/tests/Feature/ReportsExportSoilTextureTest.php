@@ -92,7 +92,21 @@ class ReportsExportSoilTextureTest extends TestCase
             ->assertViewHas('soilTexture', 'sand');
     }
 
-    public function test_export_view_falls_back_to_account_soil_texture_when_site_override_is_null(): void
+    /**
+     * GH-797 (queue item 3ashch) — WHAT THIS CASE ASSERTED IS NO LONGER REACHABLE, AND THAT IS THE
+     * SUBJECT NOW.
+     *
+     * It asserted that a site with no texture of its own is drawn with the ACCOUNT's texture
+     * (`$site->soil_texture_override ?: $site->account->soil_texture`, `PageController`). From
+     * 01.10.2026 the soil texture is a required input by the owner's decision, so a site that has not
+     * answered it is held by the setup wizard and this page is not drawn for it at all. The chain in
+     * the controller is untouched -- her scope for this work was the obligation of the field and
+     * nothing else -- and it still answers for the pages the lock does not hold.
+     *
+     * So the case states what happens instead. Its old expectation could only be met by giving the
+     * site a texture, which is the opposite of what it was about.
+     */
+    public function test_the_export_page_is_not_drawn_at_all_for_a_site_whose_texture_is_not_set(): void
     {
         $user = User::factory()->create();
         $site = $this->createSiteForUser($user, [
@@ -100,14 +114,15 @@ class ReportsExportSoilTextureTest extends TestCase
             '_account_soil_texture' => 'loam',
         ]);
         $user->forceFill(['last_active_site_id' => $site->id])->save();
-        // GH-708: the wizard lock redirects a page whose site has not answered what the
-        // calculation needs. This fixture's subject is the page, not the answers.
+        // Everything else the lock asks for is answered, so the texture is the only thing holding it.
         $this->giveTheSiteWhatTheLockNeeds($site);
+        $site->forceFill(['soil_texture_override' => null])->save();
 
-        $this->actingAs($user)
-            ->get('/reports/export')
-            ->assertOk()
-            ->assertViewHas('soilTexture', 'loam');
+        $response = $this->actingAs($user)->get('/reports/export');
+        fwrite(STDOUT, '[gh797] /reports/export for a site with no texture -> '.$response->status()
+            .' '.($response->headers->get('Location') ?? '').PHP_EOL);
+
+        $response->assertRedirect(route('dashboard', ['setup' => '1']));
     }
 
     public function test_export_view_soil_texture_is_null_when_neither_site_nor_account_has_it(): void

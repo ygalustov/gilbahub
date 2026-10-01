@@ -108,72 +108,19 @@
     // =========================================================================
 
     /**
-     * Add "last analysed" staleness badges to soil/tissue/water cards
-     * so users know those sections show cached (not fresh) data.
+     * GH-790 (queue item 9) — THE "LAST ANALYSED" BADGE IS GONE, because its time was never that.
+     *
+     * It read `savedAt` out of `gilba_hub_state`, the snapshot of this page's own form, and printed it on
+     * the soil, tissue and water cards as when the site was last ANALYSED. The two are different facts: the
+     * snapshot was rewritten on every keystroke inside the hub and on fourteen events of the page, so the
+     * badge said "just now" about an analysis that had not run, and the key was one per user rather than per
+     * site. The snapshot is withdrawn by this item, and this page is handed no analysis time by the server
+     * -- the legacy layout carries no `analysisCache` -- so there is nothing to print rather than something
+     * to print differently. `/hub` is a calculation runner and no client sees this panel.
+     *
+     * `removeStalenessIndicators()` below stays: it clears badges, and clearing nothing is safe.
      */
-    function addStalenessIndicators() {
-        try {
-            var savedState = localStorage.getItem('gilba_hub_state');
-            if (!savedState) return;
 
-            var parsed = JSON.parse(savedState);
-            var savedAt = parsed.savedAt;
-            if (!savedAt) return;
-
-            var date = new Date(savedAt);
-            var now = new Date();
-            var diffMs = now - date;
-            var diffMins = Math.floor(diffMs / 60000);
-            var diffHours = Math.floor(diffMs / 3600000);
-            var diffDays = Math.floor(diffMs / 86400000);
-
-            var label;
-            if (diffMins < 2) {
-                label = 'just now';
-            } else if (diffMins < 60) {
-                label = diffMins + 'min ago';
-            } else if (diffHours < 24) {
-                label = diffHours + 'h ago';
-            } else if (diffDays === 1) {
-                label = 'yesterday';
-            } else {
-                label = diffDays + ' days ago';
-            }
-
-            // Find cards that hold lab-based data (not climate-driven)
-            var staleCards = [
-                { selector: '[data-section="mlsn"]', name: 'Soil' },
-                { selector: '[data-section="tissue"]', name: 'Tissue' },
-                { selector: '.gaip-water-grid', name: 'Water' }
-            ];
-
-            staleCards.forEach(function(card) {
-                var el = document.querySelector(card.selector);
-                if (!el) return;
-
-                // Find the parent card
-                var cardEl = el.closest('.gaip-card');
-                if (!cardEl) return;
-
-                // Don't add if already present
-                if (cardEl.querySelector('.gaip-staleness-badge')) return;
-
-                var header = cardEl.querySelector('.gaip-card-header h3');
-                if (!header) return;
-
-                var badge = document.createElement('span');
-                badge.className = 'gaip-staleness-badge';
-                badge.textContent = 'Last analysed ' + label;
-                badge.style.cssText = 'font-size: 10px; font-weight: 400; color: var(--gaip-text-muted); ' +
-                    'margin-left: 8px; padding: 2px 6px; background: var(--gaip-surface-hover); ' +
-                    'border-radius: 4px; vertical-align: middle;';
-                header.appendChild(badge);
-            });
-
-        } catch (e) {
-            // Ignore — staleness is non-critical
-        }
-    }
 
     /**
      * Remove staleness badges (after a full manual analysis)
@@ -225,8 +172,9 @@
             return;
         }
 
-        // Add staleness badges to lab-based cards before analysis runs
-        addStalenessIndicators();
+        // GH-790 (queue item 9): the badge is gone and so is its call. My own slip, caught by reading the file
+        // after the removal rather than by a run: the function was deleted and this line left behind, which
+        // would have thrown on every auto-refresh of `/hub` -- the frame nobody watches.
 
         // Scroll dashboard into view (it's the landing)
         var dashboard = document.getElementById('gaip-daily-dashboard');

@@ -44,7 +44,10 @@ class ExampleTest extends TestCase
             'created_by_user_id' => $user->id,
             'modified_by_user_id' => $user->id,
         ]);
-        $site = Site::query()->create([
+        // GH-797 (queue item 3ashch): the soil texture is a required input kept in a column of
+        // `sites`, so the lock wants it on the ROW. The value comes from the one answers map in
+        // `TestCase`, not from a literal here.
+        $site = Site::query()->create($this->columnsThePageLockAccepts() + [
             'account_id' => $account->id,
             'name' => 'Federal Golf Club',
             'slug' => 'federal-golf-club',

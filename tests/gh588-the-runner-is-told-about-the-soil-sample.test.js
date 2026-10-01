@@ -419,15 +419,32 @@ describe('GH-588 — the runner receives a fact and the three states end differe
         expect(h.posted.map((p) => p[0])).toEqual(['result']);
     });
 
-    test('"unknown" waits like an id, because it is not a "no"', async () => {
+    /**
+     * REWRITTEN BY GH-795 (queue item 3vae), AND THE MEANING IS WHAT CHANGED, not the wiring.
+     *
+     * This case used to assert that `unknown` WAITS -- "because it is not a no" -- and that the run ends in
+     * `soil-sample-not-delivered`. The owner settled the question on 30.09.2026: when the request for the
+     * sample's name fails, the soil side is not computed and the row says why. So there is nothing to wait
+     * for: no sample belongs to a run that was never told which one, none is going to arrive under it, and
+     * waiting could only end in the timeout with a row that explains nothing. The pass now records
+     * `sample-not-named` itself, and the run completes and writes its other numbers.
+     *
+     * The old assertion is kept in words rather than deleted, so that a reader of this file can see that the
+     * behaviour was chosen twice, in two opposite directions, and by whom.
+     */
+    test('"unknown" does not wait: nothing was named, so nothing is expected to arrive', async () => {
         const h = runRunner({ soilParam: 'unknown', sampleArrivesAt: null });
         driveAnOrdinaryPass(h);
         await settle();
         h.advance(20000);
         await settle();
 
-        expect(h.posted.map((p) => p[0])).not.toContain('result');
-        expect(h.posted.filter((p) => p[0] === 'failure')[0][1].reason).toBe('soil-sample-not-delivered');
+        process.stdout.write('[gh588] told `unknown` -> the runner posted: '
+            + JSON.stringify(h.posted.map((p) => p[0])) + '\n');
+
+        // The run finishes. The soil side of it is accounted for by the pass, not by a wait that timed out.
+        expect(h.posted.map((p) => p[0])).toContain('result');
+        expect(h.posted.filter((p) => p[0] === 'failure')).toEqual([]);
     });
 });
 

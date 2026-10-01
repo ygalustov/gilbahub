@@ -104,7 +104,13 @@ describe('GH-251 — _doRerunSync awaits bounded climate-normals resolution', ()
         expect(body).not.toMatch(/cacheAnalysisResults\(/);
         expect(body).not.toMatch(/CONFIG\.keys\.cache/);
         // The form's own state and preferences are NOT the result and stay.
-        expect(body).toMatch(/CONFIG\.keys\.state/);
+        /**
+         * GH-790 (queue item 9): `save()` writes the PREFERENCES and nothing else. It used to write the form's
+         * own state as well -- 31 fields of the `/hub` markup, keyed by user rather than by site -- and the run
+         * read 14 of them, so the calculation could be handed the fields of another site. What this case is
+         * about is unchanged: no analysis result is assembled here.
+         */
+        expect(body).not.toMatch(/CONFIG\.keys\.state/);
         expect(body).toMatch(/CONFIG\.keys\.prefs/);
     });
 

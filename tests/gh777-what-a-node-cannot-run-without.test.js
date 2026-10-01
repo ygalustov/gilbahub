@@ -60,9 +60,13 @@ describe('GH-777 slice 3 — the sample a run was given decides whether the modu
 
         expect(GRAPH.nodes['tissue-engine'].requires).toEqual(['samples.tissue']);
         expect(GRAPH.nodes['mlsn-calculator'].requires).toEqual(['samples.soil']);
+        // GH-794 (queue item 3gh): and the water node, which used to require nothing and answered
+        // "Low salinity risk" on zeros for 51 stored rows across 6 sites that had no water test.
+        expect(GRAPH.nodes['water-blender'].requires).toEqual(['samples.water']);
         // And each of them can be recorded against a name, which the walk refuses to do without.
         expect(GRAPH.nodes['tissue-engine'].module).toBe('tissue');
         expect(GRAPH.nodes['mlsn-calculator'].module).toBe('mlsn');
+        expect(GRAPH.nodes['water-blender'].module).toBe('water');
     });
 
     test('told there is NO tissue sample: the engine is not run and the module is named, with its input', () => {

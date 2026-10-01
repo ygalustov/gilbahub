@@ -764,7 +764,10 @@
     }
 
     function renderGrowthBlock(cm, soilTemp, shade) {
-        if (!cm) return emptyBlock('Growth Potential', 'No climate data available.');
+        // GH-792 (queue item 79): the words do not change by the owner's decision, and they come from the
+        // composer rather than from this page.
+        if (!cm) return emptyBlock('Growth Potential',
+            global.GilbaEmptySection ? global.GilbaEmptySection.words('growthLight.climate') : '');
 
         var growth = cm.growth || {};
         var temp   = cm.temperature || {};
@@ -1021,7 +1024,11 @@
                 '    <div class="gl-soil-title">Soil Temperature Profile' + infoBtn('gl-soil-temp') + '</div>',
                 '    <span class="gl-soil-badge">Physics Model</span>',
                 '  </div>',
-                '  <div style="font-size:12px;color:var(--muted);font-style:italic">Data not yet available — re-run analysis to populate</div>',
+                // GH-792 (queue item 79): the composer's answer for the soil-temperature place. "Re-run to
+                // populate" was advice that could not help: the profile is absent for reasons a repeat does
+                // not change, and where the run DID record a cause the composer answers with that cause.
+                '  <div style="font-size:12px;color:var(--muted);font-style:italic">'
+                    + (global.GilbaEmptySection ? global.GilbaEmptySection.words('soilTempPhysics') : '') + '</div>',
                 '</div>'
             ].join('\n');
         }
@@ -1832,7 +1839,11 @@
                 '    <div class="gl-block-title">Recommendations</div>',
                 '  </div>',
                 '  <div class="gl-block-body">',
-                '    <div class="gl-no-data">Run analysis first to see recommendations.</div>',
+                // GH-792 (queue item 79): the composer's answer for the recommendations place. "Run analysis
+                // first" was printed to people whose analysis had run and produced no recommendation.
+                '    <div class="gl-no-data">'
+                    + (global.GilbaEmptySection
+                        ? global.GilbaEmptySection.words('growthLight.recommendations') : '') + '</div>',
                 '  </div>',
                 '</div>'
             ].join('\n');

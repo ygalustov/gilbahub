@@ -91,6 +91,22 @@ final class AnalysisNotice
             'sectionOnly' => true],
         'pass-not-finished-at-write' => ['class' => 'run-incomplete', 'text' => null, 'composed' => true,
             'sectionOnly' => true],
+        /**
+         * GH-795 (queue item 3vae) — TWO REASONS OF OURS ABOUT THE SAMPLE A RUN WAS GIVEN.
+         *
+         * `sample-not-named`: the run asked the server which sample to compute and the request failed, so
+         * nothing was computed for that section. It is NOT "no test has been entered" -- the site may hold
+         * one -- which is why it is a cause of ours and carries the owner's general sentence rather than the
+         * input list's.
+         *
+         * `tissue-sample-not-loaded`: a tissue sample WAS named and did not reach the store, or reached it
+         * carrying no reading the map recognises. The soil side of that has said so since GH-612, under
+         * `soil-sample-not-loaded`, which keeps its own earlier wording; this one composes.
+         */
+        'sample-not-named' => ['class' => 'run-incomplete', 'text' => null, 'composed' => true,
+            'sectionOnly' => true],
+        'tissue-sample-not-loaded' => ['class' => 'run-incomplete', 'text' => null, 'composed' => true,
+            'sectionOnly' => true],
         'schema-unavailable' => ['class' => 'run-incomplete', 'text' => 'the page was not given the declared form of a result'],
         // GH-588 (link 4) — THE TWO SOIL STATES, AND THEY MUST NOT READ
         // ALIKE. The first is a fact about the site and has one action: add a
@@ -436,8 +452,120 @@ final class AnalysisNotice
              */
             'module' => $step === null ? null : self::stepName($step, $projection),
             'retry'  => $code === null ? false : self::retryCanHelp($code),
-            'text'   => self::sectionText($code, $step, $projection['numbersRun'] ?? null, $projection),
+            /**
+             * GH-792 (queue item 79): THE THIRD CASE OF AN EMPTY SECTION HAS WORDS NOW, AND THEY ARE HERE.
+             *
+             * Two of the three were already this composer's: a recorded cause gives the cause's sentence, and
+             * a site that has never been analysed gives one sentence for every section. The third -- there was
+             * an analysis and no cause was recorded -- was left to the pages, and each of the seven held its
+             * own: twenty-five places in seven files, three of them sending a person to a "Hub" that is not
+             * part of the product and eleven telling them to run an analysis that had already run. The words
+             * below are the owner's, approved on 29.09.2026 by number; the pages print this answer.
+             */
+            'text'   => self::sectionText($code, $step, $projection['numbersRun'] ?? null, $projection)
+                ?? self::wordsWithoutARecordedReason($key, $projection),
         ];
+    }
+
+    /**
+     * GH-792 (queue item 79) — THE WORDS OF AN EMPTY SECTION WHEN NO CAUSE WAS RECORDED.
+     *
+     * One table, by place, and the pages hold none of it. Each entry is the owner's approved sentence for that
+     * place (decision of 29.09.2026, by the numbers of her list). A place she decided not to change keeps its
+     * old sentence, moved here word for word -- so that no page is left holding one.
+     *
+     * WHAT IS NOT HERE: the headings. "No Water Balance Data" and its like are correct and her edits were to
+     * the advice under them, so the pages keep their headings and take the body from this table.
+     *
+     * @var array<string,string>
+     */
+    /**
+     * GH-792: what a section says on a site that has never been analysed. The panel's own sentence adds
+     * "Press Re-run to produce one." after it, which belongs to a panel rather than to a section of a page.
+     */
+    private const NEVER_ANALYSED_SECTION = 'No analysis has been run for this site yet.';
+
+    private const WORDS_WITHOUT_A_REASON = [
+        // Her numbers 1 and 2: the soil section as a whole, and its nutrient list.
+        'soilNutrition' => 'No soil & nutrition results for this site yet. Add a soil test on the Data page.',
+        'soilNutrition.nutrients' => 'No soil & nutrition results for this site yet. Add a soil test on the '
+            .'Data page.',
+        // Her number 3.
+        'soilNutrition.annualRequirements' => 'Annual nutrient requirements were not calculated for the '
+            .'latest analysis.',
+        // Her number 4.
+        'tissue' => 'Add a tissue test on the Data page to see tissue results.',
+        // Her number 5.
+        'waterBalance' => 'No water balance results for this site yet. Add a water test on the Data page.',
+        // Her number 7.
+        'stress' => 'No stress index for this site in the latest analysis.',
+        // Her number 8.
+        'disease' => 'No disease risk for this site in the latest analysis.',
+        // Her number 11.
+        'soilTempPhysics' => 'The soil temperature profile is not available for the latest analysis.',
+        // Her number 12.
+        'growthLight.recommendations' => 'No recommendations for the latest analysis.',
+        // Her number 13.
+        'preEmergent' => 'No pre-emergent timing for the latest analysis.',
+        /**
+         * HER NUMBERS 14 AND 16 ARE NOT HERE, and the reason is measured rather than chosen.
+         *
+         * Her decision is that those two sentences do not change, and both carry a LINK -- to Data → Spray Log
+         * and to Settings → Traffic & Wear. The channel to a page is escaped (`esc(answer.text)` in
+         * `plan-ui.js`), so a sentence carrying an anchor cannot travel through it unchanged: word for word it
+         * would print the anchor as visible characters, and without the anchor it would not be her words. What
+         * stood here for a while was a paraphrase of mine -- caught by the reviewer's mutation, because no
+         * record of hers carries it. The two sentences stay on the page, named as a boundary, and the question
+         * is hers to answer.
+         */
+        // Her number 17.
+        'wear' => 'No wear forecast for the latest analysis.',
+        // Her number 22.
+        'dashboard.panel' => 'No data for this panel in the latest analysis.',
+        /**
+         * AND THE PLACES SHE DECIDED NOT TO CHANGE. Their words move here exactly as they stood, so that no
+         * page is left holding a sentence of its own -- which is the property this item is for. A page with
+         * one sentence left is a page that will grow a second.
+         */
+        /**
+         * TWO PLACES ARE NOT HERE, AND THE REASON IS A MEASUREMENT: neither was ever printed.
+         *
+         * The verdict card of the soil section draws only when its entry carries a `decision`, and the water
+         * one only when it carries an `observation`; the `NO_DATA` entry of each carries neither, so the
+         * sentence under those headings never reached a screen. They were literals with no reader. Declaring
+         * words for a place nobody asks about would be the same fault one level up -- words nobody prints --
+         * and the reviewer's own check names a declared place that no page asks for.
+         */
+        'disease.waterUse' => 'No water use data',
+        // Word for word as the page printed it, tail included: "Dew forecast unavailable" alone was a
+        // shortening of mine, and her decision was that the sentence does not change.
+        'disease.dew' => 'Dew forecast unavailable — run analysis with live weather to populate.',
+        'growthLight.climate' => 'No climate data available.',
+    ];
+
+    /**
+     * The sentence for a place whose section is empty and whose run recorded no cause — or, for a site with no
+     * analysis at all, the one sentence that says so.
+     *
+     * A place this table does not know gets `null` rather than a sentence invented for it: an empty section
+     * with no approved words is a question for the owner, and answering it here would be answering for her.
+     */
+    private static function wordsWithoutARecordedReason(string $key, ?array $projection): ?string
+    {
+        /**
+         * A SITE WITH NO ANALYSIS AT ALL gets the one sentence that says so.
+         *
+         * The signal is the run's own stamp rather than the presence of `metrics`. The panel asks about
+         * `metrics` because it speaks about the NUMBERS on the screen; a section speaks about whether a run
+         * happened, and a run that produced nothing for this section still happened. Measured on the
+         * fixtures of five suites: a projection with `analyzedAt` and `status: complete` carries
+         * `metrics => []`, and reading emptiness there would have told a person no analysis had ever run.
+         */
+        if ($projection === null || ($projection['analyzedAt'] ?? null) === null) {
+            return self::NEVER_ANALYSED_SECTION;
+        }
+
+        return self::WORDS_WITHOUT_A_REASON[$key] ?? null;
     }
 
     /**
@@ -1013,6 +1141,20 @@ final class AnalysisNotice
         $out = [];
         foreach (AnalysisResultSchema::consumerKeys() as $key) {
             $out[$key] = self::section($key, $projection);
+        }
+        /**
+         * GH-792 (queue item 79): AND THE PLACES THAT ARE NOT A RESULT KEY.
+         *
+         * Five of the empty sections a client sees do not correspond to a key of the result: three are parts
+         * of the soil section (the section itself has a key, its nutrient list and its annual requirement do
+         * not), and two belong to pages rather than to engines (the recommendations of Growth & Light, a
+         * dashboard panel). They are declared here, so a page asks by a place key instead of holding a
+         * sentence of its own -- which is the whole subject of this item.
+         */
+        foreach (array_keys(self::WORDS_WITHOUT_A_REASON) as $key) {
+            if (! array_key_exists($key, $out)) {
+                $out[$key] = self::section($key, $projection);
+            }
         }
 
         return $out;

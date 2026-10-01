@@ -75,8 +75,17 @@ function stateFor(gaipConfig, fields) {
     };
     box.window = box; box.global = box; box.globalThis = box;
     box.GAIP_SampleManager = stubSampleManager({});
-    box.GAIP_HUB_CONFIG = { gaipConfig };
+    /**
+     * GH-790 (queue item 9): the assembly asks for the config of the site the run is FOR, by id, rather than
+     * for `GAIP_HUB_CONFIG.gaipConfig` -- which is written once when the page is rendered and describes the
+     * site the page was drawn with. The fixture therefore names a site and hands over the store that answers
+     * for it, and the reader is the product's own rather than a stub.
+     */
+    box.GAIP_HUB_CONFIG = { gaipConfig, activeSiteId: 'site-1' };
+    box.GAIP_SiteConfig = { getConfig: (id) => (id === 'site-1' ? gaipConfig : null) };
     const ctx = vm.createContext(box);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../assets/nutrition-program-inputs.js'), 'utf8'),
+        ctx, { filename: 'nutrition-program-inputs.js' });
     ASSEMBLY.forEach((name) => vm.runInContext(declaredIn(HUB, name), ctx, { filename: name }));
 
     return ctx.gaip_build_state(markup(fields || {}));
@@ -130,12 +139,17 @@ describe('GH-757 — a root depth saved in Settings reaches the run that reads i
     test('POSITIVE CONTROL: the assembly runs and the scheduler answers with a root depth', () => {
         const bare = stateFor({ turf: TURF, traffic: {} });
         const seen = rootDepthSeenBy(bare);
-        process.stdout.write('\n[gh757] nothing saved — assembled traffic.rootDepth '
-            + JSON.stringify(bare.traffic.rootDepth) + ', irrigation.rootDepth '
+        process.stdout.write('\n[gh757] nothing saved — assembled traffic ' + JSON.stringify(bare.traffic)
+            + ', irrigation.rootDepth '
             + JSON.stringify(bare.irrigation.rootDepth) + ' -> the scheduler works with ' + seen + '\n');
 
-        // Without these the claim below could pass over an assembly that returned nothing.
-        expect(bare.traffic).toBeTruthy();
+        /**
+         * GH-790 (queue item 9): a site with no schedule carries NO TRAFFIC BLOCK -- GH-776's rule, which
+         * now lives in the one transform both wear paths call. The depth travels in the irrigation block,
+         * which is the one the scheduler reads, so that is what this control asserts.
+         */
+        expect(bare.traffic).toBeNull();
+        expect(bare.irrigation).toBeTruthy();
         expect(seen).toBeGreaterThan(0);
         expect(seen).not.toBe(ENTERED);
     });
@@ -144,11 +158,12 @@ describe('GH-757 — a root depth saved in Settings reaches the run that reads i
         const state = stateFor({ turf: TURF, traffic: { schedule: { rootDepth: ENTERED } } });
         const seen = rootDepthSeenBy(state);
         process.stdout.write('[gh757] saved as config.traffic.schedule.rootDepth = ' + ENTERED
-            + ' — assembled traffic.rootDepth ' + JSON.stringify(state.traffic.rootDepth)
+            + ' — assembled irrigation.rootDepth ' + JSON.stringify(state.irrigation.rootDepth)
             + ' -> the scheduler works with ' + seen
             + (seen === ENTERED ? '' : '   <- the entered value never arrives') + '\n');
 
-        expect(state.traffic.rootDepth).toBe(ENTERED);
+        // GH-790: with a schedule present the traffic block exists and carries the same depth.
+        expect(state.irrigation.rootDepth).toBe(ENTERED);
         expect(seen).toBe(ENTERED);
     });
 
@@ -175,39 +190,38 @@ describe('GH-757 — a root depth saved in Settings reaches the run that reads i
         const seen = rootDepthSeenBy(state);
         process.stdout.write('[gh757] config says ' + ENTERED + ', the page field says 60'
             + ' — assembled irrigation.rootDepth ' + JSON.stringify(state.irrigation.rootDepth)
-            + ', traffic.rootDepth ' + JSON.stringify(state.traffic.rootDepth)
             + ' -> the scheduler works with ' + seen
             + (seen === ENTERED ? '' : '   <- the page field is being read ahead of the config') + '\n');
 
         expect(state.irrigation.rootDepth).toBe(ENTERED);
-        expect(state.traffic.rootDepth).toBe(ENTERED);
         expect(seen).toBe(ENTERED);
     });
 
     /**
-     * GH-757 (the acceptor's return, position 2) — AND THE FIELD IS STILL THE FALLBACK, WHICH IS A
-     * SECOND CLAIM.
+     * GH-757 (the acceptor's return, position 2), TURNED BY GH-790 (queue item 9) — THE PAGE FIELD IS NOT THE
+     * FALLBACK ANY MORE, AND THAT IS THE SUBJECT.
      *
-     * `/hub` is a calculation runner and its markup is the only place this field exists, so the read
-     * was kept behind the config rather than removed. Kept and unguarded is the same as removed:
-     * the acceptor dropped the page read entirely and the file passed 3 of 3. With the config silent
-     * the page's number is the only one there is, and the substitution below must not take its place.
+     * The claim here was that the read of `/hub`'s own field stays behind the config: with the config silent
+     * the page's number is the only one there is. The reviewer of queue item 9 measured what that road does
+     * -- `config?.…?.rootDepth ?? field` passes over a stored `null`, and two sites of the stand carry the key
+     * with exactly that, so for them the value came off the markup, which is the copy queue item 9 removes
+     * from every other input of the run.
+     *
+     * So the field is no longer read, and with the config silent the assembly stands its number in. The
+     * substitution itself is untouched and is the subject of the case below; what this one holds is that the
+     * page cannot supply the depth any more, whatever it holds.
      */
-    test('with the config silent the page field is what the run works from, not the stand-in', () => {
+    test('with the config silent the page field is not read at all, whatever it says', () => {
         const state = stateFor({ turf: TURF, traffic: {} }, { [FIELD]: '180' });
         const seen = rootDepthSeenBy(state);
         const standIn = substitutionsInTheAssembly()[0].standsIn;
         process.stdout.write('[gh757] config silent, the page field says 180'
             + ' — assembled irrigation.rootDepth ' + JSON.stringify(state.irrigation.rootDepth)
-            + ', traffic.rootDepth ' + JSON.stringify(state.traffic.rootDepth)
-            + ' -> the scheduler works with ' + seen
-            + (seen === 180 ? '' : '   <- the page field never arrives; it stood in ' + standIn) + '\n');
+            + ' -> the scheduler works with ' + seen + ', the assembly stands in ' + standIn + '\n');
 
-        expect(state.irrigation.rootDepth).toBe(180);
-        expect(state.traffic.rootDepth).toBe(180);
-        expect(seen).toBe(180);
-        // Said as its own line: the green above is not the stand-in happening to match.
-        expect(seen).not.toBe(standIn);
+        expect(seen).not.toBe(180);
+        expect(seen).toBe(standIn);
+        // And the site's own value still wins when it has one, which the case above holds.
     });
 
     /**
@@ -243,15 +257,26 @@ describe('GH-757 — a root depth saved in Settings reaches the run that reads i
         const standsIn = [...new Set(places.map((x) => x.standsIn))];
         // EVERY place, not the ones that differ from the first: with one of two moved, "the other
         // one" is as true of either, and a red that names the wrong address sends the reader there.
-        const drift = (standsIn.length > 1 || places.some((x) => !x.readsThePage))
+        /**
+         * GH-790 (queue item 9): ONE PLACE NOW, AND IT DOES NOT READ THE PAGE.
+         *
+         * There were two, and both read the markup behind the config. One of the two was the traffic block's
+         * own copy, which is gone with that block's fifteen page reads; the surviving one takes the depth from
+         * the site by id and stands the number in when the site carries none. So `readsThePage` is FALSE for
+         * it, by design rather than by drift -- the page read was the second road the reviewer measured, and it
+         * is closed.
+         *
+         * What this case still refuses is the number moving, or a second place appearing with a different one.
+         */
+        const drift = (standsIn.length > 1 || places.length !== 1)
             ? places.map((x) => x.at + ' reads the page field: ' + x.readsThePage
                 + ', stands in ' + x.standsIn)
             : [];
         expect({ places: places.length, standsIn, drift })
-            .toEqual({ places: 2, standsIn: [100], drift: [] });
+            .toEqual({ places: 1, standsIn: [100], drift: [] });
+        expect(places[0].readsThePage).toBe(false);
         // And what the run works from is that written-in number, not something a source supplied.
         expect(state.irrigation.rootDepth).toBe(places[0].standsIn);
-        expect(state.traffic.rootDepth).toBe(places[1].standsIn);
         expect(seen).toBe(places[0].standsIn);
     });
 });

@@ -435,7 +435,15 @@
                 var v = new URLSearchParams(window.location.search || '').get('soil');
                 if (v === 'none') return { expect: false, id: null, told: 'none' };
                 if (v && v !== 'unknown') return { expect: true, id: v, told: 'id' };
-                if (v === 'unknown') return { expect: true, id: null, told: 'unknown' };
+                /**
+                 * GH-795 (queue item 3vae): NOTHING TO WAIT FOR WHEN NOTHING WAS NAMED.
+                 *
+                 * This used to wait for a soil sample that the pass will now decline to compute: the request
+                 * for its name failed, so no sample belongs to this run and none is going to arrive under it.
+                 * Waiting could only end in the timeout, and the row would say nothing about why. The pass
+                 * records the reason itself (`sample-not-named`), so the runner keeps out of it.
+                 */
+                if (v === 'unknown') return { expect: false, id: null, told: 'unknown' };
                 // NO PARAMETER AT ALL is an opener that never asked — the export
                 // and report pages open `/hub` without one, and so did every
                 // opener before GH-588. It CANNOT be gated: gating on a fact
@@ -1399,229 +1407,19 @@
     }
 
     // =========================================================================
-    // INPUT STATE COLLECTION
+    // GH-790 (queue item 9) — THE SNAPSHOT OF THE FORM IS GONE, AND WITH IT ITS COLLECTORS
     // =========================================================================
-
-    /**
-     * Collect all current input values from the DOM
-     */
-    function collectInputState() {
-        const state = {
-            schemaVersion: CONFIG.schemaVersion,
-            savedAt: new Date().toISOString(),
-            
-            // Location
-            location: collectLocation(),
-            
-            // Turf profile (delegate to TurfProfile if available)
-            turf: collectTurfProfile(),
-            
-            // Soil data
-            soil: collectSoilData(),
-            
-            // Water data
-            water: collectWaterData(),
-            
-            // Tissue data
-            tissue: collectTissueData(),
-            
-            // Climate settings
-            climate: collectClimateSettings(),
-            
-            // Traffic/schedule
-            traffic: collectTrafficSettings(),
-            
-            // Shade settings
-            shade: collectShadeSettings(),
-            
-            /**
-             * GH-771 (queue item 3azh): the PGR section is no longer collected from the old hub's
-             * form. The owner's decision is that the application comes from the spray log, and the
-             * section this used to write was never read as a setting anyway -- `pgr.enabled` is
-             * `false` on 12 sites of the stand and absent on 9, so the date stored beside it on 12 of
-             * them reached no calculation. Writing it kept a form's contents in the site's config,
-             * which is the shape this project removed everywhere else: send the change, not the state.
-             * The section already in the database stays where it is, unread.
-             */
-            
-            // Irrigation settings
-            irrigation: collectIrrigationSettings()
-        };
-        
-        return state;
-    }
-
-    function collectLocation() {
-        const latEl = document.querySelector('.gaip-lat');
-        const lonEl = document.querySelector('.gaip-lon');
-        const nameEl = document.querySelector('.gaip-location-name');
-        
-        return {
-            lat: latEl ? parseFloat(latEl.value) || null : null,
-            lon: lonEl ? parseFloat(lonEl.value) || null : null,
-            name: nameEl ? nameEl.value || '' : ''
-        };
-    }
-
-    function collectTurfProfile() {
-        // Use TurfProfile state if available
-        if (global.GaipTurfProfile && global.GaipTurfProfile.state) {
-            return { ...global.GaipTurfProfile.state };
-        }
-        
-        // Fallback to DOM collection
-        return {
-            turfType: getSelectedTurfType(),
-            subCategory: getSelectedSubCategory(),
-            species: getSelectValue('.gaip-species'),
-            variety: getSelectValue('.gaip-variety'),
-            construction: getSelectValue('.gaip-construction'),
-            drainage: getSelectValue('.gaip-drainage'),
-            hoc: getInputValue('.gaip-hoc'),
-            nProgram: getInputValue('.gaip-n-program'),
-            overseedSpecies: getSelectValue('.gaip-cool-overseed'),
-            overseedVariety: getSelectValue('.gaip-overseed-variety'),
-            overseedIntent: getSelectValue('.gaip-overseed-summer-intent'),
-            poaPercent: getInputValue('.gaip-poa-percent')
-        };
-    }
-
-    function getSelectedTurfType() {
-        const selected = document.querySelector('.gaip-turf-type-option.selected');
-        return selected ? selected.dataset.type : null;
-    }
-
-    function getSelectedSubCategory() {
-        const selected = document.querySelector('.gaip-subcategory-option.selected');
-        return selected ? (selected.dataset.surface || selected.dataset.sport) : null;
-    }
-
-    function collectSoilData() {
-        const data = {
-            ph: getInputValue('.gaip-soil-ph'),
-            ec: getInputValue('.gaip-soil-ec'),
-            cec: getInputValue('.gaip-cec'),
-            texture: getSelectValue('.gaip-soil-texture'),
-            methodology: getSelectValue('.gaip-soil-methodology'),
-            
-            // Sample identification
-            sampleLabel: getInputValue('.gaip-soil-sample-label'),
-            labRef: getInputValue('.gaip-soil-lab-ref'),
-            testDate: getInputValue('.gaip-soil-date'),
-            
-            // LOI (single or stratified)
-            loi: getInputValue('.gaip-loi'),
-            loi_0_2: getInputValue('.gaip-loi-0-2'),
-            loi_2_4: getInputValue('.gaip-loi-2-4'),
-            loi_4_6: getInputValue('.gaip-loi-4-6'),
-            
-            // Nutrients
-            nutrients: {}
-        };
-        
-        // Collect MLSN nutrient values
-        document.querySelectorAll('[data-mlsn]').forEach(el => {
-            const nutrient = el.dataset.mlsn;
-            const value = parseFloat(el.value);
-            if (nutrient && !isNaN(value)) {
-                data.nutrients[nutrient] = value;
-            }
-        });
-        
-        return data;
-    }
-
-    function collectWaterData() {
-        const data = {
-            ph: getInputValue('.gaip-water-ph'),
-            ec: getInputValue('.gaip-ecw'),
-            source: getSelectValue('.gaip-water-source'),
-            recycledWater: !!(document.querySelector('.gaip-recycled-water-flag')?.checked),
-            
-            // Sample identification
-            sourceLabel: getInputValue('.gaip-water-source-label'),
-            labRef: getInputValue('.gaip-water-lab-ref'),
-            testDate: getInputValue('.gaip-water-date'),
-            
-            // Ions
-            ions: {}
-        };
-        
-        // Collect ion values
-        document.querySelectorAll('[data-ion]').forEach(el => {
-            const ion = el.dataset.ion;
-            const value = parseFloat(el.value);
-            if (ion && !isNaN(value)) {
-                data.ions[ion] = value;
-            }
-        });
-        
-        return data;
-    }
-
-    function collectTissueData() {
-        const data = {
-            elements: {}
-        };
-        
-        // Collect tissue values (multiple possible selectors)
-        document.querySelectorAll('[data-tissue], [data-val]').forEach(el => {
-            const element = el.dataset.tissue || el.dataset.val;
-            const value = parseFloat(el.value);
-            if (element && !isNaN(value)) {
-                data.elements[element] = value;
-            }
-        });
-        
-        return data;
-    }
-
-    function collectClimateSettings() {
-        return {
-            // useLiveWeather is intentionally NOT persisted here.
-            // The HTML checkbox defaults to checked=true, so live weather is always on
-            // at page load. Persisting this value created a stuck-false loop where an
-            // old save (from a session where restore had unchecked it) would be re-read
-            // and re-saved before the user had a chance to interact.
-            // If users want live weather off, they toggle it each session.
-            manualTemp: getInputValue('.gaip-manual-temp'),
-            manualPrecip: getInputValue('.gaip-manual-precip'),
-            manualHumidity: getInputValue('.gaip-manual-humidity'),
-            forecastDays: getInputValue('.gaip-forecast-days') || 7
-        };
-    }
-
-    function collectTrafficSettings() {
-        return {
-            enabled: isChecked('.gaip-enable-turf-traffic'),
-            eventsPerWeek: getInputValue('.gaip-events-per-week'),
-            eventDuration: getInputValue('.gaip-event-duration'),
-            recoveryDays: getInputValue('.gaip-recovery-days'),
-            trafficIntensity: getSelectValue('.gaip-traffic-intensity')
-        };
-    }
-
-    function collectShadeSettings() {
-        return {
-            enabled: isChecked('.gaip-enable-shade'),
-            percentShade: getInputValue('.gaip-shade-percent'),
-            shadeHours: getInputValue('.gaip-shade-hours'),
-            ledSupplemental: isChecked('.gaip-led-supplemental'),
-            ledHours: getInputValue('.gaip-led-hours')
-        };
-    }
-
-    // GH-771: `collectPgrSettings` stood here and had no caller left once the config's PGR
-    // section stopped being written. The application comes from the spray log.
-
-    function collectIrrigationSettings() {
-        return {
-            enabled: isChecked('.gaip-enable-irrigation'),
-            cycleTime: getInputValue('.gaip-irrigation-cycle'),
-            efficiency: getInputValue('.gaip-irrigation-efficiency'),
-            allowableDepletion: getInputValue('.gaip-allowable-depletion')
-        };
-    }
+    //
+    // `collectInputState()` read 31 fields of the `/hub` markup into `localStorage` on every `change` and
+    // `input` inside the hub, on fourteen `gaip:*` events and on page unload; eleven collectors fed it, and
+    // `restoreInputState()` with its five helpers laid them back out on every load -- including the hidden
+    // calculation frame, 200ms after start. The key was `gilba_hub_state`, one per USER and not per site, so
+    // the frame could be refilled with the fields of a different site, and the run read 14 of those 31.
+    //
+    // `/hub` is a calculation runner rather than a surface: nobody types into it, so there was nothing of a
+    // person's to keep. What the run needs comes from the config of the site the run is for, by id
+    // (`hub-tissue-v3.js`, `gaip_build_state`). The page's preferences -- which cards are folded -- are a
+    // convenience with no data in them, and they stay.
 
     // =========================================================================
     // DOM HELPERS
@@ -1648,145 +1446,6 @@
     function isChecked(selector) {
         const el = document.querySelector(selector);
         return el ? el.checked : false;
-    }
-
-    // =========================================================================
-    // INPUT STATE RESTORATION
-    // =========================================================================
-
-    /**
-     * Restore saved input state to the DOM
-     */
-    function restoreInputState(state) {
-        if (!state || state.schemaVersion !== CONFIG.schemaVersion) {
-            log('restore', 'Skipping restore - schema mismatch or no state');
-            return false;
-        }
-        
-        log('restore', 'Restoring saved state from', state.savedAt);
-        
-        // Restore location first (affects variety databases)
-        if (state.location) {
-            restoreLocation(state.location);
-        }
-        
-        // Restore turf profile (handled by TurfProfile if available)
-        if (state.turf) {
-            restoreTurfProfile(state.turf);
-        }
-        
-        // Soil/water/tissue are intentionally NOT restored here. This state blob
-        // is keyed only by userId (CONFIG.keys.state), not by site, so it holds
-        // whichever site's form was last saved - restoring it unconditionally
-        // overwrites the DOM with a *different* site's sample data after a site
-        // switch (this ran on its own timer, uncoordinated with and often after
-        // GAIP_SampleManager's site-scoped reloadActiveSample(), so it would win
-        // and silently replace correct data with stale cross-site leftovers).
-        // GAIP_SampleManager is the authoritative, site-scoped source for these
-        // three - see reloadActiveSample() in site-selector-ui.js, which already
-        // loads the active site's own sample (or correctly clears the form when
-        // the site has none) for exactly these types: soil, water, tissue, loi.
-
-        // Restore climate settings
-        if (state.climate) {
-            restoreClimateSettings(state.climate);
-        }
-        
-        // Restore traffic settings
-        if (state.traffic) {
-            restoreTrafficSettings(state.traffic);
-        }
-        
-        // Restore shade settings
-        if (state.shade) {
-            restoreShadeSettings(state.shade);
-        }
-        
-        // GH-771: the PGR section is not restored into the form either. It cleared the date field
-        // whenever the stored flag was false, which is every site on the stand -- so a date the log
-        // had supplied could be wiped by a config nobody had set.
-        
-        // Restore irrigation settings
-        if (state.irrigation) {
-            restoreIrrigationSettings(state.irrigation);
-        }
-        
-        return true;
-    }
-
-    function restoreLocation(loc) {
-        setInputValue('.gaip-lat', loc.lat);
-        setInputValue('.gaip-lon', loc.lon);
-        setInputValue('.gaip-location-name', loc.name);
-    }
-
-    function restoreTurfProfile(turf) {
-        // If TurfProfile controller exists, use it for proper cascade
-        if (global.GaipTurfProfile && typeof global.GaipTurfProfile.loadProfile === 'function') {
-            // TurfProfile handles its own persistence - skip here
-            return;
-        }
-        
-        // Fallback manual restoration
-        if (turf.turfType) {
-            const typeBtn = document.querySelector(`.gaip-turf-type-option[data-type="${turf.turfType}"]`);
-            if (typeBtn) typeBtn.click();
-        }
-        
-        if (turf.subCategory) {
-            setTimeout(() => {
-                const subBtn = document.querySelector(`.gaip-subcategory-option[data-surface="${turf.subCategory}"], .gaip-subcategory-option[data-sport="${turf.subCategory}"]`);
-                if (subBtn) subBtn.click();
-            }, 50);
-        }
-        
-        setTimeout(() => {
-            setSelectValue('.gaip-species', turf.species);
-            setSelectValue('.gaip-variety', turf.variety);
-            setSelectValue('.gaip-construction', turf.construction);
-            setSelectValue('.gaip-drainage', turf.drainage);
-            setInputValue('.gaip-hoc', turf.hoc);
-            setInputValue('.gaip-n-program', turf.nProgram);
-            setSelectValue('.gaip-cool-overseed', turf.overseedSpecies);
-            setSelectValue('.gaip-overseed-variety', turf.overseedVariety);
-            setSelectValue('.gaip-overseed-summer-intent', turf.overseedIntent);
-            setInputValue('.gaip-poa-percent', turf.poaPercent);
-        }, 100);
-    }
-
-    function restoreClimateSettings(climate) {
-        // useLiveWeather is no longer persisted — checkbox always starts at HTML default (true).
-        // Manual weather panel visibility is controlled by the checkbox change handler in hub-tissue-v3.
-        setInputValue('.gaip-manual-temp', climate.manualTemp);
-        setInputValue('.gaip-manual-precip', climate.manualPrecip);
-        setInputValue('.gaip-manual-humidity', climate.manualHumidity);
-        setInputValue('.gaip-forecast-days', climate.forecastDays);
-    }
-
-    function restoreTrafficSettings(traffic) {
-        setCheckbox('.gaip-enable-turf-traffic', traffic.enabled);
-        setInputValue('.gaip-events-per-week', traffic.eventsPerWeek);
-        setInputValue('.gaip-event-duration', traffic.eventDuration);
-        setInputValue('.gaip-recovery-days', traffic.recoveryDays);
-        setSelectValue('.gaip-traffic-intensity', traffic.trafficIntensity);
-    }
-
-    function restoreShadeSettings(shade) {
-        setCheckbox('.gaip-enable-shade', shade.enabled);
-        setInputValue('.gaip-shade-percent', shade.percentShade);
-        setInputValue('.gaip-shade-hours', shade.shadeHours);
-        setCheckbox('.gaip-led-supplemental', shade.ledSupplemental);
-        setInputValue('.gaip-led-hours', shade.ledHours);
-    }
-
-    // GH-771: `restorePgrSettings` stood here and had no caller left once the config's PGR
-    // section stopped being restored into the form.
-
-    function restoreIrrigationSettings(irrigation) {
-        setCheckbox('.gaip-enable-irrigation', irrigation.enabled);
-        setInputValue('.gaip-irrigation-cycle', irrigation.cycleTime);
-        setInputValue('.gaip-irrigation-efficiency', irrigation.efficiency);
-        setInputValue('.gaip-allowable-depletion', irrigation.allowableDepletion);
     }
 
     // =========================================================================
@@ -2851,10 +2510,25 @@
                         var _allSmpState = global.GAIP_SampleManager.getAllSamples();
                         var _siteSmpStore = _allSmpState.allSites && _allSmpState.allSites[_hubSiteId];
                         var _siteWaterSamples = (_siteSmpStore && _siteSmpStore.water) || {};
-                        var _activeWIds = _allSmpState.allActive && _allSmpState.allActive[_hubSiteId];
-                        var _activeWId = _activeWIds && _activeWIds.water;
-                        var _wSmp = (_activeWId && _siteWaterSamples[_activeWId]) ||
-                                    Object.values(_siteWaterSamples).sort(function(a,b) { return (b.date||'') > (a.date||'') ? 1 : -1; })[0];
+                        /**
+                         * GH-796 (queue item 3vyu) — THE SAMPLE THIS ROW IS ABOUT, NOT THE ONE ON THE SCREEN,
+                         * AND NOT THE STORE'S OWN GUESS EITHER.
+                         *
+                         * Two reads stood here and both were the page. The first took
+                         * `allActive[site].water` -- the visitor's selection -- so the water numbers written
+                         * into the row described whatever sample they had open. The second was worse in kind:
+                         * with nothing selected it sorted the BROWSER's copy by date and took the newest,
+                         * which is the server's rule ("the latest by lab date, then sample date, then row
+                         * id") re-implemented in a place that cannot see the database. A row assembled that
+                         * way is about a sample the server never named.
+                         *
+                         * `calculationSample` answers the one question this door needed: which water sample
+                         * is this site's calculation about. The site travels with it, because this row is
+                         * about `_hubSiteId` and not about wherever the page's pointer happens to be. No
+                         * sample means no water in the row, which the next branch already says out loud.
+                         */
+                        var _wSmp = (typeof global.GAIP_SampleManager.calculationSample === 'function')
+                            ? global.GAIP_SampleManager.calculationSample('water', _hubSiteId) : null;
                         if (_wSmp) {
                             // GH-598: the same reader on the second door. Two
                             // copies of a name list drift, and the one nobody
@@ -3680,10 +3354,10 @@
         save: function() {
             log('save', 'Saving state...');
             
-            // Save input state
-            const state = collectInputState();
-            storageSet(CONFIG.keys.state, JSON.stringify(state));
-            
+            // GH-790 (queue item 9): the form's state is not written. It was 31 fields of the `/hub`
+            // markup, keyed by user rather than by site, and the run read 14 of them -- so the calculation
+            // could be handed the fields of a different site, and a form the person never typed into was
+            // treated as something of theirs to keep.
             // Save preferences
             const prefs = collectPreferences();
             storageSet(CONFIG.keys.prefs, JSON.stringify(prefs));
@@ -3714,11 +3388,11 @@
             // The result is written once, by the runner, on completion. Saving
             // the form's own state to localStorage above is untouched.
 
-            log('save', 'State saved');
+            log('save', 'Preferences saved');
 
-            // Dispatch event
+            // Dispatch event. The timestamp is this save's own, which is all it ever meant.
             document.dispatchEvent(new CustomEvent('gaip:state-saved', {
-                detail: { timestamp: state.savedAt }
+                detail: { timestamp: new Date().toISOString() }
             }));
         },
 
@@ -3741,17 +3415,12 @@
         restore: function() {
             log('restore', 'Restoring state...');
             
-            // Purge stale useLiveWeather=false from any existing saved climate state.
-            // v10.8.3 stopped persisting this value (checkbox always defaults to true in HTML).
-            // Old saves may have it stored as false, which would survive here as dead data.
-            try {
-                const existingState = safeJsonParse(storageGet(CONFIG.keys.state));
-                if (existingState && existingState.climate && 'useLiveWeather' in existingState.climate) {
-                    delete existingState.climate.useLiveWeather;
-                    storageSet(CONFIG.keys.state, JSON.stringify(existingState));
-                    log('restore', 'Purged stale useLiveWeather from saved state');
-                }
-            } catch (e) { /* ignore */ }
+            /**
+             * GH-790 (queue item 9): the snapshot's key is removed once, rather than mended. What stood here
+             * deleted a stale `useLiveWeather` out of it -- a repair to a store that is now gone. A key left
+             * in a browser with no reader is the shape somebody finds in a year and takes for a live store.
+             */
+            try { localStorage.removeItem(CONFIG.keys.state); } catch (e) { /* a browser that refuses storage has none */ }
             
             // Restore preferences first (card states)
             const prefs = safeJsonParse(storageGet(CONFIG.keys.prefs));
@@ -3760,28 +3429,19 @@
                 log('restore', 'Preferences restored');
             }
             
-            // Restore input state
-            const state = safeJsonParse(storageGet(CONFIG.keys.state));
-            if (state) {
-                // Use a slight delay to ensure DOM is ready
-                setTimeout(() => {
-                    restoreInputState(state);
-                    log('restore', 'Input state restored');
-                    
-                    // Dispatch event
-                    document.dispatchEvent(new CustomEvent('gaip:state-restored', {
-                        detail: { savedAt: state.savedAt }
-                    }));
-                }, 100);
-            } else {
-                // No saved state (first visit or incognito). Still dispatch gaip:state-restored
-                // so the auto-run gate in hub-tissue-v3 doesn't wait for the 4.5s safety fallback.
-                setTimeout(() => {
-                    document.dispatchEvent(new CustomEvent('gaip:state-restored', {
-                        detail: { savedAt: null, fresh: true }
-                    }));
-                }, 100);
-            }
+            /**
+             * GH-790 (queue item 9): nothing is laid back out into the form, and the EVENT STILL FIRES.
+             *
+             * That is not tidiness: the auto-run gate in `hub-tissue-v3.js` waits for `gaip:state-restored`
+             * and otherwise sits out a 4.5-second safety fallback on every run. The branch that used to
+             * announce "no saved state" is now the only branch, and it says what is true of every load --
+             * this page starts from the site, not from a memory of itself.
+             */
+            setTimeout(() => {
+                document.dispatchEvent(new CustomEvent('gaip:state-restored', {
+                    detail: { savedAt: null, fresh: true }
+                }));
+            }, 100);
             
             // GH-536 (PLAN-samples-sync-FINAL, stage 3) -- THIS BLOCK IS NOT
             // ABOUT SAMPLES AND MUST NOT LEAVE WITH THEM.
@@ -3856,54 +3516,14 @@
         },
 
         /**
-         * Export current state as JSON string
+         * GH-790 (queue item 9): `export()` and `import()` of the form snapshot are gone.
+         *
+         * They serialised `collectInputState()` into a bundle and wrote a bundle back into the snapshot's
+         * key. Nothing in the tree called either -- measured, no caller in `assets` or in any view -- and
+         * with the snapshot itself withdrawn there is neither anything to export nor a key to import into.
+         * A published name that nothing calls is a second answer waiting to be found rather than dormant
+         * code.
          */
-        export: function() {
-            const exportData = {
-                version: CONFIG.version,
-                exportedAt: new Date().toISOString(),
-                state: collectInputState(),
-                prefs: collectPreferences(),
-                // GH-536 (stage 3): `samples` no longer travels in this bundle.
-                // The samples live in the database; a bundle carrying a copy of
-                // them is the shape this stage removes.
-            };
-            
-            return JSON.stringify(exportData, null, 2);
-        },
-
-        /**
-         * Import state from JSON string
-         */
-        import: function(jsonString) {
-            const data = safeJsonParse(jsonString);
-            if (!data) {
-                warn('import', 'Invalid JSON');
-                return false;
-            }
-            
-            // Validate version compatibility
-            if (!data.version) {
-                warn('import', 'No version in import data');
-                return false;
-            }
-            
-            // Store imported data
-            if (data.state) {
-                storageSet(CONFIG.keys.state, JSON.stringify(data.state));
-            }
-            if (data.prefs) {
-                storageSet(CONFIG.keys.prefs, JSON.stringify(data.prefs));
-            }
-            // GH-536 (stage 3): `data.samples` from an older bundle is ignored.
-            // There is no key to put it in and no restore that would read it.
-            
-            // Restore immediately
-            this.restore();
-            
-            log('import', 'Data imported successfully');
-            return true;
-        },
 
         /**
          * Get cached dashboard metrics
@@ -3914,19 +3534,13 @@
         },
 
         /**
-         * Check if state is saved
+         * GH-790 (queue item 9): `hasSavedState()` and `getLastSaveTime()` are gone with the snapshot they
+         * answered about. Both read the form's own `savedAt`, and the one consumer of the second -- the
+         * "Saved N ago" line of the `/hub` panel -- is removed in `site-dashboard.js`: with nothing being
+         * saved, a time of the last save is not a fact this page has. The staleness badge in
+         * `auto-refresh.js` read the same field and called it the time of the last ANALYSIS, which it never
+         * was.
          */
-        hasSavedState: function() {
-            return storageGet(CONFIG.keys.state) !== null;
-        },
-
-        /**
-         * Get last save timestamp
-         */
-        getLastSaveTime: function() {
-            const state = safeJsonParse(storageGet(CONFIG.keys.state));
-            return state ? state.savedAt : null;
-        }
     };
 
     // =========================================================================

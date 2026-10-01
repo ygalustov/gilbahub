@@ -7,8 +7,17 @@
  * annual K = 105 (deficit-correction inflated) instead of the correct
  * removal-only ~52, causing the recommender to spuriously select SOL-KNO3.
  *
- * Post-fix: SampleManager.getActiveSample('soil').normalized is the source
- * of truth; DOM inputs are a fallback for in-progress manual edits.
+ * Post-fix: the sample's `normalized` values are the source of truth; DOM inputs are a fallback for
+ * in-progress manual edits.
+ *
+ * GH-796 (queue item 3vyu) RENAMED THE QUESTION, not the rule. The sample a programme is computed from is
+ * the one the server names for the site, not the one a visitor has selected on the page, so this block now
+ * asks `SM.calculationSample('soil')`. What these cases are about -- the sample before the DOM, the
+ * normalised lab values, the try/catch, the DOM as a fallback -- is unchanged, and only the name of the
+ * method moved.
+ *
+ * WHAT THESE CASES DO NOT DO, said plainly: they read the SOURCE TEXT of the file, comments included, and
+ * they say nothing about what it computes. A rename keeps them honest only because somebody updates them.
  */
 
 const fs = require('fs');
@@ -22,10 +31,12 @@ describe('b35fix383 — syncSoilFromDOM SampleManager priority', () => {
         calendarSrc = fs.readFileSync(filePath, 'utf8');
     });
 
-    test('syncSoilFromDOM reads from GAIP_SampleManager.getActiveSample(\'soil\')', () => {
-        // The fix MUST call SampleManager before falling back to DOM inputs.
+    test('syncSoilFromDOM reads the calculation\'s sample from GAIP_SampleManager', () => {
+        // The fix MUST ask the manager before falling back to DOM inputs.
         expect(calendarSrc).toMatch(/GAIP_SampleManager/);
-        expect(calendarSrc).toMatch(/getActiveSample\(['"]soil['"]\)/);
+        expect(calendarSrc).toMatch(/calculationSample\(['"]soil['"]\)/);
+        // And it must not go back to the page's selection here: that is the defect GH-796 closed.
+        expect(calendarSrc).not.toMatch(/getActiveSample\(['"]soil['"]\)/);
     });
 
     test('SampleManager read uses normalized values (lab data)', () => {

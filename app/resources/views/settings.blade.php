@@ -438,18 +438,22 @@
                                     </select>
                                 </div>
                                 <div class="stg-field">
-                                    <label for="stg-turf-soil-texture">Soil texture</label>
-                                    <select id="stg-turf-soil-texture" name="soilTexture">
-                                        @php $tex = $activeSite->soil_texture_override ?? ''; @endphp
+                                    {{-- GH-797 (queue item 3ashch): required by the owner's decision of
+                                         01.10.2026, and the mark is drawn from the list like every other
+                                         one -- this field had neither the note nor `data-input`, so a
+                                         refusal naming it could not be pointed at it. --}}
+                                    <label for="stg-turf-soil-texture">Soil texture</label>{!! $requiredNote('sites.soil_texture_override') !!}
+                                    <select id="stg-turf-soil-texture" name="soilTexture" {!! $inputAttr('sites.soil_texture_override') !!}>
+                                        @php
+                                            // GH-797: the six come from the inputs list, beside the key, as
+                                            // the constructions and the methodologies do. The hand-written
+                                            // array that stood here was the only place they lived, and the
+                                            // setup wizard needed the same six.
+                                            $tex = $activeSite->soil_texture_override ?? '';
+                                            $textureChoices = \App\Support\CalculationInputs::soilTextureChoices();
+                                        @endphp
                                         <option value="" {{ $tex === '' ? 'selected' : '' }}>— select —</option>
-                                        @foreach([
-                                            'sand'       => 'Sand / Sand rootzone',
-                                            'loamy_sand' => 'Loamy Sand',
-                                            'sandy_loam' => 'Sandy Loam',
-                                            'loam'       => 'Loam',
-                                            'clay_loam'  => 'Clay Loam',
-                                            'clay'       => 'Clay',
-                                        ] as $v => $l)
+                                        @foreach($textureChoices as $v => $l)
                                         <option value="{{ $v }}" {{ $tex === $v ? 'selected' : '' }}>{{ $l }}</option>
                                         @endforeach
                                     </select>

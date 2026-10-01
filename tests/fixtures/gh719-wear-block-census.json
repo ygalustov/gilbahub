@@ -1,225 +1,210 @@
 {
- "$comment": [
-  "GH-719 (queue item 3au) - THE MEASURED CENSUS OF THE HIDDEN WEAR CARD.",
-  "",
-  "Written from the run itself (GH719_PRINT=1), not typed: every field of the",
-  "`data-card=\"traffic\"` section of legacy-hub-markup.blade.php, the default the",
-  "MARKUP gives it, and every file under `assets` that names its class.",
-  "",
-  "This is a ratchet, not a permission list. A field added to the card, a markup",
-  "default changed, or a reader appearing in a file that is not here is red by name,",
-  "and so is anything that disappears. The unit is the BLOCK because the item's claim",
-  "is about the block: a guard written about matches-per-week alone stays green when",
-  "the same defect arrives through matchDuration or trainingRotation.",
-  "",
-  "TWO NUMBERS THIS CORRECTED, both measured: the block holds 18 fields, not 15, and",
-  "10 files name them, not 2. `gaip-root-depth` sits in this same card with a markup",
-  "default of 100.",
-  "",
-  "THE DEFAULT HAS TWO HOMES, measured: the blade card and `assets/wear-recovery-integration.js`,",
-  "which builds the same form in a script with the same values. `declaredWithADefaultIn` carries",
-  "both, without line numbers, because a line moves on the next edit and a pinned census goes",
-  "stale in silence.",
-  "",
-  "Boundary: a read through a computed class name or a variable holding it is not seen by this",
-  "census, and neither is a default assigned in code rather than declared in markup.",
-  "GH-776 (queue item 3vt): the four fields of a week of traffic lost their markup defaults, in both homes. The run no longer falls back to this form when a site has no schedule, so a golf course is no longer given a soccer week; measured before that change, ten of thirteen sites carried 5.25 hours with \"Soccer (matches)\" first. The root depth keeps its default of 100 by the owner's separate decision.",
-  "GH-776: and `hub-orchestrator.js` is no longer among the readers of the two weekly counts -- the fallback that read them from this form is gone, and so is the comment that named them."
- ],
- "measuredAt": "2026-09-25",
- "fields": {
-  "gaip-age-group": {
-   "markupDefault": "adult",
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"adult\"",
-    "assets/wear-recovery-integration.js = \"adult\""
-   ]
-  },
-  "gaip-enable-turf-traffic": {
-   "markupDefault": "checked",
-   "namedIn": [
-    "hub-persistence.js",
-    "hub-tissue-v3.js",
-    "site-config-persistence.js",
-    "turf-profile-controller.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"checked\""
-   ]
-  },
-  "gaip-match-duration": {
-   "markupDefault": null,
-   "namedIn": [
-    "dew-prediction-integration.js",
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": []
-  },
-  "gaip-match-sport": {
-   "markupDefault": null,
-   "namedIn": [
-    "dew-prediction-integration.js",
-    "hub-tissue-v3.js",
-    "turf-profile-controller.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": []
-  },
-  "gaip-matches-week": {
-   "markupDefault": null,
-   "namedIn": [
-    "dew-prediction-integration.js",
-    "hub-tissue-v3.js",
-    "mlsn-progressive-disclosure.js",
-    "nutrition-program-inputs.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": []
-  },
-  "gaip-overseed-status": {
-   "markupDefault": "none",
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "site-config-persistence.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"none\"",
-    "assets/wear-recovery-integration.js = \"none\""
-   ]
-  },
-  "gaip-prior-week-1": {
-   "markupDefault": "",
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"\"",
-    "assets/wear-recovery-integration.js = \"\""
-   ]
-  },
-  "gaip-prior-week-2": {
-   "markupDefault": "",
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"\"",
-    "assets/wear-recovery-integration.js = \"\""
-   ]
-  },
-  "gaip-prior-week-3": {
-   "markupDefault": "",
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"\"",
-    "assets/wear-recovery-integration.js = \"\""
-   ]
-  },
-  "gaip-prior-week-4": {
-   "markupDefault": "",
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"\"",
-    "assets/wear-recovery-integration.js = \"\""
-   ]
-  },
-  "gaip-rest-days": {
-   "markupDefault": "2",
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"2\"",
-    "assets/wear-recovery-integration.js = \"2\""
-   ]
-  },
-  "gaip-root-depth": {
-   "markupDefault": "100",
-   "namedIn": [
-    "gaip-clear-data.js",
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"100\"",
-    "assets/wear-recovery-integration.js = \"100\""
-   ]
-  },
-  "gaip-session-duration": {
-   "markupDefault": null,
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": []
-  },
-  "gaip-sessions-week": {
-   "markupDefault": null,
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "mlsn-progressive-disclosure.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": []
-  },
-  "gaip-soil-moisture": {
-   "markupDefault": "optimal",
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"optimal\"",
-    "assets/wear-recovery-integration.js = \"optimal\""
-   ]
-  },
-  "gaip-team-size": {
-   "markupDefault": "medium",
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"medium\"",
-    "assets/wear-recovery-integration.js = \"medium\""
-   ]
-  },
-  "gaip-training-rotation": {
-   "markupDefault": "100",
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"100\"",
-    "assets/wear-recovery-integration.js = \"100\""
-   ]
-  },
-  "gaip-training-type": {
-   "markupDefault": "training_drills",
-   "namedIn": [
-    "hub-tissue-v3.js",
-    "wear-recovery-integration.js"
-   ],
-   "declaredWithADefaultIn": [
-    "app/resources/views/partials/legacy-hub-markup.blade.php = \"training_drills\"",
-    "assets/wear-recovery-integration.js = \"training_drills\""
-   ]
+  "$comment": [
+    "GH-719 (queue item 3au) - THE MEASURED CENSUS OF THE HIDDEN WEAR CARD.",
+    "",
+    "Written from the run itself (GH719_PRINT=1), not typed: every field of the",
+    "`data-card=\"traffic\"` section of legacy-hub-markup.blade.php, the default the",
+    "MARKUP gives it, and every file under `assets` that names its class.",
+    "",
+    "This is a ratchet, not a permission list. A field added to the card, a markup",
+    "default changed, or a reader appearing in a file that is not here is red by name,",
+    "and so is anything that disappears. The unit is the BLOCK because the item's claim",
+    "is about the block: a guard written about matches-per-week alone stays green when",
+    "the same defect arrives through matchDuration or trainingRotation.",
+    "",
+    "TWO NUMBERS THIS CORRECTED, both measured: the block holds 18 fields, not 15, and",
+    "10 files name them, not 2. `gaip-root-depth` sits in this same card with a markup",
+    "default of 100.",
+    "",
+    "THE DEFAULT HAS TWO HOMES, measured: the blade card and `assets/wear-recovery-integration.js`,",
+    "which builds the same form in a script with the same values. `declaredWithADefaultIn` carries",
+    "both, without line numbers, because a line moves on the next edit and a pinned census goes",
+    "stale in silence.",
+    "",
+    "Boundary: a read through a computed class name or a variable holding it is not seen by this",
+    "census, and neither is a default assigned in code rather than declared in markup.",
+    "GH-776 (queue item 3vt): the four fields of a week of traffic lost their markup defaults, in both homes. The run no longer falls back to this form when a site has no schedule, so a golf course is no longer given a soccer week; measured before that change, ten of thirteen sites carried 5.25 hours with \"Soccer (matches)\" first. The root depth keeps its default of 100 by the owner's separate decision.",
+    "GH-776: and `hub-orchestrator.js` is no longer among the readers of the two weekly counts -- the fallback that read them from this form is gone, and so is the comment that named them.",
+    "GH-790 (queue item 9): `hub-tissue-v3.js` is no longer a reader of these 18 fields. The run's state assembly took its traffic, its LED figures, its overseed status, its cultivar and its root depth from the `/hub` markup; it takes them from the config of the site the run is FOR, by id. The remaining readers are the markup that declares the fields, the cards that inject them and the files that clear them -- none of them a calculation. Removed from the census: .",
+    "GH-790 (queue item 9): `hub-tissue-v3.js` no longer names these 18 fields. The run's state assembly read its traffic, its LED figures, its overseed status, its cultivar and its root depth off the `/hub` markup; it reads them from the config of the site the run is FOR, by id, and a schedule reaches it through one transform shared with the orchestrator's wear inputs. What is left naming them is the markup that declares the fields, the card that injects them and the files that clear them -- none of them a calculation. Removed: gaip-age-group, gaip-enable-turf-traffic, gaip-match-duration, gaip-match-sport, gaip-matches-week, gaip-overseed-status, gaip-prior-week-1, gaip-prior-week-2, gaip-prior-week-3, gaip-prior-week-4, gaip-rest-days, gaip-root-depth, gaip-session-duration, gaip-sessions-week, gaip-soil-moisture, gaip-team-size, gaip-training-rotation, gaip-training-type.",
+    "GH-790: `gaip-enable-turf-traffic` is the one field of the block where the change goes the other way -- `hub-persistence.js` stops naming it, because the snapshot collector that read 31 markup fields is withdrawn, while the assembly still reads the toggle itself."
+  ],
+  "measuredAt": "2026-09-25",
+  "fields": {
+    "gaip-age-group": {
+      "markupDefault": "adult",
+      "namedIn": [
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"adult\"",
+        "assets/wear-recovery-integration.js = \"adult\""
+      ]
+    },
+    "gaip-enable-turf-traffic": {
+      "markupDefault": "checked",
+      "namedIn": [
+        "hub-tissue-v3.js",
+        "site-config-persistence.js",
+        "turf-profile-controller.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"checked\""
+      ]
+    },
+    "gaip-match-duration": {
+      "markupDefault": null,
+      "namedIn": [
+        "dew-prediction-integration.js",
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": []
+    },
+    "gaip-match-sport": {
+      "markupDefault": null,
+      "namedIn": [
+        "dew-prediction-integration.js",
+        "turf-profile-controller.js",
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": []
+    },
+    "gaip-matches-week": {
+      "markupDefault": null,
+      "namedIn": [
+        "dew-prediction-integration.js",
+        "mlsn-progressive-disclosure.js",
+        "nutrition-program-inputs.js",
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": []
+    },
+    "gaip-overseed-status": {
+      "markupDefault": "none",
+      "namedIn": [
+        "site-config-persistence.js",
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"none\"",
+        "assets/wear-recovery-integration.js = \"none\""
+      ]
+    },
+    "gaip-prior-week-1": {
+      "markupDefault": "",
+      "namedIn": [
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"\"",
+        "assets/wear-recovery-integration.js = \"\""
+      ]
+    },
+    "gaip-prior-week-2": {
+      "markupDefault": "",
+      "namedIn": [
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"\"",
+        "assets/wear-recovery-integration.js = \"\""
+      ]
+    },
+    "gaip-prior-week-3": {
+      "markupDefault": "",
+      "namedIn": [
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"\"",
+        "assets/wear-recovery-integration.js = \"\""
+      ]
+    },
+    "gaip-prior-week-4": {
+      "markupDefault": "",
+      "namedIn": [
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"\"",
+        "assets/wear-recovery-integration.js = \"\""
+      ]
+    },
+    "gaip-rest-days": {
+      "markupDefault": "2",
+      "namedIn": [
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"2\"",
+        "assets/wear-recovery-integration.js = \"2\""
+      ]
+    },
+    "gaip-root-depth": {
+      "markupDefault": "100",
+      "namedIn": [
+        "gaip-clear-data.js",
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"100\"",
+        "assets/wear-recovery-integration.js = \"100\""
+      ]
+    },
+    "gaip-session-duration": {
+      "markupDefault": null,
+      "namedIn": [
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": []
+    },
+    "gaip-sessions-week": {
+      "markupDefault": null,
+      "namedIn": [
+        "mlsn-progressive-disclosure.js",
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": []
+    },
+    "gaip-soil-moisture": {
+      "markupDefault": "optimal",
+      "namedIn": [
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"optimal\"",
+        "assets/wear-recovery-integration.js = \"optimal\""
+      ]
+    },
+    "gaip-team-size": {
+      "markupDefault": "medium",
+      "namedIn": [
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"medium\"",
+        "assets/wear-recovery-integration.js = \"medium\""
+      ]
+    },
+    "gaip-training-rotation": {
+      "markupDefault": "100",
+      "namedIn": [
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"100\"",
+        "assets/wear-recovery-integration.js = \"100\""
+      ]
+    },
+    "gaip-training-type": {
+      "markupDefault": "training_drills",
+      "namedIn": [
+        "wear-recovery-integration.js"
+      ],
+      "declaredWithADefaultIn": [
+        "app/resources/views/partials/legacy-hub-markup.blade.php = \"training_drills\"",
+        "assets/wear-recovery-integration.js = \"training_drills\""
+      ]
+    }
   }
- }
 }

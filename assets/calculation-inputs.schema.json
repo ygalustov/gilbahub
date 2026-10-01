@@ -586,9 +586,34 @@
       "label": "the warm-season base grass"
     },
     "sites.soil_texture_override": {
-      "required": false,
+      "$comment": [
+        "GH-797 (queue item 3ashch) - THE SIX TEXTURES A PERSON IS OFFERED, DECLARED BESIDE THE INPUT.",
+        "",
+        "They were written out by hand in settings.blade.php and the setup wizard asked for this field at",
+        "all, so the wizard needed the same six and a second hand-written copy would have been the shape",
+        "`turf.construction` was in before GH-769: two lists of the same identifiers, one of them read by",
+        "the wizard and one by Settings. Moved as they stood, identifiers and labels both.",
+        "",
+        "NO `offered` MARK, unlike turf.construction: all six are offered to every turf type. That mark",
+        "exists there because eleven constructions are declared and five are offered, and a mark nobody",
+        "needs would be a choice this file pretends to have made.",
+        "",
+        "REQUIRED, by the owner's decision of 01.10.2026, and for every turf type - so `required: true`",
+        "and no `byTurfType`. Her words: \"if a field is required for us, then it is required. Let's add",
+        "it in the wizard too. And in the settings this field should be required as well.\" Nothing else",
+        "about the texture changes with it: the substitutions the calculation makes for an absent one are",
+        "left exactly as they are, which is her sentence \"apart from the obligation do not do anything",
+        "else on this task\".",
+        "",
+        "`wizard.step3` is where the wizard asks for it, beside the species, the cultivar, the",
+        "construction and the methodology - the step about what the soil and the grass are. Without that",
+        "step the lock would hold every site over an input no wizard step could answer, which is the trap",
+        "`traffic.schedule` fell into (GH-684)."
+      ],
+      "required": true,
       "filledIn": [
-        "settings.turf"
+        "settings.turf",
+        "wizard.step3"
       ],
       "storedIn": [
         "siteColumn"
@@ -598,6 +623,14 @@
         "soil.type",
         "site.soilType"
       ],
+      "values": {
+        "sand": { "label": "Sand / Sand rootzone" },
+        "loamy_sand": { "label": "Loamy Sand" },
+        "sandy_loam": { "label": "Sandy Loam" },
+        "loam": { "label": "Loam" },
+        "clay_loam": { "label": "Clay Loam" },
+        "clay": { "label": "Clay" }
+      },
       "label": "the soil texture"
     },
     "traffic.schedule": {

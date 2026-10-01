@@ -712,3 +712,43 @@ window.GilbaRequiredFields = (function () {
         },
     };
 }());
+
+/**
+ * GH-792 (queue item 79) — THE WORDS OF AN EMPTY SECTION, ASKED OF THE ONE PLACE THAT OWNS THEM.
+ *
+ * Seven client pages each held their own sentences for a section with nothing in it: twenty-five places, three
+ * of which sent a person to a "Hub" that is not part of the product and eleven of which told them to run an
+ * analysis that had already run. The words belong to the owner and the composer on the server holds them
+ * (`AnalysisNotice`), delivered with the numbers in the same response (`partials/analysis-pill.blade.php`).
+ *
+ * This is the one reader, here rather than in each page, by the project's rule about shared UI logic. A page
+ * asks by PLACE -- a key of the result, or one of the five places declared for the parts that are not a result
+ * key -- and prints the answer. It writes no sentence of its own.
+ *
+ * `null` MEANS THE COMPOSER HAS NO WORDS FOR THIS PLACE, which is a question for the owner rather than an
+ * invitation for the page to invent one. A page that gets `null` prints its heading and nothing under it.
+ */
+window.GilbaEmptySection = (function () {
+    'use strict';
+
+    return {
+        /**
+         * @param {string} key the place: a result key, or one of the declared page places
+         * @returns {{cause: ?string, class: ?string, module: ?string, retry: boolean, text: ?string}|null}
+         */
+        of: function (key) {
+            var texts = window.GAIP_ANALYSIS_TEXTS;
+            var sections = texts && texts.sections;
+            var answer = sections ? sections[key] : undefined;
+
+            return answer || null;
+        },
+
+        /** The sentence for that place, or an empty string — never a sentence of the page's own. */
+        words: function (key) {
+            var answer = this.of(key);
+
+            return (answer && answer.text) ? String(answer.text) : '';
+        },
+    };
+}());

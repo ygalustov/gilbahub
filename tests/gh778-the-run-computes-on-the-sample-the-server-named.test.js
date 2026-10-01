@@ -40,6 +40,10 @@ const SOIL_B = { id: 'sample_105', serverId: 105, rawData: { pH_Water: '5.4', CE
 const WATER_A = { id: 'uid-wa', serverId: 114, rawData: { _label: 'Bore', EC: '0.5', SAR: '1.1' } };
 const WATER_B = { id: 'sample_115', serverId: 115, rawData: { _label: 'Dam', EC: '2.4', SAR: '4.7' } };
 
+/** The frame's chooser, as the context under test exposes it. Set by `runPass` below. */
+let _chooserOfTheContext = null;
+const theChooser = () => (_chooserOfTheContext ? _chooserOfTheContext() : null);
+
 function sampleManager() {
     const store = { soil: [SOIL_A, SOIL_B], water: [WATER_A, WATER_B] };
 
@@ -49,6 +53,21 @@ function sampleManager() {
             const raw = (sample && sample.rawData) || {};
 
             return raw[name] !== undefined ? parseFloat(raw[name]) : null;
+        },
+        /**
+         * GH-796 (queue item 3vyu) — THE CALCULATION'S QUESTION, WITH THE REAL FUNCTION'S CONTRACT.
+         *
+         * In a run frame the address answers, through the frame's own chooser; the real function then asks
+         * the server when nothing was named, and a sandbox has no server -- so that branch is "no sample",
+         * which is what it means here. The page's selection is never the answer.
+         */
+        calculationSample: (kind) => {
+            const chooser = theChooser();
+            if (typeof chooser !== 'function') return null;
+            const told = chooser(kind);
+            if (told === 'none' || told === 'unknown' || told === 'not-found') return null;
+
+            return told || null;
         },
         getSamples: (kind) => store[kind] || [],
         // The page's selection is A for both kinds, and A is NOT what the address names.
@@ -88,6 +107,9 @@ function sandboxFor(search) {
     sandbox.GAIP_HUB_CONFIG = { activeSiteId: 'site-1' };
     sandbox.GAIP_STATE = { inputs: { soil: {}, water: {} }, computed: {} };
     sandbox.GAIP_SampleManager = sampleManager();
+    // GH-796: the stub's calculation-sample answer reads the chooser of THIS context, once the sources are in.
+    _chooserOfTheContext = () => (typeof sandbox.gaip_namedSample === 'function'
+        ? sandbox.gaip_namedSample : null);
     sandbox.GaipOrchestrator = { noteSkipped() {}, recordProblem() {}, note() {}, getState: () => ({ computed: {} }) };
 
     return sandbox;
@@ -136,13 +158,20 @@ describe('GH-778 — one chooser decides which sample a run is about', () => {
         expect(named.CEC).not.toBe(parseFloat(SOIL_A.rawData.CEC_meq100g));
     });
 
-    test('and with nothing named it is the page’s selection, because that is then the run’s own sample', () => {
-        // Openers that name no sample exist (GH-724), and this is the one case where active is correct.
+    test('and with nothing named the page\u2019s selection is NOT the run\u2019s sample', () => {
+        /**
+         * REWRITTEN BY GH-796 (queue item 3vyu). This used to say that an address naming nothing is "the one
+         * case where active is correct". The owner closed that case on 30.09.2026 -- "fix them all, only
+         * make sure that at that moment it is the sample that goes into the calculation that is needed, and
+         * not the one active on the page". Such a run asks the server instead, by the same rule the opener
+         * uses; this sandbox has no server, so the block has no readings, and what it must never again have
+         * is the visitor's selection.
+         */
         const unnamed = soilBlock('?rerun=r1&site=site-1');
         process.stdout.write('[gh778] soil block with nothing named: '
             + JSON.stringify({ CEC: unnamed && unnamed.CEC }) + '\n');
 
-        expect(unnamed.CEC).toBe(parseFloat(SOIL_A.rawData.CEC_meq100g));
+        expect(unnamed && unnamed.CEC).not.toBe(parseFloat(SOIL_A.rawData.CEC_meq100g));
     });
 
     test('THE LAB SAR of the water comes from the named water sample, not from the selected one', () => {
@@ -198,7 +227,16 @@ describe('GH-778 — one chooser decides which sample a run is about', () => {
         const rest = reads.filter((r) => allowed.indexOf(r) < 0);
         expect({ readsOfTheSelectionOutsideTheChooser: rest })
             .toEqual({ readsOfTheSelectionOutsideTheChooser: [] });
-        // And the remainder is exactly the water block, which keeps this honest about what was left.
-        expect(allowed.length).toBeGreaterThan(0);
+        /**
+         * GH-796 (queue item 3vyu) — AND THE DECLARED REMAINDER IS NOW NOTHING.
+         *
+         * This line used to require the remainder to be non-empty, because two reads of the page's selection
+         * were knowingly left in the write path: the chooser's own fallback, and the water block of the row,
+         * which took `allActive[site].water` and, failing that, sorted the browser's copy by date and took
+         * the newest -- the server's rule guessed at by a place that cannot see the database. Both are gone,
+         * so the honest assertion is the empty list, in the form that reddens either way: a read put back
+         * lands in `rest` above, and a read appearing inside the chooser or the water block lands here.
+         */
+        expect({ theDeclaredRemainder: allowed }).toEqual({ theDeclaredRemainder: [] });
     });
 });

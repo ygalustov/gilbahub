@@ -1143,7 +1143,10 @@
         // below.
 
         if (!d) {
-            container.innerHTML = '<div style="padding:40px;text-align:center;color:#5b6a65">No analysis data. Run analysis first.</div>';
+            // GH-792 (queue item 79): the sentence is the composer's. "Run analysis first" was printed to
+            // people whose analysis had already run and simply produced no disease risk.
+            container.innerHTML = '<div style="padding:40px;text-align:center;color:#5b6a65">'
+                + (global.GilbaEmptySection ? global.GilbaEmptySection.words('disease') : '') + '</div>';
             return;
         }
 
@@ -1304,7 +1307,9 @@
             if (water.confidence !== 'none') {
                 cards += traitCard('Water Use', waterLabel(water.multiplier || 1), water.source, water.confidence);
             } else {
-                cards += traitCard('Water Use', 'No data', 'No water use data', 'none');
+                // GH-792: the words do not change by the owner's decision, and they come from the composer.
+                cards += traitCard('Water Use', 'No data',
+                    (global.GilbaEmptySection ? global.GilbaEmptySection.words('disease.waterUse') : ''), 'none');
             }
             if (heat.confidence !== 'none') {
                 cards += traitCard('Drought Tolerance', droughtLabel(heat.droughtMultiplier || 1), heat.source, heat.confidence);
@@ -1376,7 +1381,9 @@
         });
 
         if (!rows) {
-            rows = '<div style="font-size:13px;color:var(--gaip-text-secondary);padding:8px 0">Dew forecast unavailable — run analysis with live weather to populate.</div>';
+            // GH-792: the composer's words for the dew place; hers say only that it is unavailable.
+            rows = '<div style="font-size:13px;color:var(--gaip-text-secondary);padding:8px 0">'
+                + (global.GilbaEmptySection ? global.GilbaEmptySection.words('disease.dew') : '') + '</div>';
         }
 
         return '<div id="dr-dew-block" class="gl-block" style="margin-top:16px">' +

@@ -71,6 +71,14 @@ class Gh570WhatThePanelSaysOnTheLiveRowsTest extends TestCase
             ],
         ]);
 
+        /**
+         * GH-791 (queue item 3gp): the clock stands where this row finished. The stamps come from the live
+         * rows of the stand (22.09.2026), and every case of this file asks what the panel says about THAT
+         * run -- read on a later day the panel is right to call it stale, and each case read that as its own
+         * subject failing. The fixture's dates are not touched: a newer date reddens again two days later.
+         */
+        $this->clockAtRowAge((string) $live['completedAt']);
+
         return AnalysisNotice::panel(AnalysisResults::forSite($site->fresh()), 'Pacific/Auckland');
     }
 
@@ -235,6 +243,8 @@ class Gh570WhatThePanelSaysOnTheLiveRowsTest extends TestCase
         $this->assertSame([], $fresh->detail['skipped'],
             'the invented skip is still on the row, so the panel would keep naming it');
         $this->assertNotEmpty($fresh->detail['warnings'], 'the journal was thrown away with the verdict');
+        // GH-791 (queue item 3gp): the clock stands where this row finished, as in `panelFor()` above.
+        $this->clockAtRowAge((string) $live['completedAt']);
         $this->assertNull(AnalysisNotice::panel(AnalysisResults::forSite($site->fresh()), 'Pacific/Auckland'),
             'a run where every engine produced is still reported as a problem');
     }

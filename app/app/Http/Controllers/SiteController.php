@@ -223,6 +223,33 @@ class SiteController extends Controller
             'parent_site_id' => ['nullable', 'string', Rule::exists('sites', 'id')->whereNot('id', $site->id)],
         ]);
 
+        /**
+         * GH-797 — A REQUIRED INPUT KEPT IN A COLUMN IS NOT EMPTIED HERE, AND THE ANSWER NAMES THE FIELD.
+         *
+         * The config route has refused such a write since GH-789; this route stores the other half of the
+         * list (`storedIn: siteColumn`) and did not judge it at all, so the obligation the owner decided on
+         * 01.10.2026 could be undone by the request that writes the column. Nothing is written when this
+         * refuses — the check stands before the transaction below.
+         *
+         * THERE IS NO EXCEPTION FOR THE IMPORT, and that is the owner's decision of 01.10.2026 rather than
+         * an oversight. The import used to clear this column, so an obligation judged here would have
+         * refused it with its samples already replaced; her answer was to stop the clearing instead, in her
+         * words: "then if the import fails now, okay, then during an import just do not delete that field
+         * for now." So the import no longer says anything about this column (`settings-init.js`,
+         * `applySiteConfig`) and never reaches this refusal, and no write is allowed to leave a required
+         * column empty. What an import should do with the texture in the end is her open question.
+         */
+        $missingColumns = $this->missingRequiredSiteColumns($site, $data);
+        if ($missingColumns !== []) {
+            return response()->json([
+                'message' => 'Not saved: fill in '
+                    .$this->readAsList(array_column($missingColumns, 'label')).'.',
+                'missing' => $missingColumns,
+                // The older field, kept: callers written against it read the same refusal.
+                'invalid_keys' => array_column($missingColumns, 'input'),
+            ], 422);
+        }
+
         // GH-634 (queue item 17, plan section 2a): the same condition on this
         // route, for the columns that OWN a config field. `FieldOwners::OWNERS`
         // says which those are; a second list is not kept.
@@ -939,9 +966,61 @@ class SiteController extends Controller
             $examined[] = $key;
         }
 
+        /**
+         * GH-797 (queue item 3ashch) — A ROUTE JUDGES THE OBLIGATIONS IT STORES.
+         *
+         * This route writes the config and reads the result out of it, so it answers for the inputs the
+         * list keeps in the config. The soil texture is the first required input kept elsewhere — a column
+         * of `sites` — and judged here it would be read out of a config that never holds it, so every save
+         * of a Turf tab would be refused over a texture the site already carries. The route that writes
+         * that column judges it instead (`update`).
+         */
+        $examined = array_values(array_filter(
+            $examined,
+            fn (string $key) => in_array('config', CalculationInputs::storedIn($key) ?? [], true)
+        ));
+
         $missing = [];
         foreach ($examined as $key) {
             if (CalculationInputs::isFilled($key, CalculationInputs::valueIn($merged, $key))) {
+                continue;
+            }
+            $missing[] = ['input' => $key, 'label' => (string) (CalculationInputs::label($key) ?? $key)];
+        }
+
+        return $missing;
+    }
+
+    /**
+     * GH-797 (queue item 3ashch) — THE REQUIRED INPUTS THIS WRITE OF THE SITE ROW WOULD LEAVE EMPTY.
+     *
+     * The other half of the rule above: the route that stores a column answers for the obligations kept in
+     * columns. Same shape and same words as the config route's refusal, from the same list, so a person
+     * reading "Not saved: fill in the soil texture." cannot tell which route said it — and nothing is
+     * written when it does.
+     *
+     * ONLY WHAT THE REQUEST TOUCHES. A PATCH that says nothing about a column is not refused over it:
+     * Settings sends the coordinates on one tab and the texture on another, and the setup wizard sends a
+     * location before anybody has reached the step that asks for a texture. Measured on this Laravel,
+     * 01.10.2026: `validate()` returns a key only when the request carried it, so a request that omits the
+     * column is distinguishable from one that sends it empty.
+     *
+     * @param  array<string,mixed>  $data  the validated request, which is what the row would hold
+     * @return array<int,array{input: string, label: string}>
+     */
+    private function missingRequiredSiteColumns($site, array $data): array
+    {
+        $record = $site->configs()->where('namespace', 'gaip')->first();
+        $config = is_array($record?->config) ? $record->config : [];
+        $turfType = $config['turf']['turfType'] ?? '';
+
+        $missing = [];
+        foreach (CalculationInputs::requiredFor(is_string($turfType) ? $turfType : '') as $key) {
+            $column = CalculationInputs::siteColumnOf($key);
+            if ($column === null || ! array_key_exists($column, $data)) {
+                continue;
+            }
+            if (CalculationInputs::isFilled($key, $data[$column])) {
                 continue;
             }
             $missing[] = ['input' => $key, 'label' => (string) (CalculationInputs::label($key) ?? $key)];

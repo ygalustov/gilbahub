@@ -138,6 +138,12 @@ function surfaceForRow(row) {
     // The sample the product's own reader will find. Nothing else about the
     // sample manager is replaced — `readingsOf`, the declared normaliser, is
     // the real one, and it is the first link of the chain being measured.
+    /**
+     * GH-796 (queue item 3vyu): the reader asks for the CALCULATION's sample now -- the one the server names
+     * for the site, as against the one a visitor has selected -- so the bench answers that question. The lab
+     * row handed in is the sample this chain is about, which is the premise of every case built on it.
+     */
+    SM.calculationSample = (kind) => (kind === 'soil' ? { id: 'bench', values: row } : null);
     SM.getActiveSample = (kind) => (kind === 'soil' ? { id: 'bench', values: row } : null);
 
     const sample = bench.ctx.gaip_soilFromActiveSample();

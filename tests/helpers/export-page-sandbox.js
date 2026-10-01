@@ -646,6 +646,18 @@ function installDataStubs(sandbox) {
             });
             return sampleOf(pointer, kind);
         },
+        /**
+         * GH-796 (queue item 3vyu) — THE CALCULATION'S QUESTION, AND WHY IT IS A SEPARATE METHOD HERE.
+         *
+         * The page's pointer and the server's choice are two questions now, and the export asks the second
+         * one. On this sandbox the fixture holds one sample per kind per site, so the two answers coincide --
+         * but they are answered by different methods on purpose: the reachability record above belongs to
+         * `getActiveSample` alone, which is what lets "the export did not ask the page's pointer" be said by
+         * VALUE rather than by counting a substring in a source file (GH-514).
+         */
+        // GH-796: the site travels with the question, so a report about one site is never answered about
+        // another -- which is the whole point of asking it instead of the page's pointer.
+        calculationSample: (kind, siteId) => sampleOf(siteId || pointer, kind),
         getSampleTurfProfile: () => null,
         readingsOf: (kind, sample) => (realReadingsOf ? realReadingsOf(kind, sample) : null),
         readingKeysFor: (kind) => (realReadingKeysFor ? realReadingKeysFor(kind) : null),

@@ -62,6 +62,12 @@ function runner(search, samples, activeByKind) {
             GAIP_SampleManager: {
                 getSamples: (kind) => (samples[kind] || []),
                 getActiveSample: (kind) => (activeByKind[kind] || null),
+                /**
+                 * GH-796 (queue item 3vyu): the question the calculation asks, and in this sandbox there is
+                 * no server to answer it -- which is the honest answer for a frame whose address named
+                 * nothing. The active sample stays where it belongs, behind the other method.
+                 */
+                calculationSample: () => null,
                 readingsOf: (kind, sample) => (sample && sample.readings) || null,
             },
         },
@@ -171,8 +177,15 @@ describe('GH-724 — the runner and the sample it was named', () => {
 
         expect(told.inHand('tissue')).toBeNull();
         expect(missing.inHand('tissue')).toBeNull();
-        // Not named is the one case where the active sample is still the run's: openers exist that never ask.
-        expect(silent.inHand('tissue')).toEqual(TISSUE_120);
+        /**
+         * REWRITTEN BY GH-796 (queue item 3vyu), AND THE MEANING IS WHAT CHANGED. This used to read "not
+         * named is the one case where the active sample is still the run's". The owner closed that case on
+         * 30.09.2026 -- "fix them all, only make sure that at that moment it is the sample that goes into
+         * the calculation that is needed, and not the one active on the page" -- so a frame that was named
+         * nothing asks the server instead, and gets no sample here because this sandbox has none to ask.
+         * What the active sample must never be again is the answer.
+         */
+        expect(silent.inHand('tissue')).toBeNull();
     });
 
     test('`none` is an answer: nothing is computed and nothing is substituted', () => {
@@ -189,12 +202,20 @@ describe('GH-724 — the runner and the sample it was named', () => {
         expect(r.readings('tissue')).toBeNull();
     });
 
-    test('no parameter at all leaves the old behaviour alone, because openers exist that never ask', () => {
-        // The export and report pages open `/hub` with no sample parameters. Gating on a fact
-        // nobody supplied is how a run waits for something nobody promised (GH-588's measurement).
+    test('no parameter at all: the server is asked, and the page\'s selection is not the answer', () => {
+        /**
+         * REWRITTEN BY GH-796 (queue item 3vyu). The export and report pages open `/hub` with no sample
+         * parameters, and this used to say that such a run therefore computes whatever the page has active.
+         * It no longer does: the answer comes from `SM.calculationSample`, which asks the server by the same
+         * rule the opener uses, and this sandbox has no server -- so nothing is in hand.
+         *
+         * GH-588's lesson is untouched, and it was never this: a run must not WAIT for a fact nobody
+         * supplied. Not waiting and not computing the visitor's selection are two different things, and the
+         * runner's side of it is `_soilExpected`, which GH-795 left answering `expect: false` here.
+         */
         const r = runner('?rerun=r1&site=A', STORE, { tissue: TISSUE_120 });
         expect(r.named('tissue')).toBeNull();
-        expect(r.readings('tissue')).toEqual({ N: 1.0, K: 1.0 });
+        expect(r.readings('tissue')).toBeNull();
     });
 
     test('soil travels the same road, so the two kinds cannot drift apart', () => {

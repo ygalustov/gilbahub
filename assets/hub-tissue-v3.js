@@ -430,7 +430,13 @@ function gaip_transformToCascadeFormat(domState, weather) {
                 warmBase: domState.turf?.warmBase || "",
                 coolOverseed: domState.turf?.coolOverseed || "",
                 percentC3Cover: domState.turf?.percentC3Cover || 0,
-                hoc: domState.turf?.hoc || 25,
+                /**
+                 * GH-790 (queue item 9): `|| 25` would undo the repair one line before the cascade, the same
+                 * way `|| 0` would have undone the LED figures below. A site that never entered a mowing
+                 * height has none; the engines have their own branches for that, and 25 is a height nobody
+                 * chose. The two coordinate defaults above are queue item 3vz's subject and stay.
+                 */
+                hoc: domState.turf?.hoc ?? null,
                 /**
                  * GH-786 (queue item 3gg): a site with no annual N target carries `null` through the
                  * transformer, not 0. `|| 0` turned "nobody entered a programme" into "the programme is zero"
@@ -476,12 +482,25 @@ function gaip_transformToCascadeFormat(domState, weather) {
                         return "";
                     })() ||
                     "",
-                cleggHammer: domState.turf?.cleggHammer || 0,
-                cleggMax: domState.turf?.cleggMax || 0,
-                cleggMin: domState.turf?.cleggMin || 0,
+                /**
+                 * GH-790 (queue item 9, second delivery): `|| 0` here would undo the repair one line before
+                 * the cascade, exactly as it would have for the LED pair and the mowing height. The firmness
+                 * engine runs in the cascade, so this is the road the readings travel; a site that measured
+                 * nothing arrives with nothing.
+                 */
+                cleggHammer: domState.turf?.cleggHammer ?? null,
+                cleggMax: domState.turf?.cleggMax ?? null,
+                cleggMin: domState.turf?.cleggMin ?? null,
                 dli: domState.turf?.dli || 0,
-                ledPPFD: domState.turf?.ledPPFD || 0,
-                ledHours: domState.turf?.ledHours || 0,
+                /**
+                 * GH-790 (queue item 9): `|| 0` would put back the substitution the assembly has just
+                 * stopped making. The figures now come from `turf.led.*` of the site's own config, and a
+                 * venue with no supplemental lighting has NO photon flux -- which is not nought lux, and the
+                 * shade engine has its own branch for a value it was not given. The reviewer found this line:
+                 * the assembly was repaired and the converter behind it would have undone the repair.
+                 */
+                ledPPFD: domState.turf?.ledPPFD ?? null,
+                ledHours: domState.turf?.ledHours ?? null,
                 ambientDLI: domState.turf?.ambientDLI || 0,
                 trafficLevel: domState.turf?.trafficLevel || "moderate",
                 /**
@@ -1040,7 +1059,19 @@ function gaip_runCascadePass(reason, hubRoot, weather, previousState) {
      */
     try {
         var _soilTold = (typeof gaip_namedSample === "function") ? gaip_namedSample("soil") : null;
-        if (_soilTold && _soilTold !== "none" && window.GaipOrchestrator) {
+        /**
+         * GH-795 (queue item 3vae) — THE SERVER WAS NOT ABLE TO SAY WHICH SAMPLE, AND THAT IS ITS OWN FACT.
+         *
+         * Not an inapplicability: the site may well hold a soil test, so "add one in Data -> Soil" would be
+         * false. Not `soil-sample-not-loaded` either: nothing was named, so nothing failed to arrive. The
+         * gate is told to keep out of this one (`absenceIsAnotherWriters`), and the reason recorded here is
+         * what the panel composes the owner's sentence from.
+         */
+        if (_soilTold === "unknown" && window.GaipOrchestrator
+            && typeof window.GaipOrchestrator.noteSkipped === "function") {
+            window.GaipOrchestrator.noteSkipped("mlsn", "mlsn", "sample-not-named", "mlsn", "cascade");
+        }
+        if (_soilTold && _soilTold !== "none" && _soilTold !== "unknown" && window.GaipOrchestrator) {
             var _soilReadings = (typeof gaip_sampleReadings === "function") ? gaip_sampleReadings("soil") : null;
             var _soilCount = _soilReadings ? Object.keys(_soilReadings).length : 0;
             if (_soilCount === 0) {
@@ -1067,6 +1098,44 @@ function gaip_runCascadePass(reason, hubRoot, weather, previousState) {
                 if (typeof window.GaipOrchestrator.noteSkipped === "function") {
                     window.GaipOrchestrator.noteSkipped("mlsn", "mlsn", "soil-sample-not-loaded", "mlsn",
                         "cascade");
+                }
+            }
+        }
+    } catch (e) { /* bookkeeping must not stop a run */ }
+    /**
+     * GH-795 (queue item 3vae) — THE SAME THREE FACTS FOR THE TISSUE SAMPLE, FROM THE SAME WRITER.
+     *
+     * The tissue side had none of them: told `unknown`, the chooser used to hand over the page's active
+     * tissue sample, and told a row id the store does not hold, the gate wrote "a tissue test has not been
+     * entered" about a test that exists. The soil side has said these things since GH-612; this is that
+     * account, for the other kind, in the same block and under the same producer.
+     */
+    try {
+        var _tissueTold = (typeof gaip_namedSample === "function") ? gaip_namedSample("tissue") : null;
+        if (window.GaipOrchestrator && typeof window.GaipOrchestrator.noteSkipped === "function") {
+            if (_tissueTold === "unknown") {
+                window.GaipOrchestrator.noteSkipped("tissue", "tissue", "sample-not-named", "tissue",
+                    "cascade");
+            } else if (_tissueTold && _tissueTold !== "none") {
+                var _tissueReadings = (typeof gaip_sampleReadings === "function")
+                    ? gaip_sampleReadings("tissue") : null;
+                var _tissueCount = _tissueReadings ? Object.keys(_tissueReadings).length : 0;
+                if (_tissueCount === 0) {
+                    var _tissueInHand = (typeof gaip_sampleInHand === "function")
+                        ? !!gaip_sampleInHand("tissue") : false;
+                    if (typeof window.GaipOrchestrator.note === "function") {
+                        window.GaipOrchestrator.note("tissue", _tissueInHand
+                            ? "tissue sample was delivered and carried no reading the map recognises"
+                            : "the tissue sample this run was named was not in the store when the pass ran",
+                            {
+                                reason: _tissueInHand ? "tissue-sample-unreadable"
+                                    : "tissue-sample-not-in-store",
+                                delivered: _tissueInHand, readings: _tissueCount, named: _tissueTold,
+                            },
+                            "cascade");
+                    }
+                    window.GaipOrchestrator.noteSkipped("tissue", "tissue", "tissue-sample-not-loaded",
+                        "tissue", "cascade");
                 }
             }
         }
@@ -1385,7 +1454,18 @@ function gaip_soilFromActiveSample() {
 function gaip_namedSample(kind) {
     try {
         var told = new URLSearchParams(window.location.search || "").get(kind);
-        if (!told || told === "unknown") return null;
+        if (!told) return null;
+        /**
+         * GH-795 (queue item 3vae) — "THE SERVER WAS ASKED AND DID NOT ANSWER" IS NOT "NOBODY ASKED".
+         *
+         * `askServerForSample` puts `unknown` on the frame's address for every failure of that request --
+         * no network, a reply that is not `ok`, no site id, an unexpected shape. Answering `null` here made
+         * that indistinguishable from an address with no parameter at all, and `null` is what makes
+         * `gaip_sampleInHand` fall back to the page's ACTIVE sample. A run whose request failed then
+         * computed a sample the server never named, which is the class of GH-459. Answered as itself, the
+         * pass can decline to compute and record why.
+         */
+        if (told === "unknown") return "unknown";
         if (told === "none") return "none";
         var SM = window.GAIP_SampleManager;
         if (!SM || typeof SM.getSamples !== "function") return null;
@@ -1433,10 +1513,32 @@ function gaip_sampleInHand(kind) {
     try {
         var SM = window.GAIP_SampleManager;
         if (!SM || typeof SM.getActiveSample !== "function") return null;
+        /**
+         * GH-796 (queue item 3vyu) — ONE OWNER OF "WHICH SAMPLE DOES THIS CALCULATION USE", AND IT IS NOT
+         * THE PAGE.
+         *
+         * This used to end in `SM.getActiveSample(kind)` whenever the address named nothing, so a frame
+         * opened without a parameter -- the export and report pages open one -- computed whatever sample the
+         * visitor had selected. The answer now comes from `SM.calculationSample`, which reads the address in
+         * a run frame and asks the server anywhere else, and never answers with the active sample. The three
+         * answers GH-795 gave the chooser are still the chooser's: they are read inside that function.
+         */
         var named = gaip_namedSample(kind);
-        if (named === "none" || named === "not-found") return null;
+        // GH-795 (queue item 3vae): `unknown` too -- the request for the name failed, so there is no sample
+        // this run may compute.
+        if (named === "none" || named === "not-found" || named === "unknown") return null;
+        if (named) return named;
 
-        return named || SM.getActiveSample(kind) || null;
+        /**
+         * NOTHING NAMED: THE SERVER IS ASKED, AND THE PAGE'S SELECTION IS NOT USED IN ITS PLACE.
+         *
+         * This line used to read `SM.getActiveSample(kind)`, so a frame opened without a parameter -- the
+         * export and report pages open one -- computed whatever sample the visitor had selected. The answer
+         * comes from `SM.calculationSample`, which asks the server by the same rule the opener uses and never
+         * answers with the active sample. Only this branch delegates: an address that names a sample is read
+         * above, where it always was.
+         */
+        return (typeof SM.calculationSample === "function") ? SM.calculationSample(kind) : null;
     } catch (e) {
         return null;
     }
@@ -1932,8 +2034,22 @@ function gaip_readSoilForm(e) {
 }
 
 function gaip_soilStateFrom(sample, form) {
+    /**
+     * GH-796 (queue item 3vyu) — THE SAMPLE'S OWN DATE, NOT THE DATE ON THE PAGE'S FORM.
+     *
+     * The form of `/hub` is filled by `site-selector-ui.js` from the sample the page has ACTIVE, so this
+     * read was the active sample arriving by a second road: the run computed `ppm` from the sample the
+     * server named while stamping it with the date of the sample the visitor had open. The sample carries
+     * its own date, so it is asked first.
+     *
+     * THE DEPTH IS NOT MOVED, and the reason is a measurement rather than a decision: a sample in the store
+     * has no depth field at all -- neither `sample-manager.js` nor `sample-persistence.js` keeps one -- so
+     * there is nothing to take it from. Where the sampling depth and the bulk density are to be stored is an
+     * open decision of the owner (queue item 7), and this item does not settle it; the form stays their
+     * source until it is settled, and the substitutions behind them are hers too.
+     */
     var soil = {
-            testDate: form.testDate,
+            testDate: (sample && sample.date) || form.testDate,
             depthCm: form.depthCm,
             bulkDensity: sample?.bulkDensity ?? form.bulkDensityOnTheForm,
             // GH-589 (link 4, point 3) — AND THE FORM IS NOT THE
@@ -2038,10 +2154,110 @@ function gaip_soilStateFrom(sample, form) {
 }
 
 
+/**
+ * GH-790 (queue item 9) — THE TRAFFIC OF A RUN, FROM THE SITE'S OWN SCHEDULE, IN ONE PLACE.
+ *
+ * WHY ONE PLACE. Wear is computed from a load, and the load was assembled twice: this file built one for
+ * the cascade out of fifteen fields of the `/hub` markup, and the orchestrator built another out of
+ * `_hubState.inputs.schedule`, which no writer in the product ever fills. So the figure a person reads on
+ * the plan page and the figure in the document were worked out from two different nothings. Both callers
+ * take this function now, so a schedule entered in Settings reaches both or neither.
+ *
+ * THE RULE OF GH-776, KEPT: a site that is not a sports field carries no traffic, and a sports field with
+ * no schedule carries none either. The owner's decision of 29.09.2026 -- "football should not be on golf"
+ * -- was about the markup's two matches and three sessions being handed to a golf course.
+ *
+ * WHAT MAKES A SCHEDULE A SCHEDULE is the list's own declaration, `filledWhenAnyOf` on
+ * `traffic.schedule`: one of the two figures is a number. Nought IS a number, which is a week with no
+ * load and is what the owner entered on six sports sites on 30.09.2026; an object of nothing but nulls is
+ * not an answer and gets no traffic.
+ *
+ * ABSENT IS `null` THROUGHOUT. The literals that used to stand in -- `"soccer"`, `"training_drills"`,
+ * `"optimal"`, `"adult"`, `"medium"`, an hour and a half, a hundred per cent of the area -- are gone, and
+ * nothing replaces them: the engine has its own branch for a value it was not given, and a plausible
+ * figure here cannot be told from one a person entered.
+ *
+ * @param {Object|null} cfg the config of the site the run is for
+ * @returns {Object|null} the traffic block, or null when this site has no load to speak of
+ */
+function GAIP_TrafficFromSchedule(cfg) {
+    var schedule = (cfg && cfg.traffic && typeof cfg.traffic.schedule === 'object') ? cfg.traffic.schedule : null;
+    var turfType = (cfg && cfg.turf && cfg.turf.turfType) || null;
+    if (turfType !== 'sports' || !schedule) return null;
+    if (typeof schedule.matchesPerWeek !== 'number' && typeof schedule.sessionsPerWeek !== 'number') {
+        return null;
+    }
+
+    function figure(key) {
+        var v = schedule[key];
+
+        return typeof v === 'number' && !isNaN(v) ? v : null;
+    }
+    function word(key) {
+        var v = schedule[key];
+
+        return typeof v === 'string' && v.trim() !== '' ? v : null;
+    }
+
+    var priorWeeks = ['h1', 'h2', 'h3', 'h4'].map(figure).filter(function (h) { return h !== null; });
+
+    return {
+        matchesPerWeek: figure('matchesPerWeek'),
+        sessionsPerWeek: figure('sessionsPerWeek'),
+        restDays: figure('restDays'),
+        // Two names for one field, both read by consumers, both from the one source.
+        matchCode: word('sport'),
+        matchSport: word('sport'),
+        trainingCode: word('trainingType'),
+        trainingType: word('trainingType'),
+        soilMoisture: word('moisture'),
+        matchDuration: figure('matchDuration'),
+        sessionDuration: figure('sessionDuration'),
+        ageGroup: word('ageGroup'),
+        teamSize: word('squadSize'),
+        trainingRotation: figure('trainingAreaPct'),
+        priorWeeks: priorWeeks,
+    };
+}
+
+if (typeof window !== 'undefined') {
+    // Published so the orchestrator's wear assembly takes the same load rather than building a second one.
+    window.GAIP_TrafficFromSchedule = GAIP_TrafficFromSchedule;
+}
+
 function gaip_build_state(e) {
     // GH-577: the site's own soil sample, read once, before anything looks at
     // the page. When it is there, it is the source for the soil block below.
     var _gaipSoilSample = gaip_soilFromActiveSample();
+    /**
+     * GH-790 (queue item 9) — THE SITE'S OWN CONFIG, READ ONCE, BEFORE ANYTHING LOOKS AT THE PAGE.
+     *
+     * Every field below that a person enters in Settings used to be read off the `/hub` markup, and the
+     * markup used to be refilled from a snapshot in the browser keyed by USER rather than by site. So two
+     * writers raced for the same field on every load -- the snapshot at 200ms, the server later -- and the
+     * snapshot could be describing a different site. Measured: 13 reads over 11 inputs.
+     *
+     * `_cfgValue` answers by the STORAGE KEY the inputs list declares, not by the name the calculation
+     * knows the input by (the lesson of queue item 3ga), and absent is `null` -- not 0, not "", not the
+     * literal in the markup. The config itself is asked for once per assembly, by the id of the site the
+     * run is for, and a page without the reader gets `null`, which is the same outcome as a site with no
+     * config rather than a number belonging to the page.
+     */
+    var _runCfg = (function () {
+        try {
+            var NPI = window.GAIP_NutritionProgramInputs;
+
+            return (NPI && typeof NPI.runSiteConfig === 'function') ? NPI.runSiteConfig() : null;
+        } catch (_cfgErr) { return null; }
+    })();
+
+    function _cfgValue(path) {
+        try {
+            var NPI = window.GAIP_NutritionProgramInputs;
+
+            return (NPI && typeof NPI.runSiteValue === 'function') ? NPI.runSiteValue(path, _runCfg) : null;
+        } catch (_valErr) { return null; }
+    }
     var t = !!e.querySelector(".gaip-use-live-weather")?.checked,
         r = convertDateToISO(e.querySelector(".gaip-start-date")?.value || ""),
         n = convertDateToISO(e.querySelector(".gaip-end-date")?.value || "");
@@ -2064,8 +2280,11 @@ function gaip_build_state(e) {
             climate: {
                 location: e.querySelector(".gaip-location")?.value || "",
                 useLiveWeather: t,
-                lat: safeNum(e.querySelector(".gaip-lat")?.value, 0),
-                lon: safeNum(e.querySelector(".gaip-lon")?.value, 0),
+                // GH-790 (queue item 9): the site's own coordinates, and absent is `null` rather than the
+                // equator. Queue item 3vz keeps the rest of the coordinate substitutions; these two reads
+                // are this item's, by the coordinator's order of 30.09.2026.
+                lat: _cfgValue('location.lat'),
+                lon: _cfgValue('location.lon'),
                 period: {
                     start: r || new Date().toISOString().split("T")[0],
                     end: n || calculateEndDate(r || new Date().toISOString().split("T")[0], 7),
@@ -2098,7 +2317,22 @@ function gaip_build_state(e) {
                         rainfall: safeNum(e.querySelector(".gaip-manual-rain")?.value, 0) || null,
                         rainyDays: safeNum(e.querySelector(".gaip-manual-rainy-days")?.value, 0) || null,
                         dewpoint: null,
-                        soilMoisture: safeNum(e.querySelector(".gaip-manual-soil-moisture")?.value, 0) || null,
+                        /**
+                         * GH-790 (queue item 9, second delivery) — THE MANUAL SOIL MOISTURE IS NOT TAKEN OFF
+                         * THE PAGE, and it has nowhere else to come from.
+                         *
+                         * It was the last field of this assembly read out of the `/hub` markup, and the
+                         * markup used to be refilled from a snapshot in the browser keyed by user rather
+                         * than by site. The snapshot is gone, so nothing fills the field any more -- but a
+                         * read of it is still a read of the page, which is the whole subject of this item.
+                         *
+                         * There is no server owner to move it to: no input of the list declares it, and the
+                         * `weatherOverride` section the Site tab writes carries `tmin`, `tmax`, `humidity`,
+                         * `rainfall`, `soilTemp` and `et0` -- no soil moisture among them. So the honest
+                         * value is none, as `dewpoint` above already stands. Manual weather that IS stored
+                         * reaches the run through `weather-resilience.js`, from the config.
+                         */
+                        soilMoisture: null,
                     },
                     solar: {
                         radiation: safeNum(e.querySelector(".gaip-manual-radiation")?.value, 0) || null,
@@ -2218,16 +2452,26 @@ function gaip_build_state(e) {
                 // Cotula: if GAIP_STATE.turf.cotula is set, the DOM species may have been
                 // overwritten by TurfProfileController location-change repopulation.
                 // Read cotula directly from state rather than DOM in that case.
-                grassSpecies: window.GAIP_STATE?.turf?.cotula === true ? "cotula" : e.querySelector(".gaip-species")?.value || "",
+                // GH-790 (queue item 9): from the site, by the key the config stores it under. The cotula
+                // case stays as it is -- it is a fact about the state of this run, not a field of the site.
+                grassSpecies: window.GAIP_STATE?.turf?.cotula === true ? "cotula" : _cfgValue('turf.species'),
                 warmBase: window.GAIP_STATE?.turf?.cotula === true ? "" : e.querySelector(".gaip-warm-base")?.value || "",
-                coolOverseed: e.querySelector(".gaip-cool-overseed")?.value || "",
-                overseedVariety: e.querySelector(".gaip-overseed-variety")?.value || "",
+                coolOverseed: _cfgValue('turf.coolOverseed'),
+                overseedVariety: _cfgValue('turf.overseedVariety'),
                 // GH-741: an unset summer intent stays unset; 'transition' here was a guess that read as an answer.
-                overseedSummerIntent: e.querySelector(".gaip-overseed-summer-intent")?.value || null,
-                poaPercent: safeNum(e.querySelector(".gaip-poa-percent")?.value, 0),
+                // GH-790 (queue item 9): and it comes from the site. The list stores it as `turf.summerIntent`;
+                // `overseedSummerIntent` is the name the calculation knows it by, which is why the key is read
+                // from the declaration rather than assumed to match.
+                overseedSummerIntent: _cfgValue('turf.summerIntent'),
+                // GH-790: an unmeasured Poa figure is `null`, not nought per cent. Queue item 7 took the same
+                // substitution out of Settings, in both of its layers; this is the third.
+                poaPercent: _cfgValue('turf.poaPercent'),
                 percentC3Cover: safeNum(e.querySelector(".gaip-c3-cover")?.value, 0),
-                hoc: safeNum(e.querySelector(".gaip-hoc")?.value, 25),
-                heightOfCut: safeNum(e.querySelector(".gaip-hoc")?.value, 25),
+                // GH-790 (queue item 9): one read of the site for both names the calculation uses. The 25 was
+                // a mowing height nobody entered, and the page field it came from lives in the old hub's
+                // markup alone.
+                hoc: _cfgValue('turf.hoc'),
+                heightOfCut: _cfgValue('turf.hoc'),
                 /**
                  * GH-786 (queue item 3gg) - THE SITE'S OWN ANNUAL N TARGET, asked of the one function that
                  * answers it, instead of read off two fields of this page.
@@ -2268,16 +2512,50 @@ function gaip_build_state(e) {
                 })(),
                 // GH-752: the site's construction as the server resolved it for this page (GH-664),
                 // not the form field, which is the state of whatever page the run is drawn on.
-                construction: (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.construction
-                    && window.GAIP_HUB_CONFIG.construction.value) || null,
-                drainage: e.querySelector(".gaip-drainage")?.value || "",
-                cleggHammer: safeNum(e.querySelector(".gaip-clegg-hammer")?.value, 0),
-                cleggMax: safeNum(e.querySelector(".gaip-clegg-max")?.value, 0),
-                cleggMin: safeNum(e.querySelector(".gaip-clegg-min")?.value, 0),
+                /**
+                 * GH-790 (queue item 9): the same source as the eleven inputs beside it -- the config of the
+                 * site the run is for, by id. `GAIP_HUB_CONFIG.construction` is the server's answer for the
+                 * site the PAGE was drawn with, and in the combined export's loop the page is one site behind.
+                 * The resolved dictionary above (`o.construction`) still comes from that object; it is a
+                 * different key, it is named in this item's boundaries and it is not converted here.
+                 */
+                construction: _cfgValue('turf.construction'),
+                drainage: _cfgValue('turf.drainage'),
+                /**
+                 * GH-790 (queue item 9, second delivery) — THE FIRMNESS READINGS COME FROM THE SITE, AT THE
+                 * THREE PATHS THE LIST DECLARES FOR THEM.
+                 *
+                 * The input is `turf.cleggHammer`, and its `storedAs` names all three:
+                 * `traffic.schedule.cleggMean|cleggHard|cleggSoft`, which the Settings traffic form writes.
+                 * This assembly read the `/hub` markup instead, so the declared server place lost to the
+                 * field of the calculation runner. Measured before the change: with the site holding
+                 * 72/80/65 and the page holding 11/12/13, the run computed with 11/12/13 -- out by a factor
+                 * of six, not by a unit.
+                 *
+                 * ABSENT IS `null`, NOT NOUGHT, and that is the point rather than tidiness: nought Gmax is a
+                 * surface, and 91 of the 132 stored rows carry it where nothing was measured. The engine
+                 * takes either as "no reading" today (`h = safeNum(…, 0); v = h > 0`, and the zone branch
+                 * `L = D > 0 && G > 0`), so no branch moves -- what stops is the row asserting a measurement
+                 * nobody made. Replacing the page's substitution with one of our own here would change
+                 * nothing at all, which is what the third mutation of this delivery is aimed at.
+                 */
+                cleggHammer: _cfgValue('traffic.schedule.cleggMean'),
+                cleggMax: _cfgValue('traffic.schedule.cleggHard'),
+                cleggMin: _cfgValue('traffic.schedule.cleggSoft'),
                 dli: safeNum(e.querySelector(".gaip-dli")?.value, 0),
-                ledPPFD: safeNum(e.querySelector(".gaip-led-ppfd")?.value, 0),
-                ledHours: safeNum(e.querySelector(".gaip-led-hours")?.value, 0),
-                variety: e.querySelector(".gaip-variety")?.value || "generic",
+                /**
+                 * GH-790 (queue item 9) — THE LED FIGURES COME FROM THE SITE, which is the only place they
+                 * are ever entered. Settings writes `turf.led.ppfd` and `turf.led.hours`; nothing put either
+                 * of them into the `/hub` markup, so the hours a person entered never reached the
+                 * calculation and the power was a literal of the markup. Absent is `null` -- a venue with no
+                 * supplemental lighting has no PPFD, and nought lux is not the same statement.
+                 *
+                 * On the stand this moves no number: 3 sites carry `turf.led` and all three hold
+                 * `{ppfd: null, hours: null}`.
+                 */
+                ledPPFD: _cfgValue('turf.led.ppfd'),
+                ledHours: _cfgValue('turf.led.hours'),
+                variety: _cfgValue('turf.variety'),
             },
             siteHistory: {
                 yearsEstablished: safeNum(e.querySelector(".gaip-years-established")?.value, 0) || null,
@@ -2367,47 +2645,48 @@ function gaip_build_state(e) {
                 // replaced by the 100 below and irrigation worked from it with nothing on screen to
                 // say so. The page field is kept behind the config: `/hub` is a calculation runner,
                 // not a surface, so what the site says wins over what its markup happens to hold.
-                rootDepth: safeNum(
-                    (window.GAIP_HUB_CONFIG?.gaipConfig?.traffic?.schedule?.rootDepth
-                        ?? e.querySelector(".gaip-root-depth")?.value),
-                    100),
+                /**
+                 * GH-790 (queue item 9) — AND THE SECOND PATH THROUGH THE PAGE IS GONE, which is this item's
+                 * half of it. The reviewer measured what `??` does here: it passes over `null`, and
+                 * `Hoxton Soccer - Kate's test` and `Test5 - NZ` both carry the key with a JSON `null`. So for
+                 * those two the value came from the `/hub` field -- the same markup this item is taking out of
+                 * every other input -- and only an empty field fell through to the hundred.
+                 *
+                 * The config is also asked for BY THE ID of the site the run is for, not from
+                 * `GAIP_HUB_CONFIG.gaipConfig`, which describes the site the page was drawn with.
+                 *
+                 * THE HUNDRED IS NOT THIS ITEM'S and is left exactly where it stands: it is the owner's
+                 * separate decision of 29.09.2026 and the coordinator has it recorded as an open question. No
+                 * site of the stand carries a depth, so the hundred is what they all get, before and after.
+                 */
+                rootDepth: safeNum(_cfgValue('traffic.schedule.rootDepth'), 100),
             },
-            traffic: {
-                matchesPerWeek: safeNum(e.querySelector(".gaip-matches-week")?.value, 0),
-                sessionsPerWeek: safeNum(e.querySelector(".gaip-sessions-week")?.value, 0),
-                restDays: safeNum(e.querySelector(".gaip-rest-days")?.value, 0),
-                matchCode: e.querySelector(".gaip-match-sport")?.value || "soccer",
-                trainingCode: e.querySelector(".gaip-training-type")?.value || "training_drills",
-                soilMoisture: e.querySelector(".gaip-soil-moisture")?.value || "optimal",
-                matchSport: e.querySelector(".gaip-match-sport")?.value || "soccer",
-                matchDuration: safeNum(e.querySelector(".gaip-match-duration")?.value, 1.5),
-                ageGroup: e.querySelector(".gaip-age-group")?.value || "adult",
-                teamSize: e.querySelector(".gaip-team-size")?.value || "medium",
-                trainingType: e.querySelector(".gaip-training-type")?.value || "training_drills",
-                sessionDuration: safeNum(e.querySelector(".gaip-session-duration")?.value, 1.5),
-                trainingRotation: safeNum(e.querySelector(".gaip-training-rotation")?.value, 100),
-                priorWeeks: [
-                    safeNum(e.querySelector(".gaip-prior-week-1")?.value, null),
-                    safeNum(e.querySelector(".gaip-prior-week-2")?.value, null),
-                    safeNum(e.querySelector(".gaip-prior-week-3")?.value, null),
-                    safeNum(e.querySelector(".gaip-prior-week-4")?.value, null),
-                ].filter(function(e) {
-                    return null !== e && !isNaN(e);
-                }),
-                // GH-757 (queue item 3ah): the site's own root depth first. Settings saves it as
-                // `config.traffic.schedule.rootDepth` (the traffic form), and this assembly read
-                // only the `/hub` markup's field -- measured, the field lives in
-                // `legacy-hub-markup.blade.php` alone, so on every other page the entered value was
-                // replaced by the 100 below and irrigation worked from it with nothing on screen to
-                // say so. The page field is kept behind the config: `/hub` is a calculation runner,
-                // not a surface, so what the site says wins over what its markup happens to hold.
-                rootDepth: safeNum(
-                    (window.GAIP_HUB_CONFIG?.gaipConfig?.traffic?.schedule?.rootDepth
-                        ?? e.querySelector(".gaip-root-depth")?.value),
-                    100),
-                overseedStatus: e.querySelector(".gaip-overseed-status")?.value || "none",
-                variety: e.querySelector(".gaip-variety")?.value || "generic",
-            },
+            /**
+             * GH-790 (queue item 9): the traffic of this run, from the site's own schedule, through the one
+             * transform the orchestrator's wear assembly also calls. Fifteen fields of the `/hub` markup and
+             * the literals behind them are gone -- see `GAIP_TrafficFromSchedule` for what each was.
+             *
+             * `rootDepth` and the two turf fields that sat inside this block keep their own sources: the
+             * depth is the site's already (GH-757, and its hundred is a decision of the owner's recorded
+             * outside this item), and the overseed status and the cultivar are inputs of the turf family,
+             * read above by the same key the config stores them under.
+             */
+            traffic: (function () {
+                /**
+                 * Reached through the published name, the same way the orchestrator's wear assembly reaches
+                 * it -- one function with one caller shape. A frame without it gets no traffic, which is
+                 * what an absent schedule already means.
+                 */
+                var fromSchedule = (typeof window !== 'undefined') && window.GAIP_TrafficFromSchedule;
+                var t = typeof fromSchedule === 'function' ? fromSchedule(_runCfg) : null;
+                if (!t) return null;
+                // The hundred stays, as above: it is the open question's, not this item's.
+                t.rootDepth = safeNum(_cfgValue('traffic.schedule.rootDepth'), 100);
+                t.overseedStatus = _cfgValue('turf.overseedStatus');
+                t.variety = _cfgValue('turf.variety');
+
+                return t;
+            })(),
             hemi: e.querySelector(".gaip-hemi")?.value || "southern",
             fertility: {
                 monthlyN: safeNum(e.querySelector(".gaip-monthly-n-rate")?.value, 0),
@@ -2443,12 +2722,14 @@ function gaip_build_state(e) {
             // v9.9.1: PRESERVE coolOverseed if user explicitly selected from Overseed Species dropdown
             o.turf.warmBase = o.turf.grassSpecies;
             // Re-read the actual dropdown value to preserve user's explicit selection
-            var overseedDropdownValue = document.querySelector(".gaip-cool-overseed")?.value || "";
-            if (overseedDropdownValue && overseedDropdownValue.trim() !== "") {
-                o.turf.coolOverseed = overseedDropdownValue;
-            } else {
-                o.turf.coolOverseed = "";
-            }
+            /**
+             * GH-790 (queue item 9): the overseed species is what the SITE says, and it was read here a
+             * second time straight off the dropdown "to preserve the user's explicit selection". There is no
+             * selection to preserve: `/hub` is a calculation runner, not a surface, and the field is filled
+             * by whatever last wrote to the markup. `o.turf.coolOverseed` already holds the site's value,
+             * so a warm base does not clear it and does not re-read the page.
+             */
+            o.turf.coolOverseed = o.turf.coolOverseed || null;
         } else if (isC3 || o.turf.grassSpecies.length > 0) {
             // C3 species - set as coolOverseed, CLEAR warmBase (unless explicitly set)
             o.turf.coolOverseed = o.turf.grassSpecies;
@@ -6800,15 +7081,42 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                     ["IMMEDIATE: Apply fertiliser to correct deficiencies", "30-90 DAYS: Retest to confirm improvement"] :
                     [],
                 );
-            var $e =
-                (Me = n).indexOf("Very high") > -1 || Me.indexOf("Severe") > -1 ?
-                "IMMINENT_FAILURE" :
-                Me.indexOf("High") > -1 ?
-                "HIGH_RISK" :
-                Me.indexOf("Medium") > -1 || Me.indexOf("Moderate") > -1 ?
-                "MONITOR" :
-                "ACCEPTABLE";
-            Ee = generateDecisionBlock(
+            /**
+             * GH-793 (queue item 3gf) — THE WATER LETTER IS READ AS A STRING ONLY WHEN IT IS ONE.
+             *
+             * `n` carries the water engine's letter, and its real value is an HTML string. Three places hand
+             * an object instead: the extraction's own default `{status: "Not computed"}`, and the pass's
+             * wrapper when the engine threw (`{status: 'Error'}`) or was not there (`'Not available'`).
+             * `.indexOf` on any of them throws `Me.indexOf is not a function` from here, the frame stores
+             * `calculation-error`, and the whole run is written as `failed` with every other number in it --
+             * which is exactly what happened to the MLSN letter on rows 96 and 97 before `GH-777` put the
+             * same check in front of it, twenty lines up. A letter that is not a string is not a quality
+             * verdict of any kind, so the section states no status rather than guessing one.
+             */
+            var $e;
+            if (typeof n !== "string") {
+                $e = "NO_DATA";
+            } else {
+                $e =
+                    (Me = n).indexOf("Very high") > -1 || Me.indexOf("Severe") > -1 ?
+                    "IMMINENT_FAILURE" :
+                    Me.indexOf("High") > -1 ?
+                    "HIGH_RISK" :
+                    Me.indexOf("Medium") > -1 || Me.indexOf("Moderate") > -1 ?
+                    "MONITOR" :
+                    "ACCEPTABLE";
+            }
+            Ee = "NO_DATA" === $e ?
+                generateDecisionBlock(
+                    "Irrigation Water Quality",
+                    "NO_DATA",
+                    "Water quality was not calculated in this analysis. If this continues, contact us.",
+                    "",
+                    "",
+                    "",
+                    [],
+                ) :
+                generateDecisionBlock(
                 "Irrigation Water Quality",
                 $e,
                 "Water chemistry analysed for salinity, sodium hazard, and toxicity risks",
@@ -6915,7 +7223,11 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
             );
         }
         if (c) {
-            var De = window.convertMLSNToProgressive ? window.convertMLSNToProgressive(e, t) : Ae + r;
+            // GH-793 (queue item 3gf): without the disclosure module the table itself is appended, and a
+            // table that arrived as an object printed `[object Object]` into the card. The block above
+            // already states that there is nothing to read.
+            var De = window.convertMLSNToProgressive ? window.convertMLSNToProgressive(e, t) :
+                typeof r === "string" ? Ae + r : Ae;
             u.innerHTML = Ae + De;
             var Ge = document.querySelector(".gaip-nutrient-demand-body"),
                 Le = document.querySelector('[data-section="nutrient-demand"]');
@@ -7035,7 +7347,10 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                     })(),
                     window.GAIP_WaterBlenderUI.calculateAndDisplayBlend && window.GAIP_WaterBlenderUI.calculateAndDisplayBlend());
             else {
-                var Xe = window.renderWaterProgressiveDisclosure ? window.renderWaterProgressiveDisclosure(n, e) : n;
+                // GH-793 (queue item 3gf): same shape as the soil card above -- the letter is only appended
+                // when it is the string it is meant to be; the not-computed block is already in `Ee`.
+                var Xe = window.renderWaterProgressiveDisclosure ? window.renderWaterProgressiveDisclosure(n, e) :
+                    typeof n === "string" ? n : "";
 
                 // Render phytotoxicity card if results exist
                 var phytotoxHtml = "";

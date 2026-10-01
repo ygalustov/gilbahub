@@ -19,6 +19,12 @@ class CalculationInputs
 {
     private const PATH = '../assets/calculation-inputs.schema.json';
 
+    /**
+     * GH-797: the third answer of `heldForInput` — a storage this class cannot read. `RunStart::UNKNOWN`
+     * is this constant, so the word a caller compares against has one declaration.
+     */
+    public const UNKNOWN = 'unknown';
+
     /** @var array<string,mixed>|null */
     private static ?array $cache = null;
 
@@ -692,6 +698,139 @@ class CalculationInputs
     }
 
     /**
+     * GH-797 (queue item 3ashch) — WHAT A SITE HOLDS FOR AN INPUT, ASKED IN ONE PLACE BY EVERY READER.
+     *
+     * Three readers of this fact lived in the tree and only one of them knew that an input may be stored
+     * outside the config. `RunStart` reads `storedIn` and has a reader per storage; the setup lock and the
+     * server's refusal walked the config alone (`valueIn`). The soil texture is the first input the owner
+     * makes required that is NOT kept in the config -- it is a column of `sites` -- so for those two the
+     * answer would have been "not filled" on every site, including the ones that carry a texture, and the
+     * lock would have closed all of them. The reader that knew better was shut inside the run record; it is
+     * here now, and the lock, the wizard's answers, the refusal and `RunStart` all ask it.
+     *
+     * TWO FACTS IN ONE ANSWER, because the callers want both and must not disagree about them: `held` is
+     * whether a value is there (`isFilled`, the one rule), and `value` is the value that made it so -- what
+     * the wizard reopens with. A second reader for the value would be free to find it at another path.
+     *
+     * `held` is `true` / `false` / `UNKNOWN`, and UNKNOWN is the honest answer when the input declares no
+     * storage at all or declares one this class cannot read. A storage a CALLER can read it passes in
+     * `$otherStorages` as `storage => fn (string $key): bool|string` -- returning UNKNOWN is its third
+     * answer too, and it travels. The spray log is such a storage: it is a
+     * table with its own column map, declared where its only consumer already declares it, and bringing
+     * that query in here would put the database behind every reader of the list.
+     *
+     * @param  array<string,mixed>  $config  the site's gaip config
+     * @param  \App\Models\Site|null  $site  the row, for an input stored in a column of `sites`
+     * @param  array<string,callable>  $otherStorages
+     * @return array{held: bool|string, value: mixed}
+     */
+    public static function heldForInput(string $key, array $config, $site = null, array $otherStorages = []): array
+    {
+        $stored = self::storedIn($key);
+        if ($stored === null) {
+            return ['held' => self::UNKNOWN, 'value' => null];
+        }
+
+        $held = false;
+        $value = null;
+        foreach ($stored as $storage) {
+            $answer = match ($storage) {
+                'config' => self::heldInConfig($config, $key),
+                'siteColumn' => self::heldInSiteColumn($site, $key),
+                default => isset($otherStorages[$storage]) && is_callable($otherStorages[$storage])
+                    ? ['held' => $otherStorages[$storage]($key), 'value' => null]
+                    : ['held' => self::UNKNOWN, 'value' => null],
+            };
+            if ($answer['held'] === self::UNKNOWN) {
+                return ['held' => self::UNKNOWN, 'value' => null];
+            }
+            if ($answer['held'] && ! $held) {
+                $value = $answer['value'];
+            }
+            $held = $held || $answer['held'];
+        }
+
+        return ['held' => $held, 'value' => $value];
+    }
+
+    /**
+     * GH-797: the column of `sites` an input is kept in, named by the input's own key.
+     *
+     * One declaration of that rule, because two readers need it: this class, to answer what the site
+     * holds, and the site route, to see whether a request empties it.
+     */
+    public static function siteColumnOf(string $key): ?string
+    {
+        if (! in_array('siteColumn', self::storedIn($key) ?? [], true)) {
+            return null;
+        }
+        if (! str_starts_with($key, 'sites.')) {
+            return null;
+        }
+        $column = substr($key, strlen('sites.'));
+
+        return $column === '' ? null : $column;
+    }
+
+    /**
+     * GH-797: the config, AT THE PATHS THE WRITER WRITES (`storedAs`), which is what `RunStart` has read
+     * since GH-777 and what moved here with it.
+     *
+     * GH-777's reason, kept because the measurement is the reason: a reader that walked the input's own
+     * key found nothing for the six inputs whose writer puts the value elsewhere, and the client was told
+     * it had entered nothing — `irrigation.efficiency` on 3 stand sites, `traffic.schedule.moisture` on 2.
+     * An input with several paths (the three Clegg readings are one input) is held when ANY of them
+     * carries a value: the input is the reading, and a person who entered one entered it.
+     *
+     * Measured before this moved, 01.10.2026: of the nine inputs the list requires today not one declares
+     * `storedAs`, so the lock and the refusal — which walked the key alone — are answered exactly as
+     * before. The seven that declare it are required of no turf type.
+     *
+     * @param  array<string,mixed>  $config
+     * @return array{held: bool, value: mixed}
+     */
+    private static function heldInConfig(array $config, string $key): array
+    {
+        $paths = self::storedAs($key);
+        foreach ($paths === [] ? [$key] : $paths as $path) {
+            $value = self::valueIn($config, $path);
+            if (self::isFilled($key, $value)) {
+                return ['held' => true, 'value' => $value];
+            }
+        }
+
+        return ['held' => false, 'value' => null];
+    }
+
+    /**
+     * GH-797: a column of `sites`, and ONLY that column.
+     *
+     * The account's own `soil_texture` is NOT in this chain, and that is the whole point of the reader
+     * rather than a detail of it: the pages resolve a texture as `soil_texture_override ?: account->
+     * soil_texture` and the account column carries the schema's default, so a chain ending there answers
+     * "filled" for every site that ever existed and an obligation built on it would require nothing.
+     *
+     * A column the model does not carry is UNKNOWN rather than empty: the alternative is telling a client
+     * it entered nothing because we looked in the wrong table.
+     *
+     * @return array{held: bool|string, value: mixed}
+     */
+    private static function heldInSiteColumn($site, string $key): array
+    {
+        $column = self::siteColumnOf($key);
+        if ($column === null || $site === null) {
+            return ['held' => self::UNKNOWN, 'value' => null];
+        }
+        $attributes = is_object($site) && method_exists($site, 'getAttributes') ? $site->getAttributes() : [];
+        if (! array_key_exists($column, $attributes)) {
+            return ['held' => self::UNKNOWN, 'value' => null];
+        }
+        $value = $attributes[$column];
+
+        return ['held' => self::isFilled($key, $value), 'value' => $value];
+    }
+
+    /**
      * GH-789 (queue item 7): the words for every input the setup wizard can name, key to label.
      *
      * The wizard refuses a step by naming the field, and the words a person reads belong to the list.
@@ -754,6 +893,25 @@ class CalculationInputs
             if (($v['offered'] ?? false) === true) {
                 $out[$id] = $v['label'] ?? $id;
             }
+        }
+
+        return $out;
+    }
+
+    /**
+     * GH-797 (queue item 3ashch) — THE SOIL TEXTURES A PERSON IS OFFERED, read where they are declared.
+     *
+     * Settings wrote the six out by hand, and the setup wizard now asks for the same field: a second
+     * hand-written copy is what `turf.construction` had before GH-769, where the wizard read one list and
+     * Settings another. Both surfaces take this, as both take the methodology through `methodologyChoices`.
+     *
+     * @return array<string,string> value => label, in the order the list declares them
+     */
+    public static function soilTextureChoices(): array
+    {
+        $out = [];
+        foreach (self::all()['inputs']['sites.soil_texture_override']['values'] ?? [] as $id => $v) {
+            $out[$id] = is_array($v) ? ($v['label'] ?? $id) : $id;
         }
 
         return $out;

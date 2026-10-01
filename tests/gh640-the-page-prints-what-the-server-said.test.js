@@ -74,6 +74,14 @@ function planSandbox(sections) {
     sandbox.history = { replaceState() {} };
 
     const ctx = vm.createContext(sandbox);
+    /**
+     * GH-792 (queue item 79, the reviewer's return): the shared reader, loaded first, as the db-shell layout
+     * loads it before every page. `/plan` had a reader of its own and now asks this one -- the mutation that
+     * silenced the shared reader left this page printing while six others went quiet, which is the second
+     * reader this item removes.
+     */
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'assets', 'dashboard-ui.js'), 'utf8'),
+        ctx, { filename: 'dashboard-ui.js' });
     // The module keeps its functions to itself; the one under test is lifted out
     // together with the helpers it calls, which is the same shape `gh577` uses.
     const lift = (name) => {

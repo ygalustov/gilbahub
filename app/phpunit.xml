@@ -18,6 +18,22 @@
         </include>
     </source>
     <php>
+        <!--
+            GH-791 (queue item 3gp): the whole suite in one process peaks above the 128M default, so
+            `php artisan test` died partway through for everybody who ran it - measured: Unit alone 44.5M,
+            Feature alone 127M, both together 133M, and the case it died on was whichever one crossed the
+            line. The place it died (a compiled Blade template encoding the dependency graph) was where the
+            memory ran out, not why. WHY it grows by roughly 80M over 597 tests is not established and is
+            named as a boundary rather than hidden by this line: a client's request is one process for one
+            request, so the growth is the harness's, but the ceiling is raised here so that a run reaches its
+            end and reports what it found.
+
+            MEASURED WITH THIS LINE IN PLACE, because "it does not fit without it" and "how much room is left
+            with it" are two different facts: the whole suite peaks at 133 MB of the 512 granted, 26% of the
+            ceiling, 379 MB spare. So the number is not a guess at a safe margin, and if the peak ever
+            approaches it that will be visible rather than sudden.
+        -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
         <env name="BCRYPT_ROUNDS" value="4" force="true"/>

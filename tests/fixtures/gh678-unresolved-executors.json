@@ -12,7 +12,9 @@
     "Ratcheted by name, both directions. A key carries no line number — a line lives until",
     "the next edit — and the line is printed beside it. Measured under the fingerprint of",
     "the resolution perimeter below; repair the perimeter and the test asks for a re-measure,",
-    "so growth by rule cannot read as growth by code."
+    "so growth by rule cannot read as growth by code.",
+    "GH-790 (queue item 9): eleven entries arrive and three leave, and both directions are the same change. The snapshot of the `/hub` form is withdrawn -- its collector read 31 markup fields and its restorer laid them back out -- so the DOM getters and setters it called are now reached from nowhere (`getSelectValue`, `isChecked`, `setInputValue`, `setSelectValue`, `setCheckbox` in `hub-persistence.js`; `isChecked`, `getSelectedTurfType`, `getSelectedSubCategory` in `site-config-persistence.js`), and `export`, `import` and `hasSavedState` are gone with the store they answered about. `gaip_trafficFromSchedule` and its two local helpers are the one transform the run's traffic now comes through, reached by the published name from two files, which this walk does not follow.",
+    "GH-790, second pass: the transform and its two helpers are NOT in this list. Named as it is published (`GAIP_TrafficFromSchedule`) and called through that name at the call site, it has a root the walk can reach -- which is the difference between a function this census can vouch for and one it can only record."
   ],
   "ticket": "GH-678",
   "resolverRuleVersion": "p7vcbp6",
@@ -4407,36 +4409,6 @@
       "whyNotConfirmed": "a call on a property of a property is not resolved at all, so a function reached only that way would appear here wrongly. Nothing is deleted on the strength of this list until that is closed."
     },
     "assets/hub-persistence.js : <top level> : setCheckboxSilent #1": {
-      "ticket": "GH-678",
-      "line": null,
-      "why": "no-caller",
-      "establishedBy": "bindings-parse over the fixpoint",
-      "coversAlias": true,
-      "coversMemberOnAProperty": false,
-      "confirmed": false,
-      "whyNotConfirmed": "a call on a property of a property is not resolved at all, so a function reached only that way would appear here wrongly. Nothing is deleted on the strength of this list until that is closed."
-    },
-    "assets/hub-persistence.js : <top level> : export #1": {
-      "ticket": "GH-678",
-      "line": null,
-      "why": "no-caller",
-      "establishedBy": "bindings-parse over the fixpoint",
-      "coversAlias": true,
-      "coversMemberOnAProperty": false,
-      "confirmed": false,
-      "whyNotConfirmed": "a call on a property of a property is not resolved at all, so a function reached only that way would appear here wrongly. Nothing is deleted on the strength of this list until that is closed."
-    },
-    "assets/hub-persistence.js : <top level> : import #1": {
-      "ticket": "GH-678",
-      "line": null,
-      "why": "no-caller",
-      "establishedBy": "bindings-parse over the fixpoint",
-      "coversAlias": true,
-      "coversMemberOnAProperty": false,
-      "confirmed": false,
-      "whyNotConfirmed": "a call on a property of a property is not resolved at all, so a function reached only that way would appear here wrongly. Nothing is deleted on the strength of this list until that is closed."
-    },
-    "assets/hub-persistence.js : <top level> : hasSavedState #1": {
       "ticket": "GH-678",
       "line": null,
       "why": "no-caller",
@@ -8935,6 +8907,86 @@
       "coversMemberOnAProperty": false,
       "confirmed": false,
       "whyNotConfirmed": "GH-787 (queue item 3vy, the reviewer's return) removed `enhancedWearRecoveryAnalysis`, which held the only call of this one: it was a SECOND wear calculation, published and called by nobody, and it swapped the shade data through this function before asking the engine — so with the bridge loaded it would have answered a different recovery window than the pass. The bridge's own `calculate` is still called, by the orchestrator's wear assembly, so the file is not idle; this one entry point of it is. Named rather than removed, because a call on a property of a property is not resolved at all and nothing is deleted on the strength of this list."
+    },
+    "assets/hub-persistence.js : <top level> : getSelectValue #1": {
+      "ticket": "GH-790",
+      "line": null,
+      "why": "no-caller",
+      "establishedBy": "bindings-parse over the fixpoint",
+      "coversAlias": true,
+      "coversMemberOnAProperty": false,
+      "confirmed": false,
+      "whyNotConfirmed": "GH-790 (queue item 9): a DOM getter the withdrawn snapshot collector called. A call on a property of a property is still not resolved at all, so nothing is deleted on the strength of this list."
+    },
+    "assets/hub-persistence.js : <top level> : isChecked #1": {
+      "ticket": "GH-790",
+      "line": null,
+      "why": "no-caller",
+      "establishedBy": "bindings-parse over the fixpoint",
+      "coversAlias": true,
+      "coversMemberOnAProperty": false,
+      "confirmed": false,
+      "whyNotConfirmed": "GH-790 (queue item 9): a DOM getter the withdrawn snapshot collector called. A call on a property of a property is still not resolved at all, so nothing is deleted on the strength of this list."
+    },
+    "assets/hub-persistence.js : <top level> : setInputValue #1": {
+      "ticket": "GH-790",
+      "line": null,
+      "why": "no-caller",
+      "establishedBy": "bindings-parse over the fixpoint",
+      "coversAlias": true,
+      "coversMemberOnAProperty": false,
+      "confirmed": false,
+      "whyNotConfirmed": "GH-790 (queue item 9): a DOM setter the withdrawn snapshot restorer called. A call on a property of a property is still not resolved at all, so nothing is deleted on the strength of this list."
+    },
+    "assets/hub-persistence.js : <top level> : setSelectValue #1": {
+      "ticket": "GH-790",
+      "line": null,
+      "why": "no-caller",
+      "establishedBy": "bindings-parse over the fixpoint",
+      "coversAlias": true,
+      "coversMemberOnAProperty": false,
+      "confirmed": false,
+      "whyNotConfirmed": "GH-790 (queue item 9): a DOM setter the withdrawn snapshot restorer called. A call on a property of a property is still not resolved at all, so nothing is deleted on the strength of this list."
+    },
+    "assets/hub-persistence.js : <top level> : setCheckbox #1": {
+      "ticket": "GH-790",
+      "line": null,
+      "why": "no-caller",
+      "establishedBy": "bindings-parse over the fixpoint",
+      "coversAlias": true,
+      "coversMemberOnAProperty": false,
+      "confirmed": false,
+      "whyNotConfirmed": "GH-790 (queue item 9): a DOM setter the withdrawn snapshot restorer called. A call on a property of a property is still not resolved at all, so nothing is deleted on the strength of this list."
+    },
+    "assets/site-config-persistence.js : <top level> : isChecked #1": {
+      "ticket": "GH-790",
+      "line": null,
+      "why": "no-caller",
+      "establishedBy": "bindings-parse over the fixpoint",
+      "coversAlias": true,
+      "coversMemberOnAProperty": false,
+      "confirmed": false,
+      "whyNotConfirmed": "GH-790 (queue item 9): a DOM getter the withdrawn snapshot collector called. A call on a property of a property is still not resolved at all, so nothing is deleted on the strength of this list."
+    },
+    "assets/site-config-persistence.js : <top level> : getSelectedTurfType #1": {
+      "ticket": "GH-790",
+      "line": null,
+      "why": "no-caller",
+      "establishedBy": "bindings-parse over the fixpoint",
+      "coversAlias": true,
+      "coversMemberOnAProperty": false,
+      "confirmed": false,
+      "whyNotConfirmed": "GH-790 (queue item 9): a helper the withdrawn snapshot collector called. A call on a property of a property is still not resolved at all, so nothing is deleted on the strength of this list."
+    },
+    "assets/site-config-persistence.js : <top level> : getSelectedSubCategory #1": {
+      "ticket": "GH-790",
+      "line": null,
+      "why": "no-caller",
+      "establishedBy": "bindings-parse over the fixpoint",
+      "coversAlias": true,
+      "coversMemberOnAProperty": false,
+      "confirmed": false,
+      "whyNotConfirmed": "GH-790 (queue item 9): a helper the withdrawn snapshot collector called. A call on a property of a property is still not resolved at all, so nothing is deleted on the strength of this list."
     }
   },
   "unread": {

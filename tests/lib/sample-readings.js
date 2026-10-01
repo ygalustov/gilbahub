@@ -71,6 +71,21 @@ function stubSampleManager(samples) {
         readingsOf: realReadingsOf(),
         getActiveSample: (kind) => (store[kind]
             ? { id: kind + '_sample', rawData: store[kind] } : null),
+        /**
+         * GH-796 (queue item 3vyu) — THE SAME SAMPLE, AND THAT IS THE POINT OF A STUB, NOT A CONFESSION.
+         *
+         * The product now asks two different questions: which sample a visitor has selected, and which one
+         * the server names for the calculation. A caller of this stub hands it ONE sample per kind, and that
+         * sample is the premise of its case -- the run is about it. So both questions answer with it, which
+         * is also what the stand does: measured across 21 sites, the active sample and the named one are the
+         * same row wherever a sample exists.
+         *
+         * A case that needs them to DIFFER cannot use this stub, and does not:
+         * `tests/gh796-the-calculation-sample-is-not-the-active-one.test.js` loads the real manager, holds two
+         * samples, and asserts that the calculation follows the server while the page keeps its own.
+         */
+        calculationSample: (kind) => (store[kind]
+            ? { id: kind + '_sample', rawData: store[kind] } : null),
         getActiveSampleId: (kind) => (store[kind] ? kind + '_sample' : null),
         getSamples: () => [],
         getAllSamples: () => ({ allSites: {}, allActive: {}, allMeta: {}, sites: {} }),

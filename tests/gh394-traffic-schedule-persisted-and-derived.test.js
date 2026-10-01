@@ -343,7 +343,16 @@ describe('GH-394 — the schedule reaches the server and survives a site switch'
         // a key the inputs list declares -- so the server judges this tab by the inputs this tab collects.
         // The section it sends is unchanged, which is what this case is about.
         expect(s).toMatch(/patchGaipConfig\(\{ traffic: \{ schedule: state, savedAt: new Date\(\)\.toISOString\(\) \} \},\s*'settings\.trafficAndWear'\)/);
-        expect(s).toMatch(/localStorage\.setItem\(getTrafficStateKey\(\), JSON\.stringify\(state\)\)/);
+        /**
+         * GH-790 (queue item 9): THE MIRROR IS GONE, and this line asserted it was kept.
+         *
+         * GH-394 put the schedule on the server and left a same-device copy in `localStorage` beside it. Three
+         * places read that copy, and this form's next "Save" carried what it had read back up -- a browser
+         * writing itself into the site's configuration, which the project's rule about the database forbids
+         * outright. What GH-394 was about is untouched and asserted above: the schedule reaches the server.
+         */
+        expect(s).not.toMatch(/localStorage\.setItem\(getTrafficStateKey/);
+        expect(s).not.toMatch(/localStorage\.getItem\(getTrafficStateKey/);
         expect(s).not.toMatch(/_tcfg/);
     });
 

@@ -203,7 +203,9 @@ class Gh789NoughtIsAValueAndAnAbsentKeyIsNotTest extends TestCase
             ['owner_user_id' => $user->id],
             ['display_name' => $user->name, 'created_by_user_id' => $user->id, 'modified_by_user_id' => $user->id]
         );
-        $site = Site::query()->create([
+        // GH-797 (queue item 3ashch): and the column half of what the list requires, so the only thing
+        // in question below is still the schedule (or, for golf, the surface).
+        $site = Site::query()->create($this->columnsThePageLockAccepts($turfType) + [
             'account_id' => $account->id, 'name' => 'GH-789 site',
             'slug' => 'gh789-'.$turfType.'-'.substr(bin2hex(random_bytes(6)), 0, 8),
             'site_type' => 'sports', 'timezone' => 'UTC', 'latitude' => -35.28, 'longitude' => 149.13,

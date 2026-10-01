@@ -983,12 +983,23 @@
             // field, and everything this form does not name is left alone --
             // including the three programme keys that used to be deleted from
             // the clone by hand (GH-371).
-            var saves = [
-                patchGaipConfig({ turf: turf }, 'settings.turf'),
-                apiFetch('PATCH', '/sites/' + encodeURIComponent(siteId), { soil_texture_override: soilTexture }),
-            ];
+            /**
+             * GH-797 (queue item 3ashch) — THE COLUMN FIRST, THE CONFIG ONLY IF IT WAS ACCEPTED.
+             *
+             * These two went out together (`Promise.all`), and from the moment the texture is required the
+             * site route can refuse one of them: the refusal would have arrived while the config half had
+             * already been written, under the words "Not saved". One of the two tabs' fields would be
+             * saved and the other not, and the message would say neither.
+             *
+             * The reverse order is NOT symmetrical and is why the column goes first: the refusal this work
+             * adds belongs to the site route, so putting it first means nothing is written when it fires.
+             * The opposite partial case -- the column saved and the config refused, over an empty cultivar
+             * -- exists today, is not created here and is not fixed here.
+             */
+            var saves = apiFetch('PATCH', '/sites/' + encodeURIComponent(siteId), { soil_texture_override: soilTexture })
+                .then(function () { return patchGaipConfig({ turf: turf }, 'settings.turf'); });
 
-            Promise.all(saves)
+            saves
                 .then(function () {
                     // GH-442 (GH-439 stage 3): no mirror -- the hub engine
                     // reads the site config the server returned from the save
@@ -1828,16 +1839,33 @@
 
         var tasks = [];
 
-        // 1. Update site model: location + clear soil_texture_override (not in import bundle)
+        /**
+         * 1. Update site model: location. GH-797 (queue item 3ashch) — THE IMPORT NO LONGER CLEARS THE
+         * SOIL TEXTURE.
+         *
+         * `soil_texture_override: null` stood here because the bundle carries no texture, and from
+         * 01.10.2026 the field is required: the write would have been refused at the site route with the
+         * samples already replaced, so a person would have read "Not saved" in the middle of a finished
+         * import. The owner's words: "then if the import fails now, okay, then during an import just do
+         * not delete that field for now. And then we will decide what to do next."
+         *
+         * The texture now stands with the other properties of a site that the file does not carry -- the
+         * name, the time zone and the site type, none of which the import touches. What an import should
+         * do with it in the end is her open question.
+         */
         var loc = cfg.location;
         var t = cfg.turf || {};
-        var sitePatch = { soil_texture_override: null };
+        var sitePatch = {};
         if (loc && typeof loc.lat === 'number' && typeof loc.lon === 'number') {
             sitePatch.location_name = loc.name || '';
             sitePatch.latitude      = loc.lat;
             sitePatch.longitude     = loc.lon;
         }
-        tasks.push(apiFetch('PATCH', '/sites/' + encodeURIComponent(siteId), sitePatch));
+        // GH-797: with the clearing gone this request can have nothing left in it -- a bundle whose
+        // location carries no coordinates -- and a write of nothing is not a change.
+        if (Object.keys(sitePatch).length) {
+            tasks.push(apiFetch('PATCH', '/sites/' + encodeURIComponent(siteId), sitePatch));
+        }
 
         // 2. Save full turf + location + pgr config to DB gaip namespace
         //
@@ -1877,22 +1905,35 @@
     var trafficSaveBtn = document.getElementById('stg-traffic-save');
     var trafficMsg     = document.getElementById('stg-traffic-msg');
 
-    function getTrafficStateKey() {
-        return 'gilba_traffic_state_' + (siteId || 'default');
-    }
-
     /**
-     * GH-394: the saved schedule now lives in the site's gaip config as
-     * `config.traffic.schedule`, so the Plan page, the Word export and a
-     * second browser all read one record. The localStorage copy is kept as a
-     * same-device mirror only; the config wins whenever it exists, because
-     * localStorage on this device can be older than what another device saved.
+     * GH-790 (queue item 9) — THE SCHEDULE HAS ONE RECORD, AND IT IS THE SITE'S.
+     *
+     * GH-394 kept a same-device mirror in `localStorage` beside the server's copy. Three places read it --
+     * this form, the Plan page's recovery section and the Clegg fields of the `/hub` markup -- and this
+     * form's "Save" then carried whatever it had read back up to the server. A browser's memory could
+     * therefore write itself into the site's configuration, which is the one thing the project's rule about
+     * the database forbids outright: send the change, not the state.
+     *
+     * The mirror is not read and not written any more. A device that held one shows an empty form until the
+     * site itself carries a schedule, which is the truth about the site rather than what this browser
+     * happened to remember. The old key is removed once, on load, below.
      */
     function getTrafficSchedule() {
         var cfg = D.gaipConfig;
         if (cfg && !Array.isArray(cfg) && cfg.traffic && cfg.traffic.schedule) return cfg.traffic.schedule;
-        try { return JSON.parse(localStorage.getItem(getTrafficStateKey()) || '{}'); } catch (e) { return {}; }
+
+        return {};
     }
+
+    /**
+     * GH-790: the mirror's key is cleared once per site, the same way the last-PGR key was cleared when its
+     * store was withdrawn. Left behind, it is a value in a browser with no reader -- the shape somebody
+     * finds in a year and takes for a store that is still in use.
+     */
+    try {
+        if (siteId) localStorage.removeItem('gilba_traffic_state_' + siteId);
+        localStorage.removeItem('gilba_traffic_state_default');
+    } catch (_mirrorErr) { /* a browser that refuses storage has nothing to clear */ }
 
     function loadTrafficForm() {
         if (!trafficForm) return;
@@ -1949,7 +1990,9 @@
                 cleggSoft:       getNum('stg-tw-clegg-soft'),
             };
 
-            try { localStorage.setItem(getTrafficStateKey(), JSON.stringify(state)); } catch(e) {}
+            // GH-790 (queue item 9): the mirror is not written. What this form sends to the server IS the
+            // record; a copy beside it could only disagree with it, and the copy was the one that travelled
+            // back up on the next save.
 
             // GH-394 (D31 stage 3): persist the schedule server-side as well.
             // Until now this form wrote localStorage and nothing else, so the

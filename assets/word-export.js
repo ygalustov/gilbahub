@@ -7348,8 +7348,10 @@
                 var _activeSite = typeof _SM.getActiveSiteId === 'function'
                     ? _SM.getActiveSiteId() : null;
                 if (_activeSite && _SC.isMultiSiteTurfEnabled(_activeSite)) {
-                    var _activeSample = typeof _SM.getActiveSample === 'function'
-                        ? _SM.getActiveSample('soil') : null;
+                    // GH-796 (queue item 3vyu): the document is about a site, so its turf profile comes
+                    // from the sample the calculation uses, not from the one open on the page behind it.
+                    var _activeSample = typeof _SM.calculationSample === 'function'
+                        ? _SM.calculationSample('soil') : null;
                     if (_activeSample && _activeSample.turfProfile) {
                         var _tp = _activeSample.turfProfile;
                         if (_tp.species)          _sampleOverrideSpecies  = _tp.species;

@@ -784,15 +784,18 @@
         setDomVal('.gaip-traffic-level', turf.trafficLevel || '');
         setDomVal('.gaip-events-per-week', turf.eventsPerWeek || '');
 
-        // Clegg hammer — saved by the Settings > Traffic & Wear form.
-        // GH-394: that form now persists the whole schedule server-side as
-        // config.traffic.schedule, so prefer it and fall back to the
-        // same-device localStorage mirror; on a second browser the mirror is
-        // empty and the Clegg readings used to vanish with it.
+        /**
+         * Clegg hammer — saved by the Settings > Traffic & Wear form.
+         *
+         * GH-790 (queue item 9): the `localStorage` mirror this read as a fallback is gone. It put one
+         * browser's remembered readings into the form of the calculation runner, for a site whose own
+         * configuration carries none -- so the firmness of a run could come from a device rather than from
+         * the site. The three declared storage paths of `soil.compaction` are in the config
+         * (`traffic.schedule.cleggMean|cleggHard|cleggSoft`); where the site has none, the fields stay empty
+         * and the firmness is reported as estimated, which the product already says.
+         */
         try {
-            var _cleggSid = (global.GAIP_HUB_CONFIG || {}).activeSiteId || 'default';
-            var _tst = (config.traffic && config.traffic.schedule) ||
-                JSON.parse(localStorage.getItem('gilba_traffic_state_' + _cleggSid) || '{}');
+            var _tst = (config.traffic && config.traffic.schedule) || {};
             if (_tst.cleggMean) setDomVal('.gaip-clegg-hammer', _tst.cleggMean);
             if (_tst.cleggHard) setDomVal('.gaip-clegg-max',    _tst.cleggHard);
             if (_tst.cleggSoft) setDomVal('.gaip-clegg-min',    _tst.cleggSoft);

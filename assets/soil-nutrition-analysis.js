@@ -591,7 +591,15 @@
         },
         NO_DATA: {
             cls:'no_data', title:'Soil Nutrition: No Data',
-            sub:'No soil test data available. Add soil test data and run the analysis to see results.',
+            /**
+             * GH-792 (queue item 79) — MEASURED: THIS SENTENCE WAS NEVER PRINTED.
+             *
+             * The verdict card draws only when `meta.decision` is set (`return meta.decision ? … : ''`), and
+             * this entry's decision is `null`, so the words below never reached a screen. They were a literal
+             * with no reader, which is the shape somebody later takes for what a person sees. The owner's
+             * approved words for the place that IS printed live with the composer (`soilNutrition`).
+             */
+            sub:null,
             decision:null, mechanism:null, consequence:null, determination:null,
         },
     };
@@ -734,7 +742,10 @@
     function renderNutrientCards(sn) {
         var nutrients = sn.nutrients || [];
         if (!nutrients.length) {
-            return '<div class="sn-empty" style="padding:20px"><div class="sn-empty-body">No nutrient data. Add soil test data and run the analysis.</div></div>';
+            // GH-792 (queue item 79): the words of this place come from the composer, by its declared key.
+            var _noNutrients = global.GilbaEmptySection
+                ? global.GilbaEmptySection.words('soilNutrition.nutrients') : '';
+            return '<div class="sn-empty" style="padding:20px"><div class="sn-empty-body">'+_noNutrients+'</div></div>';
         }
         var depth = sn.depthCm || 10;
         var bd    = sn.bulkDensity || 1.4;
@@ -1039,9 +1050,12 @@
 
         if (!demand) {
             return '<div class="sn-section"><div class="sn-section-title">Annual Nutrient Requirements</div></div>'+
+                // GH-792 (queue item 79): the sentence is the composer's. What stood here ended on "Press
+                // Re-run to calculate them." for a run that had already happened; where the run DID record a
+                // cause, the composer answers with that cause's own sentence instead.
                 '<div class="sn-annual-empty" style="padding:14px 0;font-size:13px;color:var(--gaip-text-secondary)">'+
-                'Annual requirements come from an analysis run, and the latest run for this site did not produce them. '+
-                'Press Re-run to calculate them.'+
+                (global.GilbaEmptySection
+                    ? global.GilbaEmptySection.words('soilNutrition.annualRequirements') : '')+
                 '</div>';
         }
 
@@ -1367,7 +1381,9 @@
             return '<div style="padding-bottom:16px">'+
                 '<div class="sn-empty" style="padding:20px;background:#f5f7f6;border-radius:10px;border:1px solid #d8e0dc">'+
                 '<div class="sn-empty-title">No Tissue Test Data</div>'+
-                '<div class="sn-empty-body">Add tissue test data and run the analysis to see results here.</div>'+
+                // GH-792 (queue item 79): the composer's words for the tissue place.
+                '<div class="sn-empty-body">'+
+                (global.GilbaEmptySection ? global.GilbaEmptySection.words('tissue') : '')+'</div>'+
                 '</div></div>';
         }
         var headline = tissue.headline ? '<div class="sn-tissue-headline">'+esc(tissue.headline)+'</div>' : '';
@@ -1472,10 +1488,16 @@
     // EMPTY STATE
     // =========================================================================
 
+    /**
+     * GH-792 (queue item 79): the body is the composer's answer. The heading stays -- it is correct, and the
+     * owner's edit of 29.09.2026 was to the advice under it, which told a person to run an analysis that had
+     * already run.
+     */
     function renderEmpty() {
+        var words = global.GilbaEmptySection ? global.GilbaEmptySection.words('soilNutrition') : '';
         return '<div class="sn-empty">'+
             '<div class="sn-empty-title">No Soil &amp; Nutrition Data</div>'+
-            '<div class="sn-empty-body">Add soil test data and run the analysis to see results here.</div>'+
+            (words ? '<div class="sn-empty-body">'+words+'</div>' : '')+
             '</div>';
     }
 

@@ -509,12 +509,27 @@
     // EMPTY STATE
     // =========================================================================
 
+    /**
+     * GH-792 (queue item 79) — THE BODY IS THE COMPOSER'S ANSWER, NOT THIS PAGE'S SENTENCE.
+     *
+     * What stood here told a person to "run the analysis to compute the Environmental Stress Index" -- on a
+     * site whose analysis had already run and simply produced no stress index. The words of an empty section
+     * belong to the owner and live with the composer on the server; this page asks by its place and prints
+     * what it is given. The heading stays: it is correct and her edits were to the advice under it.
+     *
+     * An answer with no words means the composer has none for this place, and the page prints the heading
+     * alone rather than inventing a sentence.
+     */
     function renderEmpty(container) {
+        var reader = global.GilbaEmptySection;
+        var words = reader ? reader.words('stress') : '';
         container.innerHTML =
             '<div class="wb-page"><div class="gl-body">' +
             '<div style="padding:40px 20px;text-align:center;color:#5b6a65">' +
             '<div style="font-size:15px;font-weight:600;color:#374151;margin-bottom:8px">No stress data yet</div>' +
-            '<div style="font-size:13px;line-height:1.6;max-width:380px;margin:0 auto">Run the analysis to compute the Environmental Stress Index from climate, shade, moisture, traffic, nutrition, and disease data.</div>' +
+            (words
+                ? '<div style="font-size:13px;line-height:1.6;max-width:380px;margin:0 auto">' + words + '</div>'
+                : '') +
             '</div></div></div>';
     }
 

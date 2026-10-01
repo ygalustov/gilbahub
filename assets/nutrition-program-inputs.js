@@ -1326,6 +1326,18 @@
             const store = (all && all.allSites && all.allSites[siteId]) || null;
             const active = (all && all.allActive && all.allActive[siteId]) || {};
             ['soil', 'tissue', 'water'].forEach((kind) => {
+                /**
+                 * GH-796 (queue item 3vyu) — THIS FALLBACK IS LEFT ON THE PAGE'S POINTER, AND THE REASON IS
+                 * A SENTENCE A CLIENT READS.
+                 *
+                 * `active[kind]` is the page's own selection, which is what this item takes out of
+                 * calculations everywhere else. Moved here too, and two cases went red for the right reason:
+                 * the report has a THIRD state, "records on file that nobody selected", and it is decided by
+                 * this very read. With the server's answer in its place that state can no longer arise -- the
+                 * server always names the latest record -- so the report would compute instead of saying it.
+                 * That is a change to what a client reads, which is the owner's to make, and it is recorded
+                 * as an open question rather than taken here.
+                 */
                 const wanted = opts[kind + 'SampleId'] || active[kind] || null;
                 const bucket = (store && store[kind]) || null;
                 if (!bucket || !wanted) return;

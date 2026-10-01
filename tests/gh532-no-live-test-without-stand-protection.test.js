@@ -200,6 +200,14 @@ const EXEMPT = {
             + 'the helpers and not expressed through them.',
         until: '2026-10-15',
     },
+    'gh797-the-texture-is-required-live.test.js': {
+        why: 'Creates and removes its OWN site, the same remedy of first resort as gh439 above, and for '
+            + 'the same reason it is not expressed through the helpers: the case IS the writes — the setup '
+            + 'wizard saving a texture and a Settings save being refused — so `guardStand`, which holds '
+            + 'every site-state write and answers 200, would leave it asserting nothing. Its site is made '
+            + 'in `beforeAll` and deleted in `afterAll`, and the account pointer is put back.',
+        until: '2026-10-15',
+    },
     'gh458-gp-palette-live.test.js': {
         why: 'Reads colours off rendered pages. No assessed write path.',
         until: '2026-10-15',

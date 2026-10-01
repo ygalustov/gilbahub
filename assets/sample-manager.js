@@ -1696,6 +1696,90 @@
     }
 
     /**
+     * GH-796 (queue item 3vyu) — THE SAMPLE A CALCULATION IS ABOUT, WHICH IS NEVER THE ONE ACTIVE ON A PAGE.
+     *
+     * WHY THESE ARE TWO DIFFERENT QUESTIONS. `getActiveSample` answers "which sample has this visitor
+     * selected", which is a fact about the page in front of them: the switcher's caption, the tick in its
+     * list, the form the selector fills. A programme, a product list, a document and a stored row are about
+     * a SITE, and which of its samples they are computed from is not the visitor's choice -- it is the
+     * server's, "the latest by lab date, then sample date, then row id". Reading the page's choice where the
+     * server's answer was meant is the class of GH-459: one object's result built from another's state.
+     *
+     * THE RULE LIVES ON THE SERVER AND IS NOT COPIED HERE. Both askers -- the run frame's opener in
+     * `dashboard-ui.js` and this function -- make the same request and take the first row. Measured, and the
+     * reason this function asks rather than borrowing the opener's: `dashboard-ui.js` is loaded by the
+     * db-shell layout, and neither `/hub` nor `/reports/export` loads it, while this file is loaded by both.
+     *
+     * THE ANSWER IS NEVER THE ACTIVE SAMPLE, in any branch. Until the server has answered, and when it
+     * answers `none` or fails, the caller is told there is no sample -- which is what a calculation with no
+     * sample already knows how to say.
+     */
+    var _namedForCalculation = {};
+    var _askedForCalculation = {};
+
+    function _forgetWhatTheServerNamed() {
+        _namedForCalculation = {};
+        _askedForCalculation = {};
+    }
+
+    function _askTheServerWhichSample(dataType, siteId) {
+        var key = siteId + '\u0000' + dataType;
+        if (_askedForCalculation[key]) return;
+        if (!siteId || siteId === 'default' || typeof fetch !== 'function') return;
+        _askedForCalculation[key] = true;
+        fetch('/api/samples?sample_type=' + encodeURIComponent(dataType)
+            + '&site_id=' + encodeURIComponent(siteId) + '&limit=1',
+        { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (j) {
+                var rows = j && (j.data || j.samples);
+                if (!Array.isArray(rows)) { _namedForCalculation[key] = 'unknown'; return; }
+                _namedForCalculation[key] = (rows.length && rows[0] && rows[0].id != null)
+                    ? String(rows[0].id) : 'none';
+            })
+            .catch(function () { _namedForCalculation[key] = 'unknown'; });
+    }
+
+    /**
+     * THE SITE IS A PARAMETER, and the reason is a measurement rather than a precaution.
+     *
+     * A caller that resolves samples FOR A NAMED SITE -- a report about site B while the page points at
+     * site A -- must not be answered about the page's site. Written without this argument first, and four
+     * suites went red on exactly that: site B's report carried A's tissue readings, which is GH-459 put
+     * back by the very function meant to take it out. Given no site, the manager's own is used, which is
+     * what a run frame and a single-site page want.
+     */
+    function calculationSample(dataType, siteId) {
+        try {
+            var site = siteId || _currentSite;
+            var key = site + '\u0000' + dataType;
+            /**
+             * IN A RUN FRAME THE ANSWER IS ALREADY ON THE ADDRESS, and the frame's own chooser reads it --
+             * the same three answers GH-795 gave it: a row id, `none`, and `unknown` for a request that
+             * failed. None of them may become the active sample.
+             */
+            if (typeof window.gaip_namedSample === 'function' && (!siteId || siteId === _currentSite)) {
+                var told = window.gaip_namedSample(dataType);
+                if (told === 'none' || told === 'unknown' || told === 'not-found') return null;
+                if (told) return told;
+            }
+            _askTheServerWhichSample(dataType, site);
+            var named = _namedForCalculation[key];
+            if (!named || named === 'none' || named === 'unknown') return null;
+            var found = null;
+            var bucket = (site === _currentSite) ? getSamples(dataType)
+                : Object.values((_allSiteStores[site] || {})[dataType] || {});
+            bucket.forEach(function (smp) {
+                if (!found && smp && String(smp.serverId) === String(named)) found = smp;
+            });
+
+            return found;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
      * Get sample by ID
      */
     function getSample(dataType, sampleId) {
@@ -2569,6 +2653,7 @@
                 _allSiteActive = data.allActive || {};
                 _allSiteMeta = data.allMeta || {};
                 _currentSite = data.currentSite || 'default';
+                _forgetWhatTheServerNamed(); // GH-796: the server's answer belongs to a site
                 _initSite(_currentSite);
 
                 var siteKeys = Object.keys(_allSiteStores);
@@ -2619,6 +2704,8 @@
         // the form apply one rule. Pure — the sample it is handed and nothing
         // else.
         readingsOf: readingsOf,
+        // GH-796 (queue item 3vyu): the sample a CALCULATION is about, as against the one a visitor selected.
+        calculationSample: calculationSample,
         // GH-722: one declared reading by name, bound to a form field or not.
         labReadingOf: labReadingOf,
         // GH-490: the readings a kind can carry, out of the same map, so the
@@ -2645,6 +2732,7 @@
             }
             var changed = siteId !== _currentSite;
             _currentSite = siteId;
+            _forgetWhatTheServerNamed(); // GH-796: the server's answer belongs to a site
             _initSite(siteId);
             // GH-563: the id is already the first thing on this line, so the
             // bracket added nothing when a site had a name and printed the id a
@@ -2721,6 +2809,7 @@
             // If old site was current, switch to new
             if (_currentSite === oldId) {
                 _currentSite = newId;
+                _forgetWhatTheServerNamed(); // GH-796: the server's answer belongs to a site
             }
 
             // Reset old site to blank (if it's 'default', keep it but clear data)

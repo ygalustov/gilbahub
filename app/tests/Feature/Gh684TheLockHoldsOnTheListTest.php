@@ -43,12 +43,30 @@ class Gh684TheLockHoldsOnTheListTest extends TestCase
         'traffic' => ['schedule' => ['matchesPerWeek' => 2]],
     ];
 
-    private function siteWith(array $config): Site
+    /**
+     * GH-797 (queue item 3ashch) — THE OTHER HALF OF "COMPLETE", because one required input is not in
+     * the config at all.
+     *
+     * The soil texture lives in `sites.soil_texture_override`, so a site that answers everything answers
+     * it on the ROW. The value comes from the one answers map in `TestCase`; `COMPLETE` above still holds
+     * the config half.
+     *
+     * @return array<string,mixed> column => value
+     */
+    private function completeColumns(): array
+    {
+        return $this->columnsThePageLockAccepts('sports');
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $columns  the columns of `sites` this site answers
+     */
+    private function siteWith(array $config, ?array $columns = null): Site
     {
         $user = User::factory()->create(['is_admin' => false]);
         $account = Account::firstOrCreate(['name' => 'gh684'], ['owner_user_id' => $user->id]);
         $site = new Site();
-        $site->forceFill([
+        $site->forceFill(($columns ?? $this->completeColumns()) + [
             'id' => 'gh684-'.bin2hex(random_bytes(4)),
             'account_id' => $account->id,
             'name' => 'GH-684 site',
@@ -63,13 +81,29 @@ class Gh684TheLockHoldsOnTheListTest extends TestCase
         return $site->fresh();
     }
 
+    /**
+     * Everything answered but this one input — in the config, or in the column, whichever the list says
+     * holds it (GH-797). A case that removed a `sites.*` key from the config would remove nothing and
+     * would then assert the lock about an input that was never missing.
+     *
+     * @return array{0: array<string,mixed>, 1: array<string,mixed>}
+     */
     private function without(string $key): array
     {
         $config = self::COMPLETE;
+        $columns = $this->completeColumns();
+
+        $column = CalculationInputs::siteColumnOf($key);
+        if ($column !== null) {
+            unset($columns[$column]);
+
+            return [$config, $columns];
+        }
+
         [$section, $field] = explode('.', $key, 2);
         unset($config[$section][$field]);
 
-        return $config;
+        return [$config, $columns];
     }
 
     public function test_a_site_that_answers_everything_is_not_locked(): void
@@ -113,7 +147,7 @@ class Gh684TheLockHoldsOnTheListTest extends TestCase
         $this->assertGreaterThan(4, count($holdsTheLock));
 
         foreach ($holdsTheLock as $key) {
-            $site = $this->siteWith($this->without($key));
+            $site = $this->siteWith(...$this->without($key));
             $missing = EnsureSiteIsSetUp::missingInputs($site);
             fwrite(STDOUT, '[gh684]    without '.str_pad($key, 20).' -> the lock names: '
                 .json_encode($missing).PHP_EOL);
@@ -124,7 +158,7 @@ class Gh684TheLockHoldsOnTheListTest extends TestCase
         // THE OTHER DIRECTION, which is the whole point of the rule: an input the wizard cannot
         // collect does NOT hold the gate, however required it is. Emptying it changes nothing.
         foreach ($requiredButNotAsked as $key) {
-            $site = $this->siteWith($this->without($key));
+            $site = $this->siteWith(...$this->without($key));
             $missing = EnsureSiteIsSetUp::missingInputs($site);
             fwrite(STDOUT, '[gh684]    without '.str_pad($key, 20).' -> the lock names: '
                 .json_encode($missing).' (it must not be named)'.PHP_EOL);
@@ -134,7 +168,9 @@ class Gh684TheLockHoldsOnTheListTest extends TestCase
         }
 
         // And the rule itself, as an equality rather than as a pair of spot checks.
-        $site = $this->siteWith(['turf' => ['turfType' => 'sports']]);
+        // GH-797: nothing answered but the type — in the config AND in the columns, or the texture
+        // would be answered here and the equality would be short of one input.
+        $site = $this->siteWith(['turf' => ['turfType' => 'sports']], []);
         $named = EnsureSiteIsSetUp::missingInputs($site);
         $this->assertSame(
             array_values(array_diff($holdsTheLock, ['turf.turfType'])),
@@ -168,7 +204,7 @@ class Gh684TheLockHoldsOnTheListTest extends TestCase
             EnsureSiteIsSetUp::missingInputs($this->siteWith($config)));
     }
 
-    public function test_the_list_requires_EIGHT_for_sports_and_the_wizard_asks_SEVEN_of_them(): void
+    public function test_the_list_requires_NINE_for_sports_and_the_wizard_asks_ALL_NINE(): void
     {
         /**
          * THE PENDING DATA CHANGES, WRITTEN DOWN SO THEY CANNOT LAND SILENTLY — and measuring
@@ -196,6 +232,13 @@ class Gh684TheLockHoldsOnTheListTest extends TestCase
          * the reminder to record the decision here, and to say WHOSE it was — a quieter
          * arrangement would let the lock's subject change with nothing said. It has already done
          * that once: it reddened the moment `required: false` was written.
+         *
+         * GH-797 — AND IT HAS DONE IT AGAIN, which is this case working. THE SOIL TEXTURE JOINED THE SET
+         * ON 01.10.2026, BY THE OWNER'S DECISION, and the wizard asks for it on step 3, so unlike the
+         * schedule it holds the lock. Her words: "if a field is required for us, then it is required.
+         * Let's add it in the wizard too. And in the settings this field should be required as well."
+         * The set is nine now, and all nine are asked for -- the schedule was declared on step 2 by
+         * GH-789, so nothing required is left unasked. The name of this case moved with the numbers.
          */
         $required = CalculationInputs::requiredFor('sports');
         $ownersSeven = ['location.lat', 'location.lon', 'turf.turfType', 'turf.species',
@@ -204,7 +247,7 @@ class Gh684TheLockHoldsOnTheListTest extends TestCase
         fwrite(STDOUT, '[gh684] the list requires '.count($required).' for sports; beyond the'
             .' owner\'s seven: '.json_encode($beyond).PHP_EOL);
 
-        $this->assertSame(['traffic.schedule'], $beyond,
+        $this->assertSame(['sites.soil_texture_override', 'traffic.schedule'], $beyond,
             'the set holding the lock has moved: record the decision here, and whose it was, before updating this');
         // And the one that was settled is settled in the direction she settled it.
         $this->assertNotContains('turf.rootDepth', $required,

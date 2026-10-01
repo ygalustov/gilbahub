@@ -230,6 +230,41 @@ async function computeAll(bench, inputs) {
  * @param {object} bench  the loaded bench
  * @param {{id: string, latitude: number, longitude: number}} row  the site row the server would send
  */
+/**
+ * GH-790 (queue item 9): THE SITE'S OWN CONFIG, as the server gives it to the page, and THE FIELDS OF THE
+ * `/hub` MARKUP, separately.
+ *
+ * The two used to be one thing: the run read the markup, and the markup was refilled from a snapshot in the
+ * browser. A case about which of them wins has to be able to set them to different values, which is what
+ * these two do. `fields` is keyed by selector, exactly as the assembly asks for them.
+ */
+function withSiteConfig(bench, siteId, config) {
+    const { ctx } = bench;
+    if (!siteId) throw new Error('withSiteConfig needs a site id — a config that answers for nobody is not a config');
+    if (!ctx.GAIP_SiteConfig) throw new Error('the bench has no GAIP_SiteConfig: the page did not load');
+    const before = ctx.GAIP_SiteConfig.getConfig;
+    ctx.GAIP_SiteConfig.getConfig = (id) => (id === siteId ? config : (before ? before(id) : null));
+    ctx.GAIP_HUB_CONFIG = Object.assign({}, ctx.GAIP_HUB_CONFIG, { activeSiteId: siteId });
+    if (ctx.GAIP_SampleManager) ctx.GAIP_SampleManager.getActiveSiteId = () => siteId;
+
+    return bench;
+}
+
+/** A `/hub` root whose fields hold what a case says they hold, and nothing else. */
+function pageWithFields(fields) {
+    const map = fields || {};
+
+    return {
+        querySelector: (sel) => {
+            if (!Object.prototype.hasOwnProperty.call(map, sel)) return null;
+            const v = map[sel];
+
+            return { value: v, checked: v === true, dataset: {}, type: 'text' };
+        },
+        querySelectorAll: () => [],
+    };
+}
+
 function withSiteRow(bench, row) {
     const { ctx } = bench;
     if (!row || !row.id) throw new Error('withSiteRow needs a row with an id — a bench site without one answers for nobody');
@@ -263,6 +298,24 @@ function withSiteRow(bench, row) {
 function withSamples(bench, rows) {
     const store = rows || {};
     bench.ctx.GAIP_SampleManager = {
+        /**
+         * GH-796 (queue item 3vyu) — THE STUB ANSWERS THE CALCULATION'S QUESTION TOO, because the product's
+         * manager now does and a stub that lags behind makes the bench measure the absence of its own setup.
+         *
+         * The contract is the real one's, minus the half a bench has no server for: in a run frame the
+         * address answers, through the frame's own chooser; with nothing named, the real function asks the
+         * server, and here there is none -- so the answer is "no sample", never the one the page has open.
+         * A bench case that wants a sample computed therefore names it on the address, which is what a run
+         * frame does.
+         */
+        calculationSample: (kind) => {
+            const chooser = bench.ctx.gaip_namedSample;
+            if (typeof chooser !== 'function') return null;
+            const told = chooser(kind);
+            if (told === 'none' || told === 'unknown' || told === 'not-found') return null;
+
+            return told || null;
+        },
         readingsOf: realReadingsOf(),
         getSamples: (kind) => (store[kind] ? [store[kind]] : []),
         getActiveSample: (kind) => store[kind] || null,
@@ -274,4 +327,5 @@ function withSamples(bench, rows) {
     return bench;
 }
 
-module.exports = { load, computeAll, hubScripts, makeSandbox, withSiteRow, withSamples };
+module.exports = { load, computeAll, hubScripts, makeSandbox, withSiteRow, withSamples,
+    withSiteConfig, pageWithFields };

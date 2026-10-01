@@ -134,6 +134,14 @@ class DashboardController extends Controller
             'constructionValues' => collect(CalculationInputs::constructionChoices())
                 ->map(fn ($label, $id) => ['id' => $id, 'label' => $label])
                 ->values()->all(),
+            /**
+             * GH-797 (queue item 3ashch): the soil textures, from the same list as the constructions
+             * above. The wizard asks for this field now — the owner's decision of 01.10.2026 — and a list
+             * written in the wizard would be the second copy of the six that Settings held alone.
+             */
+            'soilTextureValues' => collect(CalculationInputs::soilTextureChoices())
+                ->map(fn ($label, $id) => ['id' => $id, 'label' => $label])
+                ->values()->all(),
             // GH-744: each methodology's name and explaining sentence, from the same list.
             'methodologyValues' => CalculationInputs::methodologyValuesForWizard(),
         ];

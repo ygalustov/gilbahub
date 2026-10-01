@@ -24,7 +24,13 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
-const ORCH = read('assets/hub-orchestrator.js');
+/**
+ * GH-790 (queue item 9): READ AS CODE. This file decides by looking for expressions in the source, and the
+ * orchestrator's own comments now quote the expressions that were removed -- a sentence about a read counted
+ * as the read, which is the class GH-788 built this reader for.
+ */
+const ORCH = require('./lib/source-without-comments')
+    .codeOf(read('assets/hub-orchestrator.js'), 'hub-orchestrator.js');
 const FORM_JS = read('assets/wear-recovery-integration.js');
 const FORM_BLADE = read('app/resources/views/partials/legacy-hub-markup.blade.php');
 
@@ -78,7 +84,16 @@ describe('GH-776 — no schedule, no wear load', () => {
          */
         expect(FORM_JS).not.toContain("safeNum(root.querySelector('.gaip-root-depth'), 100)");
         expect(FORM_JS).not.toContain('function readWearRecoveryState');
-        expect(read('assets/hub-tissue-v3.js')).toContain('.gaip-root-depth');
+        /**
+         * GH-790 (queue item 9): THE ASSEMBLY NO LONGER READS THAT FIELD EITHER, and the reason is the
+         * reviewer's measurement rather than tidiness: `config?.…?.rootDepth ?? field` passes over a stored
+         * `null`, and two sites of the stand carry the key with exactly that -- so for them the value came from
+         * the `/hub` markup, which is the copy this item removes everywhere else. The field's own default of
+         * 100 is the owner's decision and is untouched: the markup still declares it, which the assertion
+         * above holds, and the assembly still stands the number in when the site carries none.
+         */
+        expect(read('assets/hub-tissue-v3.js')).not.toContain('.gaip-root-depth');
+        expect(read('assets/hub-tissue-v3.js')).toContain("safeNum(_cfgValue('traffic.schedule.rootDepth'), 100)");
         // And the assembly that survives takes it from the site, with no number of its own.
         const builderAt = ORCH.indexOf('function buildWearRecoveryInputs()');
         const builderBody = ORCH.slice(builderAt, ORCH.indexOf('\n  }', builderAt));
@@ -95,8 +110,18 @@ describe('GH-776 — no schedule, no wear load', () => {
         process.stdout.write('[gh776] what the builder reads of the form: ' + JSON.stringify(reads) + '\n');
 
         expect(reads).toEqual([]);
-        // And the absence travels as absence rather than as an empty object.
-        expect(body).toContain('schedule?.traffic || schedule || null');
+        /**
+         * GH-790 (queue item 9): the absence still travels as absence, and it comes from the SITE now.
+         *
+         * `_hubState.inputs.schedule` -- what this line used to read -- is filled by no writer in the product,
+         * so the builder was handed no load on every run while the cascade built its own from the markup. One
+         * transform answers for both paths, and GH-776's rule lives inside it: a site that is not a sports
+         * field, and a sports field with no schedule, carry no traffic. The outcome is held by
+         * `tests/gh790-…`, which sets a config and a page field to different values and reads back which
+         * arrived.
+         */
+        expect(body).toContain('GAIP_TrafficFromSchedule');
+        expect(body).not.toContain('_hubState.inputs.schedule');
     });
 
     /**

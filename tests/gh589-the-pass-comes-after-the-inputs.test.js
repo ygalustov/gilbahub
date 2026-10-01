@@ -122,6 +122,14 @@ function benchWithProducer({ grids }) {
         getActiveSample: (kind) => (store[kind]
             ? { id: kind + '_sample', rawData: store[kind] } : null),
         getActiveSampleId: (kind) => (store[kind] ? kind + '_sample' : null),
+        /**
+         * GH-796 (queue item 3vyu): the calculation's question, answered with the sample this bench hands
+         * over -- that sample is the premise of its cases, the run is about it. The reasoning is the shared
+         * stub's, in `tests/lib/sample-readings.js`; a case that needs the two questions to answer
+         * DIFFERENTLY is `tests/gh796-the-calculation-sample-is-not-the-active-one.test.js`.
+         */
+        calculationSample: (kind) => (store[kind]
+            ? { id: kind + '_sample', rawData: store[kind] } : null),
         getSamples: () => [],
         getAllSamples: () => ({ allSites: {}, allActive: {}, allMeta: {}, sites: {} }),
         getActiveSiteId: () => 'site-1',

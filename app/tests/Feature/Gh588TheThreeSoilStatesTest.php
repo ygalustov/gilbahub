@@ -213,6 +213,8 @@ class Gh588TheThreeSoilStatesTest extends TestCase
             'metrics' => $this->completeMetrics(), 'analyzedAt' => '2026-09-23T10:00:00Z', 'runId' => 'r-full',
         ]);
 
+        // GH-791 (queue item 3gp): the row is this run's own, so the clock stands where it finished.
+        $this->clockAtRowAge('2026-09-23T10:00:00Z');
         $this->assertNull(AnalysisNotice::panel(AnalysisResults::forSite($site->fresh()), 'UTC'));
     }
 

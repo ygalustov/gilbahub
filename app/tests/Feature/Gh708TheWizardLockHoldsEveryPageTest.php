@@ -206,9 +206,23 @@ class Gh708TheWizardLockHoldsEveryPageTest extends TestCase
         $this->actingAs($user->fresh())->getJson('/api/sites')->assertOk();
     }
 
-    /** Take one answer away, by the list's own key. */
+    /**
+     * Take one answer away, by the list's own key — FROM WHEREVER THE LIST SAYS IT IS KEPT.
+     *
+     * GH-797 (queue item 3ashch): emptying a `sites.*` key out of the config emptied nothing, so the page
+     * rendered and the case read as "the lock does not hold on the soil texture" while the texture was
+     * sitting in its column untouched. Printed proof of that run, before this: `without
+     * sites.soil_texture_override -> 200`.
+     */
     private function blank(Site $site, string $key): void
     {
+        $column = CalculationInputs::siteColumnOf($key);
+        if ($column !== null) {
+            $site->forceFill([$column => null])->save();
+
+            return;
+        }
+
         $row = SiteConfig::query()->where('site_id', $site->id)->where('namespace', 'gaip')->firstOrFail();
         $config = $row->config;
         [$section, $field] = explode('.', $key, 2);

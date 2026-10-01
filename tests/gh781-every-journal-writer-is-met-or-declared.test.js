@@ -117,6 +117,50 @@ const DECLARED = [
         when: (row) => /soil:not-found/.test(row.cascadeSampleIds || ''),
         why: 'the same event as the note above: the two are written together',
     },
+    /**
+     * GH-795 (queue item 3vae) — FIVE WRITERS OF THE PASS ABOUT THE SAMPLE IT WAS GIVEN.
+     *
+     * The condition of the two `sample-not-named` entries is READABLE IN A ROW, and by the server's own
+     * record of what the opener was told: `runStart.named.<kind>` is the string `unknown`. Measured before
+     * the change: that value stands in 0 of 132 rows, so these two are expected-and-absent rather than
+     * expected-and-present -- which is what a condition is for.
+     *
+     * The three tissue entries mirror the soil ones exactly, including the boundary: "named and not in the
+     * store" has a sign in the row (`tissue:not-found` in the pass's own fingerprint), and "arrived and
+     * carried nothing readable" has none, so it stays open here and is checked by a case on the store's door.
+     */
+    {
+        producer: 'cascade', door: 'noteSkipped', module: 'mlsn', reason: 'sample-not-named',
+        kind: 'with-condition',
+        when: (row) => /"soil":\s*"unknown"/.test(row.named || ''),
+        why: 'the run asked the server which soil sample to compute and the request failed, so the address'
+            + ' carried `unknown` and the pass computed no soil',
+    },
+    {
+        producer: 'cascade', door: 'noteSkipped', module: 'tissue', reason: 'sample-not-named',
+        kind: 'with-condition',
+        when: (row) => /"tissue":\s*"unknown"/.test(row.named || ''),
+        why: 'the same failure on the tissue side, told by the same record of what the opener was given',
+    },
+    {
+        producer: 'cascade', door: 'note', module: 'tissue', reason: 'tissue-sample-not-in-store',
+        kind: 'with-condition',
+        when: (row) => /tissue:not-found/.test(row.cascadeSampleIds || ''),
+        why: 'the pass itself read `tissue:not-found` - the run was named a tissue sample the store did not'
+            + ' hold',
+    },
+    {
+        producer: 'cascade', door: 'noteSkipped', module: 'tissue', reason: 'tissue-sample-not-loaded',
+        kind: 'with-condition',
+        when: (row) => /tissue:not-found/.test(row.cascadeSampleIds || ''),
+        why: 'the same event as the note above: the two are written together',
+    },
+    {
+        producer: 'cascade', door: 'note', module: 'tissue', reason: 'tissue-sample-unreadable',
+        kind: 'no-condition',
+        why: 'the tissue twin of `soil-sample-unreadable`, and open for the same reason: a sample that'
+            + ' arrived carrying no reading the map knows leaves no product-side sign in a row',
+    },
     {
         producer: 'cascade', door: 'note', module: 'mlsn', reason: 'soil-sample-unreadable',
         kind: 'no-condition',

@@ -200,10 +200,8 @@
             };
         },
 
-        getLastSaveTime: function() {
-            var HP = global.GilbaPersistence;
-            return HP ? HP.getLastSaveTime() : null;
-        }
+        // GH-790 (queue item 9): `getLastSaveTime` is gone with the snapshot it asked about. Its one caller
+        // was the save status above, which no longer states a time this page does not have.
     };
 
     // =========================================================================
@@ -793,18 +791,21 @@
     // SAVE STATUS
     // =========================================================================
 
+    /**
+     * GH-790 (queue item 9) — THERE IS NO LAST SAVE TO REPORT, so this line does not report one.
+     *
+     * It read the `savedAt` of the `/hub` form's snapshot, which is withdrawn: the page does not keep a copy
+     * of its own fields any more. Leaving the line would print "Not saved yet" for ever, which reads as
+     * something waiting to be saved. The project's rule for this page is the one that applies -- `/hub` is a
+     * calculation runner, and when a write path goes the control goes with it rather than the write coming
+     * back.
+     */
     function updateSaveStatus() {
         var textEl = document.getElementById('gaip-sd-save-text');
         var dotEl = document.getElementById('gaip-sd-save-dot');
         if (!textEl || !dotEl) return;
-        var lastSave = StorageAdapter.getLastSaveTime();
-        if (lastSave) {
-            textEl.textContent = 'Saved ' + formatRelativeTime(lastSave);
-            dotEl.classList.remove('gaip-sd-saving');
-        } else {
-            textEl.textContent = 'Not saved yet';
-            dotEl.classList.remove('gaip-sd-saving');
-        }
+        textEl.textContent = '';
+        dotEl.classList.remove('gaip-sd-saving');
     }
 
     function showSaving() {

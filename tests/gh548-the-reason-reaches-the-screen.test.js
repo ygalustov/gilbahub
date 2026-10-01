@@ -70,12 +70,25 @@ describe('GH-548 — the words live in one place', () => {
     test('no asset carries a second copy of a reason sentence', () => {
         const phrases = (PHP.match(/=> '([^']{25,})'/g) || []).map((m) => m.replace(/^=> '|'$/g, ''));
         expect(phrases.length).toBeGreaterThan(5);
+        /**
+         * GH-792 (queue item 79) — THE ONE NAMED COPY STOPPED BEING A COPY, AND THE REASON IS A MEASUREMENT.
+         *
+         * "No water quality data available." stood both in the composer and in `gilba-water-interpretation.js`,
+         * and was listed here as a named boundary. The composer no longer holds it: the verdict card of the
+         * water section draws only when its entry carries an `observation`, and the `NO_DATA` entry carries
+         * `null`, so the composer's sentence for that place was never printed anywhere. It was removed from
+         * the table, which leaves that module as the ONLY place the sentence lives -- one place, not a second
+         * copy. The list is empty on purpose; the set still prints what it looked at, so an empty list cannot
+         * be mistaken for a check that found nothing to look at.
+         */
+        const NAMED_OUTSIDE_THE_PAGES = [];
         const copies = [];
         ALL_ASSETS.forEach(([file, src]) => {
             const code = codeOnly(src);
             phrases.forEach((p) => { if (code.includes(p)) copies.push(file + ' :: ' + p.slice(0, 40)); });
         });
-        expect(copies).toEqual([]);
+        process.stdout.write('[gh548] copies found: ' + JSON.stringify(copies) + '\n');
+        expect(copies).toEqual(NAMED_OUTSIDE_THE_PAGES);
     });
 
     test('the browser looks the code up rather than phrasing it', () => {
@@ -174,11 +187,20 @@ describe('GH-548 — annual nitrogen comes from the run or is not shown', () => 
     test('a result without annualDemand says so instead of printing numbers', () => {
         const idx = SOIL.indexOf('function renderAnnualRequirements(sn)');
         expect(idx).toBeGreaterThan(-1);
-        const body = SOIL.slice(idx, idx + 900);
+        // GH-792: the window is measured from the two landmarks it must contain rather than guessed at 900
+        // characters -- the ask moved further in when the sentence left the page, and a short window would
+        // have reported the ask as absent.
+        const body = SOIL.slice(idx, SOIL.indexOf('ANNUAL_NUTS', idx) + 40);
         expect(body).toMatch(/if \(!demand\)/);
-        expect(body).toMatch(/did not produce them/);
+        /**
+         * GH-792 (queue item 79): the sentence is the composer's now, so what this case asserts is that the
+         * page ASKS for it -- by the place key the composer declares -- instead of holding the words. The
+         * sentence itself is asserted where it lives, against the composer's answer, in
+         * `tests/gh792-…`; a copy of it here would be this file agreeing with a copy rather than checking.
+         */
+        expect(body).toMatch(/GilbaEmptySection[\s\S]*soilNutrition\.annualRequirements/);
         // and it does not fall through to the cards
-        expect(body.indexOf('did not produce them')).toBeLessThan(body.indexOf('ANNUAL_NUTS'));
+        expect(body.indexOf('annualRequirements')).toBeLessThan(body.indexOf('ANNUAL_NUTS'));
     });
 });
 
