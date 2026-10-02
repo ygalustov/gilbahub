@@ -131,13 +131,24 @@
      * bubble phase FALSE of the time. So `_siteChangedAfterStart` could not become true, and the
      * safety net reported by `siteDisagreement` as `siteChangedDuringRun` had never once fired.
      *
+     * GH-828 — THE NET ARMS ONLY AFTER AN EVENT HAS NAMED THE RUN'S OWN SITE. Once it could hear,
+     * it fired on a fresh browser on every site: the sample layer starts on `'default'` and
+     * announces its switch to the run's site, and that first announcement names another site.
+     * An event before the run's site was named is the page settling, not a switch.
+     *
      * The case this catches and nothing else can: a frame switched `A -> X -> A` mid-run has
      * computed part of one site and part of another, and by the time the result is filed both
      * reporters name `A` again.
      */
+    var _runSiteNamed = false;
     try {
         document.addEventListener('gaip:site-changed', function (e) {
-            if (_foreignSiteChange(e && e.detail, _runIntent)) _siteChangedAfterStart = true;
+            var detail = e && e.detail;
+            if (_runIntent && detail && detail.siteId && String(detail.siteId) === String(_runIntent.siteId)) {
+                _runSiteNamed = true;
+            } else if (_runSiteNamed && _foreignSiteChange(detail, _runIntent)) {
+                _siteChangedAfterStart = true;
+            }
         });
     } catch (e) { /* no document to listen on; the comparison below still runs */ }
 

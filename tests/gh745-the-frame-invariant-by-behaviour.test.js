@@ -53,10 +53,10 @@ function exposeRunner() {
 }
 
 /**
- * One run of the frame. `rendered` is the site the document says it was built for; `changeTo`,
- * when given, is a site-change event dispatched after the run has started.
+ * One run of the frame. `rendered` is the site the document says it was built for; `events`,
+ * when given, are site-change events dispatched in order after the run has started (GH-828).
  */
-async function runFrame({ rendered, context, changeTo }) {
+async function runFrame({ rendered, context, events }) {
     const calls = [];
     const bench = load({ expose: exposeRunner() });
     bench.ctx.fetch = (url, init) => {
@@ -82,11 +82,12 @@ async function runFrame({ rendered, context, changeTo }) {
     }
     await computeAll(bench, { climateMetrics: { daily: {}, hourly: {} } });
 
-    if (changeTo && bench.ctx.document && typeof bench.ctx.document.dispatchEvent === 'function') {
+    (events || []).forEach((siteId) => {
+        expect(typeof bench.ctx.document.dispatchEvent).toBe('function');
         bench.ctx.document.dispatchEvent(new bench.ctx.CustomEvent('gaip:site-changed', {
-            detail: { siteId: changeTo },
+            detail: { siteId },
         }));
-    }
+    });
 
     try {
         await bench.ctx.__gh745_write();
@@ -179,16 +180,44 @@ describe('GH-745 — the run frame, watched rather than read', () => {
         expect(r.body.site_id).toBe('site-A');
     });
 
-    test('a site change arriving mid-run stops the write — the net of GH-720 seen from the other end', async () => {
-        const r = await runFrame({ rendered: 'site-A', changeTo: 'site-X' });
-        process.stdout.write('[gh745] frame switched mid-run — exits '
-            + JSON.stringify(r.exits.map((e) => e.type + ':' + ((e.extra && e.extra.reason) || '')))
-            + ' | result writes ' + r.wroteResult
-            + ' | changed during run ' + JSON.stringify(r.exits.map((e) => e.extra && e.extra.detail
-                && e.extra.detail.siteChangedDuringRun)) + '\n');
+    /**
+     * GH-828 — THE NET ARMS ONLY AFTER AN EVENT HAS NAMED THE RUN'S OWN SITE.
+     *
+     * On a fresh browser the sample layer starts on `'default'` and announces the switch to the
+     * run's site; that first announcement named another site and refused every run, on every site.
+     * An event that arrives before the run's site was named is the page settling, not a switch.
+     */
+    const caseOf = (r) => ({
+        writes: r.wroteResult,
+        changedDuringRun: r.exits.filter((e) => e.extra && e.extra.detail)
+            .map((e) => e.extra.detail.siteChangedDuringRun),
+        exits: r.exits.map((e) => e.type + ':' + ((e.extra && e.extra.reason) || '')),
+    });
 
-        expect(r.wroteResult).toBe(0);
-        expect(r.exits.some((e) => e.extra && e.extra.detail
-            && e.extra.detail.siteChangedDuringRun === true)).toBe(true);
+    test("GH-828: 'default' -> A, the page settling on the run's site, does not stop the write", async () => {
+        const r = caseOf(await runFrame({ rendered: 'site-A', events: ['default', 'site-A'] }));
+        process.stdout.write("[gh828] 'default' -> A: " + JSON.stringify(r) + '\n');
+
+        expect(r).toEqual({ writes: 1, changedDuringRun: [], exits: r.exits });
+        expect(r.exits.filter((e) => /site-mismatch/.test(e))).toEqual([]);
+    });
+
+    test('GH-828: B -> A, another site named before the run\u2019s own, does not stop the write', async () => {
+        const r = caseOf(await runFrame({ rendered: 'site-A', events: ['site-B', 'site-A'] }));
+        process.stdout.write('[gh828] B -> A: ' + JSON.stringify(r) + '\n');
+
+        expect(r).toEqual({ writes: 1, changedDuringRun: [], exits: r.exits });
+        expect(r.exits.filter((e) => /site-mismatch/.test(e))).toEqual([]);
+    });
+
+    test('a site change arriving mid-run stops the write — A -> X -> A, the net of GH-720 seen from the other end', async () => {
+        // GH-828: the run's site is named first, so the switch to X is a switch; returning to A
+        // before the result is filed leaves both reporters naming A, and only the net can tell.
+        const r = caseOf(await runFrame({ rendered: 'site-A', events: ['site-A', 'site-X', 'site-A'] }));
+        process.stdout.write('[gh828] A -> X -> A: ' + JSON.stringify(r) + '\n');
+
+        expect(r.writes).toBe(0);
+        expect(r.changedDuringRun).toEqual([true]);
+        expect(r.exits.filter((e) => /site-mismatch/.test(e))).toEqual(['gilba:analysis-failed:site-mismatch']);
     });
 });
