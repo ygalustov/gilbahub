@@ -816,8 +816,10 @@
                     // GH-684: the cultivars on offer are those of the species. Keeping a cultivar
                     // chosen for another species would store a pairing that does not exist.
                     self.d.variety = null;
-                    var note = c.querySelector('.wiz-method-note');
-                    if (note) note.outerHTML = self._methodNote();
+                    // The cultivar list is built from the species, so the step is drawn again for
+                    // the new one. Updating only the method note left the list of the previous
+                    // species on screen -- Generic alone on first entry -- until another field redrew it.
+                    self._render();
                 });
             }
 
