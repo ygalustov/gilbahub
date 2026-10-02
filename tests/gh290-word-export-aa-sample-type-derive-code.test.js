@@ -65,12 +65,12 @@ describe('GH-290 — word-export.js AA sample-type resolution tries deriveCode()
         const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
         expect(code).not.toMatch(/document\.querySelector\(['"]\.gaip-aa-sample-type['"]\)/);
         expect(code).not.toMatch(/soilInput\.aaSampleType/);
+        // GH-823: after the derivation there is no default certificate any more -- a site that derives none is
+        // judged by its texture band, and which of the two it is, is recorded beside it.
         const deriveIdx = src.indexOf('window.HillLabsSampleTypes.deriveCode(');
-        const defaultIdx = src.indexOf("if (!aaSampleType) aaSampleType = 'S277';");
+        const sourceIdx = src.indexOf("data.soil.aaSampleTypeSource = aaSampleType ? 'derived' : 'texture-band';");
         expect(deriveIdx).toBeGreaterThan(-1);
-        expect(defaultIdx).toBeGreaterThan(deriveIdx);
-        // and whether the code was derived or defaulted is recorded beside it
-        expect(src).toMatch(/data\.soil\.aaSampleTypeSource = aaSampleType \? 'derived' : 'default';/);
+        expect(sourceIdx).toBeGreaterThan(deriveIdx);
     });
 
     test('the derived code is only applied when non-null (does not clobber an already-resolved aaSampleType)', () => {
@@ -80,7 +80,10 @@ describe('GH-290 — word-export.js AA sample-type resolution tries deriveCode()
         expect(body).toMatch(/if\s*\(_derivedAaCode\)\s*aaSampleType\s*=\s*_derivedAaCode;/);
     });
 
-    test('regression — the hardcoded S277 default line itself is untouched (still the final fallback)', () => {
-        expect(src).toMatch(/if \(!aaSampleType\) aaSampleType = 'S277';/);
+    // GH-823: the owner's decision (a) removed the S277 stand-in; this case, which held it in place, now holds it out.
+    test('the hardcoded S277 default is gone: no certificate is stood in for a site that derives none', () => {
+        const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+        expect(code).not.toMatch(/aaSampleType = 'S277'/);
+        expect(code).not.toMatch(/getRanges\('S277'\)/);
     });
 });

@@ -180,13 +180,13 @@ class GH371CoordinateInvalidationTest extends TestCase
             'synced_at' => now(),
         ]);
 
-        // e.g. the zone-editor PATCH (attributes_json only) -- see
-        // settings-init.js line ~862 -- never touches latitude/longitude at all.
+        // e.g. the Data page's "Add zone" PATCH, which never touches latitude/longitude at all.
+        // GH-818: the body used to be the old list of zone names, which the route now refuses.
         $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
             ->patchJson('/api/sites/'.$site->id, [
                 '_token' => 'test-token',
-                'attributes_json' => ['zones' => ['Green 1']],
+                'add_zone' => 'Green 1',
             ])
             ->assertOk();
 

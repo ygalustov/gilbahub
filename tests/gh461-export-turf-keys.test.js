@@ -208,7 +208,9 @@ const EMPTY_DEFAULTS = {
     'turf.effectiveVariety': { value: 'generic', awaits: '10.8(7)', why: 'the variety beside it, and the key the traits table is looked up by' },
     'turf.speciesDisplay': { value: 'Not specified', awaits: '10.8(7)', why: 'the species line of the site block' },
     'soil.isC3Species': { value: true, awaits: '10.8(7)', why: 'with no species the soil narrative is written for a cool-season sward, and it chooses the tissue table below' },
-    'soil.speciesName': { value: 'cool-season grass', awaits: '10.8(7)', why: 'the words the pH and CEC narrative uses for the sward' },
+    // GH-810 (queue item 3gy, delivery 3): 'soil.speciesName' stood here with the substituted words
+    // 'cool-season grass'. They are gone -- a site with no species now carries no species name here --
+    // so this field is no longer a documented default, and a null is not a leaf the run produces.
     'tissue.rangeSpecies': { value: 'turf', awaits: '10.8(7)', why: 'what the tissue table says its ranges are for' },
     'varietyTraits.lookupSpecies': { value: 'Not specified', awaits: '10.8(7)', why: 'the species the variety traits table is asked about' },
     'varietyTraits.lookupVariety': { value: 'generic', awaits: '10.8(7)', why: 'the variety it is asked about' }
@@ -296,11 +298,73 @@ const EMPTY_TABLES = {
             B: { lo: 9, hi: 17, unit: 'ppm' }
         }
     },
+    /**
+     * GH-808 (queue item 3gy): the report's one verdict per soil element. It is pinned as a whole
+     * because it is DERIVED -- from the readings of this report's own sample, the certificate's
+     * thresholds and the nutrition programme -- so on an empty run it must say "not assessed" about
+     * every element and nothing else. A verdict that starts carrying a status or a product on a run
+     * with no readings at all is the defect this ticket removes, arriving from the other side.
+     */
+    '_soilVerdicts': {
+        why: 'the one verdict per soil element, built by _buildSoilVerdicts from this report\'s own sample; on an empty run every element is unassessed and the lime verdict is unmeasured',
+        value: {
+            elements: {
+                P: { nutrient: 'P', name: 'Phosphorus', displayName: 'Phosphorus (P)', unit: 'ppm',
+                     value: null, threshold: { min: 21, label: '21' }, status: 'not_assessed',
+                     band: null, decision: null, deficitPpm: null, whyNot: 'the sample reports no P' },
+                K: { nutrient: 'K', name: 'Potassium', displayName: 'Potassium (K)', unit: 'ppm',
+                     value: null, threshold: { min: 37, label: '37' }, status: 'not_assessed',
+                     band: null, decision: null, deficitPpm: null, whyNot: 'the sample reports no K' },
+                Ca: { nutrient: 'Ca', name: 'Calcium', displayName: 'Calcium (Ca)', unit: 'ppm',
+                     value: null, threshold: { min: 331, label: '331' }, status: 'not_assessed',
+                     band: null, decision: null, deficitPpm: null, whyNot: 'the sample reports no Ca' },
+                Mg: { nutrient: 'Mg', name: 'Magnesium', displayName: 'Magnesium (Mg)', unit: 'ppm',
+                     value: null, threshold: { min: 47, label: '47' }, status: 'not_assessed',
+                     band: null, decision: null, deficitPpm: null, whyNot: 'the sample reports no Mg' },
+                S: { nutrient: 'S', name: 'Sulphur', displayName: 'Sulphur (S)', unit: 'ppm',
+                     value: null, threshold: { min: 7, label: '7' }, status: 'not_assessed',
+                     band: null, decision: null, deficitPpm: null, whyNot: 'the sample reports no S' }
+            },
+            decisions: [],
+            // GH-809: the magnesium decision's outcome, read by calcium, sulphur and lime. No
+            // magnesium reading means no decision, and so no dolomite.
+            dolomiteComing: false,
+            // GH-810: the lime verdict is now the pH verdict, by grass. With no species on this run
+            // the basis rule answers C3, and the species stays null rather than a substituted name.
+            pH: { status: 'not_measured', basis: 'C3' },
+            methodology: 'MLSN', methodDisplayName: 'MLSN',
+            isAA: false, isSLAN: false, isRangeBased: false,
+            surfaceType: null, hemisphere: 'south'
+        }
+    },
+    /**
+     * GH-810 (queue item 3gy, delivery 3): the water's one assessment and the gypsum it calls for.
+     * Pinned whole for the same reason as the soil verdict: on a run with no water every indicator
+     * is unassessed and gypsum is `none`. The basis is C3 here because the basis rule answers C3 for
+     * any grass that is not warm-season, including none -- named, because it is a choice made on a
+     * missing input; the species is a required input, so a real report does not reach it.
+     */
+    '_gypsumVerdict': {
+        why: 'the one EC/SAR assessment and the gypsum verdict, built by _buildGypsumVerdict from this report\'s own water, turf and soil; on an empty run nothing is assessed and gypsum is none',
+        value: {
+            basis: 'C3',
+            set: { EC: { warning: 1.5, critical: 2.0 }, SAR: { warning: 4, critical: 6 } },
+            EC: { value: null, level: null },
+            SAR: { value: null, level: null },
+            bicarbonate: { soilWater: false, performance: false, rsc: false },
+            sodium: { cationBalance: false, highCEC: false, naSat: null },
+            sourceChange: false,
+            gypsum: { level: 'none', causes: [] }
+        }
+    },
     'water.thresholds': {
         why: 'the irrigation-water thresholds, the same for every site and written as literals in word-export.js',
         value: {
             EC: { safe: 0.75, marginal: 1.5, max: 3, unit: 'dS/m' },
-            SAR: { safe: 3, marginal: 6, max: 12 },
+            // GH-810: `marginal` is the boundary above which the table turns red, and it is now set 2's
+            // warning for this report's basis. With no species on this run the basis rule answers C3
+            // (not warm-season), so it is C3's 4.
+            SAR: { safe: 3, marginal: 4, max: 12 },
             Na: { safe: 70, marginal: 150, max: 200, unit: 'ppm' },
             Cl: { safe: 100, marginal: 200, max: 350, unit: 'ppm' },
             HCO3: { safe: 90, marginal: 180, max: 300, unit: 'ppm' },

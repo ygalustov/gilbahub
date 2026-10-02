@@ -77,7 +77,15 @@ describe('GH-263 — soil texture / methodology snapshot reaches mlsnEngine()', 
             const objStart = src.indexOf('serverSnap.allSites[siteId][sample.sample_type][sampleId] = {');
             const objEnd = src.indexOf('};', objStart);
             const obj = src.slice(objStart, objEnd);
-            expect(obj).toMatch(/label:\s*pld\._label \|\| pld\.label \|\| sampleId/);
+            /**
+             * GH-803 (queue item "Zones", stage C3): the third branch is `nameOrNothing()` and no longer the
+             * store's own key. A sample nobody named used to arrive in the store carrying its key as a
+             * name -- the substitution the owner ruled out on 22.09.2026 and `GH-798` removed
+             * everywhere else. The two branches that carry a real name are untouched, which is what
+             * this case is about; the empty answer now comes from `GaipZoneKey.UNNAMED`, so the screen
+             * and the document cannot disagree about it.
+             */
+            expect(obj).toMatch(/label:\s*pld\._label \|\| pld\.label \|\| nameOrNothing\(\)/);
             expect(obj).toMatch(/date:\s*sample\.lab_date \|\| sample\.sample_date \|\| null/);
             expect(obj).toMatch(/values:\s*pld/);
         });

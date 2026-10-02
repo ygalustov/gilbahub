@@ -28,6 +28,7 @@ use App\Http\Controllers\SprayLogController;
 use App\Http\Controllers\StadiumAnalysisController;
 use App\Http\Controllers\StadiumVenueProfileController;
 use App\Http\Controllers\UsersController;
+use App\Http\Controllers\ZoneController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
@@ -122,6 +123,12 @@ Route::middleware(['auth', 'active', \App\Http\Middleware\EnsureSiteIsSetUp::cla
         // GH-439: the only way a gaip config changes -- send the change, not
         // the state. The whole-object PUT below still answers for as long as
         // the hub pages send one; it is guarded, and goes away with them.
+        // GH-801 (queue item "Zones", stage C2): what the Zones tab did -- created,
+        // renamed, typed, deleted -- rather than the list of names the browser
+        // held. The tab used to PATCH the site itself with that whole list, which
+        // is the one rule this product does not bend: send the change, not the
+        // state. All of a save is applied or none of it is.
+        Route::patch('/sites/{site}/zones', [ZoneController::class, 'update'])->name('sites.zones.update');
         Route::patch('/sites/{site}/config/gaip', [SiteController::class, 'patchConfig'])->name('sites.config.patch');
         Route::put('/sites/{site}/config/{namespace?}', [SiteController::class, 'updateConfig'])->name('sites.config.update');
 

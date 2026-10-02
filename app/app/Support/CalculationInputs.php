@@ -366,12 +366,129 @@ class CalculationInputs
     {
         $out = [];
         foreach (self::keys() as $key) {
+            /**
+             * GH-804 (queue item "Zones", part 1) — THE INPUTS OF A SITE, and only those.
+             *
+             * Every reader of this answer asks "does THIS SITE hold it": the setup lock, the wizard's
+             * answers, the `Required` marks of Settings, the server's refusal at a Settings place. An
+             * input of scope `zone` is one value per zone, a site may have none, and a site with no
+             * zones owes nothing — so it is answered where the zones are in hand (the Zones tab's own
+             * door) and not here. Without this line the one entry of that scope would have read as
+             * missing on every site and the lock would have closed all 24 of them.
+             */
+            if (self::scopeOf($key) !== 'site') {
+                continue;
+            }
             if (self::isRequired($key, $turfType) === true) {
                 $out[] = $key;
             }
         }
 
         return $out;
+    }
+
+    /**
+     * GH-804 — WHAT AN INPUT BELONGS TO: a `site` (every entry but one) or a `zone`.
+     *
+     * Declared rather than guessed, and `site` is the answer when the entry says nothing — the list was
+     * written entirely of site inputs and an entry that means otherwise says so.
+     */
+    public static function scopeOf(string $key): string
+    {
+        $scope = self::entry($key)['scope'] ?? 'site';
+
+        return is_string($scope) && $scope !== '' ? $scope : 'site';
+    }
+
+    /** GH-804: every input of this scope, in declaration order. */
+    public static function keysOfScope(string $scope): array
+    {
+        return array_values(array_filter(self::keys(), fn ($key) => self::scopeOf($key) === $scope));
+    }
+
+    /**
+     * GH-804 — IS A TYPE REQUIRED OF A ZONE IN THIS PLACE?
+     *
+     * The question names the place because the answer differs by the owner's decision of 01.10.2026:
+     * the Zones tab asks for it, and the Data page and the import do not ("we do not change the add
+     * interface"). A place named in neither list answers false — an obligation nobody declared is not
+     * one this reader invents.
+     */
+    public static function zoneTypeIsRequiredIn(string $where): bool
+    {
+        $entry = self::zoneTypeEntry();
+        if (($entry['required'] ?? false) !== true) {
+            return false;
+        }
+
+        return in_array($where, (array) ($entry['filledIn'] ?? []), true);
+    }
+
+    /**
+     * GH-804 — is the obligation judged on the RESULT of a save rather than on the rows it mentions?
+     *
+     * `result` is the owner's variant (b) and the reason the way out of the refusal is never shut.
+     */
+    public static function zoneTypeIsJudgedOnTheResult(): bool
+    {
+        return (self::zoneTypeEntry()['judgedOn'] ?? null) === 'result';
+    }
+
+    /**
+     * GH-804 — the words a refusal and a mark use for the zone's type.
+     *
+     * NO SUBSTITUTE. `ZoneTypes::typeFieldLabel` answered `'the zone type'` when the declaration carried
+     * no label, which is a word put where a declaration is missing — the shape this queue item exists to
+     * remove. A record with no label is a defect in the record and says so.
+     */
+    public static function zoneTypeLabel(): string
+    {
+        return self::labelOrFail('zones.zoneType');
+    }
+
+    /**
+     * GH-804 — THE WORDS OF AN INPUT, OR AN EXCEPTION. There is no third answer and no substitute.
+     *
+     * `label()` above answers null for an input the list does not name or names without words, which is
+     * right for a caller that can print nothing. A caller that must print SOMETHING — a refusal, a mark
+     * beside a field — cannot, and the old reader of the zone type answered `'the zone type'` in that
+     * case: a word standing where a declaration is missing, which is the shape this queue item removes.
+     * An input with no label is a defect in the list and says so here.
+     */
+    public static function labelOrFail(string $key): string
+    {
+        $label = self::label($key);
+        if ($label === null) {
+            throw new \RuntimeException('calculation-inputs.schema.json: `'.$key.'` has no label');
+        }
+
+        return $label;
+    }
+
+    /**
+     * GH-804 — what a screen needs to draw the obligation on a zone: the words, whether this place asks
+     * for it, and the place's own name.
+     *
+     * @return array{label: string, required: bool, place: ?string}
+     */
+    public static function zoneTypeFieldForThePage(string $where): array
+    {
+        return [
+            'label' => self::zoneTypeLabel(),
+            'required' => self::zoneTypeIsRequiredIn($where),
+            'place' => self::placeFor('zones.zoneType'),
+        ];
+    }
+
+    /** @return array<string,mixed> the entry, or an exception: a missing one is not an empty one. */
+    private static function zoneTypeEntry(): array
+    {
+        $entry = self::entry('zones.zoneType');
+        if (! is_array($entry)) {
+            throw new \RuntimeException('calculation-inputs.schema.json declares no `zones.zoneType`');
+        }
+
+        return $entry;
     }
 
     /**

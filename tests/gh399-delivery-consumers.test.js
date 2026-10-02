@@ -116,7 +116,18 @@ describe('GH-399 — every consumer calls the module', () => {
         // rows, or the decisions are computed against a programme containing
         // the very products they produce.
         const accAt = src.indexOf('_deliveryMod.accumulate(');
-        const mergeAt = src.indexOf('_computeAmendmentDecision');
+        // GH-808 (queue item 3gy): the combined export no longer calls the decision function
+        // itself -- it builds the report's one verdict (`_buildSoilVerdicts`), which calls it. The
+        // order this case is about has not changed: the catalogue programme must be accumulated
+        // before the verdict is built, or the amendments are visible to the programme-delivery
+        // probe that decides whether to suppress them.
+        //
+        // Named rather than quietly left: this is still a check on the TEXT of the file, not on a
+        // consequence. The consequence -- an amendment suppressed by its own product -- is
+        // observable only through a combined-export run, and there is no harness for one. The
+        // single export's half of it is asserted as a consequence in
+        // tests/gh808-one-verdict-per-soil-element.test.js, case 7.
+        const mergeAt = src.indexOf('_buildSoilVerdicts');
         expect(accAt).toBeGreaterThan(-1);
         expect(mergeAt).toBeGreaterThan(accAt);
     });

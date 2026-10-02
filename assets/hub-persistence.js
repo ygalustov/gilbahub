@@ -2285,7 +2285,20 @@
                             if (typeof v === 'number' && v > 0) ppm[nut] = v;
                         });
                         if (!Object.keys(ppm).length) return; // skip empty samples
-                        var zoneKey = _zoneKeyOf(s, sid);
+                        /**
+                         * GH-803 (queue item "Zones", stage C3) — THE ZONE OF THE SAMPLE, BY IDENTITY.
+                         *
+                         * The map that becomes the result's zone list was keyed by the sample's name
+                         * with its dates stripped off, so a renamed zone split into two bars and two
+                         * spellings of one green were two zones. Keyed by the zone's own id, a rename
+                         * moves nothing. A sample with no zone keys on itself, as it did before (the
+                         * store key is its fallback): it is never merged with a zoned sample by name.
+                         *
+                         * The CAPTION of an entry does not change: it is the sample's own label, or
+                         * nothing, exactly as below. A zone's name is printed in one place in this
+                         * stage, and that place is the caption of a trend series.
+                         */
+                        var zoneKey = (s && s.zoneId) ? ('zone:' + s.zoneId) : _zoneKeyOf(s, sid);
                         var date    = s.date || '';
                         // Keep only the most recent sample per zone
                         if (!_zoneMap[zoneKey] || date > (_zoneMap[zoneKey].date || '')) {
@@ -2295,6 +2308,10 @@
                                 // an identifier; a field called `id` that is a
                                 // position is worse than no field.
                                 id:    (s && s.id) || null,
+                                // GH-803: the zone this entry is of, so a reader of a stored row knows
+                                // the identity and not only the name. Null is an answer: the sample had
+                                // no zone (water, or a zone since deleted).
+                                zoneId: (s && s.zoneId) || null,
                                 // No name is no name. Nothing is put here in its
                                 // place — not the key above, not a number.
                                 label: (s && typeof s.label === 'string' && s.label.trim()) || null,

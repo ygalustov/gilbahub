@@ -32,7 +32,19 @@
         return 'outdated';
     };
 
-    // Zone CSS class
+    // GH-822: the plaque of a sample row is coloured by its zone's type key, not by the first letter of a word.
+    $zoneTypeClass = function(?string $type): string {
+        return match($type) {
+            null => 'zone-default',
+            'green' => 'zone-greens',
+            'fairway' => 'zone-fairways',
+            'tee' => 'zone-tees',
+            'rough' => 'zone-roughs',
+            default => 'zone-other',
+        };
+    };
+
+    // Zone CSS class (the spray log's zone words)
     $zoneClass = function(?string $zone): string {
         if (!$zone || $zone === '—') return 'zone-default';
         return match(strtolower(substr(trim($zone), 0, 1))) {
@@ -503,7 +515,8 @@
                     @foreach($rows as $row)
                     @php
                         $pl     = $row->payload ?? [];
-                        $zone   = $pVal($pl, 'zone', 'Zone') ?? '—';
+                        $zt     = $zoneOf[$row->id] ?? ['zone' => null, 'zoneType' => null, 'zoneHint' => null]; // GH-822: by the link
+                        $zone   = $zt['zone'] ?? '—';
                         $name   = $pVal($pl, '_label') ?: $row->client_uid ?: $row->lab_ref ?: '—';
                         $source = $pVal($pl, '_source');
                         $labId  = $row->lab_ref ?: null;
@@ -511,7 +524,7 @@
                         $ph     = $pVal($pl, 'pH', 'ph', 'PH');
                         $k      = $pVal($pl, 'K', 'k', 'potassium', 'Potassium');
                         $p      = $pVal($pl, 'P', 'p', 'phosphorus', 'Phosphorus');
-                        $rowData = ['id'=>$row->id,'section'=>'soil','name'=>$name,'source'=>$source,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
+                        $rowData = ['id'=>$row->id,'section'=>'soil','name'=>$name,'source'=>$source,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'zoneType'=>$zt['zoneType'],'zoneHint'=>$zt['zoneHint'],'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="soil"
                         data-row="{{ json_encode($rowData) }}">
@@ -520,7 +533,7 @@
                             <div class="dat-sample-name">{{ $name }}</div>
                             @if($labId)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
                         </td>
-                        <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
+                        <td><span class="dat-zone-tag {{ $zoneTypeClass($zt['zoneType']) }}">{{ $zone }}</span></td>
                         <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
@@ -562,7 +575,8 @@
                     @foreach($rows as $row)
                     @php
                         $pl     = $row->payload ?? [];
-                        $zone   = $pVal($pl, 'zone', 'Zone') ?? '—';
+                        $zt     = $zoneOf[$row->id] ?? ['zone' => null, 'zoneType' => null, 'zoneHint' => null]; // GH-822: by the link
+                        $zone   = $zt['zone'] ?? '—';
                         $name   = $pVal($pl, '_label') ?: $row->client_uid ?: $row->lab_ref ?: '—';
                         $source = $pVal($pl, '_source');
                         $labId  = $row->lab_ref ?: null;
@@ -570,7 +584,7 @@
                         $n      = $pVal($pl, 'N', 'n', 'nitrogen', 'Nitrogen', 'N_total');
                         $k      = $pVal($pl, 'K', 'k', 'potassium', 'Potassium');
                         $p      = $pVal($pl, 'P', 'p', 'phosphorus', 'Phosphorus');
-                        $rowData = ['id'=>$row->id,'section'=>'tissue','name'=>$name,'source'=>$source,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
+                        $rowData = ['id'=>$row->id,'section'=>'tissue','name'=>$name,'source'=>$source,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'zoneType'=>$zt['zoneType'],'zoneHint'=>$zt['zoneHint'],'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="tissue"
                         data-row="{{ json_encode($rowData) }}">
@@ -579,7 +593,7 @@
                             <div class="dat-sample-name">{{ $name }}</div>
                             @if($labId)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
                         </td>
-                        <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
+                        <td><span class="dat-zone-tag {{ $zoneTypeClass($zt['zoneType']) }}">{{ $zone }}</span></td>
                         <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
@@ -674,14 +688,15 @@
                     @foreach($rows as $row)
                     @php
                         $pl     = $row->payload ?? [];
-                        $zone   = $pVal($pl, 'zone', 'Zone') ?? '—';
+                        $zt     = $zoneOf[$row->id] ?? ['zone' => null, 'zoneType' => null, 'zoneHint' => null]; // GH-822: by the link
+                        $zone   = $zt['zone'] ?? '—';
                         $name   = $pVal($pl, '_label') ?: $row->client_uid ?: $row->lab_ref ?: '—';
                         $source = $pVal($pl, '_source');
                         $labId  = $row->lab_ref ?: null;
                         $date   = $row->lab_date?->toDateString() ?? $row->sample_date?->toDateString();
                         $om     = $pVal($pl, 'OM', 'om', 'organic_matter', 'OrganicMatter', 'LOI');
                         $thatch = $pVal($pl, 'thatch', 'Thatch', 'THATCH');
-                        $rowData = ['id'=>$row->id,'section'=>'loi','name'=>$name,'source'=>$source,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
+                        $rowData = ['id'=>$row->id,'section'=>'loi','name'=>$name,'source'=>$source,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'zoneType'=>$zt['zoneType'],'zoneHint'=>$zt['zoneHint'],'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="loi"
                         data-row="{{ json_encode($rowData) }}">
@@ -690,7 +705,7 @@
                             <div class="dat-sample-name">{{ $name }}</div>
                             @if($labId)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
                         </td>
-                        <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
+                        <td><span class="dat-zone-tag {{ $zoneTypeClass($zt['zoneType']) }}">{{ $zone }}</span></td>
                         <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
@@ -1549,6 +1564,8 @@ window.GAIP_computeSensorStatus = function () {
     var CSRF         = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
     var _editingId = null;
+    // GH-805: the payload the server answered with for the sample being edited (see datOpenEditModal).
+    var _editingBaseline = {};
 
     // ── CSV field mappings (column header → payload key) ─────────
     var CSV_MAPS = {
@@ -1631,7 +1648,6 @@ window.GAIP_computeSensorStatus = function () {
         soil: {
             meta: [
                 { id: 'uid',    label: 'Zone name', type: 'zone-name', placeholder: 'e.g. Green 1' },
-                { id: 'zone',   label: 'Zone type',        type: 'zone' },
                 { id: 'date',   label: 'Date Collected',   type: 'date' },
                 { id: 'lab',    label: 'Lab Name',         placeholder: 'Optional' },
                 { id: 'labref', label: 'Lab Reference',    placeholder: 'Optional' },
@@ -1657,7 +1673,6 @@ window.GAIP_computeSensorStatus = function () {
         tissue: {
             meta: [
                 { id: 'uid',  label: 'Zone name', type: 'zone-name', placeholder: 'e.g. Greens clipping' },
-                { id: 'zone', label: 'Zone type',        type: 'zone' },
                 { id: 'date', label: 'Date Collected',   type: 'date' },
                 { id: 'lab',  label: 'Lab Name',         placeholder: 'Optional' },
             ],
@@ -1703,7 +1718,6 @@ window.GAIP_computeSensorStatus = function () {
         loi: {
             meta: [
                 { id: 'uid',  label: 'Zone name', type: 'zone-name', placeholder: 'e.g. Green centre' },
-                { id: 'zone', label: 'Zone type',        type: 'zone' },
                 { id: 'date', label: 'Date Collected',   type: 'date' },
                 { id: 'lab',  label: 'Lab Name',         placeholder: 'Optional' },
             ],
@@ -1911,19 +1925,9 @@ window.GAIP_computeSensorStatus = function () {
             if (key === '__lab')  { lab  = val; return; }
             payload[key] = val;
         });
-        // Store zone name in _label and auto-detect zone type from it
+        // Store zone name in _label. GH-822: no zone type is guessed from it -- the type is the zone's own.
         if (uid && ['soil','tissue','loi'].indexOf(section) !== -1) {
             payload['_label'] = uid;
-            if (!payload['zone']) {
-                var u = uid.toLowerCase();
-                var zoneType = u.indexOf('green')   !== -1 ? 'Greens'
-                             : u.indexOf('fairway') !== -1 ? 'Fairways'
-                             : u.indexOf('tee')     !== -1 ? 'Tees'
-                             : u.indexOf('rough')   !== -1 ? 'Roughs'
-                             : u.indexOf('surround')!== -1 ? 'Surrounds'
-                             : null;
-                if (zoneType) payload['zone'] = zoneType;
-            }
         }
         return { payload: payload, uid: uid, date: date, lab: lab };
     }
@@ -1954,6 +1958,14 @@ window.GAIP_computeSensorStatus = function () {
 
     window.datOpenEditModal = function (data) {
         _editingId = data.id;
+        /**
+         * GH-805 (queue item "Zones", part 2): WHAT THE SERVER GAVE FOR THIS SAMPLE, kept so that the
+         * save can send the CHANGE rather than the state of the form. This window has no field for
+         * `pH_Water`, `CEC_meq100g`, `EC1_5`, `OM_Percent` or `PO4`, so sending the form's state erased
+         * them -- measured on the stand: a figure changed or vanished on 26 samples. It is a baseline
+         * for a comparison and nothing else: not one value of it is sent back.
+         */
+        _editingBaseline = (data && data.payload && typeof data.payload === 'object') ? data.payload : {};
         var modal = q('dat-add-modal');
         if (!modal) return;
         _parsedCSV = null;
@@ -2001,9 +2013,6 @@ window.GAIP_computeSensorStatus = function () {
 
         var uidEl = q('dat-f-uid');
         if (uidEl) uidEl.value = (data.name && data.name !== '—') ? data.name : (data.client_uid || '');
-
-        var zoneEl = q('dat-f-zone');
-        if (zoneEl && data.zone && data.zone !== '—') zoneEl.value = data.zone;
 
         var dateEl = q('dat-f-date');
         if (dateEl && data.date) dateEl.value = data.date;
@@ -2085,18 +2094,13 @@ window.GAIP_computeSensorStatus = function () {
     }
 
     function buildManualTab(def) {
-        var zoneOpts = ZONES.map(function(z) {
-            return '<option value="' + z + '">' + z + '</option>';
-        }).join('');
 
         // Meta fields
         var metaHTML = '<div class="dat-mf-grid">';
         def.meta.forEach(function(f) {
             metaHTML += '<div class="dat-mf-field">';
             metaHTML += '<label class="dat-mf-label">' + esc(f.label) + '</label>';
-            if (f.type === 'zone') {
-                metaHTML += '<select class="dat-mf-select" id="dat-f-' + f.id + '"><option value="">— Select zone type —</option>' + zoneOpts + '</select>';
-            } else if (f.type === 'zone-name') {
+            if (f.type === 'zone-name') {
                 if (ZONE_NAMES.length) {
                     var znOpts = ZONE_NAMES.map(function(n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
                     metaHTML += '<select class="dat-mf-select" id="dat-f-' + f.id + '"><option value="">— Select zone name —</option>' + znOpts + '</select>';
@@ -2243,20 +2247,28 @@ window.GAIP_computeSensorStatus = function () {
         }
 
         if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-        var updated = ZONE_NAMES.concat([name]);
+        // GH-818: the change, not the list. This sent the page's copy of the site's zone names plus the new
+        // one, and a zone deleted on the Zones tab while this page stood open came back from that copy. Now
+        // one name goes, and the names afterwards are the zones the server answers with.
         fetch('/api/sites/' + SITE_ID, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: JSON.stringify({ attributes_json: { zones: updated } })
+            body: JSON.stringify({ add_zone: name })
         }).then(function(res) {
             if (!res.ok) throw new Error('HTTP ' + res.status);
-            ZONE_NAMES = updated;
+            return res.json();
+        }).then(function(answer) {
+            var zones = answer && answer.data && answer.data.zones;
+            if (!Array.isArray(zones)) throw new Error('the server did not return the zones');
+            var made = zones.filter(function(z) { return String(z.name).toLowerCase() === lowerName; })[0];
+            if (!made) throw new Error('the server did not add ' + name);
+            ZONE_NAMES = zones.map(function(z) { return z.name; });
             if (sel) {
                 var opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name;
+                opt.value = made.name;
+                opt.textContent = made.name;
                 sel.appendChild(opt);
-                sel.value = name;
+                sel.value = made.name;
             }
             var inp = document.getElementById('dat-new-zone-input');
             if (inp) inp.value = '';
@@ -2406,8 +2418,7 @@ window.GAIP_computeSensorStatus = function () {
             var el = q('dat-n-' + f.id);
             if (el && el.value.trim() !== '') payload[f.id] = el.value.trim();
         });
-        var zoneEl = q('dat-f-zone');
-        if (zoneEl && zoneEl.value) payload.zone = zoneEl.value;
+        // GH-822: no zone type is asked or sent; the server links the sample to the zone its name names.
 
         var source= (q('dat-f-source') || {}).value || null;
         var uid   = (q('dat-f-uid')    || {}).value || '';
@@ -2437,6 +2448,51 @@ window.GAIP_computeSensorStatus = function () {
             payload:    payload,
             notes:      notes,
         };
+    }
+
+    /**
+     * GH-805 (queue item "Zones", part 2) — WHAT THE PERSON CHANGED, and nothing else.
+     *
+     * THREE ANSWERS PER FIELD, and the third is the one that cannot be left out:
+     *   - filled in and different from what the server gave -> the new value travels;
+     *   - filled in and the same -> nothing travels, so a field nobody touched cannot undo another
+     *     tab's edit;
+     *   - EMPTIED, where the server had a value -> `null` travels, explicitly. Without it "did not
+     *     send" and "cleared" are the same request and a cleared reading would live for ever.
+     *
+     * Compared as trimmed strings on purpose: the server answers with numbers (`120`) and a form holds
+     * text (`"120"`), and `120 !== "120"` would have made every field look edited.
+     */
+    function changedLabPayload() {
+        var def = MANUAL_FORMS[SECTION];
+        if (!def) return {};
+        var base = _editingBaseline || {};
+        var out = {};
+        var same = function (was, now) {
+            if (was == null) return now === '';
+
+            return String(was).trim() === now;
+        };
+        var consider = function (key, value) {
+            var now = (value == null ? '' : String(value).trim());
+            if (same(base[key], now)) return;              // untouched
+            if (now === '') {
+                if (Object.prototype.hasOwnProperty.call(base, key)) out[key] = null;   // cleared
+                return;
+            }
+            out[key] = now;
+        };
+
+        def.nutrients.forEach(function (f) {
+            var el = q('dat-n-' + f.id);
+            consider(f.id, el ? el.value : '');
+        });
+        var sourceEl = q('dat-f-source');
+        if (sourceEl) consider('_source', sourceEl.value);
+        var uidEl = q('dat-f-uid');
+        if (uidEl) consider('_label', uidEl.value);
+
+        return out;
     }
 
     function collectSprayData() {
@@ -2505,6 +2561,14 @@ window.GAIP_computeSensorStatus = function () {
                         if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
                         return;
                     }
+                    /**
+                     * GH-805: an edit sends the CHANGE. `collectLabData` above still answers for the
+                     * fields of the record itself (the lab, the dates, the notes) and for its own
+                     * validation; the payload it built is the state of the form, and what goes up in its
+                     * place is what differs from what the server gave -- with an emptied field as an
+                     * explicit `null`.
+                     */
+                    data.payload = changedLabPayload();
                     url    = '/api/samples/' + _editingId;
                     method = 'PATCH';
                 }
@@ -3036,18 +3100,8 @@ window.GAIP_computeSensorStatus = function () {
 
     if (!areaBtn || !modal) return;
 
-    var GROUP_LABELS = {
-        green: 'Greens', fairway: 'Fairways', tee: 'Tees', rough: 'Rough',
-        approach: 'Approaches', collar: 'Collars', bunker: 'Bunkers',
-        sports_pitch: 'Sports Pitches', goal_area: 'Goal Areas', other: 'Other'
-    };
-    var GROUP_HINTS = {
-        green: '0.04–0.09 ha typical per green',
-        fairway: '1.5–5 ha typical per fairway',
-        tee: '0.02–0.1 ha typical',
-        rough: '1–10 ha typical',
-        other: '0.5 ha default'
-    };
+    // GH-822: the groups are the zones' types as each row carries them from the server -- label and area hint
+    // from the one dictionary. The page keeps no list of labels or hints of its own.
 
     function collectRows() {
         var rows = [];
@@ -3058,24 +3112,12 @@ window.GAIP_computeSensorStatus = function () {
             var pl = d.payload || {};
             // Use zone name as display label (e.g. "Green 1"), fall back to zone type
             var displayName = (d.name && d.name !== '—') ? d.name : (d.zone && d.zone !== '—' ? d.zone : '—');
-            // Zone type: prefer payload._zone, then detect from zone string
-            var zt = (pl._zone || pl.zoneType || '').toLowerCase();
-            if (!zt) {
-                var zl = (d.zone || '').toLowerCase();
-                zt = zl.startsWith('green') ? 'green'
-                   : zl.startsWith('fair')  ? 'fairway'
-                   : zl.startsWith('tee')   ? 'tee'
-                   : zl.startsWith('rough') ? 'rough'
-                   : zl.startsWith('approach') ? 'approach'
-                   : zl.startsWith('collar')   ? 'collar'
-                   : zl.startsWith('bunker')   ? 'bunker'
-                   : 'other';
-            }
             rows.push({
                 id: d.id,
                 name: displayName,
                 zone: d.zone || '—',
-                zoneType: zt,
+                zoneType: d.zoneType || null,
+                zoneHint: d.zoneHint || null,
                 payload: pl,
                 currentArea: parseFloat(pl.areaHa) || null,
             });
@@ -3084,10 +3126,11 @@ window.GAIP_computeSensorStatus = function () {
     }
 
     function renderModal(rows) {
+        // One group per printed label: a type's label, "Type not set", or "—" for a sample with no zone.
         var grouped = {};
         rows.forEach(function (r) {
-            if (!grouped[r.zoneType]) grouped[r.zoneType] = [];
-            grouped[r.zoneType].push(r);
+            if (!grouped[r.zone]) grouped[r.zone] = [];
+            grouped[r.zone].push(r);
         });
         var zoneTypes = Object.keys(grouped);
         var missing = rows.filter(function (r) { return !r.currentArea; }).length;
@@ -3103,9 +3146,9 @@ window.GAIP_computeSensorStatus = function () {
 
         zoneTypes.forEach(function (zt) {
             var group = grouped[zt];
-            var label = GROUP_LABELS[zt] || zt;
-            var hint  = GROUP_HINTS[zt] || '';
-            html += '<div class="dat-area-group" data-zone-type="' + zt + '">';
+            var label = zt;
+            var hint  = group[0].zoneHint || '';
+            html += '<div class="dat-area-group" data-zone-type="' + (group[0].zoneType || '') + '">';
             html += '<div class="dat-area-group-hd">';
             html += '<input type="checkbox" class="dat-area-group-check dat-area-row-check" checked title="Select all in group">';
             html += '<span class="dat-area-group-name">' + label + '</span>';

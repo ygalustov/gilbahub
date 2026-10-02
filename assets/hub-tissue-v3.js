@@ -2442,7 +2442,7 @@ function gaip_build_state(e) {
                         // manual user click does. Without this fallback, a freshly-restored
                         // site (site switch, page load) read turfType as the hardcoded
                         // "sports" default, which fed identity-enforcement.js's
-                        // extractTurfIntentKey() a wrong combined key, defaulted turfIntentKey
+                        // extractTurfIntentKey() (removed by GH-827) a wrong combined key, defaulted turfIntentKey
                         // to "unknownIntent" (-20% confidence penalty) and permanently blocked
                         // the wear-recovery engine. window.gaipTurfProfile.state is the same
                         // authoritative source already used as the surfaceType fallback below.

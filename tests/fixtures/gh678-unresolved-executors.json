@@ -6188,6 +6188,16 @@
       "confirmed": false,
       "whyNotConfirmed": "a call on a property of a property is not resolved at all, so a function reached only that way would appear here wrongly. Nothing is deleted on the strength of this list until that is closed."
     },
+    "assets/sample-manager.js : <top level> : extractSampleName #1": {
+      "ticket": "GH-798",
+      "line": null,
+      "why": "no-caller",
+      "establishedBy": "bindings-parse over the fixpoint",
+      "coversAlias": true,
+      "coversMemberOnAProperty": false,
+      "confirmed": false,
+      "whyNotConfirmed": "the same reason as `extractSampleId` beside it, whose callers this walk does not resolve either: a call on a property of a property is not resolved at all, so a function reached only that way would appear here wrongly. This one is called twice in the same file -- by `extractSampleId` and by the CSV import loop that writes a sample's label -- so its appearance here is the walk's perimeter, not a function with no callers. Nothing is deleted on the strength of this list."
+    },
     "assets/sample-manager.js : <top level> : extractTurfSpecies #1": {
       "ticket": "GH-678",
       "line": null,

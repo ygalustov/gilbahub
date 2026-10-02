@@ -781,7 +781,10 @@ const VIEW_II_CONTAINERS = {
     nutritionProgram: 'the programme the page generated, read back from its own globals',
     nProgram: 'the annual N figures the page holds beside that programme',
     varietyTraits: 'the variety trait lookup the page performed',
-    amendment: 'the amendment recommendations the page computed',
+    // GH-808 (queue item 3gy): `amendment` stood here -- the amendment engine's own block, which
+    // read window.GAIP_STATE.mlsnResults and window.climateMetrics. The export does not call
+    // that engine any more and the container is gone, so its blanket goes with it: a blanket
+    // over a container nothing produces excuses nothing and hides the next arrival.
     sprayLog: 'the spray log the page holds for the site it is showing; no log exists by id here yet',
     sensor: 'GAIP_Sensor readings held on the page; no reading exists by id until a run is stamped',
     // GH-468: found once identifiers were resolved through their own scope.

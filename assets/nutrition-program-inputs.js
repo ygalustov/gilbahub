@@ -357,14 +357,49 @@
     // 18th Green, which the rule forbids.
     // ==========================================================================
 
-    function zoneKeyFor(sampleLike) {
-        const w = _win();
-        const ZK = w.GaipZoneKey ||
-            (typeof global !== 'undefined' && global.GaipZoneKey) || null;
-        if (ZK && typeof ZK.derive === 'function') return ZK.derive(sampleLike);
-        console.warn('[NutritionInputs] GH-414: zone-key.js is not loaded — zone matching ' +
-            'cannot run, so no tissue sample will be paired with a soil sample on this page.');
-        return null;
+    /**
+     * GH-803 (queue item "Zones", stage C3): `zoneKeyFor` stood here — the NAME rule, with the dates
+     * stripped off, which decided the pair until this stage. The pair is decided by the zone's identity
+     * now (`zoneIdentityOf` below), so the wrapper had no caller left in the product, and a function
+     * with no caller is a promise rather than code. The rule itself has not gone anywhere: it lives in
+     * `zone-key.js` (`GaipZoneKey.derive`), which is where it always lived and where the trend's water
+     * branch still asks for it.
+     */
+    /**
+     * GH-803 (queue item "Zones", stage C3) — WHICH ZONE A SAMPLE IS OF, BY IDENTITY.
+     *
+     * The pair "this green's tissue belongs to this green's soil" was decided by the sample's NAME with
+     * its dates stripped off, so the owner's rule rested on two strings agreeing. A zone is a row with
+     * an identity now and both samples of one green point at the same row — one zone per name per site,
+     * whatever the kind of sample — so the pair is decided by that row.
+     *
+     * A SAMPLE WITH NO ZONE PAIRS WITH NOTHING, and is not matched by name: that is the plan's rule for
+     * this stage, and matching by name would be a second identity for a zone. It keys on itself, so it
+     * can still be found by its own entry and never merges with another sample.
+     *
+     * Accepts a sample-shaped object, an entry `{sample}`, or a zone id as a string — the three shapes
+     * the two callers hold. A NAME is not accepted: a caller that still passed one would silently stop
+     * pairing, so it answers null and says so.
+     */
+    function zoneIdentityOf(subject) {
+        if (!subject) return null;
+        if (typeof subject === 'string') {
+            // A zone id, as the Plan page now passes it. A name would reach here as the same shape, so
+            // the warning below is what keeps a caller that was not updated from failing in silence.
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(subject)) {
+                return 'zone:' + subject;
+            }
+            console.warn('[NutritionInputs] GH-803: zone matching takes a zone id, not a name ' +
+                '("' + subject + '") — nothing will be paired.');
+
+            return null;
+        }
+        if (subject.zoneId) return 'zone:' + subject.zoneId;
+        const inner = subject.sample;
+        if (inner && inner.zoneId) return 'zone:' + inner.zoneId;
+        const own = subject.serverId || subject.id || (inner && (inner.serverId || inner.id));
+
+        return own ? 'sample:' + String(own) : null;
     }
 
     /**
@@ -376,7 +411,8 @@
         const map = {};
         (samples || []).forEach(function (s) {
             if (!s) return;
-            const key = zoneKeyFor(s);
+            // GH-803: keyed by the zone's identity rather than by the name it was derived from.
+            const key = zoneIdentityOf(s);
             if (!key) return;
             const date = s.date || '';
             if (!map[key] || date > map[key].date) {
@@ -390,9 +426,10 @@
      * The one sample in `samples` that belongs to the same zone as `zoneLabel`
      * (latest, when a zone has several), or null when the zone has none.
      */
-    function matchSampleToZone(samples, zoneLabel) {
-        if (!zoneLabel) return null;
-        const wanted = zoneKeyFor(zoneLabel);
+    function matchSampleToZone(samples, zone) {
+        if (!zone) return null;
+        // GH-803: `zone` is the zone's identity now -- its id, or a sample carrying it -- not a name.
+        const wanted = zoneIdentityOf(zone);
         if (!wanted) return null;
         const map = buildZoneMap(samples);
         return map[wanted] || null;
@@ -1505,9 +1542,9 @@
         resolveSpeciesDisplay: resolveSpeciesDisplay,
         resolveSoilTexture: resolveSoilTexture,
         siteTextureSettingFor: siteTextureSettingFor,
-        zoneKeyFor: zoneKeyFor,
         buildZoneMap: buildZoneMap,
         matchSampleToZone: matchSampleToZone,
+        zoneIdentityOf: zoneIdentityOf,
         resolveSurfaceType: resolveSurfaceType,
         mapSurfaceKey: mapSurfaceKey,
         aaTextureKey: aaTextureKey,

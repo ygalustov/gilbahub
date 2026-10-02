@@ -35,7 +35,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { inventory, inventoryOf, watchedFields, WATCH_ALIASES, WATCH_EXCLUDED } =
+const { inventory, inventoryOf, watchedFields, WATCH_ALIASES, WATCH_EXCLUDED, TEXT_ARRAYS } =
     require('./lib/substitution-inventory');
 const { loadPage, poisonPage } = require('./helpers/export-page-sandbox');
 const { EMPTY, EMPTY_LOCATED } = require('./lib/empty-inputs');
@@ -68,6 +68,72 @@ describe('GH-477 — the watched fields are the owned fields, not a list of thei
 
     test('the recorded list was taken with these fields', () => {
         expect(RECORDED._fields).toEqual(FIELDS);
+    });
+
+    // GH-811: and with these text arrays. A list taken with fewer forms than the census now watches
+    // cannot redden on the forms it lacks; one taken with more lets the census shrink unseen.
+    test('the recorded list was taken with these text arrays', () => {
+        expect(RECORDED._textArrays).toEqual(TEXT_ARRAYS);
+    });
+});
+
+/**
+ * GH-811 — WHAT THE CENSUS WATCHES, BY NAME, AND THAT IT FINDS A SUBSTITUTION IN EACH TEXT ARRAY.
+ *
+ * Question asked by the reviewer's own planting: three substitutions written into section text, one
+ * of them `turfData.species || 'Couch'`, and the census stayed green in all three runs, because it
+ * watched only `innerHTML`, `textContent`, `innerText`, `TextRun` and saved request bodies. A
+ * section builds a list of sentences and prints the list, so the substitution is written into the
+ * array. The forms are listed here as a list, not a count, and every text array is planted into.
+ */
+describe('GH-811 — the census watches the text arrays, and says which', () => {
+    test('the forms it watches, named', () => {
+        const forms = ['textContent', 'innerHTML', 'innerText', 'TextRun', 'PATCH body', 'POST body', 'PUT body']
+            .concat(TEXT_ARRAYS.map((a) => a + '.push'));
+        process.stdout.write('[gh811] forms the census watches: ' + JSON.stringify(forms) + '\n');
+        expect(TEXT_ARRAYS).toEqual(['issues', 'narrative', 'recommendations', 'parts', 'concerns', 'lines',
+            'immediate', 'shortTerm', 'mediumTerm', 'projections', 'interactions', 'relationships']);
+    });
+
+    test('a substitution pushed into each text array is found, and one pushed elsewhere is not', () => {
+        const missed = [];
+        TEXT_ARRAYS.forEach((name) => {
+            const planted = [
+                'function section(turfData) {',
+                '    var ' + name + ' = [];',
+                "    " + name + ".push('Suited to ' + (turfData.species || 'Couch') + '.');",
+                '    return ' + name + ';',
+                '}'
+            ].join('\n');
+            const found = inventoryOf('planted.js', planted, FIELDS);
+            const hit = found.filter((f) => f.sink === name + '.push' && f.text === "'Couch'" && f.field === 'species');
+            if (hit.length !== 1) missed.push(name);
+        });
+        expect(missed).toEqual([]);
+        // The negative half: an array not declared as text is not watched, so the census's claim is
+        // exactly its list and no wider.
+        const elsewhere = inventoryOf('planted.js', [
+            'function section(turfData) {',
+            '    var scratch = [];',
+            "    scratch.push(turfData.species || 'Couch');",
+            '    return scratch.length;',
+            '}'
+        ].join('\n'), FIELDS);
+        expect(elsewhere).toEqual([]);
+    });
+
+    test('the substitutions only the text arrays reveal, by file and function', () => {
+        const byArray = CURRENT.filter((f) => /\.push$/.test(f.sink));
+        const lines = byArray.map((f) => f.file + ' :: ' + f.fn + ' :: ' + f.sink + ' :: ' + f.field + ' || ' + f.text)
+            .sort();
+        process.stdout.write('[gh811] seen through a text array (' + lines.length + '):\n    '
+            + lines.join('\n    ') + '\n');
+        // The universe, as a list: every declared array reveals at least one substitution in the
+        // product today, so none of them is wired to nothing -- and nothing arrives through a form
+        // that is not declared.
+        const arraysThatFound = Array.from(new Set(byArray.map((f) => f.sink))).sort();
+        expect(arraysThatFound).toEqual(TEXT_ARRAYS.map((a) => a + '.push').sort());
+        expect(byArray.filter((f) => !f.fn)).toEqual([]);
     });
 });
 

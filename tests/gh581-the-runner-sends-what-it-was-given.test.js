@@ -145,7 +145,8 @@ describe('GH-581 — the body carries the run’s inputs and assumptions', () =>
 
         // The three that are derived and have none — stated, not omitted, so
         // "no field" and "nobody filled this in" cannot be confused.
-        ['climateRegimeKey', 'turfIntentKey', 'regionKey'].forEach((k) => {
+        // GH-827: `turfIntentKey` is no longer a key of the table (the owner's decision, variant (a)).
+        ['climateRegimeKey', 'regionKey'].forEach((k) => {
             expect([k, /settingsField: null/.test(entry(k))]).toEqual([k, true]);
         });
 

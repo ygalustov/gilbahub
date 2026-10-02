@@ -123,6 +123,63 @@
         return String(key).toLowerCase().trim();
     }
 
+    /**
+     * GH-803 (queue item "Zones", stage C3) — WHICH SERIES A SAMPLE BELONGS TO.
+     *
+     * WHAT THIS REPLACES AND WHY. The series was keyed by the sample's NAME with its dates stripped
+     * off (`derive()`), so a zone's history was held together by a string: rename "Green 1" to "Putter
+     * Green" and its series split in two, and two spellings of one green were two series. A zone has an
+     * identity of its own now (stage C0), the server writes it on every sample (C1) and answers with it
+     * (place 1 of this stage), so the series is keyed by that identity and a rename moves nothing.
+     *
+     * WATER IS UNTOUCHED, BYTE FOR BYTE, and that is the owner's decision of 01.10.2026 that a water
+     * sample keeps only its name: its key is still `water:` + the word beside it + the derived name. A
+     * water sample has no `zone_id` by construction, so a single rule "key by the zone" would have
+     * dropped every water series into one.
+     *
+     * A SAMPLE WITH NO ZONE GETS A SERIES OF ITS OWN, keyed by the sample itself. It is NOT merged with
+     * the zoned samples that happen to share its name: merging by name would be a second identity for a
+     * zone, which is the thing this whole item removes. The reachable case today is a soil or tissue
+     * sample whose zone was deleted; water never reaches here.
+     */
+    function seriesKeyOf(sample, dataType) {
+        var zoneKey = deriveZoneKey(sample);
+        if (dataType === 'water') {
+            return dataType + ':' + ((sample && sample.zoneType) || 'other') + ':' + zoneKey;
+        }
+        if (sample && sample.zoneId) {
+            return dataType + ':' + sample.zoneId;
+        }
+
+        return dataType + ':sample:' + ((sample && (sample.serverId || sample.id)) || zoneKey);
+    }
+
+    /**
+     * GH-803 — THE CAPTION OF A SERIES, and this is the one place in the stage that prints a zone's
+     * NAME rather than a sample's.
+     *
+     * A series is about several visits to one place, so it has no sample of its own whose caption could
+     * be used, and the key is now an identifier: printing it would put a UUID where a name belongs,
+     * which is the class `GH-798` removed. So the name comes from the zone the series is of.
+     *
+     * NO NAME IS NO NAME — asked of `GaipZoneKey.displayName`, the one place that owns the wording, and
+     * never answered with the id. Water keeps the caption it has today, read out of its own key.
+     */
+    function seriesLabelOf(group, key, dataType) {
+        if (dataType === 'water') {
+            var parts = String(key).split(':');
+
+            return parts.length >= 3 ? parts.slice(2).join(':') : key;
+        }
+        var first = (group && group[0]) || null;
+        var name = (first && first.zoneId) ? (first.zoneName || '') : ((first && first.label) || '');
+        if (global.GaipZoneKey && typeof global.GaipZoneKey.displayName === 'function') {
+            return global.GaipZoneKey.displayName(name);
+        }
+
+        return String(name).trim();
+    }
+
     // =========================================================================
     // TEMPORAL INDEX
     // =========================================================================
@@ -194,8 +251,8 @@
 
         for (var i = 0; i < samples.length; i++) {
             var sample = samples[i];
-            var zoneKey = deriveZoneKey(sample);
-            var indexKey = dataType + ':' + (sample.zoneType || 'other') + ':' + zoneKey;
+            // GH-803: by the zone's identity for soil and tissue, and exactly as before for water.
+            var indexKey = seriesKeyOf(sample, dataType);
 
             if (!index[indexKey]) index[indexKey] = [];
             index[indexKey].push(sample);
@@ -1140,20 +1197,29 @@
         var zoneLabel = '';
 
         if (activeSample) {
-            var activeZoneKey = deriveZoneKey(activeSample);
-            var groupKey = dataType + ':' + (activeSample.zoneType || 'other') + ':' + activeZoneKey;
+            // GH-803: the same key the index was built with, so the active sample's series is found by
+            // identity rather than by a name that may have been edited since.
+            var groupKey = seriesKeyOf(activeSample, dataType);
             group = index[groupKey] || null;
-            zoneLabel = activeZoneKey;
 
-            // Fuzzy match on zone key alone
-            if (!group) {
+            /**
+             * GH-803: the fuzzy fall-back is kept FOR WATER ONLY. It existed because the key carried
+             * the word beside the sample as well as its name, and a sample whose word had changed
+             * missed its own series. For soil and tissue the key is an identity now and an exact miss
+             * means the series genuinely is not there; matching on the tail of a UUID would be a
+             * guess.
+             */
+            if (!group && dataType === 'water') {
+                var activeZoneKey = deriveZoneKey(activeSample);
                 for (var k = 0; k < indexKeys.length; k++) {
                     if (indexKeys[k].endsWith(':' + activeZoneKey)) {
                         group = index[indexKeys[k]];
+                        groupKey = indexKeys[k];
                         break;
                     }
                 }
             }
+            if (group) zoneLabel = seriesLabelOf(group, groupKey, dataType);
         }
 
         // If no active sample or no match, use the largest group
@@ -1168,8 +1234,8 @@
             }
             if (bestKey) {
                 group = index[bestKey];
-                var parts = bestKey.split(':');
-                zoneLabel = parts.length >= 3 ? parts.slice(2).join(':') : bestKey;
+                // GH-803: the zone's name, not the key -- the key is an identifier from this stage on.
+                zoneLabel = seriesLabelOf(group, bestKey, dataType);
             }
         }
 
@@ -1362,12 +1428,13 @@
             var group = index[keys[k]];
             if (group.length < 2) continue;
 
-            var keyParts = keys[k].split(':');
-            var zone = keyParts.length >= 3 ? keyParts.slice(2).join(':') : keys[k];
+            // GH-803: the caption from the one function that answers it, for the screen and for Word
+            // alike. `zoneType` is the sample's own word, which is what the key used to carry.
+            var zone = seriesLabelOf(group, keys[k], dataType);
 
             trends[keys[k]] = {
                 zone: zone,
-                zoneType: keyParts[1] || 'other',
+                zoneType: (group[0] && group[0].zoneType) || 'other',
                 sampleCount: group.length,
                 dateRange: group[0].date + ' \u2192 ' + group[group.length - 1].date,
                 nutrients: {}
@@ -2427,6 +2494,8 @@
         calculateNutrientTrend: calculateNutrientTrend,
         calculateCrossingRisk: calculateCrossingRisk,
         deriveZoneKey: deriveZoneKey,
+        seriesKeyOf: seriesKeyOf,
+        seriesLabelOf: seriesLabelOf,
 
         // Rendering
         renderTrendChart: renderTrendChart,

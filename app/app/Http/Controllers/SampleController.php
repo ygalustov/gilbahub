@@ -58,7 +58,7 @@ class SampleController extends Controller
         // here by the same coalesced expression topbarData() uses makes the
         // array order this endpoint returns, topbarData()'s own choice, and the
         // client-side comparison all follow one rule.
-        $query = Sample::query()->with(['site'])
+        $query = Sample::query()->with(['site', 'zone'])
             ->whereIn('site_id', $siteIds)
             ->orderByRaw('COALESCE(lab_date, sample_date) DESC')
             ->orderByDesc('id');
@@ -487,7 +487,37 @@ class SampleController extends Controller
                 // GH-574: the third write path, and the only one that does not
                 // go through saveSampleRecord().
                 // GH-773: the third path takes the same layout by canonical name as the other two.
-                $sample->payload = LabReadingNames::canonicaliseRow(
+                /**
+                 * GH-805 (queue item "Zones", part 2) — THE CHANGE IS MERGED INTO THE SAMPLE, NOT PUT
+                 * IN ITS PLACE.
+                 *
+                 * WHAT WAS WRONG, and it is the worst thing this queue item found. This line ASSIGNED
+                 * the incoming payload, so a sample kept only what the sender happened to include —
+                 * and the one sender is the Edit window of the Data page, which collects the fields of
+                 * a form. Everything the form has no field for was erased by any edit at all,
+                 * including an edit of a name made to move a sample out of a zone somebody wants to
+                 * delete (GH-804 sends people down exactly that road).
+                 *
+                 * MEASURED ON THE STAND, 01.10.2026: seven keys are at risk — `pH_Water`, `pH_CaCl2`,
+                 * and three under their lab spellings, `CEC_meq100g` (39 samples), `EC1_5` (30),
+                 * `OM_Percent` (19), plus the `CEC`/`OM` doubles — and `PO4` on 6 of the 10 live water
+                 * samples, where there is no `P` at all, so the phosphate goes entirely. A figure
+                 * changes or disappears on 26 samples: soil on `Burns` 17, soil on `New test -
+                 * location` 3, water 6. Tissue loses nothing.
+                 *
+                 * HOW IT MERGES, and the second half matters as much as the first:
+                 *   - a key the request CARRIES is written, so an edit still edits;
+                 *   - a key the request does not mention is LEFT AS IT WAS;
+                 *   - a key whose value is an explicit `null` is REMOVED, which is how a person clears
+                 *     a field. Without that third rule "did not send it" and "cleared it" would be the
+                 *     same request, and a cleared reading would live for ever.
+                 *
+                 * The incoming half is canonicalised and normalised exactly as before, and the merge
+                 * happens after: the stored half is not re-canonicalised, because it was canonicalised
+                 * when it was written and a second pass over it would be this route rewriting keys
+                 * nobody touched.
+                 */
+                $incoming = LabReadingNames::canonicaliseRow(
                     (string) $sample->sample_type,
                     $this->normaliseMeasurements($this->applyZoneMeta(
                         $data['payload'],
@@ -496,6 +526,16 @@ class SampleController extends Controller
                     )),
                     self::DESCRIPTIVE_KEYS
                 );
+                $merged = $sample->payload ?? [];
+                foreach ($incoming as $key => $value) {
+                    if ($value === null) {
+                        unset($merged[$key]);
+
+                        continue;
+                    }
+                    $merged[$key] = $value;
+                }
+                $sample->payload = $merged;
 
                 // GH-526 (stage 1, item 3, decision D-6): renaming a sample here
                 // registers the name on its site, as store() and sync() already
@@ -506,6 +546,13 @@ class SampleController extends Controller
                 if (is_string($label) && $label !== ''
                     && in_array($sample->sample_type, ['soil', 'tissue', 'loi'], true)) {
                     $this->mergeZoneNameIntoSite($sample->site, $label);
+                    /**
+                     * GH-800 (stage C1): and the sample points at the zone of its new name. This route
+                     * does not pass through `saveSampleRecord`, so the write is here as well -- the one
+                     * place that decides WHICH zone is still the service.
+                     */
+                    $sample->zone_id = app(\App\Services\ZoneService::class)
+                        ->resolveOrCreate($sample->site, $label, $request->user()->id)?->id;
                 }
             }
             $sample->modified_by_user_id = $request->user()->id;
@@ -538,7 +585,7 @@ class SampleController extends Controller
         });
 
         return response()->json([
-            'data' => $this->samplePayload($sample->fresh(['site'])),
+            'data' => $this->samplePayload($sample->fresh(['site', 'zone'])),
         ]);
     }
 
@@ -769,9 +816,28 @@ class SampleController extends Controller
             $sample->created_by_user_id = $userId;
         }
 
+        /**
+         * GH-800 (queue item "Zones", stage C1) — THE SAMPLE POINTS AT ITS ZONE, and this is the one
+         * place both roads to a stored sample pass through (`store` and `sync`); `update` has its own
+         * line, because a rename there does not come back through here.
+         *
+         * WHICH SAMPLES HAVE A ZONE: soil, tissue and `loi` — the same three the site's own list of
+         * names has always been built from, and the same three the stage C0 transfer linked. A water
+         * sample has no zone by the owner's decision of 22.09.2026, so its `zone_id` stays null.
+         *
+         * ADDED, NOT INSTEAD OF: `mergeZoneNameIntoSite` still runs at all three call sites and the
+         * site's list of names is still written, because every reader of a zone today reads that list
+         * or `payload._label`. Nothing reads `zone_id` until stage C3.
+         */
+        $zone = in_array($sampleType, ['soil', 'tissue', 'loi'], true)
+            ? app(\App\Services\ZoneService::class)
+                ->resolveOrCreate($site, $payload['_label'] ?? null, $userId)
+            : null;
+
         $sample->fill([
             'account_id' => $accountId,
             'site_id' => $site->id,
+            'zone_id' => $zone?->id,
             'sample_type' => $sampleType,
             'client_uid' => $clientUid,
             'lab_name' => $meta['lab_name'] ?? '',
@@ -945,6 +1011,26 @@ class SampleController extends Controller
             'methodology_snapshot' => $sample->methodology_snapshot,
             'soil_texture_snapshot' => $sample->soil_texture_snapshot,
             'notes' => $sample->notes,
+            /**
+             * GH-803 (queue item "Zones", stage C3) — THE ZONE OF THE SAMPLE, ID AND NAME.
+             *
+             * THE FIRST READER OF `zone_id` in the product, and it is declared as such in
+             * `Gh801NobodyReadsTheZoneOfASampleYetTest`. Stage C1 writes the column; from here the
+             * browser groups a trend series, a report section and the tissue-to-soil pair by the id
+             * instead of by a name with its dates stripped off.
+             *
+             * WHY THE NAME TRAVELS WITH IT. One place prints it: the caption of a trend series, on the
+             * screen and above the sparklines in Word. A series is about several visits to one place, so
+             * it has no sample of its own whose caption could be used — and printing the id there is the
+             * class `GH-798` removed. Nothing else switches to it: a row about a SAMPLE keeps printing
+             * the sample's own `payload._label`, which a rename of the zone does not touch (stage C1).
+             *
+             * `null` FOR BOTH IS AN ANSWER, not a gap: a water sample has no zone by the owner's
+             * decision, and a sample whose zone was deleted has none either. What each reader does with
+             * it is declared per reader (the plan's "a sample with no `zone_id`" section).
+             */
+            'zone_id' => $sample->zone_id,
+            'zone_name' => $sample->zone?->name,
             'payload' => $sample->payload ?? [],
             // GH-722: the readings resolved through the lab reading names map, so a page that
             // does not load the runner reads a sample without spelling its columns itself.

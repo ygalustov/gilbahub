@@ -770,7 +770,13 @@
      */
     var PGR_PRODUCT_MAP = {
         // Primo / trinexapac-ethyl
-        'primo 250ec': 'TE250', 'primo 250 ec': 'TE250', 'primo maxx': 'TE120', 'primo maxx 120': 'TE120', 'primo maxx 1ec': 'TE175',  // b35fix209: Primo Maxx std = 120g/L; Maxx 1EC = 175g/L
+        // GH-807 (queue item 3vya): `primo maxx` and `primo maxx 120` lead to the record of PRIMO MAXX,
+        // not to `TE120`, which is Indigo Amigo at the same strength. The server's copy of this map
+        // (`SprayLogController::pgrProductKey`) carries the same two keys and changed in the same
+        // hand-in: this copy is only reached when the server gave no code at all (`autofillPGRDate`),
+        // and two maps disagreeing about one product is the fault this queue item is about.
+        // `primo maxx 1ec` keeps `TE175` — a different formulation, with no record of its own.
+        'primo 250ec': 'TE250', 'primo 250 ec': 'TE250', 'primo maxx': 'PRIMO_MAXX', 'primo maxx 120': 'PRIMO_MAXX', 'primo maxx 1ec': 'TE175',  // b35fix209: Maxx 1EC = 175g/L
         'te250': 'TE250', 'te175': 'TE175', 'te120': 'TE120',
         'trinexapac-ethyl': 'TE250', 'trinexapac ethyl': 'TE250',
         // Indigo Amigo — with and without concentration suffix (b35fix201a)

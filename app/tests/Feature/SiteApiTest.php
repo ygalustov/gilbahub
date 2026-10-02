@@ -794,6 +794,9 @@ class SiteApiTest extends TestCase
             'name' => 'Default Site',
             'slug' => 'default-site',
         ]);
+        // GH-816: the spray-log context answers by the site's turf type, so the site declares one.
+        SiteConfig::query()->create(['site_id' => $site->id, 'namespace' => 'gaip', 'synced_at' => now(),
+            'config' => ['turf' => ['turfType' => 'sports']]]);
 
         DB::table('spray_logs')->insert([
             [

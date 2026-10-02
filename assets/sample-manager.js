@@ -719,12 +719,30 @@
     // SAMPLE ID GENERATION
     // =========================================================================
 
-    function extractSampleId(row) {
-        // Try various common column names for sample ID
-        return row['Sample ID'] || row['Sample_ID'] || row['SampleID'] ||
+    /**
+     * GH-798 (queue item "Zones") — THE NAME THE FILE CARRIES, which is a different question from
+     * what the store calls the row.
+     *
+     * `extractSampleId` answered both at once and its last resort is `'Sample_' + Date.now()`, so a
+     * file with no column of names handed that string to `label` as well as to `id` (the write below)
+     * — the substitution at the moment of SAVING, which is the one GH-563 removed from the other write
+     * path and which this path kept. Every reader then had a name to print and no way to tell it from
+     * one somebody chose; `Sample_1790822499325` reached the report as a zone's name.
+     *
+     * Null means the file named nothing. Nothing is put in its place.
+     */
+    function extractSampleName(row) {
+        var named = row['Sample ID'] || row['Sample_ID'] || row['SampleID'] ||
                row['Sample'] || row['ID'] || row['Name'] ||
-               row['Location'] || row['Zone'] || row['Area'] ||
-               'Sample_' + Date.now();
+               row['Location'] || row['Zone'] || row['Area'];
+
+        return (typeof named === 'string' && named.trim() !== '') ? named : null;
+    }
+
+    function extractSampleId(row) {
+        // The store's key: the name the file carried, or one made up for it. `extractSampleName`
+        // above is what decides whether there was a name at all.
+        return extractSampleName(row) || ('Sample_' + Date.now());
     }
 
     function extractSampleDate(row) {
@@ -1195,7 +1213,8 @@
             // Create normalized sample object
             const sample = {
                 id: sampleId,
-                label: sampleId,
+                // GH-798: the name the file carried, or none. `id` above keeps its made-up key.
+                label: extractSampleName(row),
                 date: sampleDate,
                 notes: notes,
                 zoneType: zoneType,

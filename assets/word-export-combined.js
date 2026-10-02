@@ -278,6 +278,24 @@
             return global.GaipZoneKey.derive(sampleObj);
         }
 
+        /**
+         * GH-803 (queue item "Zones", stage C3) — WHICH ZONE A SAMPLE IS OF, BY IDENTITY.
+         *
+         * The report's sections were grouped by the sample's name with its dates stripped off, so a
+         * renamed zone became two sections and two spellings of one green became two. A zone has an
+         * identity of its own now and the server answers with it per sample, so the grouping is by that.
+         *
+         * A SAMPLE WITH NO ZONE GETS A SECTION OF ITS OWN, keyed by itself and never merged by name with
+         * a zoned sample -- the plan's rule for this stage. Water is not grouped this way at all (its own
+         * branch below keeps the name rule, which is the owner's decision about water).
+         */
+        function zoneIdentityOf(sampleObj, storeKey) {
+            if (sampleObj && sampleObj.zoneId) return 'zone:' + sampleObj.zoneId;
+            var own = (sampleObj && (sampleObj.serverId || sampleObj.id)) || storeKey;
+
+            return own ? 'sample:' + String(own) : deriveZoneKeyLocal(sampleObj);
+        }
+
         // b35fix_greentissue: build zoneKey -> latest sample map for a data type,
         // so a soil zone (green) only ever picks up the water/tissue sample that
         // shares its physical zone, not merely whichever sample was inserted last.
@@ -304,7 +322,9 @@
                     // this feeds still falls back to the id inside
                     // `GaipZoneKey.derive` — a key is not a caption and does not
                     // leave — so grouping is unchanged and only the caption is.
-                    return { id: id, label: (o && o.label) || null,
+                    // GH-803: `zoneId` travels, because the shared map keys by the zone's identity
+                    // now. `label` is still handed over for the caption; the key no longer comes from it.
+                    return { id: id, label: (o && o.label) || null, zoneId: (o && o.zoneId) || null,
                              date: (o && o.date) || '', sample: o };
                 }));
                 var out = {};
@@ -317,7 +337,7 @@
             for (var i = 0; i < sampleIds.length; i++) {
                 var id = sampleIds[i];
                 var obj = store[id];
-                var zkey = deriveZoneKeyLocal(obj);
+                var zkey = zoneIdentityOf(obj, id);   // GH-803: the same identity as above
                 var date = (obj && obj.date) || '';
                 if (!map[zkey] || date > map[zkey].date) {
                     map[zkey] = { sampleId: id, sampleObj: obj, date: date };
@@ -359,13 +379,21 @@
                 for (var si = 0; si < soilSamples.length; si++) {
                     var sid = soilSamples[si];
                     var sobj = siteStore.soil[sid];
-                    var zkey = deriveZoneKeyLocal(sobj);
+                    var zkey = zoneIdentityOf(sobj, sid);   // GH-803: by the zone's identity
                     var sdate = (sobj && sobj.date) || '';
                     if (!_zoneCandidates[zkey]) _zoneCandidates[zkey] = [];
                     _zoneCandidates[zkey].push({
                         sampleId: sid,
                         date: sdate,
-                        label: (sobj && sobj.label) || sid
+                        /**
+                         * GH-798 (queue item "Zones") — THE IDENTIFIER DOES NOT GO IN THE NAME'S PLACE.
+                         *
+                         * `|| sid` put the store's own key here, so a sample nobody named arrived at the
+                         * footer already carrying a name. The owner's rule of 22.09.2026 is that nothing
+                         * is substituted, on the screen and in the report alike; the identifier travels
+                         * beside it as `sampleId`, which is what it is for.
+                         */
+                        label: (sobj && sobj.label) || null
                     });
                     if (!soilZones[zkey] || sdate > soilZones[zkey].date) {
                         soilZones[zkey] = { sampleId: sid, sampleObj: sobj, date: sdate };
@@ -422,7 +450,9 @@
                         siteId:        siteId,
                         siteLabel:     sites[siteId].label || siteId,
                         sampleId:      zSoilId,
-                        sampleLabel:   humanizeSampleLabel((zEntry.sampleObj && zEntry.sampleObj.label) || zSoilId, zSoilId),
+                        // GH-798: the name, or nothing. The identifier is the SECOND argument already,
+                        // so passing it as the first hid the absence from the one reader of the rule.
+                        sampleLabel:   humanizeSampleLabel(zEntry.sampleObj && zEntry.sampleObj.label, zSoilId),
                         primaryType:   'soil',
                         hasSoil:       true,
                         hasWater:      hasWater,
@@ -433,7 +463,12 @@
                         zoneProvenance: {
                             zoneKey:       zKey,
                             winnerDate:    zEntry.date || null,
-                            winnerLabel:   (zEntry.sampleObj && zEntry.sampleObj.label) || zSoilId,
+                            // GH-798: same rule, and through the same reader, so the footer and the
+                            // heading of one zone cannot disagree about whether it has a name.
+                            winnerLabel:   _zoneDisplayName({
+                                label: zEntry.sampleObj && zEntry.sampleObj.label,
+                                id: zSoilId,
+                            }),
                             candidateCount: _candidatesForZone.length,
                             priorSamples:   _priorSamples  // [{sampleId, date, label}, ...] most recent first
                         }
@@ -463,7 +498,8 @@
                         siteId:        siteId,
                         siteLabel:     sites[siteId].label || siteId,
                         sampleId:      wEntry.sampleId,
-                        sampleLabel:   humanizeSampleLabel((wEntry.sampleObj && wEntry.sampleObj.label) || wEntry.sampleId, wEntry.sampleId),
+                        // GH-798: the same on a water-only site.
+                        sampleLabel:   humanizeSampleLabel(wEntry.sampleObj && wEntry.sampleObj.label, wEntry.sampleId),
                         primaryType:   'water',
                         hasSoil:       false,
                         hasWater:      true,
@@ -478,7 +514,9 @@
                 for (var ti = 0; ti < tissueSamples.length; ti++) {
                     var tid = tissueSamples[ti];
                     var tobj = siteStore.tissue[tid];
-                    var tzkey = deriveZoneKeyLocal(tobj);
+                    // GH-803: a tissue-only site groups by the zone's identity too -- a tissue sample
+                    // carries one, and a renamed zone must not become two sections here either.
+                    var tzkey = zoneIdentityOf(tobj, tid);
                     var tdate = (tobj && tobj.date) || '';
                     if (!tissueZones[tzkey] || tdate > tissueZones[tzkey].date) {
                         tissueZones[tzkey] = { sampleId: tid, sampleObj: tobj, date: tdate };
@@ -491,7 +529,8 @@
                         siteId:        siteId,
                         siteLabel:     sites[siteId].label || siteId,
                         sampleId:      tEntry.sampleId,
-                        sampleLabel:   humanizeSampleLabel((tEntry.sampleObj && tEntry.sampleObj.label) || tEntry.sampleId, tEntry.sampleId),
+                        // GH-798: and on a tissue-only site.
+                        sampleLabel:   humanizeSampleLabel(tEntry.sampleObj && tEntry.sampleObj.label, tEntry.sampleId),
                         primaryType:   'tissue',
                         hasSoil:       false,
                         hasWater:      false,
@@ -503,6 +542,12 @@
             }
         }
 
+        /**
+         * GH-798: THIS ONE KEEPS THE IDENTIFIER ON PURPOSE, and it is not a surface. It is the
+         * developer trace of the enumeration, read in a console while diagnosing which zones were
+         * collapsed; the identifier is exactly what is wanted there, and nobody is told it is a name.
+         * The rule the owner gave is about what a person is shown on the screen and in the report.
+         */
         log('enumerateSamples(' + scope + '): ' + result.length + ' zones across ' +
             new Set(result.map(function(r) { return r.siteId; })).size + ' sites, ' +
             result.map(function(r) { return r.siteLabel + '/' + (r.sampleLabel || r.sampleId); }).join(', '));
@@ -589,7 +634,22 @@
         });
 
         return {
-            update: function(current, siteLabel, sampleLabel) {
+            /**
+             * GH-798 — THE LINE A PERSON WATCHES WHILE THE EXPORT RUNS IS A SURFACE, so the rule lives
+             * HERE, at the point of printing, and not at the one call this has.
+             *
+             * It took a ready string and the caller decided what an unnamed zone was called; the caller
+             * passed `entry.sampleLabel || entry.sampleId`, so the identifier was printed here while
+             * every other surface had stopped printing it. A surface that cannot be asked the question
+             * on its own cannot be held to the answer either: it takes the pair now and asks the one
+             * reader, which is what makes this line testable by itself.
+             *
+             * @param {object|string} sample  `{label, id}`, or a plain name for a caller that has one
+             */
+            update: function(current, siteLabel, sample) {
+                var sampleLabel = typeof sample === 'string'
+                    ? sample
+                    : _zoneDisplayName(sample || {});
                 var pct = Math.round((current / totalSamples) * 100);
                 var bar = document.getElementById('combined-export-bar');
                 var st = document.getElementById('combined-export-status');
@@ -755,7 +815,9 @@
                 }
 
                 var entry = samples[i];
-                progress.update(i + 1, entry.siteLabel, entry.sampleLabel || entry.sampleId);
+                // GH-798: the pair, so the line itself can ask the one reader what an unnamed zone is
+                // called. What it does with it is in `createProgressUI`.
+                progress.update(i + 1, entry.siteLabel, { label: entry.sampleLabel, id: entry.sampleId });
 
                 // GH-498: the wait is armed BEFORE the switch is asked for,
                 // because the announcement can arrive while setActiveSite() is
@@ -1799,7 +1861,9 @@
         var siteGroups = {};
         reports.forEach(function(r) {
             if (!siteGroups[r.siteLabel]) siteGroups[r.siteLabel] = [];
-            siteGroups[r.siteLabel].push(r.sampleLabel || r.sampleId);
+            // GH-798: the cover page lists the zones of each site; an unnamed one is listed without a
+            // name rather than by its key.
+            siteGroups[r.siteLabel].push(r.sampleLabel || '');
         });
         var siteKeys = Object.keys(siteGroups);
         var siteCount = siteKeys.length;
@@ -2085,7 +2149,8 @@
                                 children: [
                                     new Paragraph({
                                         spacing: { after: 60 },
-                                        children: [new TextRun({ text: cr.sampleLabel || cr.sampleId, bold: true, size: 22, color: '374151' })]
+                                        // GH-798: the same rule in the table that lists the zones.
+                                        children: [new TextRun({ text: cr.sampleLabel || '', bold: true, size: 22, color: '374151' })]
                                     }),
                                     new Paragraph({
                                         alignment: AlignmentType.CENTER,
@@ -3115,7 +3180,7 @@
                     // — better not to depend on it twice).
                     try {
                         var _wx = window.GAIP_WordExport;
-                        if (_wx && typeof _wx._computeAmendmentDecision === 'function'
+                        if (_wx && typeof _wx._buildSoilVerdicts === 'function'
                                 && typeof _wx._amendmentDecisionsToProducts === 'function'
                                 && r.data.soil && r.data.soil.thresholds) {
                             var _soilForAmend = r.data.soil;
@@ -3128,27 +3193,34 @@
                             var _hem = _ctx.hemisphere || 'south';
                             var _amendCtx = {
                                 isOverseed: !!(_ctx.overseedConfig && _ctx.overseedConfig.isOverseed),
-                                seedingActive: !!(_ctx.overseedConfig && _ctx.overseedConfig.isOverseed)
+                                seedingActive: !!(_ctx.overseedConfig && _ctx.overseedConfig.isOverseed),
+                                hemisphere: _hem
                             };
 
-                            // Build decisions for any nutrient with measured deficit.
-                            // Programme passed in is the catalogue-only programme
-                            // (productUsage); amendments computed against this.
-                            var _amendNutrients = ['P','K','Ca','Mg','S'];
-                            var _amendDecisions = [];
-                            _amendNutrients.forEach(function(n) {
-                                var v = _soilForAmend[n];
-                                var th = _soilForAmend.thresholds[n];
-                                if (v === undefined || v === null || !th) return;
-                                if (!(v < th.min)) return;
-                                var deficit = th.min - v;
-                                // b35fix424 (C20): hemisphere threaded through.
-                                var d = _wx._computeAmendmentDecision(
-                                    n, deficit, _soilForAmend, _surfaceType,
-                                    r.data.nutritionProgram, _amendCtx, _hem
-                                );
-                                if (d) _amendDecisions.push(d);
-                            });
+                            /**
+                             * GH-808 (queue item 3gy): the report's ONE verdict per soil element,
+                             * built here and read by every section of this record's report.
+                             *
+                             * It is built here rather than in collectData() because this entry
+                             * point calls collectData() once per record and assigns the record's
+                             * own nutrition programme afterwards (just above). A verdict built
+                             * there would be judged against whatever programme the page happened to
+                             * hold — one site's programme deciding another site's amendments, the
+                             * GH-459 class. The single export has the opposite order and builds it
+                             * in collectData(); word-export.js skips it when this export is active.
+                             *
+                             * The programme passed in is still the catalogue-only one, for the
+                             * reason written above this block: the amendments must not be visible
+                             * to the programme-delivery probe that decides whether to suppress
+                             * them.
+                             */
+                            // GH-810: and the record's own turf, for the pH verdict by grass.
+                            r.data._soilVerdicts = _wx._buildSoilVerdicts(
+                                _soilForAmend, r.data.nutritionProgram, _surfaceType, _amendCtx, _hem,
+                                r.data.turf
+                            );
+                            var _amendDecisions = (r.data._soilVerdicts
+                                && r.data._soilVerdicts.decisions) || [];
 
                             // Convert apply-decisions to product entries.
                             var _amendOut = _wx._amendmentDecisionsToProducts(
@@ -3234,13 +3306,11 @@
                                             ' hem=' + _hem);
                             }
 
-                            // Also expose the structured decisions on the
-                            // report so downstream renderers (Annual Soil
-                            // Amendments table) can consume them without
-                            // re-computing — both single and combined paths
-                            // can rely on the same shape.
-                            r.data._amendmentDecisions = _amendDecisions;
-                            r.data._amendmentMonthSlot = _amendOut.monthSlot;
+                            // GH-808 (queue item 3gy): `_amendmentDecisions` and `_amendmentMonthSlot` are not written
+                            // any more. Nothing read either of them -- measured by grep over assets, views and tests --
+                            // and the report now carries `_soilVerdicts`, which holds the same decisions plus the
+                            // adequate verdicts and the lime verdict. A half copy of the verdict beside the verdict is
+                            // exactly the second source this item exists to remove.
 
                             // ───────── b35fix324: K reconciliation merge ─────────
                             // Programme-shortfall-driven spot-K, distinct from the
@@ -3408,7 +3478,13 @@
                 children: [
                     new TextRun({ text: report.siteLabel, bold: true, size: 28, color: '1F2937' }),
                     new TextRun({ text: ' ,  ', size: 28, color: '9CA3AF' }),
-                    new TextRun({ text: report.sampleLabel || report.sampleId, bold: true, size: 28, color: '374151' })
+                    /**
+                     * GH-798: THE HEADING OF A ZONE SECTION, which is the document cell the owner's
+                     * rule is about. `|| report.sampleId` put the store's key here, so everything the
+                     * places upstream stopped substituting was substituted again at the moment of
+                     * printing. The name, or nothing; the section keeps its figures either way.
+                     */
+                    new TextRun({ text: report.sampleLabel || '', bold: true, size: 28, color: '374151' })
                 ]
             }));
 
@@ -3421,6 +3497,25 @@
             // Discloses which sample drives recommendations for this zone and whether
             // other samples for the same zone exist (which feed the trend section).
             // Keeps the reader informed of the collapse decision rather than hiding it.
+            /**
+             * GH-798 — WHAT THESE TWO SENTENCES READ LIKE WHEN THE ZONE HAS NO NAME, and the owner's
+             * decision about it, recorded here because this is where it happens.
+             *
+             * `zp.winnerLabel` is the declared wording for a zone nobody named, which is nothing at
+             * all, so the sentence comes out with a gap after its colon: "Recommendations based on
+             * sample:  (single sample for this zone, no trend history available)." There is no
+             * substitution in it -- that is the point of the rule -- but the gap reads like a fault.
+             *
+             * Put to the owner on 01.10.2026 with exactly that framing, and her decision is to LEAVE IT
+             * AS IT IS: no name means nothing is put in its place, and she accepts how the sentence
+             * reads. So this is her choice and not an oversight, and it is not repaired here.
+             *
+             * No case asserts the shape of the sentence, deliberately: freezing a sentence she has
+             * already called awkward would make the test the thing that argues with her if she changes
+             * her mind. What IS held, and in one place, is that nothing is substituted -- the wording
+             * comes from `GaipZoneKey`, and `gh798-a-zone-nobody-named-is-not-called-by-its-position`
+             * compares the zone cell with it.
+             */
             if (report.zoneProvenance) {
                 var zp = report.zoneProvenance;
                 var provenanceRuns = [];
@@ -3430,8 +3525,15 @@
                         text: 'Recommendations based on latest sample: ' + zp.winnerLabel + winnerDate + '. ',
                         italics: true, size: 22, color: '6B7280'
                     }));
+                    /**
+                     * GH-798 — THE ONE CONSUMER OF `priorSamples[].label`, and what it does with an
+                     * unnamed one. This is a list of DATES; a prior sample with no date fell back to its
+                     * name and then to its identifier, which is the same substitution one step further
+                     * down. The identifier goes; a prior sample with neither a date nor a name
+                     * contributes nothing to the list and is still counted by `candidateCount`.
+                     */
                     var priorDates = (zp.priorSamples || []).map(function(s) {
-                        return s.date || s.label || s.sampleId;
+                        return s.date || s.label || '';
                     }).join(', ');
                     var priorCount = zp.candidateCount - 1;
                     provenanceRuns.push(new TextRun({
@@ -3969,7 +4071,9 @@
             // otherwise assume every green was covered by the one they can see.
             var _zonesWithoutTissue = anrReports.filter(function(r) {
                 return r.hasTissue && !r.tissueSampleId;
-            }).map(function(r) { return r.sampleLabel || r.sampleId; });
+            // GH-798: a sentence that names the zones without a tissue sample names them, or says
+            // nothing in a name's place.
+            }).map(function(r) { return r.sampleLabel || ''; });
             var _gh414TissueNote = _zonesWithoutTissue.length
                 ? ' No tissue sample for ' +
                   (_zonesWithoutTissue.length === 1 ? 'this zone' : 'these zones') + ' (' +
@@ -4039,17 +4143,18 @@
                         break;
                     }
                 }
-                var _b35fix441b_aaCode = (_b35fix441b_aaReport && _b35fix441b_aaReport.data &&
-                                          _b35fix441b_aaReport.data.soil &&
-                                          _b35fix441b_aaReport.data.soil.aaSampleType) || 'S277';
-                var _b35fix441b_aaLabel = (_b35fix441b_aaReport && _b35fix441b_aaReport.data &&
-                                           _b35fix441b_aaReport.data.soil &&
-                                           _b35fix441b_aaReport.data.soil.aaSampleTypeLabel) ||
-                                          'TURF Ryegrass, Sand (S277)';
-                subtitleText = 'Hill Labs ' + _b35fix441b_aaCode + ' sample-type sufficiency thresholds applied (' +
-                               _b35fix441b_aaLabel + '). Cation values converted from certificate-native ' +
-                               'me/100g to ppm; cation deficit-correction ' +
-                               'recommendations appear in the Soil Amendment table above.' + _gh396Tail;
+                // GH-823: no certificate is named for a site without a code; the caption names its band.
+                var _b35fix441b_soil = (_b35fix441b_aaReport && _b35fix441b_aaReport.data && _b35fix441b_aaReport.data.soil) || null;
+                var _b35fix441b_aaCode = (_b35fix441b_soil && _b35fix441b_soil.aaSampleType) || null;
+                var _b35fix441b_aaLabel = (_b35fix441b_soil && _b35fix441b_soil.aaSampleTypeLabel) || null;
+                var _gh823b_band = _b35fix441b_soil && _b35fix441b_soil.thresholds && _b35fix441b_soil.thresholds.P
+                    && _b35fix441b_soil.thresholds.P.citation;
+                subtitleText = _b35fix441b_aaCode
+                    ? 'Hill Labs ' + _b35fix441b_aaCode + ' sample-type sufficiency thresholds applied (' +
+                      _b35fix441b_aaLabel + '). Cation values converted from certificate-native ' +
+                      'me/100g to ppm; cation deficit-correction ' +
+                      'recommendations appear in the Soil Amendment table above.' + _gh396Tail
+                    : (_gh823b_band || 'Ammonium acetate') + '.' + _gh396Tail;
             } else if (methodStr === 'S78') {
                 subtitleText = 'Hill Labs S78, Turf Cotula. Sufficiency-based interpretation. MLSN does not apply to cotula.';
             } else {
@@ -4164,7 +4269,8 @@
                     var rowFill = ri % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
                     var soil = r._anr && r._anr.s78 ? r._anr.s78 : (r.data && r.data.soil ? r.data.soil : null);
 
-                    var cells = [_mkCell(r.sampleLabel || r.sampleId, {
+                    // GH-798: the zone column of the cotula table.
+                    var cells = [_mkCell(r.sampleLabel || '', {
                         fill: rowFill, bold: true, size: 20, width: SAMPLE_COL_W_COTULA
                     })];
 
@@ -4489,7 +4595,8 @@
                         var soilColour = '111827';
 
                         tableRows.push(new TableRow({ children: [
-                            _mkCell(r.sampleLabel || r.sampleId, {
+                            // GH-798: the zone column of the nutrient table.
+                            _mkCell(r.sampleLabel || '', {
                                 fill: rowFill, bold: true, size: 17, width: SAMPLE_COL_W
                             }),
                             _mkCell(nut, {
@@ -4758,7 +4865,8 @@
                         }
 
                         reconRows.push(new TableRow({ children: [
-                            _mkCell(r.sampleLabel || r.sampleId, {
+                            // GH-798: the zone column of the reconciliation table.
+                            _mkCell(r.sampleLabel || '', {
                                 fill: rowFill, bold: true, size: 20, width: 1800
                             }),
                             _mkCell(req != null ? req.toFixed(1) : '-', {
@@ -5023,7 +5131,9 @@
                         totalAreaHa += sampleArea;
                         anyAreaSeen = true;
                     } else {
-                        samplesMissingArea.push(r.sampleLabel || r.sampleId);
+                        // GH-798: the list of zones whose area is missing names them by name or not
+                        // at all.
+                        samplesMissingArea.push(r.sampleLabel || '');
                     }
 
                     var prog = r.data.nutritionProgram;
@@ -5376,7 +5486,13 @@
                 // from the totals and why.
                 if (staleReports.length > 0 && !siteOptOut) {
                     var excludedLabels = staleReports.map(function(sr) {
-                        var lbl = (sr.report && (sr.report.sampleLabel || sr.report.sampleId)) || 'unknown';
+                        /**
+                         * GH-798: the footnote that lists the zones left out of the procurement totals.
+                         * It carried two substitutions in one line -- the identifier, and the word
+                         * `unknown` when there was not even that. Both go: the name, or nothing. The age
+                         * in brackets after it is what identifies the row either way.
+                         */
+                        var lbl = (sr.report && sr.report.sampleLabel) || '';
                         var age = sr.sample && sm && typeof sm.sampleAgeMonths === 'function'
                                     ? sm.sampleAgeMonths(sr.sample)
                                     : null;
@@ -5544,6 +5660,12 @@
                 return siteOrder.map(function(siteLabel) {
                     var siteSamples = groups[siteLabel];
                     var siteMatch = !filter || siteLabel.toLowerCase().indexOf(filter) !== -1;
+                    /**
+                     * GH-798: THIS ONE KEEPS THE IDENTIFIER ON PURPOSE. It is the filter box of the
+                     * picker, not a name on a screen: typing part of an identifier is a way of finding
+                     * a row, and nothing here is shown to anybody as a name. The row it finds is drawn
+                     * by the rule, a few lines below.
+                     */
                     var visibleSamples = siteMatch ? siteSamples : siteSamples.filter(function(e) {
                         return (e.sampleLabel || e.sampleId || '').toLowerCase().indexOf(filter) !== -1;
                     });
@@ -5564,7 +5686,10 @@
                             '<td style="width:28px">' +
                             '<input type="checkbox" ' + (isChecked ? 'checked' : '') + ' data-sample-uid="' + uid + '">' +
                             '</td>' +
-                            '<td class="gaip-bulk-sample-label">' + _escHtml(entry.sampleLabel || entry.sampleId) + '</td>' +
+                            // GH-798: the picker on the screen obeys the rule the document obeys. The
+                            // row keeps its checkbox and its type badges, so a sample with no name is
+                            // still there to choose -- which is the half the owner named.
+                            '<td class="gaip-bulk-sample-label">' + _escHtml(entry.sampleLabel || '') + '</td>' +
                             '<td style="text-align:right">' + typeBadges + '</td>' +
                             '</tr>';
                     }).join('');

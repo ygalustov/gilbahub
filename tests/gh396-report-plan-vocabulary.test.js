@@ -112,7 +112,12 @@ describe('GH-396 — the Annual Nutrient Requirements table carries the Plan pag
         // One TableRow pushed per nutrient, inside the per-nutrient loop,
         // inside the per-report loop.
         expect(block).toMatch(/anrReports\.forEach\(function\(r, ri\) \{[\s\S]*\['N', 'P', 'K'\]\.forEach[\s\S]*tableRows\.push\(new TableRow/);
-        expect(block).toMatch(/_mkCell\(r\.sampleLabel \|\| r\.sampleId, \{\s*\n\s*fill: rowFill, bold: true, size: 17, width: SAMPLE_COL_W/);
+        /**
+         * GH-798: the zone column is still the first cell of every row — that is what this case is
+         * about — but it no longer falls back to the sample's identifier. The owner's rule of
+         * 22.09.2026: a zone nobody named is printed without a name, and the row stays.
+         */
+        expect(block).toMatch(/_mkCell\(r\.sampleLabel \|\| '', \{\s*\n\s*fill: rowFill, bold: true, size: 17, width: SAMPLE_COL_W/);
     });
 
     test('the soil level is printed in kg/ha with the certificate ppm in brackets, from the shared formatter', () => {

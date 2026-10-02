@@ -796,6 +796,88 @@ function installDataStubs(sandbox) {
         decoyKey: coordKey(OTHER_SITE_LAT, OTHER_SITE_LON)
     };
     KEYED_STORES.push(CLIMATE_STORE);
+
+    /**
+     * GH-808 (queue item 3gy, part 1) — THE CASE SUPPLIES THE SAMPLE AND THE PAGE'S PROGRAMME.
+     *
+     * Until now the fixture's one soil record was the only sample this sandbox could export, so a
+     * claim about what the document says on OTHER readings could not be made here at all: the
+     * contradiction between two sections of the report depends on the numbers, and three of the
+     * four cases that show it are not this record. The two mutators below are the capability the
+     * plan asks for, and they are deliberately narrow.
+     *
+     * `putSoilReadings` replaces the readings of the site's own soil record and re-fills the page's
+     * soil form from it, which is what the live page does when a sample is loaded. The label, the
+     * date and the four non-reading constants (bulk density, depth, ESP, area) are NOT taken from
+     * the case: they are the fixture's, held constant on purpose. The date decides the staleness
+     * gate (`canDriveRecommendations`) and the constants are in every ppm -> kg/ha conversion, so a
+     * case that changed them would be comparing documents built on two different rulers.
+     *
+     * `putPageProgram` writes the page's nutrition-programme global, which the export reads
+     * (word-export.js, `window.GAIP_NUTRITION_PROGRAM`). It exists because the programme is what
+     * the amendment merge writes INTO, and a sandbox with no programme cannot reach that path at
+     * all -- the fixture has none, so every measurement of it before this was a reading of the
+     * code rather than of a run.
+     */
+    return {
+        putSoilReadings: (readings) => {
+            const kept = {
+                bulkDensity: soilSample.values.bulkDensity,
+                depthCm: soilSample.values.depthCm,
+                ESP: soilSample.values.ESP,
+                areaHa: soilSample.values.areaHa
+            };
+            const fresh = shapedAs('soilSampleValues',
+                Object.assign({ _label: SAMPLE_LABEL, zone: 'Other' }, readings));
+            Object.keys(soilSample.values).forEach((k) => { delete soilSample.values[k]; });
+            Object.assign(soilSample.values, fresh, kept);
+            // The live page keeps the form and the record in step, and the export used to read the
+            // form; the form is filled here so that a case cannot pass because of a stale field.
+            fillSoilForm(soilSample);
+            return soilSample;
+        },
+        putPageProgram: (program) => {
+            sandbox.GAIP_NUTRITION_PROGRAM = program;
+            return program;
+        },
+        pageProgram: () => sandbox.GAIP_NUTRITION_PROGRAM,
+        /**
+         * GH-810 (queue item 3gy, delivery 3): the site's own water record and the site's grass.
+         *
+         * The water record is replaced the same way as the soil one: its readings come from the
+         * case, its label and date stay the fixture's. The species is the site config's
+         * `turf.species`, which is where the export resolves it from -- and the word the export's
+         * C3/C4 test reads (`isC4` is derived from the species name). Without it every case of this
+         * sandbox is a cool-season site, so a threshold set that depends on the grass type could not
+         * be shown to depend on it: the two sets never diverge on one kind of grass.
+         */
+        putWaterReadings: (readings) => {
+            const fresh = shapedAs('waterSampleValues',
+                Object.assign({ _label: 'Bore A', zone: 'Other', _zone: 'Other', _source: 'bore' }, readings));
+            Object.keys(waterSampleA.values).forEach((k) => { delete waterSampleA.values[k]; });
+            Object.assign(waterSampleA.values, fresh);
+            return waterSampleA;
+        },
+        putSiteSpecies: (species) => {
+            siteConfig.turf.species = species;
+            return siteConfig.turf;
+        },
+        // GH-810: the site's methodology. Only MLSN declares a sulphur floor and steps its phosphorus
+        // floor by pH, and two cases of this delivery need exactly those paths to run.
+        putSiteMethodology: (methodology) => {
+            siteConfig.turf.methodology = methodology;
+            return siteConfig.turf;
+        },
+        // GH-810: the site's tissue record, for the two Epsom instructions that lose their rate --
+        // they print only when tissue magnesium is low, which the fixture's tissue never is.
+        putTissueReadings: (readings) => {
+            const fresh = shapedAs('tissueSampleValues',
+                Object.assign({ _label: 'Soccer tissue', zone: 'Other' }, readings));
+            Object.keys(tissueSampleA.values).forEach((k) => { delete tissueSampleA.values[k]; });
+            Object.assign(tissueSampleA.values, fresh);
+            return tissueSampleA;
+        }
+    };
 }
 
 function loadPage(record) {
@@ -857,7 +939,7 @@ function loadPage(record) {
             failures.push({ name: name, why: (e && e.message) || String(e) });
         }
     });
-    installDataStubs(sandbox);
+    const stubs = installDataStubs(sandbox);
     // Timers become real only now. During loading they are inert, because
     // several page modules reschedule themselves on a timer and a live one
     // turns that into an endless loop in a sandbox with no page to settle
@@ -874,7 +956,18 @@ function loadPage(record) {
         sandbox: sandbox, failures: failures, clicked: built.clicked, blobs: built.blobs,
         // Every method called on either store since the page began loading,
         // in order — the set an export REACHES, measured rather than listed.
-        reached: recorders.reached
+        reached: recorders.reached,
+        // GH-808: the case's own soil readings and the page's programme. They are returned here
+        // rather than hung on the sandbox so that nothing which inspects the page's globals (the
+        // poison roots, the store-shape census) sees a key the live page does not have.
+        putSoilReadings: stubs.putSoilReadings,
+        putPageProgram: stubs.putPageProgram,
+        pageProgram: stubs.pageProgram,
+        // GH-810: the case's own water and the site's grass.
+        putWaterReadings: stubs.putWaterReadings,
+        putSiteSpecies: stubs.putSiteSpecies,
+        putSiteMethodology: stubs.putSiteMethodology,
+        putTissueReadings: stubs.putTissueReadings
     };
 }
 

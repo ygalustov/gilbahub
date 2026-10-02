@@ -1,0 +1,243 @@
+{
+  "$comment": [
+    "GH-799 (queue item \"Zones\", stage C0) - THE ZONE TYPES, ONE FILE, ONE READER.",
+    "",
+    "WHAT IS NOT HERE ANY MORE. This file first carried a second vocabulary beside the zone types: the",
+    "four kinds of water source (`bore`, `surface`, `recycled`, `potable`), for a column of `samples`",
+    "that this stage was going to add. The owner's decision of 01.10.2026, taken after she was shown",
+    "all three readers of the word that carries that meaning today -- the sample list, the trend on the",
+    "screen and the water sparklines in the document, none of which changes a number on the stand --",
+    "is that a water sample keeps ONLY ITS NAME. So the column is not added and the vocabulary is not",
+    "declared: a list of allowed values with nothing that may hold one is a promise with no writer.",
+    "`payload._zone` on a water sample is untouched, and what becomes of it is a separate plan.",
+    "",
+    "WHY A FILE AND NOT A TABLE. The analyst's decision of 01.10.2026, and its reason: these values",
+    "are owned by the CODE, not by a person. Nobody enters them in the interface, there is no screen",
+    "that edits the dictionary, and a table would have added two tables and two seeds to the migration",
+    "while answering the same question. The same shape as `aa-ranges.json` and the inputs list: the",
+    "server reads this file, pages get it parsed from the server, and there is no copy in `assets` --",
+    "`Gh799TheZoneTypesHaveOneFileTest` reddens if a second reader appears.",
+    "",
+    "A zone keeps its type as a KEY of this file (`zones.zone_type`, NULL allowed). That is what the",
+    "owner's decision of 22.09.2026 asks for -- a reference to a declared value rather than free text",
+    "-- so a key this file does not carry is refused by the server.",
+    "",
+    "NULL IS THE EXPECTED STATE AFTER THE TRANSFER, and it is the owner's decision of 22.09.2026:",
+    "\"you can leave it empty, and I will fill them in by hand afterwards\". A guessed type with a mark",
+    "beside it looks like a filled field and may never be returned to; an empty one asks to be filled.",
+    "No figure depends on it: the type is not an input of any calculation.",
+    "",
+    "WHERE THE VALUES AND THE WORDS COME FROM, so that no number here is invented: the keys and the",
+    "labels are moved as they stand from `sample-switcher-ui.js` (`ZONE_LABELS`, the switcher's own",
+    "table, whose own rows for the water sources stay where they are) and `prebbles-products.js`'s",
+    "cotula key; `areaGuidance` is moved from `AREA_GUIDANCE` in",
+    "`sample-manager.js`, hectares and sentences unchanged. Those tables stay where they are until",
+    "stage C4 moves their readers; this file does not race them, and the equality is held by the test",
+    "named above.",
+    "",
+    "`cotula_bowling_green` has no entry in either live table -- it is a surface type elsewhere in the",
+    "product (`prebbles-products.js`, `nutrition-program-inputs.js`) and the plan declares it as the",
+    "twelfth zone type. Its label is the name the product already prints for it; its area guidance is",
+    "the permissive `other` row rather than a number nobody measured, and that is said here rather",
+    "than left to be discovered.",
+    "",
+    "GH-804 (part 1) - `zoneTypeField` IS NOT HERE ANY MORE, and this is where it went: the obligation",
+    "on a zone's type is declared in `calculation-inputs.schema.json` as the input `zones.zoneType`,",
+    "read through `CalculationInputs`. An obligation declared in two files is two obligations, and the",
+    "inputs list is the place this product declares what a calculation needs. This file keeps what it",
+    "was always for: the twelve types themselves. The paragraphs below are the reasons the block was",
+    "written, kept because they are the reasons it reads as it does -- they now describe the entry in",
+    "the other file.",
+    "",
+    "GH-801 (stage C2) - `zoneTypeField`: THE OBLIGATION WAS DECLARED HERE, NOT WRITTEN INTO A SCREEN.",
+    "",
+    "The owner's decision of 01.10.2026 is that a zone's type is required, and her answer to HOW is the",
+    "variant (b) she was shown with its price: the Zones tab saves nothing while the site still has a",
+    "zone with no type. `judgedOn: result` is that answer in one word -- the save is judged by the set",
+    "of zones the site is LEFT with, not by the rows the request happens to mention, so the way out is",
+    "always open: choose the types (and delete what is spare) in one save and it is accepted.",
+    "",
+    "WHY NOT IN `calculation-inputs.schema.json`, where every other obligation of this product lives:",
+    "that list holds the INPUTS OF A SITE, one value each, read by the calculation and by the panel that",
+    "names what could not be computed. A zone type is neither -- a site has from none to many zones, a",
+    "site with no zones owes nothing, and no figure anywhere depends on the type (measured, plan section",
+    "1.1). Putting it there would have made the wizard ask for it and the run record report it missing.",
+    "",
+    "`requiredIn` AND `notRequiredIn` ARE BOTH DECLARED, because where the obligation does NOT hold is",
+    "the owner's decision too, in her words: \"we do not change the add interface\". A zone arriving from",
+    "the Data page or from an import is created with no type and nothing is refused; the type is asked",
+    "for in the one place she named. A reader that judged by storage alone could not tell those apart.",
+    "",
+    "`place` IS THE WORDS A PERSON READS, spelled as the screen spells them, the same shape as the",
+    "`places` map of the inputs list."
+  ],
+  "version": 1,
+  "zoneTypes": {
+    "green": {
+      "label": "Green",
+      "areaGuidance": {
+        "placeholder": "0.05",
+        "minHa": 0.02,
+        "maxHa": 0.15,
+        "example": "0.03–0.07 ha typical (300–700 m² per USGA/STRI)"
+      }
+    },
+    "fairway": {
+      "label": "Fairway",
+      "areaGuidance": {
+        "placeholder": "2.5",
+        "minHa": 0.3,
+        "maxHa": 6.0,
+        "example": "1.5–5 ha typical per fairway"
+      }
+    },
+    "tee": {
+      "label": "Tee",
+      "areaGuidance": {
+        "placeholder": "0.03",
+        "minHa": 0.01,
+        "maxHa": 0.1,
+        "example": "0.015–0.05 ha typical (150–500 m²)"
+      }
+    },
+    "rough": {
+      "label": "Rough",
+      "areaGuidance": {
+        "placeholder": "3.0",
+        "minHa": 0.5,
+        "maxHa": 25.0,
+        "example": "varies widely (1–20+ ha depending on course)"
+      }
+    },
+    "approach": {
+      "label": "Approach",
+      "areaGuidance": {
+        "placeholder": "0.05",
+        "minHa": 0.01,
+        "maxHa": 0.15,
+        "example": "0.02–0.1 ha typical"
+      }
+    },
+    "collar": {
+      "label": "Collar",
+      "areaGuidance": {
+        "placeholder": "0.015",
+        "minHa": 0.003,
+        "maxHa": 0.05,
+        "example": "0.005–0.03 ha (narrow ring around green)"
+      }
+    },
+    "bunker": {
+      "label": "Bunker",
+      "areaGuidance": {
+        "placeholder": "0.02",
+        "minHa": 0.003,
+        "maxHa": 0.05,
+        "example": "0.005–0.05 ha per bunker complex"
+      }
+    },
+    "sports_pitch": {
+      "label": "Pitch",
+      "areaGuidance": {
+        "placeholder": "0.7",
+        "minHa": 0.3,
+        "maxHa": 2.5,
+        "example": "0.7 ha soccer / 1.4 ha AFL / 1.8 ha cricket"
+      }
+    },
+    "goal_area": {
+      "label": "Goal Area",
+      "areaGuidance": {
+        "placeholder": "0.012",
+        "minHa": 0.003,
+        "maxHa": 0.03,
+        "example": "0.005–0.02 ha per goal mouth"
+      }
+    },
+    "centre": {
+      "label": "Centre",
+      "areaGuidance": {
+        "placeholder": "0.5",
+        "minHa": 0.05,
+        "maxHa": 2.0,
+        "example": "varies with sport"
+      }
+    },
+    "cotula_bowling_green": {
+      "label": "Cotula Bowling Green",
+      "areaGuidance": {
+        "placeholder": "0.5",
+        "minHa": 0.001,
+        "maxHa": 50.0,
+        "example": "0.5 ha default, range deliberately permissive"
+      }
+    },
+    "other": {
+      "label": "Other",
+      "areaGuidance": {
+        "placeholder": "0.5",
+        "minHa": 0.001,
+        "maxHa": 50.0,
+        "example": "0.5 ha default, range deliberately permissive"
+      }
+    }
+  },
+  "journalZoneWords": {
+    "$comment": [
+      "GH-806 (queue item \"Zones\", stage SZh1) - THE WORDS THE SPRAY JOURNAL STORES, AND WHICH TYPE EACH IS.",
+      "",
+      "WHY A TABLE AND NOT A GUESS. The journal has never held a zone of a site: it holds a WORD per entry,",
+      "chosen from a list of its own (`spray-log-ui.js` offers greens/tees/fairways/surrounds/sportsground/",
+      "other; the Data page's own form offers Greens/Tees/Fairways/Surrounds/Roughs/Other). The owner's",
+      "decision of 01.10.2026 is that an entry carries the TYPE OF A ZONE by its identifier, so each of",
+      "those words needs an answer, and the answer is declared here beside the types rather than worked out",
+      "by whoever happens to read it.",
+      "",
+      "`noType` IS AN ANSWER TOO, and the more important half. `surrounds` and `sportsground` are words the",
+      "journal offers for which this dictionary declares no type: the nearest keys would be a guess",
+      "(`approach`? `collar`? `sports_pitch`?), and a guessed type is the substitution this whole queue item",
+      "removes. They are listed so that a word with no type is told apart from a word nobody declared - the",
+      "first is left without a type, the second stops the transfer.",
+      "",
+      "GH-816: a word added to `noType` must not be one that can mean a green. `analysisZoneTypes` counts a",
+      "golf course's application only by the type `green`, so an entry written with such a word would stop",
+      "counting for the analysis without anything saying so.",
+      "",
+      "MEASURED, 02.10.2026: of the five entries the journal holds, four carry `greens` and one carries",
+      "`other`; `surrounds`, `sportsground` and `roughs` appear in no stored row at all. `all` is NOT a",
+      "stored word and is not declared here - it is a cache key inside `spray-log.js` (`opts.zone || 'all'`),",
+      "which is a correction to the plan's own dry-run line.",
+      "",
+      "COMPARED WITHOUT CASE, because the server stores the word as it was sent (`normaliseZones` trims and",
+      "nothing else) and the two lists above are spelled differently."
+    ],
+    "ofWord": {
+      "greens": "green",
+      "tees": "tee",
+      "fairways": "fairway",
+      "roughs": "rough",
+      "other": "other"
+    },
+    "noType": [
+      "surrounds",
+      "sportsground"
+    ]
+  },
+  "analysisZoneTypes": {
+    "$comment": [
+      "GH-816 (queue item \"Zones\", ZhT) - WHICH APPLICATIONS OF THE SPRAY JOURNAL THE ANALYSIS COUNTS, BY THE SITE'S TURF TYPE.",
+      "",
+      "The owner's decision of 02.10.2026, variant (b): on a sports site and a lawn an application to a zone",
+      "of ANY type counts; on a golf course only an application to a green does. The keys are the turf types",
+      "of calculation-inputs.schema.json; a value is a list of zone types of this file, or the declared word",
+      "for any type. The server reads it through ZoneTypes::analysisZoneTypesFor, for the spray-log context",
+      "the calculation asks and for the run start's \"PGR filled in\" -- one rule, two readers."
+    ],
+    "anyType": "any",
+    "byTurfType": {
+      "golf": ["green"],
+      "sports": "any",
+      "lawns": "any"
+    }
+  }
+}

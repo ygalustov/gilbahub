@@ -350,8 +350,13 @@ describe('GH-490 — the soil readings belong to the report\'s own sample', () =
         expect(text).not.toMatch(/Phosphorus \(P\)\n?\t?\d[\d.]* ppm/);
         // The row, with the sections it costs.
         expect(text).toContain('Soil readings');
+        // GH-808 (queue item 3gy): 'Soil Amendment Recommendations' is not in this list any more,
+        // because the section is not in the report any more. The row's job is to tell the client
+        // which sections a missing reading costs them, and naming one they cannot find is a worse
+        // answer than naming three.
         expect(text).toContain('Soil Nutrition, Cation Balance Analysis, '
-            + 'Annual Soil Amendments, Soil Amendment Recommendations');
+            + 'Annual Soil Amendments');
+        expect(text).not.toContain('Soil Amendment Recommendations');
         // And the paragraph, where the section would have been.
         expect(text).toContain('Not included: soil readings — not set for this site '
             + '(Data › Samples › Soil).');

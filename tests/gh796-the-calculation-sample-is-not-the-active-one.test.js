@@ -48,6 +48,12 @@ const ASSETS = path.join(ROOT, 'assets');
  * `nutrition-calendar.js:2550` declared and gone and `:2557` found and not declared -- the same read, moved
  * seven lines by this item's own edits to that file. That is the failure a count could not have shown.
  *
+ * It aged again, the same way, and the four pins moved with it: GH-803 (queue item "Zones", stage C3) added
+ * comments above four of these reads, so `nutrient-trend.js:1138` is now `:1195`, the two console lines of
+ * `nutrition-calendar.js` are `:863` and `:2570`, and `nutrition-program-inputs.js:1327` is `:1364`. Not one
+ * of the twelve reads changed what it does -- the places are the same places, and the case is doing exactly
+ * the work it was written for.
+ *
  * Three more reads are console lines and are listed with them, marked as such: the plan proposes writing the
  * calculation's sample into those too, and that is the coordinator's to decide -- so they are declared as
  * they stand rather than silently changed.
@@ -55,17 +61,17 @@ const ASSETS = path.join(ROOT, 'assets');
 const THE_PAGE_MAY_ASK = [
     'gaip-evidence-ui.js:84', 'gaip-evidence-ui.js:153', 'gaip-evidence-ui.js:232',
     'lab-report-parser.js:663',
-    'nutrient-trend.js:1138',
+    'nutrient-trend.js:1195',
     'nutrition-au-fertiliser-integration.js:608 (a console line)',
-    'nutrition-calendar.js:850 (a console line)',
-    'nutrition-calendar.js:2557 (a console line)',
+    'nutrition-calendar.js:866 (a console line)',  // GH-826: three lines inserted above
+    'nutrition-calendar.js:2573 (a console line)', // GH-826: three lines inserted above
     'sample-switcher-ui.js:315', 'sample-switcher-ui.js:364', 'sample-switcher-ui.js:490',
     'sample-switcher-ui.js:849',
     'site-selector-ui.js:181', 'site-selector-ui.js:240', 'site-selector-ui.js:346',
     /**
      * AND THE READS OF THE POINTER UNDER ITS SECOND NAME, each with what it does with it.
      *
-     * `nutrition-program-inputs.js:1327` is the one calculation read still standing, and it is standing by a
+     * `nutrition-program-inputs.js:1364` is the one calculation read still standing, and it is standing by a
      * question put to the owner rather than by oversight: the report has a third state, "records on file
      * that nobody selected", and that read is what decides it. With the server's answer in its place the
      * state cannot arise, so the report would compute where it used to say so -- a change to a sentence a
@@ -75,7 +81,7 @@ const THE_PAGE_MAY_ASK = [
      * settings backup all copy `allActive` into a file so that a restore can put a visitor back where they
      * were. Nothing is computed from it there.
      */
-    'nutrition-program-inputs.js:1327 (a calculation read, held for the owner\'s answer)',
+    'nutrition-program-inputs.js:1364 (a calculation read, held for the owner\'s answer)',
     'site-dashboard.js:181 (carried as data, a site export)',
     'site-data-transfer.js:111 (carried as data, the store transfer)',
     'site-data-transfer.js:111 (carried as data, the store transfer)',

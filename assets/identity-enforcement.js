@@ -6,7 +6,7 @@
  * Tiered enforcement of primary identity keys across all engines.
  * 
  * TIER 0 (Hard fail): speciesKey - blocks execution if missing
- * TIER 1 (Soft default): surfaceKey, climateRegimeKey, turfIntentKey - allowed
+ * TIER 1 (Soft default): surfaceKey, climateRegimeKey - allowed (GH-827: turf intent is not an input)
  *                        to default but with explicit tracking and penalties
  * TIER 2 (Output gating): Blocks exports/prescriptions when assumptions are
  *                         medium/high impact
@@ -108,26 +108,9 @@
             settingsLabel: null
         },
 
-        turfIntentKey: {
-            tier: 1,  // Soft default
-            required: false,
-            validValues: [
-                'eliteMatchPlay', 'professionalSport', 'collegiateSport',
-                'communityRecreation', 'generalMaintenance', 'establishment',
-                'renovation', 'overseeding',
-                'unknownIntent'  // Valid unknown
-            ],
-            unknownValue: 'unknownIntent',
-            defaultValue: 'unknownIntent',
-            displayName: 'Turf Intent',
-            defaultImpact: 'high',
-            confidencePenalty: 20,
-            affectedEngines: ['wear-recovery', 'pgr-module', 'nutrition-demand'],
-            // Derived from turf type and surface. The owner decided on
-            // 22.09.2026 not to add a field for it.
-            settingsField: null,
-            settingsLabel: null
-        },
+        // GH-827: `turfIntentKey` ("Turf Intent") is not an input -- the owner's decision, variant (a). No calculation
+        // read it, there is no field for it (her decision of 22.09.2026), and its default only produced an assumption
+        // line and a confidence penalty of 20 for a value nothing used.
 
         regionKey: {
             tier: 1,  // Soft default
@@ -179,37 +162,14 @@
 
         'wear-recovery': {
             requires: ['speciesKey'],
-            optional: ['surfaceKey', 'turfIntentKey'],
+            optional: ['surfaceKey'],
             canRunUnknown: {
-                surfaceKey: true,
-                // GH-580 — THE TABLE SAYS WHAT THE CODE DOES.
-                //
-                // This read `false` with the note "Cannot run - recovery defined
-                // by intent", and it was not true. `wear-recovery-engine-pure.js`
-                // does not contain the string `turfIntent` at all, and
-                // `hub-orchestrator.js` computes `wearCanRun`, logs it and calls
-                // the engine regardless. Measured on the stand: rows 24, 29, 31
-                // and 34 all carry "Wear engine blocked by identity enforcement"
-                // AND a complete fourteen-key `computed.wear` stamped in the same
-                // millisecond as the warning.
-                //
-                // The declaration cost more than untidiness. The server's rule of
-                // GH-569 read the word "BLOCKED" out of that message and marked
-                // whole runs partial for a module that had produced — an owner
-                // was told part of her analysis had not been computed when it
-                // had. That rule is gone (GH-573, the verdict comes from the
-                // result), and this is the other half: a block that is announced
-                // and never enforced is a lie the product tells about itself.
-                //
-                // NOT enforced instead. The owner decided on 22.09.2026 that
-                // recommendation bans are not switched on — "we are fixing the
-                // incoming data, not the recommendations". So the table is
-                // brought to the code, not the code to the table.
-                turfIntentKey: true
+                surfaceKey: true
+                // GH-580 said here that the wear engine runs without an intent; GH-827 took the intent out of the
+                // inputs altogether, so there is nothing left to declare about it.
             },
             unknownBehaviour: {
-                surfaceKey: 'Uses median recovery coefficients',
-                turfIntentKey: 'Runs without intent: recovery windows are not tailored to a playing intent'
+                surfaceKey: 'Uses median recovery coefficients'
             }
         },
 
@@ -228,40 +188,34 @@
 
         'pgr-module': {
             requires: ['speciesKey'],
-            optional: ['turfIntentKey', 'climateRegimeKey'],
+            optional: ['climateRegimeKey'],
             canRunUnknown: {
-                turfIntentKey: true,
                 climateRegimeKey: true
             },
             unknownBehaviour: {
-                turfIntentKey: 'Uses conservative GDD thresholds',
                 climateRegimeKey: 'No seasonal regime adjustments'
             }
         },
 
         'nutrition-demand': {
             requires: ['speciesKey'],
-            optional: ['turfIntentKey', 'surfaceKey'],
+            optional: ['surfaceKey'],
             canRunUnknown: {
-                turfIntentKey: true,
                 surfaceKey: true
             },
             unknownBehaviour: {
-                turfIntentKey: 'Uses maintenance-level demand curves',
                 surfaceKey: 'Ignores CEC-based adjustments'
             }
         },
 
         'stress-trajectory': {
             requires: ['speciesKey'],
-            optional: ['climateRegimeKey', 'turfIntentKey'],
+            optional: ['climateRegimeKey'],
             canRunUnknown: {
-                climateRegimeKey: true,
-                turfIntentKey: true
+                climateRegimeKey: true
             },
             unknownBehaviour: {
-                climateRegimeKey: 'Uses conservative stress thresholds',
-                turfIntentKey: 'Uses general maintenance thresholds'
+                climateRegimeKey: 'Uses conservative stress thresholds'
             }
         },
 
@@ -474,15 +428,7 @@
             _identityState.assumptions.push(climateResult.assumption);
         }
 
-        // Turf Intent
-        const intentResult = setIdentityKey(
-            'turfIntentKey',
-            extractTurfIntentKey(turf, site),
-            turf.turfIntent || site.intent ? 'user' : 'derived'
-        );
-        if (intentResult.assumption) {
-            _identityState.assumptions.push(intentResult.assumption);
-        }
+        // GH-827: no Turf Intent -- it is not an input (see IDENTITY_KEYS).
 
         // Region
         const regionResult = setIdentityKey(
@@ -686,96 +632,6 @@
         if (absLat < 45) return 'transitionZone';
         if (absLat < 55) return 'coolHumid';  // Simplified
         return 'continental';
-    }
-
-    /**
-     * Extract turf intent key
-     */
-    function extractTurfIntentKey(turf, site) {
-        // First try explicit intent fields
-        const explicitIntent = turf.turfIntent || turf.intent || site.intent;
-        
-        // Then try to derive from turfType + subCategory (Hub standard)
-        const turfType = turf.turfType || '';
-        const subCategory = turf.subCategory || '';
-        
-        // Combine for matching: e.g., "golf" + "greens" → "golf_greens"
-        const combined = (turfType + '_' + subCategory).toLowerCase().trim().replace(/\s+/g, '_');
-        const raw = explicitIntent || combined || turfType;
-
-        if (!raw) return null;
-
-        // Map to canonical keys
-        const mapping = {
-            'elite': 'eliteMatchPlay',
-            'elite match': 'eliteMatchPlay',
-            'elite match play': 'eliteMatchPlay',
-            'professional': 'professionalSport',
-            'professional sport': 'professionalSport',
-            'pro': 'professionalSport',
-            'collegiate': 'collegiateSport',
-            'college': 'collegiateSport',
-            'community': 'communityRecreation',
-            'recreation': 'communityRecreation',
-            'general': 'generalMaintenance',
-            'maintenance': 'generalMaintenance',
-            'establishment': 'establishment',
-            'renovation': 'renovation',
-            'overseed': 'overseeding',
-            'overseeding': 'overseeding',
-            // Hub turfType + subCategory combinations
-            'golf_greens': 'eliteMatchPlay',
-            'golf_tees': 'professionalSport',
-            'golf_fairways': 'professionalSport',
-            'golf_fairway': 'professionalSport',
-            'golf_surrounds': 'generalMaintenance',
-            'golf_': 'professionalSport',
-            'sports_stadium': 'eliteMatchPlay',
-            'sports_elite': 'eliteMatchPlay',
-            'sports_professional': 'professionalSport',
-            'sports_community': 'communityRecreation',
-            'sports_training': 'communityRecreation',
-            'sports_': 'professionalSport',
-            'lawns_': 'generalMaintenance',
-            // b35fix390: cotula bowls turfType mapping. Pre-fix, no entry for
-            // 'bowls' or 'bowls_*'; cotula sites with turfType='bowls' and
-            // subCategory=null produced a `combined` of 'bowls_' which mapped
-            // to nothing → returned null → triggered the unknownIntent default
-            // at the call site (-20% confidence penalty), which in turn blocked
-            // the wear engine at hub-orchestrator.js:1063 with "BLOCKED -
-            // recovery windows require defined intent" (post-b35fix389; pre-
-            // b35fix389 the wear engine had been blocked one rung earlier on
-            // missing speciesKey). eliteMatchPlay chosen as the closest
-            // existing intent: bowls is precision short-mown competition turf,
-            // agronomically equivalent intent profile to elite golf greens
-            // (eliteMatchPlay maps 'golf_greens' and 'sports_stadium' / 'sports_elite').
-            // Production evidence: gilbasolutions_com-1777421036591.log lines
-            // 196/252 (X Cotula BC, Christchurch, post-b35fix389 deploy at
-            // ?ver=1777420942). Pairs with b35fix388 (turfType durability)
-            // and b35fix389 (cotula speciesKey validValues) to close the
-            // cotula bowls log triad: TIER 0 VIOLATION (closed b35fix389),
-            // unknownIntent default (closed b35fix390), wear engine block
-            // on speciesKey (closed b35fix389), wear engine block on intent
-            // (closed b35fix390). Cotula dicot bypass log line stays — that's
-            // intended (grass engines are correctly suppressed for a dicot).
-            'bowls': 'eliteMatchPlay',
-            'bowls_': 'eliteMatchPlay',
-            'bowling': 'eliteMatchPlay',
-            'bowling_green': 'eliteMatchPlay',
-            'bowling_greens': 'eliteMatchPlay',
-            // Legacy single-value mappings
-            'greens': 'eliteMatchPlay',
-            'fairway': 'professionalSport',
-            'fairways': 'professionalSport',
-            'tees': 'professionalSport',
-            'sports': 'professionalSport',
-            'stadium': 'eliteMatchPlay',
-            'golf': 'professionalSport',
-            'lawns': 'generalMaintenance'
-        };
-
-        const normalised = (typeof raw === 'string') ? raw.toLowerCase().trim() : '';
-        return mapping[normalised] || null;
     }
 
     /**

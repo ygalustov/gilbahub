@@ -919,9 +919,16 @@
                 {{-- ── Zones ────────────────────────────────────────── --}}
                 <div class="stg-panel stg-hidden" id="stg-tab-zones" role="tabpanel">
                     <div class="stg-card" id="stg-zones-form">
+                        {{--
+                            GH-801 (queue item "Zones", stage C2) - THE WORD "spray" IS GONE FROM THIS
+                            DESCRIPTION, and that is a coordinator's decision of 01.10.2026 rather than the
+                            owner's word: the spray log does not read a site's zone names at all (it keeps
+                            its own list of zones per entry), so the sentence promised something the
+                            product does not do. Say the owner wants it back and it comes back.
+                        --}}
                         <div class="stg-card-head">
                             <div class="stg-card-title">Zone names</div>
-                            <div class="stg-card-desc">Named areas on this site — used when logging soil, tissue, and spray data.</div>
+                            <div class="stg-card-desc">Named areas on this site — used when logging soil and tissue data. Each zone needs a type.</div>
                         </div>
 
                         <div class="stg-zone-list" id="stg-zone-list">
@@ -932,6 +939,12 @@
                             <input type="text" id="stg-zone-input"
                                    placeholder="New zone name (e.g. Green 1)"
                                    maxlength="60" class="stg-zone-input">
+                            <select id="stg-zone-type-input" class="stg-select stg-zone-type">
+                                <option value="">Select a type</option>
+                                @foreach($zoneTypes ?? [] as $type)
+                                    <option value="{{ $type['id'] }}">{{ $type['label'] }}</option>
+                                @endforeach
+                            </select>
                             <button type="button" class="stg-btn-secondary" id="stg-zone-add-btn">Add</button>
                         </div>
 
@@ -1086,7 +1099,22 @@
 <script>
 window.STG_DATA = {
     activeSiteId:         @json($activeSite->id),
-    zones:                @json($activeSite->attributes_json['zones'] ?? []),
+    {{--
+        GH-801 (stage C2): the zones as ROWS, from their one owner on the server, not the list of names
+        the template used to read out of `attributes_json`. The twelve types and the obligation on the
+        type come the same way -- from the one reader of `assets/zone-types.json` -- so this page holds
+        no copy of either and nothing here decides whether a type is required.
+    --}}
+    zones:                @json($siteZones ?? []),
+    zoneTypes:            @json($zoneTypes ?? []),
+    {{--
+        GH-804 (part 1): NO FALLBACK. This read `?? ['label' => 'the zone type', 'required' => false]`,
+        which is a substitution twice over: a word where a declaration is missing, and "not required"
+        where the answer is unknown -- the second one would have let the tab save an untyped zone and
+        call it allowed. The controller answers for this from the inputs list on every render; if it ever
+        does not, the page is handed `null` and says so rather than deciding the question itself.
+    --}}
+    zoneTypeField:        @json($zoneTypeField ?? null),
     csrfToken:            @json(csrf_token()),
     apiBase:              @json(url('/api')),
     gaipConfig:           @json($activeGaipConfig),

@@ -74,6 +74,10 @@
       "siteFrom": "url",
       "handler": "App\\Http\\Controllers\\SiteController@patchConfig"
     },
+    "PATCH api/sites/{site}/zones": {
+      "siteFrom": "url",
+      "handler": "App\\Http\\Controllers\\ZoneController@update"
+    },
     "PATCH api/users/{user}/approve": {
       "siteFrom": "pointer",
       "handler": "App\\Http\\Controllers\\UsersController@approve"

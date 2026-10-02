@@ -45,11 +45,9 @@
         'wb-sar': {
             title: 'SAR — Sodium Adsorption Ratio',
             body:  'Relative proportion of sodium to calcium and magnesium. High SAR degrades soil structure by displacing Ca/Mg on exchange sites, causing compaction and poor infiltration.\n\n' +
-                   'Formula: Na / √((Ca + Mg) / 2)   [all in meq/L]\n\n' +
-                   '< 3 — Low sodium hazard\n' +
-                   '3–9 — Medium — monitor infiltration\n' +
-                   '9–18 — High — gypsum likely needed\n' +
-                   '> 18 — Very high — corrective action urgent',
+                   // GH-825: the scale of numbers is gone (the owner's decision, variant (a)): the level depends on
+                   // the grass, and the explanation and the formula stay.
+                   'Formula: Na / √((Ca + Mg) / 2)   [all in meq/L]',
         },
         'wb-saradj': {
             title: 'SARadj — Adjusted SAR',
@@ -170,6 +168,21 @@
         if (v < 18)    return { label:'High',    cls:'deficient',  color:'#991b1b' };
         return               { label:'Very high',cls:'deficient',  color:'#7f1d1d' };
     }
+    /**
+     * GH-824 (queue item 3di): gypsum by SAR follows set 2 for the site's grass, as the report does. The water engine
+     * saves the SAR level it judged by (`level` on the SAR diagnostic); the page prints what was saved and keeps no
+     * thresholds of its own. No saved level -- the water was not judged for a grass -- no gypsum by SAR.
+     */
+    function savedSarLevel(wb) {
+        var d = (wb && Array.isArray(wb.diagnostics))
+            ? wb.diagnostics.filter(function (x) { return x && x.parameter === 'SAR'; })[0] : null;
+        return (d && d.level) ? d.level : null;
+    }
+    function gypsumBySar(wb) {
+        var wl = global.GAIP_WaterLevels;
+        return !!(wl && wl.gypsumBySar(savedSarLevel(wb)));
+    }
+
     function rscStatus(v) {
         if (v == null)   return { label:'No data',  cls:'no-data',    color:'#6b7280' };
         if (v <= 0)      return { label:'Safe',      cls:'adequate',   color:'#15803d' };
@@ -701,24 +714,30 @@
         var effSar = (!isNaN(saradj) && saradj > sar) ? saradj : sar;
 
         // Risk classification
-        var riskLevel, riskColor, riskBg, riskBorder, gypsumRange, timeline, infiltration;
+        // GH-820: no gypsum rate on this page. Amendment rates come from a computed deficit, never from a
+        // literal, and this page has no computed rate to connect -- so the card says gypsum is needed, not how
+        // much. The SAR thresholds are untouched.
+        var riskLevel, riskColor, riskBg, riskBorder, gypsumNeeded, timeline, infiltration;
         if (effSar >= 18) {
             riskLevel = 'Severe'; riskColor = '#7f1d1d'; riskBg = '#fef2f2'; riskBorder = '#f87171';
-            gypsumRange = '3–6'; timeline = 'Rapid — structural collapse within months without treatment';
+            timeline = 'Rapid — structural collapse within months without treatment';
             infiltration = 'Severely impaired — waterlogging and surface ponding likely';
         } else if (effSar >= 9) {
             riskLevel = 'High'; riskColor = '#991b1b'; riskBg = '#fef2f2'; riskBorder = '#fca5a5';
-            gypsumRange = '2–4'; timeline = 'Progressive — measurable degradation within 6–18 months';
+            timeline = 'Progressive — measurable degradation within 6–18 months';
             infiltration = 'Impaired — reduced infiltration rate, compaction risk elevated';
         } else if (effSar >= 3) {
             riskLevel = 'Moderate'; riskColor = '#854d0e'; riskBg = '#fffbeb'; riskBorder = '#fde68a';
-            gypsumRange = '0.5–2'; timeline = 'Slow — gradual degradation over 2–5 years';
+            timeline = 'Slow — gradual degradation over 2–5 years';
             infiltration = 'Minor restriction — monitor infiltration rates seasonally';
         } else {
             riskLevel = 'Low'; riskColor = '#15803d'; riskBg = '#f0fdf4'; riskBorder = '#86efac';
-            gypsumRange = null; timeline = 'No structural risk at current sodium levels';
+            timeline = 'No structural risk at current sodium levels';
             infiltration = 'No restriction';
         }
+
+        // GH-824: gypsum by the saved SAR level for the site's grass, not by this card's own bands.
+        gypsumNeeded = gypsumBySar(wb);
 
         // Bicarbonate aggravation note
         var bicarbNote = (!isNaN(saradj) && !isNaN(sar) && (saradj - sar) > 0.5)
@@ -731,10 +750,9 @@
             : null;
 
         var gypsumHtml = '';
-        if (gypsumRange) {
+        if (gypsumNeeded) {
             gypsumHtml = '<div style="margin-top:12px;padding:10px 12px;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px">' +
                 '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#5b21b6;margin-bottom:4px">Gypsum Recommendation</div>' +
-                '<div style="font-size:14px;font-weight:700;color:#4c1d95">' + gypsumRange + ' t/ha</div>' +
                 '<div style="font-size:11px;color:#6d28d9;margin-top:2px">Apply as surface broadcast, water in immediately (≥10mm). Retest SAR 3 months after application.</div>' +
                 '</div>';
         }
@@ -797,13 +815,14 @@
 
         // Order mirrors old hub's calculateWaterDiagnostics
         if (wb.SAR != null) {
-            var st = sarStatus(wb.SAR);
+            // GH-825: no saved diagnostics, no level for the site's grass -- "Not assessed" (the owner's words), and
+            // no level word of the page's own scale beside it.
+            var st = { label: 'Not assessed', cls: 'no-data' };
             push('Sodium Hazard (SAR)', fmt(wb.SAR, 2), '', st,
-                 'Low sodium hazard',
-                 wb.SAR >= 9 ? 'Apply gypsum 1.0–2.0 t/ha, monitor infiltration.'
-               : wb.SAR >= 6 ? 'Apply gypsum 1.0–2.0 t/ha, monitor infiltration.'
-               : wb.SAR >= 3 ? 'Consider preventative gypsum (0.5–1.0 t/ha).'
-               : 'No sodium management required.');
+                 null,
+                 // GH-824: this row is built only when no diagnostics were saved, so there is no SAR level for the
+                 // site's grass and no gypsum advice by thresholds of the page's own. (GH-820 removed the rates.)
+                 null);
         }
         if (wb.SARadj != null) {
             var st = sarStatus(wb.SARadj);
@@ -1003,10 +1022,12 @@
         var recs = [];
 
         // SAR / Sodium
-        if (wb.SAR != null) {
-            if (wb.SAR >= 9) {
-                recs.push({ sev:'high', title:'High Sodium Hazard', body:'Apply gypsum (CaSO₄) to displace Na from exchange sites. Typical rate 1–3 t/ha depending on severity. Irrigate immediately after application. Check infiltration rates monthly.' });
-            } else if (wb.SAR >= 3) {
+        // GH-824: by the saved SAR level for the site's grass, not by the page's own 9 / 3.
+        var _sarLevel = savedSarLevel(wb);
+        if (wb.SAR != null && _sarLevel) {
+            if (gypsumBySar(wb)) {
+                recs.push({ sev:'high', title:'High Sodium Hazard', body:'Apply gypsum (CaSO₄) to displace Na from exchange sites. Irrigate immediately after application. Check infiltration rates monthly.' });
+            } else if (_sarLevel === 'moderate') {
                 recs.push({ sev:'medium', title:'Moderate Sodium Risk', body:'Monitor soil infiltration. Consider periodic gypsum applications and acidification if pH > 7.5. Review irrigation scheduling to avoid over-wetting.' });
             }
         }
@@ -1131,13 +1152,14 @@
             priority = Math.max(priority, 2);
         }
 
-        // 2. pH × Sodium interaction (hub-tissue-v3.js lines 1684-1692 exact match)
+        // 2. pH × Sodium interaction (hub-tissue-v3.js lines 1684-1692: the thresholds match; GH-820: the
+        //    gypsum rates of the actions are not carried, here or in 3 below)
         if (soilPH > 0 && soilNa > 0) {
             if (soilPH > 7.5 && soilNa > 60) {
                 issues.push({ type:'pH × Sodium — Critical', severity:'high',
                     description:'High pH (' + soilPH.toFixed(1) + ') + elevated Na (' + soilNa.toFixed(0) + ' ppm) = Increased sodicity risk',
                     impact:'Alkaline conditions favour sodium displacement of calcium on exchange sites. Progressive structure degradation and infiltration decline.',
-                    action:'Gypsum application (1.5–2.5 t/ha) + acidification program. Acidify to pH 6.5–7.0. Monitor SAR in irrigation water.' });
+                    action:'Gypsum application + acidification program. Acidify to pH 6.5–7.0. Monitor SAR in irrigation water.' });
                 overallStatus = 'deficient'; priority = Math.max(priority, 3);
             } else if (soilPH > 7.0 && soilNa > 45) {
                 issues.push({ type:'pH × Sodium', severity:'moderate',
@@ -1154,19 +1176,19 @@
             issues.push({ type:'Soil Sodium — High', severity:'high',
                 description:'Soil Na: ' + soilNa.toFixed(0) + ' ppm (Mehlich-3) — High sodium. Significant risk of sodicity, poor infiltration, and turf stress.',
                 impact:'Significant risk of sodicity, poor infiltration, and turf stress.',
-                action:'URGENT: Apply gypsum 2.0–3.0 t/ha in split applications. Aggressive leaching program. Test for true ESP (exchangeable Na required). May need drainage improvements. Evaluate irrigation water source.' });
+                action:'URGENT: Apply gypsum in split applications. Aggressive leaching program. Test for true ESP (exchangeable Na required). May need drainage improvements. Evaluate irrigation water source.' });
             overallStatus = 'deficient'; priority = Math.max(priority, 2);
         } else if (soilNa >= 60) {
             issues.push({ type:'Soil Sodium — Elevated', severity:'high',
                 description:'Soil Na: ' + soilNa.toFixed(0) + ' ppm (Mehlich-3) — Elevated sodium levels. Potential for structure/infiltration issues.',
                 impact:'Potential for structure and infiltration issues.',
-                action:'Apply gypsum 1.0–1.5 t/ha. Increase leaching fraction (LF 0.20–0.25). Test irrigation water SAR. Consider lab test for exchangeable Na and ESP.' });
+                action:'Apply gypsum. Increase leaching fraction (LF 0.20–0.25). Test irrigation water SAR. Consider lab test for exchangeable Na and ESP.' });
             overallStatus = 'deficient'; priority = Math.max(priority, 2);
         } else if (soilNa >= 30) {
             issues.push({ type:'Soil Sodium — Slightly Elevated', severity:'moderate',
                 description:'Soil Na: ' + soilNa.toFixed(0) + ' ppm (Mehlich-3) — Slightly elevated. Monitor for early signs of sodium stress.',
                 impact:'Monitor for early signs of sodium stress.',
-                action:'Monitor turf closely. Check irrigation water quality (SAR). Consider preventative gypsum (0.5 t/ha) if using high-Na water.' });
+                action:'Monitor turf closely. Check irrigation water quality (SAR). Consider preventative gypsum if using high-Na water.' });
             overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
             priority = Math.max(priority, 1);
         }
@@ -1467,7 +1489,7 @@
                 _wbInjectDropdown('water');
             });
         } else {
-            // Water sample: write an override key to localStorage, then Re-run.
+            // Water sample: set the run parameter, then Re-run (GH-820: this line said localStorage; see GH-586 below).
             //
             // Why not SM allActive in gilba_samples:
             //   fetchSamplesFromServer in the old-hub iframe calls SM.getAllSamples()

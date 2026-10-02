@@ -248,7 +248,7 @@
         'mulders-interaction-checker.js','hill-labs-sample-types.js',
         'ammonium-acetate-methodology.js','cotula-bowling-green.js',
         'nutrient-demand-engine.js','nutrition-summary-integration.js',
-        'water-progressive-disclosure-WITH-SOIL-INTERACTION.js','salinity-penalty.js',
+        'water-levels-by-grass.js', 'water-progressive-disclosure-WITH-SOIL-INTERACTION.js','salinity-penalty.js',
         'salinity-climate-integration.js','salinity-engine-pure.js',
         'recycled-water-nutrient-engine.js','phytotoxicity-engine.js',
         'water-blender.js','water-blender-ui.js','water-importer.js',

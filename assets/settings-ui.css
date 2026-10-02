@@ -327,7 +327,22 @@
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-wrap: wrap;
 }
+
+/*
+ * GH-801 (queue item "Zones", stage C2): a zone carries a type now, so the row that was a name and a
+ * delete button is a name, a select and a delete button. The select is the page's own `.stg-select`,
+ * arrow and all; only its width is said here.
+ */
+.stg-zone-type { max-width: 200px; }
+.stg-zone-item .stg-zone-type-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+.stg-zone-item .gilba-required-note { margin: 0; }
 
 .stg-zone-input {
     flex: 1;

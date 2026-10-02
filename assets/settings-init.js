@@ -18,6 +18,12 @@
     var siteId   = D.activeSiteId || null;
     var apiBase  = (D.apiBase || '').replace(/\/$/, '');
     var csrf     = D.csrfToken || '';
+    /**
+     * GH-801 (queue item "Zones", stage C2): the zones as ROWS from the server -- `{id, name, zoneType,
+     * zoneTypeLabel}` -- where this was the site's list of NAMES. The dictionary of types and whether a
+     * type is required here come the same way, from the server, because the file that declares them has
+     * one reader and it is not a page.
+     */
     var zones    = (D.zones && Array.isArray(D.zones)) ? D.zones.slice() : [];
 
     /* ── Custom confirm dialog ───────────────────────────────── */
@@ -1017,25 +1023,103 @@
     }
 
     /* ── Zones ───────────────────────────────────────────────── */
-    var zoneList    = document.getElementById('stg-zone-list');
-    var zoneInput   = document.getElementById('stg-zone-input');
-    var zoneAddBtn  = document.getElementById('stg-zone-add-btn');
-    var zonesSave   = document.getElementById('stg-zones-save');
-    var zonesMsg    = document.getElementById('stg-zones-msg');
+    /**
+     * GH-801 (queue item "Zones", stage C2) — THE TAB SENDS WHAT THE PERSON DID, AND THE TYPE IS ASKED
+     * FOR HERE.
+     *
+     * WHAT THIS TAB USED TO DO. It held the site's zone names in the browser and PATCHed the SITE with
+     * the whole list on every save (`attributes_json: {zones: [...]}`) — a copy of the product's own
+     * state, sent back to be stored, which is the one shape this project does not allow. It now sends
+     * the changes: created, renamed, typed, deleted, to a route of their own.
+     *
+     * THE OBLIGATION IS THE SERVER'S TO JUDGE, and nothing here decides it. The `Required` note is drawn
+     * from the declaration the server handed this page (`D.zoneTypeField`), and a save that would leave a
+     * zone without a type is refused by the server, which names the zones in its own sentence. A check
+     * written here as well would be a second owner of the rule and would disagree with it one day.
+     */
+    var zoneList      = document.getElementById('stg-zone-list');
+    var zoneInput     = document.getElementById('stg-zone-input');
+    var zoneTypeInput = document.getElementById('stg-zone-type-input');
+    var zoneAddBtn    = document.getElementById('stg-zone-add-btn');
+    var zonesSave     = document.getElementById('stg-zones-save');
+    var zonesMsg      = document.getElementById('stg-zones-msg');
+    var zoneTypes     = (D.zoneTypes && Array.isArray(D.zoneTypes)) ? D.zoneTypes : [];
+    /**
+     * GH-804 (part 1) — THE OBLIGATION IS NOT GUESSED WHEN IT DOES NOT ARRIVE.
+     *
+     * This read `|| { label: 'the zone type', required: false }`: a page that had not been told whether
+     * a type is required decided it was NOT, drew no mark, and let a person press Save on a zone the
+     * server would refuse. "Unknown" is not "optional". If the field is missing the tab says so where
+     * the person is looking, and the server's own refusal is still the thing that decides.
+     */
+    var zoneTypeField = D.zoneTypeField || null;
+    var zoneTypeFieldMissing = !zoneTypeField;
+
+    // GH-817: a row also carries the number of the zone's live samples and the server's sentence about
+    // them -- the cross decides by the number and prints the sentence as it came.
+    function asRow(zone) {
+        return {
+            id: zone.id || null, name: zone.name || '', zoneType: zone.zoneType || null,
+            samples: zone.samples || 0, removeRefusal: zone.removeRefusal || null, refused: false
+        };
+    }
+
+    // What the server last gave this page, and what the person has done to it since. The first decides
+    // what NOT to send (the shape GH-637 put on the Turf tab); the second is what the rows show.
+    var zonesAsSaved = zones.map(asRow);
+    var zonesNow     = zones.map(asRow);
+
+    function zoneTypeOptions(selected) {
+        var html = '<option value="">Select a type</option>';
+        zoneTypes.forEach(function (type) {
+            html += '<option value="' + escHtml(type.id) + '"'
+                + (selected === type.id ? ' selected' : '') + '>' + escHtml(type.label) + '</option>';
+        });
+
+        return html;
+    }
+
+    /**
+     * The name a refusal uses for this row, so the server can mark the row a person has to look at.
+     * A zone the save is creating has no id yet and is named by its place among the created ones — the
+     * same order this page sends them in, which is the order of the list itself.
+     */
+    function inputNameFor(idx) {
+        var zone = zonesNow[idx];
+        if (zone.id) return 'zone.' + zone.id;
+        var created = 0;
+        for (var i = 0; i < idx; i++) {
+            if (!zonesNow[i].id) created++;
+        }
+
+        return 'zone.new:' + created;
+    }
 
     function renderZones() {
         if (!zoneList) return;
         zoneList.innerHTML = '';
-        if (!zones.length) {
+        if (!zonesNow.length) {
             zoneList.innerHTML = '<div class="stg-zone-empty">No zones defined yet.</div>';
+
             return;
         }
-        zones.forEach(function (name, idx) {
+        zonesNow.forEach(function (zone, idx) {
             var item = document.createElement('div');
             item.className = 'stg-zone-item';
             item.innerHTML =
-                '<span class="stg-zone-name">' + escHtml(name) + '</span>' +
-                '<button type="button" class="stg-zone-del" data-idx="' + idx + '" title="Remove zone">×</button>';
+                '<input type="text" class="stg-zone-input stg-zone-name" data-idx="' + idx + '"'
+                    + ' maxlength="191" value="' + escHtml(zone.name) + '" aria-label="Zone name">' +
+                '<span class="stg-zone-type-cell">' +
+                    '<select class="stg-select stg-zone-type" data-idx="' + idx + '"'
+                        + ' data-input="' + escHtml(inputNameFor(idx)) + '" aria-label="Zone type">'
+                        + zoneTypeOptions(zone.zoneType) +
+                    '</select>' +
+                    ((zoneTypeField && zoneTypeField.required && !zone.zoneType)
+                        ? '<span class="gilba-required-note">Required</span>' : '') +
+                '</span>' +
+                '<button type="button" class="stg-zone-del" data-idx="' + idx + '" title="Remove zone">×</button>' +
+                (zone.refused && zone.removeRefusal
+                    ? '<span class="gilba-required-note stg-zone-refusal">' + escHtml(zone.removeRefusal) + '</span>' : '');
             zoneList.appendChild(item);
         });
     }
@@ -1050,14 +1134,59 @@
 
     if (zoneList) {
         renderZones();
+        if (zoneTypeFieldMissing) {
+            // Said where the person is looking, not only in a console: the page does not know whether a
+            // type is required, so it claims neither.
+            setMsg(zonesMsg, 'The server did not say whether a zone type is required. Reload the page.', 'err');
+        }
 
         zoneList.addEventListener('click', function (e) {
             var btn = e.target.closest('.stg-zone-del');
             if (!btn) return;
             var idx = parseInt(btn.dataset.idx, 10);
-            zones.splice(idx, 1);
+            /**
+             * GH-804 (the owner's decision, variant (a)): a zone with samples is not removed -- the cross refuses
+             * and says how many samples are linked. GH-817 puts the refusal on the cross itself, as she worded it;
+             * the save's refusal stays behind it as the second layer (the page may be older than a sample).
+             * The decision is the server's number, the words are the server's sentence; the row stays, and
+             * nothing goes into `deleted`.
+             */
+            if (zonesNow[idx] && zonesNow[idx].samples > 0) {
+                zonesNow[idx].refused = true;
+                renderZones();
+                return;
+            }
+            zonesNow.splice(idx, 1);
             renderZones();
             markDirty('stg-zones-form');
+        });
+
+        // The name is edited in place, so renaming a zone is a rename and not a zone thrown away and
+        // another made: that is the whole reason a zone has an identity (plan section 2).
+        zoneList.addEventListener('input', function (e) {
+            var field = e.target.closest('.stg-zone-name');
+            if (!field) return;
+            zonesNow[parseInt(field.dataset.idx, 10)].name = field.value;
+            markDirty('stg-zones-form');
+        });
+
+        zoneList.addEventListener('change', function (e) {
+            var select = e.target.closest('.stg-zone-type');
+            if (!select) return;
+            var idx = parseInt(select.dataset.idx, 10);
+            zonesNow[idx].zoneType = select.value || null;
+            markDirty('stg-zones-form');
+            // Only this row's note moves; re-drawing the list would take the person's cursor with it.
+            var cell = select.parentNode;
+            var note = cell ? cell.querySelector('.gilba-required-note') : null;
+            if (zonesNow[idx].zoneType && note) {
+                cell.removeChild(note);
+            } else if (!zonesNow[idx].zoneType && !note && zoneTypeField && zoneTypeField.required && cell) {
+                var fresh = document.createElement('span');
+                fresh.className = 'gilba-required-note';
+                fresh.textContent = 'Required';
+                cell.appendChild(fresh);
+            }
         });
     }
 
@@ -1074,12 +1203,16 @@
         function addZone() {
             var name = zoneInput.value.trim();
             if (!name) return;
-            if (zones.indexOf(name) === -1) {
-                zones.push(name);
+            var taken = zonesNow.some(function (zone) {
+                return zone.name.toLowerCase() === name.toLowerCase();
+            });
+            if (!taken) {
+                zonesNow.push({ id: null, name: name, zoneType: (zoneTypeInput && zoneTypeInput.value) || null });
                 renderZones();
                 markDirty('stg-zones-form');
             }
             zoneInput.value = '';
+            if (zoneTypeInput) zoneTypeInput.value = '';
             zoneInput.focus();
         }
 
@@ -1089,24 +1222,73 @@
         });
     }
 
+    /** What the person did, against what the server gave this page. Nothing of the baseline travels. */
+    function zoneChanges() {
+        var created = [];
+        var renamed = [];
+        var typed = [];
+        var deleted = [];
+        var saved = {};
+        var present = {};
+        zonesAsSaved.forEach(function (zone) { saved[zone.id] = zone; });
+
+        zonesNow.forEach(function (zone) {
+            if (!zone.id) {
+                created.push({ name: zone.name, zoneType: zone.zoneType || '' });
+
+                return;
+            }
+            present[zone.id] = true;
+            var was = saved[zone.id];
+            if (!was) return;
+            if (was.name !== zone.name) renamed.push({ id: zone.id, name: zone.name });
+            if ((was.zoneType || null) !== (zone.zoneType || null)) {
+                typed.push({ id: zone.id, zoneType: zone.zoneType || '' });
+            }
+        });
+        zonesAsSaved.forEach(function (zone) {
+            if (!present[zone.id]) deleted.push(zone.id);
+        });
+
+        return { created: created, renamed: renamed, typed: typed, deleted: deleted };
+    }
+
     if (zonesSave) {
         zonesSave.addEventListener('click', function () {
             if (!siteId) return;
 
             setSaving(zonesSave, true);
             setMsg(zonesMsg, '', '');
+            var marker = window.GilbaRequiredFields;
+            if (marker && zonesForm) marker.clear(zonesForm);
 
-            apiFetch('PATCH', '/sites/' + siteId, { attributes_json: { zones: zones } })
+            apiFetch('PATCH', '/sites/' + siteId + '/zones', zoneChanges())
                 .then(function (data) {
-                    if (data && data.data) {
+                    var fresh = data && data.data && data.data.zones;
+                    if (Array.isArray(fresh)) {
+                        zones = fresh.slice();
+                        zonesAsSaved = fresh.map(asRow);
+                        zonesNow = fresh.map(asRow);
+                        renderZones();
                         setMsg(zonesMsg, 'Zones saved.', 'ok');
                         _checkAfterSave('stg-zones-form');
-                    } else {
-                        var err = (data && data.message) ? data.message : 'Save failed.';
-                        setMsg(zonesMsg, err, 'err');
+
+                        return;
                     }
+                    setMsg(zonesMsg, (data && data.message) ? data.message : 'Save failed.', 'err');
                 })
-                .catch(function () { setMsg(zonesMsg, 'Network error.', 'err'); })
+                .catch(function (err) {
+                    /**
+                     * THE SENTENCE IS THE SERVER'S, and that is the difference from every other tab here.
+                     * Elsewhere the page composes it from the fields named; this refusal names the ZONES —
+                     * which may be zones the person never touched, created from the Data page or moved in
+                     * by the transfer — and only the server knows them. The marker is still what outlines
+                     * the rows, so a refusal looks the same wherever it comes from.
+                     */
+                    var missing = err && err.body && err.body.missing;
+                    if (marker && zonesForm && missing && missing.length) marker.mark(zonesForm, missing);
+                    setMsg(zonesMsg, (err && err.message) || 'Network error.', 'err');
+                })
                 .finally(function () { setSaving(zonesSave, false); });
         });
     }

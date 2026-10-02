@@ -64,6 +64,17 @@ class Gh777TheStorageOfEveryInputIsDeclaredTest extends TestCase
     {
         $named = [];
         foreach (CalculationInputs::keys() as $key) {
+            /**
+             * GH-804 (queue item "Zones", part 1): THE STORAGES OF A SITE'S INPUTS, which is what this
+             * server reads. The list gained one input whose scope is a ZONE (`zones.zoneType`, kept in a
+             * row of `zones`, one per zone): the run record does not carry it, the setup lock does not
+             * ask for it, and no engine reads it — the Zones tab judges it where the zones are in hand.
+             * So `zoneRow` is not a storage this server is claiming to read for a run, and asking for a
+             * reader of it here would be asking for work nobody wants done.
+             */
+            if (CalculationInputs::scopeOf($key) !== 'site') {
+                continue;
+            }
             foreach (CalculationInputs::storedIn($key) ?? [] as $storage) {
                 $named[$storage][] = $key;
             }
@@ -357,8 +368,10 @@ class Gh777TheStorageOfEveryInputIsDeclaredTest extends TestCase
         fwrite(STDOUT, '[gh777] inputs the server could not look up: '.json_encode($unknown).PHP_EOL);
         $this->assertSame([], $unknown);
 
+        // GH-804: every input OF A SITE that is not a sample type. An input of a zone is not in this
+        // record and the reason is written where the record is built.
         $expected = array_values(array_filter(CalculationInputs::keys(),
-            fn ($k) => ! str_starts_with($k, 'samples.')));
+            fn ($k) => ! str_starts_with($k, 'samples.') && CalculationInputs::scopeOf($k) === 'site'));
         $this->assertSame($expected, array_keys($set['settings']));
     }
 

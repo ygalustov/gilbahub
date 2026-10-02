@@ -777,6 +777,20 @@ describe('GH-676 — (d) the graph against the inputs list, both directions', ()
             'soil.clay': 'added to the list by the analyst as a sample reading in its own right; '
                 + 'no module reads it yet, and it is the one entry here that is expected to gain a '
                 + 'reader rather than lose its row.',
+            /**
+             * GH-804 (queue item "Zones", part 1) — THE ONE INPUT OF THIS LIST THAT NO ENGINE WILL EVER
+             * READ, and that is what it was measured to be rather than a gap waiting to be filled.
+             *
+             * It is in the list because an obligation declared in two files is two obligations: the
+             * owner requires a zone to say what it is, and this list is where this product declares what
+             * it requires. It is of scope `zone`, so the run record and the setup lock leave it alone,
+             * and the plan's own measurement (section 1.1) is that the zone's type decides no figure in
+             * any engine. The surface that asks for it is the Zones tab, and the one that judges it is
+             * that tab's own door.
+             */
+            'zones.zoneType': 'declared for the obligation the owner put on a zone, not for a '
+                + 'calculation: no engine reads a zone type (measured, plan section 1.1), its scope is '
+                + 'a zone rather than the site, and the Zones tab is what asks for it and judges it.',
             // GH-780 (queue item 3vc): the allowance for `pgr.enabled` is gone with the entry it
             // allowed. The owner removed the PGR switch on 29.09.2026 -- a site is using a PGR when its
             // spray journal holds an application within the engine's ninety-day window -- so nothing

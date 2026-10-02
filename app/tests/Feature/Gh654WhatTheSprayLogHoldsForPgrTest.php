@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Site;
+use App\Models\SiteConfig;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -123,6 +124,9 @@ class Gh654WhatTheSprayLogHoldsForPgrTest extends TestCase
             'modified_by_user_id' => $user->id,
         ]);
         $site->users()->attach($user->id, ['role' => 'manager']);
+        // GH-816: the spray-log context answers by the site's turf type, so the site declares one.
+        SiteConfig::query()->create(['site_id' => $site->id, 'namespace' => 'gaip', 'synced_at' => now(),
+            'config' => ['turf' => ['turfType' => 'sports']]]);
 
         return [$user, $site];
     }

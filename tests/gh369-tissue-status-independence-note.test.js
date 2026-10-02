@@ -219,6 +219,12 @@ describe('GH-369 — word-export.js: shared tissue helpers and honest no-dose ad
         global.localStorage = global.localStorage ||
             { getItem: function () { return null; }, setItem: function () {}, removeItem: function () {} };
         jest.resetModules();
+        // GH-808 (queue item 3gy): the potassium decision reads its display label from the shared
+        // k-reconciliation module (GH-292 moved it out of word-export.js), and the soil-side case
+        // below now builds the report's verdict with the product's own builder rather than typing
+        // one out. So the module is loaded here -- the real one, not a stub, for the same reason:
+        // a label invented in a test is a second implementation of the thing under test.
+        require('../assets/k-reconciliation-decision.js');
         require('../assets/word-export.js');
         WE = global.window.GAIP_WordExport;
     });
@@ -335,9 +341,23 @@ describe('GH-369 — word-export.js: shared tissue helpers and honest no-dose ad
     });
 
     test('GH-375 regression: the soil-side severe-K-deficiency advisory prints a plain instruction, no uncited dose and no meta-commentary about the hub\'s own data gaps', () => {
+        /**
+         * GH-808 (queue item 3gy): the report is handed its verdict, because "severe" is now the
+         * report's one answer and not this section's own rule. Priority Actions used to ask
+         * `K < min * 0.5` for itself, which could call a deficit severe that the decision function
+         * called moderate, and never looked at whether the nutrition programme already covers it --
+         * so it could demand potassium that the Annual Soil Amendments table had marked
+         * "Suppressed (programme covers)".
+         *
+         * The verdict here is built by the product's own builder from the same soil this case
+         * always used, rather than written out by hand: a verdict typed into a test is a second
+         * implementation of the thing the ticket exists to make single.
+         */
+        const soil = { K: 10, thresholds: { K: { min: 100 } } };
         const actions = WE.generatePriorityActions({
             turf: { species: 'Perennial Ryegrass' },
-            soil: { K: 10, thresholds: { K: { min: 100 } } },
+            soil: soil,
+            _soilVerdicts: WE._buildSoilVerdicts(soil, null, 'greens', {}, 'south'),
         });
         const immediateText = actions.immediate.join(' | ');
         expect(immediateText).toMatch(/Severe K deficiency/);

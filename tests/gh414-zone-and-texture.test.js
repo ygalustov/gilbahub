@@ -172,18 +172,48 @@ describe('GH-414 (D-2) — the site override outranks the import-day snapshot', 
 });
 
 describe('GH-414 (D-2b) — one zone-matching rule, shared', () => {
+    /**
+     * GH-803 (queue item "Zones", stage C3) — THE RULE IS THE SAME, WHAT DECIDES IT IS NOT.
+     *
+     * The owner's rule has not moved: "this green's tissue belongs to this green's soil, and to no
+     * other". It used to be decided by the two samples' NAMES with their dates stripped off; from this
+     * stage it is decided by the zone's own identity, which the server writes on every sample and
+     * answers with. So these cases hand over a `zoneId` where they handed over a name.
+     *
+     * AND ONE OF THEM CHANGED ITS MEANING, by the owner's decision of 01.10.2026. "Dates in a label do
+     * not split one zone in two" was true while a zone WAS its name; her answer about imported names is
+     * that a zone is loaded as it came and a label with a date in it is a zone of its own, which the
+     * person renames or deletes if it is wrong ("we load everything as it is"). Her words make that case
+     * the opposite of what it was, and it is written out below as the opposite rather than deleted.
+     */
+    const GREEN_18 = '01a0f123-0000-7000-8000-00000000a018';
+    const GREEN_18_DATED = '01a0f123-0000-7000-8000-00000000b018';
     const tissue = [
-        { id: 142, label: 'Green 18', date: '2026-07-01', N: 4.2, P: 0.38, K: 2.5 }
+        { id: 142, label: 'Green 18', zoneId: GREEN_18, date: '2026-07-01', N: 4.2, P: 0.38, K: 2.5 }
     ];
 
     test('a tissue result pairs with its own green', () => {
-        const hit = NPI.matchSampleToZone(tissue, 'Green 18');
+        const hit = NPI.matchSampleToZone(tissue, GREEN_18);
         expect(hit && hit.id).toBe(142);
     });
 
     test('and with no other green — no "the site only has one, use it" fallback', () => {
-        expect(NPI.matchSampleToZone(tissue, 'Green 1')).toBeNull();
-        expect(NPI.matchSampleToZone(tissue, 'Green 13')).toBeNull();
+        expect(NPI.matchSampleToZone(tissue, '01a0f123-0000-7000-8000-00000000a001')).toBeNull();
+        expect(NPI.matchSampleToZone(tissue, '01a0f123-0000-7000-8000-00000000a013')).toBeNull();
+    });
+
+    test('a name is not an identity: a caller still passing one pairs with nothing and says so', () => {
+        // The shape of the old call. It answers null rather than guessing, and warns -- a caller left
+        // behind by this stage must not look like a zone that has no tissue.
+        const warned = [];
+        const realWarn = console.warn;
+        console.warn = (...args) => warned.push(args.join(' '));
+        try {
+            expect(NPI.matchSampleToZone(tissue, 'Green 18')).toBeNull();
+        } finally {
+            console.warn = realWarn;
+        }
+        expect(warned.join(' ')).toMatch(/takes a zone id, not a name/);
     });
 
     test('the old label would not have paired either — "18th Green" is not "Green 18" to the deriver', () => {
@@ -191,24 +221,41 @@ describe('GH-414 (D-2b) — one zone-matching rule, shared', () => {
         // owner's rename of sample 142 is what makes this pair, on both
         // surfaces. Recorded because it is the reason the export showed no
         // tissue for any Russley green before 2026-09-11.
-        expect(NPI.zoneKeyFor('18th Green')).not.toBe(NPI.zoneKeyFor('Green 18'));
+        // GH-803: asked of the module that owns the name rule. `NPI.zoneKeyFor` was a wrapper around
+        // it and went when the pair stopped being decided by a name.
+        // `zone-key.js` is already loaded at the top of this file and puts itself on the global.
+        const derive = (global.window.GaipZoneKey || global.GaipZoneKey).derive;
+        expect(derive('18th Green')).not.toBe(derive('Green 18'));
     });
 
     test('a zone with several tissue analyses takes the latest', () => {
         const hit = NPI.matchSampleToZone([
-            { id: 1, label: 'Green 18', date: '2024-01-01', N: 1, P: 1, K: 1 },
-            { id: 2, label: 'Green 18', date: '2026-07-01', N: 2, P: 2, K: 2 }
-        ], 'Green 18');
+            { id: 1, label: 'Green 18', zoneId: GREEN_18, date: '2024-01-01', N: 1, P: 1, K: 1 },
+            { id: 2, label: 'Green 18', zoneId: GREEN_18, date: '2026-07-01', N: 2, P: 2, K: 2 }
+        ], GREEN_18);
         expect(hit.id).toBe(2);
     });
 
-    test('dates in a label do not split one zone in two', () => {
-        expect(NPI.matchSampleToZone(tissue, 'Green 18 (2026-07-01)').id).toBe(142);
+    test('a label with a date in it is a zone of its own, and does not pair with the plain one', () => {
+        // The owner's decision of 01.10.2026, which reverses what this case used to assert: the names
+        // are loaded as they arrive, so "Green 18 (2026-07-01)" is its own zone with its own id.
+        const dated = [{ id: 7, label: 'Green 18 (2026-07-01)', zoneId: GREEN_18_DATED,
+            date: '2026-07-01', N: 1, P: 1, K: 1 }];
+        expect(NPI.matchSampleToZone(dated, GREEN_18)).toBeNull();
+        expect(NPI.matchSampleToZone(dated, GREEN_18_DATED).id).toBe(7);
+    });
+
+    test('a sample with no zone pairs with nothing, and is not matched by name', () => {
+        // The reachable case: a sample whose zone was deleted. Merging it with a zoned sample of the
+        // same name would be a second identity for a zone, which is what this item removes.
+        const orphan = [{ id: 9, label: 'Green 18', zoneId: null, date: '2026-07-01', N: 1, P: 1, K: 1 }];
+        expect(NPI.matchSampleToZone(orphan, GREEN_18)).toBeNull();
+        expect(NPI.zoneIdentityOf(orphan[0])).toBe('sample:9');
     });
 
     test('the Plan resolves tissue through the shared matcher and the export through the same buildZoneMap', () => {
-        expect(CALENDAR_SRC).toMatch(/const _zoneTissue = this\.resolveZoneTissue\(soil\.zoneLabel \|\| null\);/);
-        expect(CALENDAR_SRC).toMatch(/NPI\.matchSampleToZone\(list, zoneLabel\)/);
+        expect(CALENDAR_SRC).toMatch(/const _zoneTissue = this\.resolveZoneTissue\(soil\.zoneId \|\| null\);/);
+        expect(CALENDAR_SRC).toMatch(/NPI\.matchSampleToZone\(list, zone\)/);
         expect(COMBINED_SRC).toMatch(/_NPI\.buildZoneMap\(/);
     });
 
@@ -237,7 +284,9 @@ describe('GH-414 (D-2b) — one zone-matching rule, shared', () => {
     test('no pair leaves the zone without tissue rather than reaching for the site-wide reading', () => {
         const idx = CALENDAR_SRC.indexOf('NutritionCalendar.resolveZoneTissue = function');
         expect(idx).toBeGreaterThan(-1);
-        const block = CALENDAR_SRC.slice(idx, idx + 1800);
+        // GH-803: the window was 1800 characters and the function grew a doc comment inside it; the
+        // subject of this case is unchanged.
+        const block = CALENDAR_SRC.slice(idx, idx + 3200);
         expect(block).toMatch(/return \{ applies: true, percent: null \};/);
     });
 });

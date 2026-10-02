@@ -335,6 +335,9 @@
                         id: s.id,
                         label: pl._label || s.client_uid || String(s.id),
                         date: s.lab_date || s.sample_date || '',
+                        // GH-826: the zone the server answers with (`samplePayload`'s `zone_id`). Without it the pair
+                        // keyed every tissue sample by itself and never met the soil sample of its zone.
+                        zoneId: s.zone_id || null,
                         N: rd.N, P: rd.P, K: rd.K
                     };
                 });
@@ -358,7 +361,7 @@
      * not loaded, zone-key.js absent, or a soil analysis typed in by hand with
      * no zone), in which case the caller keeps its pre-GH-414 resolution.
      */
-    NutritionCalendar.resolveZoneTissue = function(zoneLabel) {
+    NutritionCalendar.resolveZoneTissue = function(zone) {
         var list = this._tissueSamples;
         var NPI = window.GAIP_NutritionProgramInputs;
         if (!Array.isArray(list) || !NPI || typeof NPI.matchSampleToZone !== 'function' ||
@@ -366,20 +369,29 @@
             this._tissueZoneMatch = null;
             return { applies: false };
         }
-        if (!zoneLabel) {
+        /**
+         * GH-803 (queue item "Zones", stage C3): `zone` is the ZONE'S IDENTITY — the id the server
+         * answered with for this soil sample — where it used to be the sample's name. The owner's rule
+         * is unchanged ("this green's tissue belongs to this green's soil, and to no other"); what
+         * changed is that it no longer rests on two names agreeing after their dates are stripped off.
+         *
+         * A soil sample with no zone pairs with nothing, as before: no identity, no match, and the
+         * caller keeps its pre-GH-414 resolution.
+         */
+        if (!zone) {
             this._tissueZoneMatch = null;
             return { applies: false };
         }
-        var hit = NPI.matchSampleToZone(list, zoneLabel);
+        var hit = NPI.matchSampleToZone(list, zone);
         var num = function (v) { var n = parseFloat(v); return (isNaN(n) || n <= 0) ? null : n; };
         this._tissueZoneMatch = {
-            zoneLabel: zoneLabel,
+            zoneLabel: zone,
             matchedLabel: hit ? hit.label : null,
             siteHasTissue: list.length > 0
         };
         if (!hit) {
             if (list.length > 0) {
-                console.log('[NutritionCalendar] GH-414: no tissue sample for zone "' + zoneLabel +
+                console.log('[NutritionCalendar] GH-414: no tissue sample for zone "' + zone +
                     '" (site has ' + list.map(function (t) { return '"' + t.label + '"'; }).join(', ') +
                     ') — generic per-species P/K removal ratios used.');
             }
@@ -462,7 +474,11 @@
                 soilTextureSnapshot: sample.soil_texture_snapshot || null,
                 // GH-414: the zone this sample was taken from, so the tissue
                 // match below can require the same zone.
+                // GH-803 (stage C3): BY IDENTITY. `zoneLabel` stays as the caption this page prints;
+                // `zoneId` is what the pair is decided by, and it is what the server answered for this
+                // sample. A sample with no zone carries null and pairs with nothing.
                 zoneLabel: pl._label || sample.client_uid || null,
+                zoneId: sample.zone_id || null,
             });
 
             if (!window.GAIP_STATE) window.GAIP_STATE = {};
@@ -928,7 +944,7 @@
         // applied here. No pair -> no tissue, and the generic per-species
         // removal ratio, which is the owner's rule: pairing a green with
         // another green's tissue is worse than having none.
-        const _zoneTissue = this.resolveZoneTissue(soil.zoneLabel || null);
+        const _zoneTissue = this.resolveZoneTissue(soil.zoneId || null);
         let tissuePercent;
         if (_zoneTissue.applies) {
             tissuePercent = _zoneTissue.percent || { N: null, P: null, K: null };

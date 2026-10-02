@@ -82,13 +82,27 @@ describe('GH-752 — the interpretations the export prints read the site, not th
         expect(got).toEqual({ methodology: 'slan', construction: 'sand_profile' });
     });
 
-    test('the export\'s soil block takes the construction from the site\'s inputs, not from GAIP_STATE (held by the text: collectData is not run here)', () => {
+    test('the export never takes a site\'s construction off the page (held by the text: collectData is not run here)', () => {
+        /**
+         * GH-808 (queue item 3gy) rewrote this case, and the reason is the one this project has a
+         * rule about: the assertion named a BLOCK -- the soil state the amendment engine was handed
+         * -- and that block is gone. The export no longer calls the engine at all, so the question
+         * "does that block read the page" has no subject, and a case whose subject has disappeared
+         * passes or fails by accident.
+         *
+         * What GH-752 was actually about survives and is asserted here instead, wider than before:
+         * nowhere in this file is a site's construction taken off the page. That is true whether the
+         * reader is the engine's soil state, a future block, or none at all.
+         */
         const code = read('word-export.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-        const at = code.indexOf('LOI:         data.soil.OM  || null,');
-        expect(at).toBeGreaterThan(-1);
-        const line = code.slice(at, at + 300);
-        process.stdout.write('[gh752] export soil block construction: ' + JSON.stringify(line.split('\n').slice(1, 3).join(' ').trim()) + '\n');
-        expect(line).not.toMatch(/GAIP_STATE\.turf\.construction/);
-        expect(line).toMatch(/inputs\.turf\.construction/);
+        const pageReads = (code.match(/GAIP_STATE[^\n]{0,40}construction/g) || [])
+            .concat(code.match(/construction[^\n]{0,40}GAIP_STATE/g) || []);
+        const inputReads = code.match(/inputs[^\n]{0,30}\.construction/g) || [];
+        process.stdout.write('[gh752] construction read off the page: ' + JSON.stringify(pageReads)
+            + '; read off the export\'s own inputs: ' + JSON.stringify(inputReads) + '\n');
+        expect(pageReads).toEqual([]);
+        // And the universe is real: the word is in this file, so an empty list above is an answer
+        // about where it is read rather than about whether it is mentioned.
+        expect(code.indexOf('construction')).toBeGreaterThan(-1);
     });
 });

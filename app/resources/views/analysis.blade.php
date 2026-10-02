@@ -144,6 +144,7 @@
      Must load before soil-nutrition-analysis.js. --}}
 <script src="{{ $legacyAssetUrl('zone-key.js') }}"></script>
 <script src="{{ $legacyAssetUrl('soil-nutrition-analysis.js') }}"></script>
+<script src="{{ $legacyAssetUrl('water-levels-by-grass.js') }}"></script>
 <script src="{{ $legacyAssetUrl('water-balance-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('stress-analysis.js') }}"></script>
 @endsection

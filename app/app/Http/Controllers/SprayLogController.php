@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Site;
+use App\Support\CalculationInputs;
+use App\Support\ZoneTypes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -64,6 +66,20 @@ class SprayLogController extends Controller
             ], 422);
         }
 
+        /**
+         * GH-806: A WORD THE TABLE HAS NO ANSWER FOR IS REFUSED, and is not stored with a guessed type
+         * or with none. The journal's own list and the Data page's list are both declared in
+         * `journalZoneWords`; anything else is a sender this product does not have, and a row written by
+         * one would be a row the transfer of this stage would have to stop on.
+         */
+        $unknown = array_values(array_filter($zones, fn ($zone) => ! ZoneTypes::isJournalWord($zone)));
+        if ($unknown !== []) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Unknown zone: '.implode(', ', $unknown),
+            ], 422);
+        }
+
         $timestamp = now();
         $ids = [];
 
@@ -74,6 +90,20 @@ class SprayLogController extends Controller
                 'user_id' => $request->user()->id,
                 'event_date' => $data['application_date'],
                 'zone' => $zone,
+                /**
+                 * GH-806 (queue item "Zones", stage SZh1) — AND THE KIND OF ZONE, BY ITS IDENTIFIER.
+                 *
+                 * The owner's decision of 01.10.2026. The word stays exactly where it was and is still
+                 * written: the reader that decides which applications count towards a calculation reads
+                 * it, and moving that reader is stage SZh2. So this is the write, and the readers come
+                 * after it — the rule this whole queue item is held to.
+                 *
+                 * The answer comes from the one table (`assets/zone-types.json`, `journalZoneWords`)
+                 * through its one reader. A word the table declares no type for is stored as NULL, which
+                 * is an answer; a word nobody declared cannot reach here, because the request is refused
+                 * above it.
+                 */
+                'zone_type' => ZoneTypes::zoneTypeOfJournalWord($zone),
                 'product_name' => $data['product_name'],
                 'product_type' => $data['product_category'] ?? 'other',
                 'active_ingredient' => trim((string) ($data['active_ingredient'] ?? '')),
@@ -123,6 +153,9 @@ class SprayLogController extends Controller
 
         if (array_key_exists('zone', $data)) {
             $updates['zone'] = $data['zone'];
+            // GH-806: the kind travels with the word, so an edited entry cannot keep the type of the
+            // zone it used to be about.
+            $updates['zone_type'] = ZoneTypes::zoneTypeOfJournalWord($data['zone']);
         }
         if (array_key_exists('application_date', $data)) {
             $updates['event_date'] = $data['application_date'];
@@ -201,8 +234,28 @@ class SprayLogController extends Controller
 
         $site = $this->resolveOwnedSite($request, (string) $data['site_id']);
         $days = (int) ($data['days'] ?? 90);
+
+        /**
+         * GH-816 (queue item "Zones", ZhT) — WHICH APPLICATIONS COUNT IS DECIDED HERE, BY THE SITE.
+         *
+         * The page used to send the zone it was standing on (`zone`, 'greens' when it had no surface) and
+         * this filtered by that word, so a sports site's application to its pitch never reached the
+         * analysis. The rule is the owner's decision, read through `ZoneTypes::analysisZoneTypesFor`: any
+         * zone type on a sports site and a lawn, a green on a golf course. The `zone` of the request is
+         * no longer read. A site with no turf type is refused with the input's own name, not answered
+         * "no applications" -- that answer would be a substitution.
+         */
+        $counted = ZoneTypes::analysisZoneTypesFor($site);
+        if ($counted === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The spray log cannot say which applications count without '
+                    .CalculationInputs::labelOrFail('turf.turfType').'.',
+                'missing' => ['input' => 'turf.turfType', 'label' => CalculationInputs::labelOrFail('turf.turfType')],
+            ], 422);
+        }
         $rows = $this->buildFilteredQuery($site->id, [
-            'zone' => $data['zone'] ?? null,
+            'counted' => $counted,
             'days' => $days,
         ])->limit(200)->get();
 
@@ -223,7 +276,7 @@ class SprayLogController extends Controller
          * The window of every other field of the context is untouched.
          */
         $lastPgrRow = $this->buildFilteredQuery($site->id, [
-            'zone' => $data['zone'] ?? null,
+            'counted' => $counted,
             'category' => 'pgr',
         ])->limit(1)->first();
         $lastPgrEntry = $lastPgrRow !== null ? $this->mapEntry($lastPgrRow) : null;
@@ -248,7 +301,7 @@ class SprayLogController extends Controller
         return response()->json([
             'success' => true,
             'site_id' => $site->id,
-            'zone' => $data['zone'] ?? null,
+            'countedZoneTypes' => $counted['any'] ? 'any' : $counted['types'],
             'days' => $days,
             'totalApplications' => $entries->count(),
             'lastPGR' => $lastPgr,
@@ -333,6 +386,12 @@ class SprayLogController extends Controller
             $query->where('zone', $zone);
         }
 
+        // GH-816: the applications the analysis counts on this site (`ZoneTypes::analysisZoneTypesFor`),
+        // by the entry's zone type rather than by the word it was written with. Read by `context` only.
+        if (isset($filters['counted']) && is_array($filters['counted']) && ! $filters['counted']['any']) {
+            $query->whereIn('zone_type', $filters['counted']['types']);
+        }
+
         $category = trim((string) ($filters['category'] ?? ''));
         if ($category !== '' && $category !== 'all') {
             $query->where('product_type', $category);
@@ -415,7 +474,23 @@ class SprayLogController extends Controller
     {
         $map = [
             'primo 250ec' => 'TE250', 'primo 250 ec' => 'TE250',
-            'primo maxx' => 'TE120', 'primo maxx 120' => 'TE120', 'primo maxx 1ec' => 'TE175',
+            /**
+             * GH-807 (queue item 3vya) — A TRADE NAME LEADS TO THE RECORD OF THAT PRODUCT, not to the
+             * record of another product of the same strength.
+             *
+             * `primo maxx` and `primo maxx 120` pointed at `TE120`, which is the catalogue's record for
+             * INDIGO AMIGO at 120 g/L — so an application of Primo Maxx was printed on the dashboard and
+             * on `/plan` as "Indigo Amigo (TE 120g/L)". The owner saw it on `Hoxton Soccer - Kate's
+             * test`. The catalogue has had `PRIMO_MAXX` all along, with the same active ingredient, the
+             * same 120 g/L, the same `TE` type and the same registrations — measured field by field — so
+             * nothing a calculation reads changes and only the name does.
+             *
+             * `primo maxx 1ec` keeps `TE175`: that is a different formulation and the catalogue has no
+             * record of its own for it, which is a fact about the catalogue rather than a mapping to fix
+             * here (the plan names it, and the other groups of the same class, as decisions of their
+             * own).
+             */
+            'primo maxx' => 'PRIMO_MAXX', 'primo maxx 120' => 'PRIMO_MAXX', 'primo maxx 1ec' => 'TE175',
             'te250' => 'TE250', 'te175' => 'TE175', 'te120' => 'TE120',
             'trinexapac-ethyl' => 'TE250', 'trinexapac ethyl' => 'TE250',
             'indigo amigo' => 'TE175', 'indigo amigo 250' => 'TE250',

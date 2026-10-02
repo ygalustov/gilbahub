@@ -1,0 +1,711 @@
+{
+ "$comment": [
+  "GH-803 (queue item \"Zones\", stage C3) - THE STAND'S OWN SAMPLES, taken 01.10.2026, for the one",
+  "measurement the plan asks for: the trend series before this stage and after it hold the same",
+  "samples.",
+  "",
+  "WHAT IS HERE AND WHERE IT CAME FROM: every live soil, tissue and water sample on a live site",
+  "(69 of them), by one SELECT joined to `zones` - the sample's id, its site, its kind, its zone",
+  "and that zone's name, the name on the sample (`payload._label`), the word beside it",
+  "(`payload._zone`) and its date. Nothing is invented and nothing is left out; the readings are",
+  "not here because no claim of that measurement touches them.",
+  "",
+  "AND WHY IT CANNOT BE THE WHOLE CASE: not one of these 69 names is one where `derive()` differs",
+  "from a plain lower-case trim - no brackets, no year, no date, no trailing space. So this fixture",
+  "alone cannot tell a test that RAN the deriver from one that compared two of its own lists, which",
+  "is why the case beside it also carries three invented names and says so."
+ ],
+ "measuredAt": "2026-10-01",
+ "samples": [
+  {
+   "id": "143",
+   "siteId": "019e96d7-36aa-707a-9879-68ab28726e12",
+   "sampleType": "soil",
+   "zoneId": "6587d991-cd34-492b-91b6-0627f885aabb",
+   "zoneName": "Green 1",
+   "label": "Green 1",
+   "word": null,
+   "date": "2025-01-15"
+  },
+  {
+   "id": "28",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "e8bc665c-16d2-4e0b-9b52-2df2c241f803",
+   "zoneName": "Green 1",
+   "label": "Green 1",
+   "word": "green",
+   "date": "2004-06-01"
+  },
+  {
+   "id": "29",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "ef88e778-2a58-4a40-a38c-234e139118df",
+   "zoneName": "Green 12",
+   "label": "Green 12",
+   "word": "green",
+   "date": "2003-06-01"
+  },
+  {
+   "id": "30",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "f4a69729-2278-440e-8ec8-1658a5410efa",
+   "zoneName": "Green 4",
+   "label": "Green 4",
+   "word": "green",
+   "date": "2003-06-01"
+  },
+  {
+   "id": "31",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "7aa4aaa7-895e-4fe0-b28a-290c8b242c9d",
+   "zoneName": "Green 3",
+   "label": "Green 3",
+   "word": "green",
+   "date": "2009-06-01"
+  },
+  {
+   "id": "32",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "76f4868c-53b6-42cf-b738-e5359ccb1dc5",
+   "zoneName": "Green 7",
+   "label": "Green 7",
+   "word": "green",
+   "date": "2003-06-01"
+  },
+  {
+   "id": "33",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "76f4868c-53b6-42cf-b738-e5359ccb1dc5",
+   "zoneName": "Green 7",
+   "label": "Green 7",
+   "word": "green",
+   "date": "2004-06-01"
+  },
+  {
+   "id": "34",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "df87af73-8923-498e-a852-b216fe7a82c1",
+   "zoneName": "Green 8",
+   "label": "Green 8",
+   "word": "green",
+   "date": "2004-06-01"
+  },
+  {
+   "id": "35",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "de7e5005-bd78-4aef-bad2-9a158ee12fa6",
+   "zoneName": "Green 11",
+   "label": "Green 11",
+   "word": "green",
+   "date": "2004-06-01"
+  },
+  {
+   "id": "36",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "688c82a1-4b11-43b3-8ca8-63c7f9b1ce7c",
+   "zoneName": "Green 16",
+   "label": "Green 16",
+   "word": "green",
+   "date": "2009-06-01"
+  },
+  {
+   "id": "37",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "f4a69729-2278-440e-8ec8-1658a5410efa",
+   "zoneName": "Green 4",
+   "label": "Green 4",
+   "word": "green",
+   "date": "2013-07-01"
+  },
+  {
+   "id": "38",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "f4a69729-2278-440e-8ec8-1658a5410efa",
+   "zoneName": "Green 4",
+   "label": "Green 4",
+   "word": "green",
+   "date": "2014-07-01"
+  },
+  {
+   "id": "39",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "df87af73-8923-498e-a852-b216fe7a82c1",
+   "zoneName": "Green 8",
+   "label": "Green 8",
+   "word": "green",
+   "date": "2013-07-01"
+  },
+  {
+   "id": "40",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "df87af73-8923-498e-a852-b216fe7a82c1",
+   "zoneName": "Green 8",
+   "label": "Green 8",
+   "word": "green",
+   "date": "2014-07-01"
+  },
+  {
+   "id": "41",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "9bce17b3-48d2-45d2-8253-fae228699be4",
+   "zoneName": "Green 10",
+   "label": "Green 10",
+   "word": "green",
+   "date": "2013-07-01"
+  },
+  {
+   "id": "42",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "9bce17b3-48d2-45d2-8253-fae228699be4",
+   "zoneName": "Green 10",
+   "label": "Green 10",
+   "word": "green",
+   "date": "2014-07-01"
+  },
+  {
+   "id": "43",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "c9758f06-6fd9-4f09-9677-df313627ed87",
+   "zoneName": "Green 13",
+   "label": "Green 13",
+   "word": "green",
+   "date": "2013-07-01"
+  },
+  {
+   "id": "44",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "c9758f06-6fd9-4f09-9677-df313627ed87",
+   "zoneName": "Green 13",
+   "label": "Green 13",
+   "word": "green",
+   "date": "2014-07-01"
+  },
+  {
+   "id": "45",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "4a4df8e6-7310-44a0-8a3f-921d6a08cc5f",
+   "zoneName": "Green 2",
+   "label": "Green 2",
+   "word": "green",
+   "date": "2025-07-31"
+  },
+  {
+   "id": "46",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "f4a69729-2278-440e-8ec8-1658a5410efa",
+   "zoneName": "Green 4",
+   "label": "Green 4",
+   "word": "green",
+   "date": "2025-07-31"
+  },
+  {
+   "id": "47",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "9bce17b3-48d2-45d2-8253-fae228699be4",
+   "zoneName": "Green 10",
+   "label": "Green 10",
+   "word": "green",
+   "date": "2025-07-31"
+  },
+  {
+   "id": "48",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "24548887-fc0c-4634-88b3-daf9d0ffcf77",
+   "zoneName": "Green 15",
+   "label": "Green 15",
+   "word": "green",
+   "date": "2025-07-31"
+  },
+  {
+   "id": "49",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "5b58eb24-82c4-42d5-953e-8478ea64a5c7",
+   "zoneName": "Putter Green",
+   "label": "Putter Green",
+   "word": "green",
+   "date": "2024-07-24"
+  },
+  {
+   "id": "50",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "5b58eb24-82c4-42d5-953e-8478ea64a5c7",
+   "zoneName": "Putter Green",
+   "label": "Putter Green",
+   "word": "green",
+   "date": "2025-07-31"
+  },
+  {
+   "id": "51",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "e684c30d-3148-4171-87e6-717889d67b60",
+   "zoneName": "12th Fairway",
+   "label": "12th Fairway",
+   "word": "fairway",
+   "date": "2024-07-24"
+  },
+  {
+   "id": "52",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "e684c30d-3148-4171-87e6-717889d67b60",
+   "zoneName": "12th Fairway",
+   "label": "12th Fairway",
+   "word": "fairway",
+   "date": "2025-07-31"
+  },
+  {
+   "id": "53",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "soil",
+   "zoneId": "de215053-d0f0-454b-bf42-b04cb3b7e4f3",
+   "zoneName": "Rye Nursery",
+   "label": "Rye Nursery",
+   "word": "other",
+   "date": "2025-07-31"
+  },
+  {
+   "id": "120",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "tissue",
+   "zoneId": "ef88e778-2a58-4a40-a38c-234e139118df",
+   "zoneName": "Green 12",
+   "label": "Green 12",
+   "word": null,
+   "date": "2026-08-06"
+  },
+  {
+   "id": "121",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "tissue",
+   "zoneId": "24548887-fc0c-4634-88b3-daf9d0ffcf77",
+   "zoneName": "Green 15",
+   "label": "Green 15",
+   "word": null,
+   "date": "2026-08-06"
+  },
+  {
+   "id": "54",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "sampleType": "water",
+   "zoneId": null,
+   "zoneName": null,
+   "label": "Dam Water",
+   "word": "surface",
+   "date": "2018-07-12"
+  },
+  {
+   "id": "122",
+   "siteId": "019e96f3-63d9-7170-a4cd-94a5ada95686",
+   "sampleType": "soil",
+   "zoneId": "584277a4-95dc-47b1-ba8c-2cbfef7f8eb0",
+   "zoneName": "Green 13",
+   "label": "Green 13",
+   "word": null,
+   "date": "2026-08-12"
+  },
+  {
+   "id": "141",
+   "siteId": "019e96f3-9294-72be-a13c-7fa7427afd5a",
+   "sampleType": "soil",
+   "zoneId": "dd27f043-8349-4aee-a631-b3038e5c7176",
+   "zoneName": "Soccer",
+   "label": "Soccer",
+   "word": null,
+   "date": "2026-08-17"
+  },
+  {
+   "id": "144",
+   "siteId": "019e96f3-9294-72be-a13c-7fa7427afd5a",
+   "sampleType": "tissue",
+   "zoneId": "dd27f043-8349-4aee-a631-b3038e5c7176",
+   "zoneName": "Soccer",
+   "label": "Soccer",
+   "word": null,
+   "date": "2026-08-08"
+  },
+  {
+   "id": "103",
+   "siteId": "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "sampleType": "soil",
+   "zoneId": "72c64c6e-16ca-41ed-b64d-bba825ba0406",
+   "zoneName": "Green 1",
+   "label": "Green 1",
+   "word": null,
+   "date": "2021-05-07"
+  },
+  {
+   "id": "104",
+   "siteId": "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "sampleType": "soil",
+   "zoneId": "5bd28a7f-73f8-4782-a728-dbf6919cd92b",
+   "zoneName": "Green 13",
+   "label": "Green 13",
+   "word": null,
+   "date": "2021-05-07"
+  },
+  {
+   "id": "105",
+   "siteId": "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "sampleType": "soil",
+   "zoneId": "ce8f14ed-f13b-4ade-8fda-4876ef70acad",
+   "zoneName": "Green 18",
+   "label": "Green 18",
+   "word": null,
+   "date": "2026-08-01"
+  },
+  {
+   "id": "142",
+   "siteId": "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "sampleType": "tissue",
+   "zoneId": "ce8f14ed-f13b-4ade-8fda-4876ef70acad",
+   "zoneName": "Green 18",
+   "label": "Green 18",
+   "word": null,
+   "date": "2026-07-01"
+  },
+  {
+   "id": "114",
+   "siteId": "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "sampleType": "water",
+   "zoneId": null,
+   "zoneName": null,
+   "label": "Bore water",
+   "word": null,
+   "date": "2026-07-19"
+  },
+  {
+   "id": "115",
+   "siteId": "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "sampleType": "water",
+   "zoneId": null,
+   "zoneName": null,
+   "label": "Bore water 2",
+   "word": null,
+   "date": "2026-07-20"
+  },
+  {
+   "id": "118",
+   "siteId": "019f7d28-50ed-71e2-b817-c252b0160460",
+   "sampleType": "soil",
+   "zoneId": "b46cd364-ff70-421e-820a-c8ab6da65016",
+   "zoneName": "Backyard",
+   "label": "Backyard",
+   "word": null,
+   "date": "2026-07-27"
+  },
+  {
+   "id": "123",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "8a4b97a0-501c-4755-83ad-fd86b0d4a8d4",
+   "zoneName": "Putter Green",
+   "label": "Putter Green",
+   "word": "green",
+   "date": "2024-10-03"
+  },
+  {
+   "id": "124",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "9f49a8ac-9588-479c-a56b-00b38d83b424",
+   "zoneName": "Green 2",
+   "label": "Green 2",
+   "word": "green",
+   "date": "2024-10-03"
+  },
+  {
+   "id": "125",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "366e4fc8-61d8-40e2-b44e-a01a98e81458",
+   "zoneName": "Green 11",
+   "label": "Green 11",
+   "word": "green",
+   "date": "2024-10-03"
+  },
+  {
+   "id": "126",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "f75a5299-27ec-4bfc-991f-707917acdcef",
+   "zoneName": "Green 1",
+   "label": "Green 1",
+   "word": "green",
+   "date": "2018-12-31"
+  },
+  {
+   "id": "127",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "d119e6c8-9755-405d-bde5-b313e4d11b00",
+   "zoneName": "Green 5",
+   "label": "Green 5",
+   "word": "green",
+   "date": "2018-12-31"
+  },
+  {
+   "id": "128",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "95988dca-47a7-432a-9730-fc2f83bab910",
+   "zoneName": "Green 16",
+   "label": "Green 16",
+   "word": "green",
+   "date": "2018-12-31"
+  },
+  {
+   "id": "129",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "be52f82a-41f2-4f7c-86d7-8c69db34c889",
+   "zoneName": "Green 7",
+   "label": "Green 7",
+   "word": "green",
+   "date": "2019-12-31"
+  },
+  {
+   "id": "130",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "fa376e37-e8ed-44a1-9b05-494e86ef9d1f",
+   "zoneName": "Green 12",
+   "label": "Green 12",
+   "word": "green",
+   "date": "2019-12-31"
+  },
+  {
+   "id": "131",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "6d3f04c8-d0a2-4d79-9133-4bf968acc405",
+   "zoneName": "Green 4",
+   "label": "Green 4",
+   "word": "green",
+   "date": "2020-12-31"
+  },
+  {
+   "id": "132",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "18ae5ace-52e1-4670-928b-b281110941c2",
+   "zoneName": "Green 6",
+   "label": "Green 6",
+   "word": "green",
+   "date": "2020-12-31"
+  },
+  {
+   "id": "133",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "be52f82a-41f2-4f7c-86d7-8c69db34c889",
+   "zoneName": "Green 7",
+   "label": "Green 7",
+   "word": "green",
+   "date": "2020-12-31"
+  },
+  {
+   "id": "134",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "fa376e37-e8ed-44a1-9b05-494e86ef9d1f",
+   "zoneName": "Green 12",
+   "label": "Green 12",
+   "word": "green",
+   "date": "2020-12-31"
+  },
+  {
+   "id": "135",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "soil",
+   "zoneId": "cf2c2e34-4a93-4ba9-a532-3dc4602eea19",
+   "zoneName": "Green No 8",
+   "label": "Green No 8",
+   "word": "green",
+   "date": "2019-08-07"
+  },
+  {
+   "id": "136",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "water",
+   "zoneId": null,
+   "zoneName": null,
+   "label": "Bore",
+   "word": "bore",
+   "date": "2025-09-01"
+  },
+  {
+   "id": "137",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "water",
+   "zoneId": null,
+   "zoneName": null,
+   "label": "Bore",
+   "word": "bore",
+   "date": "2025-09-01"
+  },
+  {
+   "id": "138",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "water",
+   "zoneId": null,
+   "zoneName": null,
+   "label": "Riparian",
+   "word": "surface",
+   "date": "2025-09-01"
+  },
+  {
+   "id": "139",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "water",
+   "zoneId": null,
+   "zoneName": null,
+   "label": "Riparian",
+   "word": "surface",
+   "date": "2024-07-01"
+  },
+  {
+   "id": "140",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "sampleType": "water",
+   "zoneId": null,
+   "zoneName": null,
+   "label": "9th",
+   "word": "surface",
+   "date": "2025-07-01"
+  },
+  {
+   "id": "154",
+   "siteId": "01a08ae6-8a43-7004-99a6-8cddfc69b9cb",
+   "sampleType": "soil",
+   "zoneId": "7b8b50ea-540f-40d4-ad11-507397d090f2",
+   "zoneName": "Main Oval",
+   "label": "Main Oval",
+   "word": null,
+   "date": "2026-08-15"
+  },
+  {
+   "id": "155",
+   "siteId": "01a08b0b-4d6a-736d-a184-2fa1e04394b6",
+   "sampleType": "soil",
+   "zoneId": "dcf04750-8948-4050-ba69-84c189c82423",
+   "zoneName": "18th Green",
+   "label": "18th Green",
+   "word": null,
+   "date": "2026-08-15"
+  },
+  {
+   "id": "324",
+   "siteId": "01a0d135-2975-7034-95a2-b741c6b01087",
+   "sampleType": "soil",
+   "zoneId": "59d49348-bad4-4488-b5f6-e72e9b82ad5b",
+   "zoneName": "Soccer",
+   "label": "Soccer",
+   "word": null,
+   "date": "2026-08-08"
+  },
+  {
+   "id": "325",
+   "siteId": "01a0d135-2975-7034-95a2-b741c6b01087",
+   "sampleType": "soil",
+   "zoneId": "59d49348-bad4-4488-b5f6-e72e9b82ad5b",
+   "zoneName": "Soccer",
+   "label": "Soccer",
+   "word": null,
+   "date": "2026-09-20"
+  },
+  {
+   "id": "327",
+   "siteId": "01a0d135-2975-7034-95a2-b741c6b01087",
+   "sampleType": "tissue",
+   "zoneId": "59d49348-bad4-4488-b5f6-e72e9b82ad5b",
+   "zoneName": "Soccer",
+   "label": "Soccer",
+   "word": null,
+   "date": "2026-08-08"
+  },
+  {
+   "id": "326",
+   "siteId": "01a0d135-2975-7034-95a2-b741c6b01087",
+   "sampleType": "water",
+   "zoneId": null,
+   "zoneName": null,
+   "label": "Simpsons lake",
+   "word": null,
+   "date": "2026-08-08"
+  },
+  {
+   "id": "328",
+   "siteId": "01a0f4cd-f9de-7138-a6f3-cd89efe765e8",
+   "sampleType": "soil",
+   "zoneId": "0f466fb8-74db-4f52-8302-708ded4e9257",
+   "zoneName": "Soccer",
+   "label": "Soccer",
+   "word": null,
+   "date": "2026-08-08"
+  },
+  {
+   "id": "329",
+   "siteId": "01a0f4cd-f9de-7138-a6f3-cd89efe765e8",
+   "sampleType": "soil",
+   "zoneId": "0f466fb8-74db-4f52-8302-708ded4e9257",
+   "zoneName": "Soccer",
+   "label": "Soccer",
+   "word": null,
+   "date": "2026-09-20"
+  },
+  {
+   "id": "331",
+   "siteId": "01a0f4cd-f9de-7138-a6f3-cd89efe765e8",
+   "sampleType": "tissue",
+   "zoneId": "0f466fb8-74db-4f52-8302-708ded4e9257",
+   "zoneName": "Soccer",
+   "label": "Soccer",
+   "word": null,
+   "date": "2026-08-08"
+  },
+  {
+   "id": "330",
+   "siteId": "01a0f4cd-f9de-7138-a6f3-cd89efe765e8",
+   "sampleType": "water",
+   "zoneId": null,
+   "zoneName": null,
+   "label": "Simpsons lake",
+   "word": null,
+   "date": "2026-08-08"
+  },
+  {
+   "id": "332",
+   "siteId": "01a0f58c-537e-7393-ba84-da1793f51747",
+   "sampleType": "soil",
+   "zoneId": "88dc0491-5000-413b-ae4b-93f6c4e58769",
+   "zoneName": "18th Green",
+   "label": "18th Green",
+   "word": null,
+   "date": "2025-01-15"
+  }
+ ]
+}

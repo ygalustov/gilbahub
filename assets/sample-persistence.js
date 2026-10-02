@@ -672,6 +672,18 @@
                     // _label/_zone: stored by sync() alongside rawData since b35fix-label-roundtrip.
                     // Falls back to legacy fields (payload.label, payload.zone) for older records.
                     var pld = sample.payload || {};
+                    // GH-803: the one wording for "nobody named it", from the module both the screen
+                    // and the document already load. A literal '' here would be a second declaration
+                    // of the same decision.
+                    var nameOrNothing = function () {
+                        // Looked up without naming the module's own scope: two offline cases run this
+                        // loop on its own inside a `vm` context where the wrapper's `global` does not
+                        // exist, and a read of it there would throw rather than fall back.
+                        var ZK = (typeof GaipZoneKey !== 'undefined') ? GaipZoneKey
+                            : ((typeof window !== 'undefined' && window.GaipZoneKey) ? window.GaipZoneKey : null);
+
+                        return (ZK && typeof ZK.UNNAMED === 'string') ? ZK.UNNAMED : '';
+                    };
                     serverSnap.allSites[siteId][sample.sample_type][sampleId] = {
                         id:       sampleId,
                         // GH-533 (stage 2, plan item 3): the row's address on
@@ -681,7 +693,38 @@
                         // sends null), and a label-shaped uid like "Green 1"
                         // repeats between sites and between tabs.
                         serverId: sample.id,
-                        label:    pld._label || pld.label || sampleId,
+                        /**
+                         * GH-803 (queue item "Zones", stage C3) — THE NAME OF A SAMPLE, OR NOTHING.
+                         *
+                         * `|| sampleId` stood here: a sample nobody named arrived in the store already
+                         * carrying the store's own key as its name — the substitution the owner ruled out
+                         * on 22.09.2026 ("where there is no name there is nothing") and `GH-798` removed
+                         * from the saving end and from every surface that prints. This line was not in
+                         * that hand-in; it is the same class and it is repaired here, by the analyst's
+                         * and the coordinator's decision of 01.10.2026.
+                         *
+                         * THREE BRANCHES, AND THE EMPTY ANSWER IS THE MODULE'S. `_label` is where the
+                         * name has been written since the label round-trip; `label` is the older key an
+                         * earlier record carries; and with neither, the answer is `GaipZoneKey.UNNAMED`
+                         * — asked of the one place that owns the wording rather than written as `''`
+                         * here, so the screen and the document cannot drift apart about it.
+                         *
+                         * On the stand this does not fire: all 69 live samples carry `_label`. The red
+                         * for it is a fixture with a sample that has neither key.
+                         */
+                        label:    pld._label || pld.label || nameOrNothing(),
+                        /**
+                         * GH-803: the zone of this sample, as the server resolved it — identity first,
+                         * name beside it. The trend series, the report's sections and the tissue-to-soil
+                         * pair group by `zoneId`; the NAME is printed in one place only, the caption of a
+                         * series, which has no sample of its own to take a caption from.
+                         *
+                         * `null` for both is an answer and not a gap: a water sample has no zone, and
+                         * neither has a sample whose zone was deleted. Each reader declares what it does
+                         * with that, and none of them substitutes a name or an id for it.
+                         */
+                        zoneId:   sample.zone_id || null,
+                        zoneName: sample.zone_name || null,
                         date:     sample.lab_date || sample.sample_date || null,
                         notes:    sample.notes || '',
                         zoneType: pld._zone  || pld.zone  || 'other',

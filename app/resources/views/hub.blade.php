@@ -119,7 +119,7 @@
             'cotula-bowling-green.js',
             'nutrient-demand-engine.js',
             'nutrition-summary-integration.js',
-            'water-progressive-disclosure-WITH-SOIL-INTERACTION.js',
+            'water-levels-by-grass.js', 'water-progressive-disclosure-WITH-SOIL-INTERACTION.js',
             'salinity-penalty.js',
             'salinity-climate-integration.js',
             'salinity-engine-pure.js',

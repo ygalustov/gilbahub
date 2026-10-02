@@ -480,7 +480,7 @@
         }
 
         // Always inject turfType for GSSH pages — stadiums are sports surfaces.
-        // Required for identity enforcement turfIntentKey and surfaceKey resolution.
+        // Required for identity enforcement surfaceKey resolution (GH-827: turf intent is no longer an input).
         allInputs.turf = Object.assign({}, allInputs.turf || {}, {
           turfType: allInputs.turf && allInputs.turf.turfType ? allInputs.turf.turfType : "sports",
           subCategory: allInputs.turf && allInputs.turf.subCategory ? allInputs.turf.subCategory : null,

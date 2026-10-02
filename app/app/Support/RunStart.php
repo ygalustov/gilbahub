@@ -159,6 +159,18 @@ class RunStart
             if (str_starts_with($key, 'samples.')) {
                 continue;   // answered by `samples` above
             }
+            /**
+             * GH-804 (queue item "Zones", part 1): AN INPUT OF A ZONE IS NOT AN INPUT OF THIS RUN.
+             *
+             * This record says what the SITE held when a run started — one value per key. A zone-scoped
+             * input has one value per zone, a site may have many zones or none, and no engine reads it
+             * (measured: the zone's type decides no figure). Recorded here it could only ever be
+             * `unknown`, which is this record's word for "a storage the server cannot read" — a false
+             * statement about a value nobody was looking for.
+             */
+            if (CalculationInputs::scopeOf($key) !== 'site') {
+                continue;
+            }
             $settings[$key] = self::heldAnywhere($site, $config, $key);
         }
 
@@ -224,12 +236,29 @@ class RunStart
             return self::UNKNOWN;
         }
 
-        return DB::table('spray_logs')
+        /**
+         * GH-816 (queue item "Zones", ZhT): "the PGR is filled in" counts the applications the analysis
+         * counts, by the same rule (`ZoneTypes::analysisZoneTypesFor`) -- before, any PGR of the site said
+         * yes here while the calculation's context saw none of them on a sports site's pitch, and on a
+         * golf course a PGR on a fairway said yes here and counted for nothing. A site with no turf type
+         * has no answer to give, and says so.
+         */
+        $counted = ZoneTypes::analysisZoneTypesFor($site);
+        if ($counted === null) {
+            // Unreachable while the setup lock holds (Gh708): the turf type is required, and a site without
+            // one does not get to a run. If it appears, the lock let a run through, and "our side" is true.
+            return self::UNKNOWN;
+        }
+        $query = DB::table('spray_logs')
             ->where('site_id', $site->id)
             ->where('product_type', 'pgr')
             ->whereNotNull($column)
-            ->where($column, '<>', '')
-            ->exists();
+            ->where($column, '<>', '');
+        if (! $counted['any']) {
+            $query->whereIn('zone_type', $counted['types']);
+        }
+
+        return $query->exists();
     }
 
     /** @return array<string,mixed> */

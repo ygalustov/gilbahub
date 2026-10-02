@@ -624,12 +624,24 @@
         "site.soilType"
       ],
       "values": {
-        "sand": { "label": "Sand / Sand rootzone" },
-        "loamy_sand": { "label": "Loamy Sand" },
-        "sandy_loam": { "label": "Sandy Loam" },
-        "loam": { "label": "Loam" },
-        "clay_loam": { "label": "Clay Loam" },
-        "clay": { "label": "Clay" }
+        "sand": {
+          "label": "Sand / Sand rootzone"
+        },
+        "loamy_sand": {
+          "label": "Loamy Sand"
+        },
+        "sandy_loam": {
+          "label": "Sandy Loam"
+        },
+        "loam": {
+          "label": "Loam"
+        },
+        "clay_loam": {
+          "label": "Clay Loam"
+        },
+        "clay": {
+          "label": "Clay"
+        }
       },
       "label": "the soil texture"
     },
@@ -967,6 +979,53 @@
       ],
       "required": false,
       "label": "the current soil moisture"
+    },
+    "zones.zoneType": {
+      "$comment": [
+        "GH-804 (queue item \"Zones\", part 1) - THE ONE INPUT OF THIS LIST THAT BELONGS TO A ZONE AND NOT TO",
+        "A SITE, and it is declared here because an obligation declared in two files is two obligations.",
+        "",
+        "WHERE IT CAME FROM: `assets/zone-types.json` carried a `zoneTypeField` block of its own - required,",
+        "where it is required, what it is judged on and its words. That was a second list of obligations",
+        "beside this one, read by its own reader, and this file is the place the product declares what a",
+        "calculation needs. The block is gone from there; nothing reads it any more.",
+        "",
+        "`scope: zone` IS WHAT KEEPS THE LOCK OFF IT, and that is the whole care of the move. Every other",
+        "entry here is one value of a SITE, and the readers of obligation ask 'does this site hold it':",
+        "the setup lock, the wizard's answers, the server's refusal at a Settings place. A site has from no",
+        "zones to many, a site with no zones owes nothing, and `requiredFor()` - which the lock and the",
+        "wizard read - therefore answers for the inputs of scope `site` only. Measured before the move: 24",
+        "live sites, 73 zones, not one of them typed. Had this entry joined that answer, every one of those",
+        "sites would have been held by the wizard over a zone, which is the opposite of what the owner",
+        "decided (\"the tab refuses, not the site\").",
+        "",
+        "`judgedOn: result` is her answer to HOW it is required, variant (b) of 01.10.2026: the Zones tab",
+        "saves nothing while the site still has a zone with no type, judged on the set of zones the save",
+        "would LEAVE - so one save that fills every type in is accepted however many were empty before it.",
+        "",
+        "`storedIn: zoneRow` is a storage this list's readers cannot read, and that is honest rather than",
+        "awkward: the value lives in a row of `zones`, one per zone, and `heldForInput` answers UNKNOWN for",
+        "a storage it cannot read. Nothing asks it about this input - the Zones tab's own door judges it,",
+        "per zone, where the zones are in hand.",
+        "",
+        "NO CALCULATION READS IT, so there is no `readAs`: the type decides nothing in any engine (measured,",
+        "plan section 1.1). It is required because the owner decided a zone must say what it is, and the",
+        "surfaces that ask for it are named in `filledIn`."
+      ],
+      "required": true,
+      "scope": "zone",
+      "judgedOn": "result",
+      "filledIn": [
+        "settings.zones"
+      ],
+      "notFilledIn": [
+        "data.addSample",
+        "import"
+      ],
+      "storedIn": [
+        "zoneRow"
+      ],
+      "label": "the zone type"
     }
   },
   "places": {
@@ -989,7 +1048,8 @@
     "data.soil": "Data -> Soil",
     "data.water": "Data -> Water",
     "data.tissue": "Data -> Tissue",
-    "data.sprayLog": "Data -> Spray Log"
+    "data.sprayLog": "Data -> Spray Log",
+    "settings.zones": "Settings -> Zones"
   },
   "notInputs": {
     "$comment": [

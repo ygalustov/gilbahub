@@ -8,13 +8,17 @@
  * additions, and regenerating the file after adding one would be the guard
  * answering to itself.
  *
+ * GH-811: the one other occasion is a change to what the census WATCHES -- the
+ * fields or the text arrays -- and both are written into the file, so the
+ * ratchet test can say the list was taken with the census it is compared to.
+ *
  *   node tests/lib/write-substitution-inventory.js
  */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
-const { inventory, watchedFields } = require('./substitution-inventory');
+const { inventory, watchedFields, TEXT_ARRAYS } = require('./substitution-inventory');
 
 const root = path.join(__dirname, '..', '..');
 const fields = watchedFields(fs.readFileSync(path.join(root, 'assets', 'nutrition-program-inputs.js'), 'utf8'));
@@ -26,6 +30,9 @@ const out = {
         + 'question (10.8(7), 10.8(10), 10.8(12)). Until she answers, this list may only shrink.',
     _generatedBy: 'node tests/lib/write-substitution-inventory.js',
     _fields: fields,
+    // GH-811: the text arrays the list was taken with. Recorded beside the fields for the same reason:
+    // a list taken with fewer forms than the census now watches is a list that cannot redden.
+    _textArrays: TEXT_ARRAYS,
     _count: found.length,
     substitutions: found.map((f) => f.signature)
 };

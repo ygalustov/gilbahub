@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ZoneService;
 use App\Support\AnalysisResults;
 use App\Support\CalculationInputs;
+use App\Support\ZoneTypes;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -64,6 +66,27 @@ class SettingsController extends Controller
         $setupTurfType = $activeGaipConfig['turf']['turfType'] ?? '';
         $requiredInputs = CalculationInputs::requiredFor(is_string($setupTurfType) ? $setupTurfType : '');
 
+        /**
+         * GH-801 (queue item "Zones", stage C2) — THE ZONES OF THIS SITE, AS ROWS, AND THE DICTIONARY.
+         *
+         * The tab read the site's list of NAMES out of `attributes_json` in the template itself, which is
+         * all a zone was. It is a row with an identity and a type now, and both come from here: the rows
+         * from their one owner (`ZoneService`) and the twelve types from the one reader of the one file
+         * (`ZoneTypes`), parsed, the way the AA ranges and the inputs list already reach a page. Nothing
+         * in `assets` reads that file — `Gh799TheZoneTypesHaveOneFileTest` is red if anything does.
+         *
+         * THE OBLIGATION TRAVELS AS A DECLARATION, not as a mark drawn by the template: whether a type is
+         * required IN THIS PLACE, and the words a refusal uses for it, are declared in the INPUTS LIST
+         * (GH-804: `calculation-inputs.schema.json`, `zones.zoneType`) and read through
+         * `CalculationInputs`. That is what lets the Data page create a zone with no type while this tab
+         * refuses to save one — the owner's decision of 01.10.2026, in the declaration rather than in two
+         * screens. It is the one input of that list whose scope is a ZONE, so `requiredFor` above does
+         * not carry it and the `Required` marks of the other tabs are unchanged.
+         */
+        $siteZones = $activeSite ? app(ZoneService::class)->forThePage($activeSite) : [];
+        $zoneTypes = ZoneTypes::forThePage()['zoneTypes'];
+        $zoneTypeField = CalculationInputs::zoneTypeFieldForThePage('settings.zones');
+
         return view('settings', [
             'title'            => 'Settings',
             'requiredInputs'   => $requiredInputs,
@@ -78,6 +101,9 @@ class SettingsController extends Controller
             'analysisCache'    => $analysisCache,
             'activeSiteRole'   => $activeSiteRole,
             'timezoneDerived'  => $timezoneDerived,
+            'siteZones'        => $siteZones,
+            'zoneTypes'        => $zoneTypes,
+            'zoneTypeField'    => $zoneTypeField,
         ]);
     }
 }

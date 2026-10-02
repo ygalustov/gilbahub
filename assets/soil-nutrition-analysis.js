@@ -1643,7 +1643,19 @@
         return samples.map(function(s) {
             var origIdx = master.indexOf(s);
             var pl   = s.payload || {};
-            var zone = esc(pl._label || s.client_uid || ('Zone ' + (origIdx + 1)));
+            /**
+             * GH-798 (queue item "Zones") — A ZONE NOBODY NAMED IS NOT CALLED BY ITS POSITION.
+             *
+             * This printed `Zone 3` for a sample with no name, where 3 was its place in the list and
+             * nothing else: it changes when the sort order changes, and it is a name nobody gave. The
+             * owner ruled the whole position-number form out on 22.09.2026 and said the same rule holds
+             * on the screen and in the report -- "if there is no name, there is none in the interface
+             * either, but the sample itself is displayed".
+             *
+             * So the name's place goes through `zoneName`, the one reader of that decision, and the row
+             * keeps its lab reference, its file and its date: the sample is still there to pick.
+             */
+            var zone = esc(zoneName({ label: pl._label || s.client_uid, id: s.id }));
             var ref  = esc(s.lab_ref || s.lab_name || '—');
             var file = esc(pl._source ? pl._source.replace(/\.json$/i, '') : '—');
             var date = esc(fmtDate(s.lab_date || s.sample_date || '') || '—');
@@ -1661,8 +1673,13 @@
         if (!selector || !_snSamples.length) return;
 
         var active   = _snActiveIdx >= 0 ? _snSamples[_snActiveIdx] : null;
+        // GH-798: the same rule on the button that names the chosen zone. "Select sample..." stays for
+        // the case of nothing chosen, which is a different fact from a zone with no name.
         var btnLabel = active
-            ? esc((active.payload && active.payload._label) || active.client_uid || ('Zone ' + (_snActiveIdx + 1)))
+            ? esc(zoneName({
+                label: (active.payload && active.payload._label) || active.client_uid,
+                id: active.id,
+            }))
             : 'Select sample…';
 
         var svgSearch  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;color:#9ca3af"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
@@ -1951,9 +1968,14 @@
                 }
             }
 
+            // GH-798: and on the button of the dropdown this function mounts, which is the same name in
+            // the same place -- the third of the three position numbers this page printed.
             function labelFor(idx) {
                 var s = samples[idx];
-                return esc((s.payload && s.payload._label) || s.client_uid || ('Zone ' + (idx + 1)));
+                return esc(zoneName({
+                    label: (s.payload && s.payload._label) || s.client_uid,
+                    id: s.id,
+                }));
             }
 
             function renderList(listEl, filtered) {

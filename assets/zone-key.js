@@ -128,11 +128,31 @@
     var UNNAMED = '';
 
     /**
-     * What `sample-manager.js`'s `generateSampleId()` produces: `Type_N_hash`,
-     * where the hash is base-36 from `Date.now()`. A slugged label cannot take
-     * this shape, which is what makes it a signature rather than a guess.
+     * THE SHAPES THE STORE INVENTS FOR A SAMPLE NOBODY NAMED, each with the line that makes it.
+     *
+     * `generateSampleId()`: `Type_N_hash` — `Soil_1_3cbn` — where the hash is base-36 from
+     * `Date.now()`. A slugged label cannot take this shape, which is what makes it a signature
+     * rather than a guess.
+     *
+     * GH-798 — AND THE ONE THE CSV IMPORT MAKES, which this list did not know: `extractSampleId()`
+     * answers `'Sample_' + Date.now()` when the file carries no column of names
+     * (`sample-manager.js`), so the identifier is `Sample_1790822499325` — a word, an underscore and
+     * an epoch, with no hash segment, so the first shape does not match it. Measured on the stand by
+     * the reviewer: not one of the 69 live samples carries a `label` key at all, so this is reachable
+     * on every one of them.
+     *
+     * WHY A SECOND SHAPE AND NOT A LOOSER ONE. GH-563's rule was `label === id`, and it ate real
+     * names: an id is slugged from a label, so a zone genuinely called `green_1` has the id `green_1`.
+     * The epoch is what keeps this narrow — ten digits or more in a row is a clock, not a number
+     * anybody writes on a green. `Green_10` has two.
      */
     var GENERATED_ID = /^[A-Za-z][A-Za-z0-9]*_\d+_[0-9a-z]{4,}$/;
+    var IMPORTED_ID = /^[A-Za-z][A-Za-z0-9]*_\d{10,}$/;
+
+    /** Is this string one of the shapes the store makes up, rather than a name? */
+    function looksInvented(value) {
+        return GENERATED_ID.test(value) || IMPORTED_ID.test(value);
+    }
 
     /**
      * The name to print for a zone or a sample.
@@ -168,12 +188,13 @@
         // label matching it while ALSO being the id is the store's own
         // invention, not anybody's name.
         if (label && subject && typeof subject === 'object' && subject.id != null
-            && label === String(subject.id).trim() && GENERATED_ID.test(label)) {
+            && label === String(subject.id).trim() && looksInvented(label)) {
             return UNNAMED;
         }
 
         return label || UNNAMED;
     }
 
-    global.GaipZoneKey = { derive: derive, displayName: displayName, UNNAMED: UNNAMED };
+    global.GaipZoneKey = { derive: derive, displayName: displayName, UNNAMED: UNNAMED,
+        looksInvented: looksInvented };
 })(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));

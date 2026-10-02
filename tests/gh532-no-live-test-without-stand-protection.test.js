@@ -200,6 +200,33 @@ const EXEMPT = {
             + 'the helpers and not expressed through them.',
         until: '2026-10-15',
     },
+    'gh807-the-stored-name-after-a-run-live.test.js': {
+        why: 'Creates its OWN site and removes it again -- the remedy of first resort of GH-519, and here '
+            + 'the only road: the site that holds the application the owner reported is on the protected '
+            + 'list, and a run writes an analysis row, which is a change to her data (the coordinator\'s '
+            + 'refusal of 02.10.2026). The case IS a run, so `guardStand` -- which holds every site-state '
+            + 'write and answers 200 -- would leave it asserting nothing.',
+        until: '2026-10-15',
+    },
+    'gh805-a-sample-for-the-live-edit-live.test.js': {
+        why: 'Creates its OWN site and removes it again -- the remedy of first resort of GH-519, and here '
+            + 'it is also the only road there is: the two stand sites that hold the samples this check '
+            + 'needs are both held shut by the setup lock for want of a soil texture, and giving one a '
+            + 'texture is a change to a stand site that belongs to the owner. The site is made by one run '
+            + 'and taken away by a second (`GH805_REMOVE=<id>`), because the coordinator\'s own edit in the '
+            + 'Edit window happens between them; `guardStand` would hold the very writes the fixture is.',
+        until: '2026-10-15',
+    },
+    'gh801-the-zone-type-is-required-live.test.js': {
+        why: 'Creates and removes its OWN site, the same remedy of first resort as gh439 and gh797 above, '
+            + 'and here it is also the coordinator\'s decision of 01.10.2026 about which site to use: the '
+            + 'stand site with sixteen zones is on the protected list, and typing its zones to watch the '
+            + 'tab unlock would be doing the owner\'s own manual work on her data. The case IS the writes '
+            + '— zones created from the Data road, a save refused, one save that types them all — so '
+            + '`guardStand` would leave it asserting nothing. Its site is made in `beforeAll` and deleted '
+            + 'in `afterAll`, and the account pointer is put back.',
+        until: '2026-10-15',
+    },
     'gh797-the-texture-is-required-live.test.js': {
         why: 'Creates and removes its OWN site, the same remedy of first resort as gh439 above, and for '
             + 'the same reason it is not expressed through the helpers: the case IS the writes — the setup '

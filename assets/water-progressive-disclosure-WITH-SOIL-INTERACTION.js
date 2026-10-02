@@ -47,8 +47,16 @@ function renderWaterProgressiveDisclosure(waterResults, state) {
         `;
     }
     
+    // GH-824: the site's grass type, by the same inputs as the report (`resolveExportInputs`), for its SAR level.
+    let turf = null;
+    try {
+        const npi = window.GAIP_NutritionProgramInputs;
+        turf = (npi && typeof npi.resolveExportInputs === 'function' && typeof npi.getActiveSiteId === 'function')
+            ? npi.resolveExportInputs({ siteId: npi.getActiveSiteId() }).turf : null;
+    } catch (e) { turf = null; }
+
     // Calculate values directly
-    const diagnostics = calculateWaterDiagnostics(ions, ecw, pH);
+    const diagnostics = calculateWaterDiagnostics(ions, ecw, pH, turf);
     // Expose globally so hub-persistence can save to analysis cache
     window.__GAIP_WATER_DIAGNOSTICS__ = diagnostics;
     
@@ -177,7 +185,7 @@ function renderRecycledWaterAdvisory(rwResult) {
     return html;
 }
 
-function calculateWaterDiagnostics(ions, ecw, pH) {
+function calculateWaterDiagnostics(ions, ecw, pH, turf) {
     const diagnostics = [];
     
     // Convert mg/L to meq/L
@@ -256,13 +264,18 @@ function calculateWaterDiagnostics(ions, ecw, pH) {
         }
         
         
-        // Basic SAR card
-        const sarStatus = getSARStatus(basicSAR);
+        // Basic SAR card. GH-824: its level is set 2's for the site's grass (`water-levels-by-grass.js`), saved as
+        // `level` for the Analysis page to print; without a grass type there is no level. The SARadj card below keeps
+        // its own scale -- the analyst's decision: only SAR is judged by the grass.
+        const wl = (typeof window !== 'undefined') ? window.GAIP_WaterLevels : null;
+        const sarLevel = wl ? wl.waterLevel('SAR', basicSAR, wl.speciesBasis(turf)) : null;
+        const sarStatus = sarLevelStatus(sarLevel);
         diagnostics.push({
             parameter: 'SAR',
             label: 'Sodium Hazard (SAR)',
             value: basicSAR.toFixed(2),
             unit: '',
+            level: sarLevel,
             status: sarStatus.label,
             statusClass: sarStatus.class,
             driver: sarStatus.driver,
@@ -456,11 +469,23 @@ function calculateWaterDiagnostics(ions, ecw, pH) {
 }
 
 // Status functions
+// GH-824: the SAR card's words by its level, the same words `getSARStatus` uses for its bands. No level, no words.
+function sarLevelStatus(level) {
+    if (level === 'excellent') return { label: 'Safe', class: 'status-adequate', driver: 'Low sodium hazard' };
+    if (level === 'moderate') return { label: 'Marginal', class: 'status-borderline', driver: 'Moderate sodium hazard' };
+    if (level === 'warning') return { label: 'High Risk', class: 'status-deficient', driver: 'Infiltration decline likely' };
+    if (level === 'critical') return { label: 'Severe', class: 'status-deficient', driver: 'Severe sodicity hazard' };
+    // GH-825: no level -- "Not assessed", the owner's words.
+    return { label: 'Not assessed', class: 'status-no-data', driver: null };
+}
+
+// GH-820: the SAR recommendations carry no gypsum rate -- rates come from a computed deficit, never a literal,
+// and the Water Balance page prints these as they are saved.
 function getSARStatus(value) {
     if (value < 3) return { label: 'Safe', class: 'status-adequate', driver: 'Low sodium hazard', recommendation: 'No sodium management required' };
-    if (value < 6) return { label: 'Marginal', class: 'status-borderline', driver: 'Moderate sodium hazard', recommendation: 'Consider preventative gypsum (0.5-1.0 t/ha)' };
-    if (value < 9) return { label: 'High Risk', class: 'status-deficient', driver: 'Infiltration decline likely', recommendation: 'Apply gypsum 1.0-2.0 t/ha, monitor infiltration' };
-    return { label: 'Severe', class: 'status-deficient', driver: 'Severe sodicity hazard', recommendation: 'Heavy gypsum (2.0+ t/ha), consider water blending' };
+    if (value < 6) return { label: 'Marginal', class: 'status-borderline', driver: 'Moderate sodium hazard', recommendation: 'Consider preventative gypsum' };
+    if (value < 9) return { label: 'High Risk', class: 'status-deficient', driver: 'Infiltration decline likely', recommendation: 'Apply gypsum, monitor infiltration' };
+    return { label: 'Severe', class: 'status-deficient', driver: 'Severe sodicity hazard', recommendation: 'Heavy gypsum, consider water blending' };
 }
 
 function getECStatus(value) {

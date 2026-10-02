@@ -7,6 +7,7 @@ use App\Models\Site;
 use App\Models\SiteConfig;
 use App\Support\CalculationInputs;
 use App\Support\FieldOwners;
+use App\Support\ReadableList;
 use App\Support\SiteConfigWriter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -219,6 +220,12 @@ class SiteController extends Controller
             // it is written through the config route.
             'soil_texture_override' => ['nullable', 'string', 'max:32'],
             'attributes_json' => ['nullable', 'array'],
+            // GH-818: the site's list of zone names is not written from a page. A body carrying it is a
+            // copy of a page's state (the Data page's old "Add zone" sent its whole snapshot), and a name
+            // still in that copy brought a deleted zone back. Refused, so nothing of such a body is written.
+            'attributes_json.zones' => ['prohibited'],
+            // GH-818: one zone added by name -- the change, not the list.
+            'add_zone' => ['sometimes', 'required', 'string', 'max:255'],
             'precinct_group_id' => ['nullable', 'integer', 'exists:precinct_groups,id'],
             'parent_site_id' => ['nullable', 'string', Rule::exists('sites', 'id')->whereNot('id', $site->id)],
         ]);
@@ -243,7 +250,7 @@ class SiteController extends Controller
         if ($missingColumns !== []) {
             return response()->json([
                 'message' => 'Not saved: fill in '
-                    .$this->readAsList(array_column($missingColumns, 'label')).'.',
+                    .ReadableList::of(array_column($missingColumns, 'label')).'.',
                 'missing' => $missingColumns,
                 // The older field, kept: callers written against it read the same refusal.
                 'invalid_keys' => array_column($missingColumns, 'input'),
@@ -259,6 +266,10 @@ class SiteController extends Controller
         if (isset($data['name'])) {
             $data['slug'] = $this->uniqueSlug($site->account_id, $data['name'], $site->id);
         }
+
+        // GH-818: not a column; it is acted on inside the transaction below.
+        $addZone = $data['add_zone'] ?? null;
+        unset($data['add_zone']);
 
         if (isset($data['attributes_json'])) {
             $data['attributes_json'] = array_merge(
@@ -295,7 +306,7 @@ class SiteController extends Controller
         // locked FIRST — the single lock order shared with `patchConfig` — and
         // the copies derived inside it.
         $conflicts = [];
-        DB::transaction(function () use ($site, $data, $expected, &$conflicts) {
+        DB::transaction(function () use ($site, $data, $expected, $addZone, &$conflicts) {
             Site::query()->whereKey($site->id)->lockForUpdate()->first();
             $site->refresh();
 
@@ -305,6 +316,32 @@ class SiteController extends Controller
             }
 
             $site->update($data);
+
+            /**
+             * GH-818 (queue item "Zones") — THE DATA PAGE ADDS ONE ZONE BY NAME.
+             *
+             * GH-801 made a row for every name of the site's old list that arrived here, because the Data
+             * page's "Add zone" button sent that whole list. The list was the page's copy from the moment
+             * it loaded, so a zone deleted on the Zones tab meanwhile came back with no type the next time
+             * a zone was added there. The button now sends the one name, and this makes that one row
+             * through the one writer of a zone, with no type -- the road the owner's decision of
+             * 01.10.2026 leaves alone -- and puts its name in the site's list unless the list already has
+             * it, compared without case as the writer compares names. The list itself is no longer
+             * accepted from a page (the rule above), so nothing else here reads it.
+             */
+            if ($addZone !== null) {
+                $zone = app(\App\Services\ZoneService::class)->resolveOrCreate($site, $addZone, $site->modified_by_user_id);
+                if ($zone) {
+                    $attrs = $site->attributes_json ?? [];
+                    $names = (array) ($attrs['zones'] ?? []);
+                    $lower = array_map(fn ($n) => is_string($n) ? mb_strtolower($n) : $n, $names);
+                    if (! in_array(mb_strtolower($zone->name), $lower, true)) {
+                        $names[] = $zone->name;
+                        $attrs['zones'] = $names;
+                        $site->forceFill(['attributes_json' => $attrs])->save();
+                    }
+                }
+            }
 
             // GH-474: one place, after the columns are written, whichever route
             // wrote them. Only the columns this write actually set. The three
@@ -882,7 +919,7 @@ class SiteController extends Controller
                 null,
                 ['status' => 422, 'body' => [
                     'message' => 'Not saved: fill in '
-                        .$this->readAsList(array_column($missing, 'label')).'.',
+                        .ReadableList::of(array_column($missing, 'label')).'.',
                     'missing' => $missing,
                     // The older field, kept: callers written against it read the same refusal.
                     'invalid_keys' => array_column($missing, 'input'),
@@ -1045,18 +1082,6 @@ class SiteController extends Controller
         }
 
         return is_array($patch[$section] ?? null) && array_key_exists($field, $patch[$section]);
-    }
-
-    /** "a, b and c" -- one sentence rather than a list a person has to read as code. */
-    private function readAsList(array $words): string
-    {
-        $words = array_values(array_unique(array_filter($words, 'is_string')));
-        if (count($words) <= 1) {
-            return (string) ($words[0] ?? '');
-        }
-        $last = array_pop($words);
-
-        return implode(', ', $words).' and '.$last;
     }
 
     /**
@@ -1445,6 +1470,21 @@ class SiteController extends Controller
                 $site->latitude !== null ? (float) $site->latitude : null,
                 $site->longitude !== null ? (float) $site->longitude : null
             ),
+            /**
+             * GH-800 (queue item "Zones", stage C1) — THE SITE'S ZONES, AS ROWS, BESIDE THE LIST OF
+             * NAMES IT HAS ALWAYS CARRIED.
+             *
+             * `attributes_json.zones` is still there, still written and still read by everything that
+             * reads it: this is the second half of the double write the stage is about, not a
+             * replacement. Nothing reads this key yet — Settings starts in stage C2 — and the reason it
+             * arrives now is the order the whole item is held to: a field is written before anything
+             * reads it, never the other way round.
+             *
+             * Each zone carries the KEY of its type and the words for it from the one dictionary, so a
+             * page never has to know a label; a zone nobody has typed yet carries null, not a word
+             * standing in for one.
+             */
+            'zones' => app(\App\Services\ZoneService::class)->forThePage($site),
             'configs' => $site->configs->mapWithKeys(fn (SiteConfig $config) => [
                 $config->namespace => [
                     'config' => $config->config ?? [],

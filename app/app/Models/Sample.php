@@ -14,6 +14,9 @@ class Sample extends Model
     protected $fillable = [
         'account_id',
         'site_id',
+        // GH-800 (queue item "Zones", stage C1): which zone of the site this sample is of. Written by
+        // `SampleController` through `ZoneService`, and null for a water sample, which has no zone.
+        'zone_id',
         'sample_type',
         'client_uid',
         'lab_name',
@@ -51,6 +54,19 @@ class Sample extends Model
     public function site(): BelongsTo
     {
         return $this->belongsTo(Site::class);
+    }
+
+    /**
+     * GH-803 (queue item "Zones", stage C3) — THE ZONE THIS SAMPLE WAS TAKEN FROM.
+     *
+     * The column has been written since stage C1 and read by nothing. This is the first read of it,
+     * and it exists for one thing: the server answers with the zone's NAME beside its id, so a page
+     * that groups by the id has something to print at the head of a series. Null for a water sample,
+     * which is not a zone, and null for a sample whose zone was deleted.
+     */
+    public function zone(): BelongsTo
+    {
+        return $this->belongsTo(Zone::class);
     }
 
     public function sourceSummary(): BelongsTo

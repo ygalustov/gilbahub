@@ -98,17 +98,17 @@ describe('GH-482 — the certificate follows the site\'s own texture', () => {
         row.soil_texture_override = 'clay_loam';
         const data = we.collectData(npi.resolveExportInputs({ siteId: SITE_ID }));
         expect(data.soil.aaSoilTexture).toBe('others');
-        expect(data.soil.aaSampleTypeSource).toBe('default');
-        // PINNED: what it prints instead is the standing S277 default, which
-        // is the open domain question named in the header — not an approval.
-        expect(data.soil.aaSampleType).toBe('S277');
+        expect(data.soil.aaSampleTypeSource).toBe('texture-band'); // GH-823: no certificate derived -> the texture band, not a default
+        // GH-823: the open domain question this pinned is answered (the owner's decision, variant (a)): no
+        // certificate is stood in, the site is judged by its texture band.
+        expect(data.soil.aaSampleType).toBeNull();
     });
 
     test('the account\'s setting answers only when the site has none of its own', () => {
         row.soil_texture_override = null;
         const fromAccount = we.collectData(npi.resolveExportInputs({ siteId: SITE_ID }));
         expect(fromAccount.soil.aaSoilTexture).toBe('others');   // account is 'loam'
-        expect(fromAccount.soil.aaSampleTypeSource).toBe('default');
+        expect(fromAccount.soil.aaSampleTypeSource).toBe('texture-band'); // GH-823: no certificate derived -> the texture band, not a default
 
         row.account_soil_texture = 'sand';
         const accountSand = we.collectData(npi.resolveExportInputs({ siteId: SITE_ID }));
@@ -125,7 +125,7 @@ describe('GH-482 — the certificate follows the site\'s own texture', () => {
         try {
             const data = we.collectData(npi.resolveExportInputs({ siteId: SITE_ID }));
             expect(data.soil.aaSoilTexture).toBeNull();
-            expect(data.soil.aaSampleTypeSource).toBe('default');
+            expect(data.soil.aaSampleTypeSource).toBe('texture-band'); // GH-823: no certificate derived -> the texture band, not a default
             const resolved = npi.resolveExportInputs({ siteId: SITE_ID });
             expect(resolved.program.soilTexture).toBeNull();
             expect(resolved.program.sources.soilTexture).toBe('unresolved');

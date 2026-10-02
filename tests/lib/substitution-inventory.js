@@ -6,6 +6,29 @@ const traverse = require('@babel/traverse').default;
 
 const PRINT_PROPS = ['textContent', 'innerHTML', 'innerText'];
 const WRITE_METHODS = ['PATCH', 'POST', 'PUT'];
+/**
+ * GH-811 — THE TEXT ARRAYS. An element pushed into one of these is text that ends up printed: a
+ * section builds a list of sentences and renders the list afterwards, so the substitution is written
+ * into the array, not into `innerHTML` or a `TextRun`. Before this list existed the census saw only
+ * those direct forms, and a substitution written into a recommendation, a priority action or a
+ * projection passed it unseen -- the reviewer planted three, including `turfData.species || 'Couch'`,
+ * and none reddened.
+ *
+ * The list is DECLARED, not traced: an array is on it because its contents are printed, read from
+ * the code that renders it, not because the census followed each value to the page. So the claim is
+ * exactly "a substitution pushed into an array of these names", and the census says so by name in
+ * every run. Not on it, named rather than left out quietly:
+ *   - `elements`, `sections`, `rows`: arrays of document elements, whose text is a TextRun the census
+ *     already sees -- listing them would count one substitution twice;
+ *   - `warnings`, `items`: arrays of other files (scenario presets, engine confidence, disease
+ *     analysis, tissue engine) whose rendering this work did not read.
+ */
+const TEXT_ARRAYS = [
+    // measured by the reviewer for the question: 29 substitutions between them
+    'issues', 'narrative', 'recommendations', 'parts', 'concerns', 'lines',
+    // the export's own lists of printed text: Priority Actions, Soil x Water, Performance Impact
+    'immediate', 'shortTerm', 'mediumTerm', 'projections', 'interactions', 'relationships'
+];
 
 function isEmptyLiteral(n) {
     if (!n) return true;
@@ -161,7 +184,8 @@ function calleeName(callee) {
 }
 
 /** Sink expressions of one file: what the file prints or saves. */
-function sinksOf(ast) {
+function sinksOf(ast, textArrays) {
+    if (textArrays === undefined) textArrays = TEXT_ARRAYS;
     const sinks = [];
     traverse(ast, {
         AssignmentExpression(p) {
@@ -178,6 +202,14 @@ function sinksOf(ast) {
         CallExpression(p) {
             const name = calleeName(p.node.callee);
             if (name === 'TextRun') { sinks.push({ node: p.node.arguments[0], why: 'TextRun', scope: p.scope }); return; }
+            // GH-811: an element pushed into one of the declared text arrays is printed text.
+            const c = p.node.callee;
+            if (textArrays && c.type === 'MemberExpression' && c.property.type === 'Identifier'
+                && c.property.name === 'push' && c.object.type === 'Identifier'
+                && textArrays.indexOf(c.object.name) >= 0) {
+                p.node.arguments.forEach((a) => sinks.push({ node: a, why: c.object.name + '.push', scope: p.scope }));
+                return;
+            }
             // fetch(url, { method: 'PATCH', body: … }) — the body is saved
             p.node.arguments.forEach((a) => {
                 if (!a || a.type !== 'ObjectExpression') return;
@@ -193,7 +225,7 @@ function sinksOf(ast) {
     return sinks;
 }
 
-function inventoryOf(file, src, watched) {
+function inventoryOf(file, src, watched, textArrays) {
     let ast;
     try { ast = parser.parse(src, { sourceType: 'script', errorRecovery: true }); }
     catch (e) { return []; }
@@ -349,14 +381,23 @@ function inventoryOf(file, src, watched) {
     const text = (node) => src.slice(node.start, node.end).replace(/\s+/g, ' ').trim().slice(0, 90);
     const found = [];
     const seen = new Set();
-    sinksOf(ast).forEach((sink) => {
+    sinksOf(ast, textArrays).forEach((sink) => {
         carried(sink.node, sink.scope).forEach((s) => {
             if (s.line == null || !s.node) return;
             const signature = [file, s.field, s.kind, sink.why, text(s.node)].join(' | ');
             if (seen.has(signature)) return;
             seen.add(signature);
+            // GH-811: the function the sink sits in, for the list by file and function. Not part of
+            // the signature, so the recorded list's keys do not move when a function is renamed.
+            const fnPath = sink.scope && sink.scope.path && (sink.scope.path.isFunction()
+                ? sink.scope.path : sink.scope.path.getFunctionParent());
+            const fnNode = fnPath && fnPath.node;
+            const fn = fnNode ? ((fnNode.id && fnNode.id.name)
+                || (fnPath.parentPath && fnPath.parentPath.node && fnPath.parentPath.node.id && fnPath.parentPath.node.id.name)
+                || (fnPath.parentPath && fnPath.parentPath.node && fnPath.parentPath.node.key && fnPath.parentPath.node.key.name)
+                || '(anonymous)') : '(top level)';
             found.push({ file: file, field: s.field, kind: s.kind, sink: sink.why,
-                         text: text(s.node), line: s.line, signature: signature });
+                         text: text(s.node), line: s.line, signature: signature, fn: fn });
         });
     });
     // GH-728: carried BESIDE the result, not IN it. Attached as an ordinary property it broke two
@@ -377,19 +418,19 @@ function inventoryOf(file, src, watched) {
     return found.sort((a, b) => (a.signature < b.signature ? -1 : 1));
 }
 
-function inventory(assetsDir, watched) {
+function inventory(assetsDir, watched, textArrays) {
     const out = [];
     fs.readdirSync(assetsDir)
         .filter((f) => /\.js$/.test(f) && !/\.min\.js$/.test(f))
         .sort()
         .forEach((f) => {
             const src = fs.readFileSync(path.join(assetsDir, f), 'utf8');
-            inventoryOf(f, src, watched).forEach((x) => out.push(x));
+            inventoryOf(f, src, watched, textArrays).forEach((x) => out.push(x));
         });
     return out.sort();
 }
 
-module.exports = { inventory, inventoryOf, isEmptyLiteral, isEmptinessTest, subjectName };
+module.exports = { inventory, inventoryOf, isEmptyLiteral, isEmptinessTest, subjectName, TEXT_ARRAYS };
 
 /**
  * The fields whose EMPTINESS this inventory watches, derived from the one

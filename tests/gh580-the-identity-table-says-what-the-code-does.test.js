@@ -53,7 +53,8 @@ describe('GH-580 — a block that is announced is a block that is enforced, or i
         const req = ctx.GilbaIdentityEnforcement.ENGINE_REQUIREMENTS['wear-recovery'];
         process.stdout.write('[gh580] wear entry: ' + JSON.stringify(req) + '\n');
 
-        expect(req.canRunUnknown.turfIntentKey).toBe(true);
+        // GH-827: the intent is no longer an input at all -- the wear entry does not name it.
+        expect(Object.keys(req.canRunUnknown || {})).not.toContain('turfIntentKey');
         expect(JSON.stringify(req.unknownBehaviour || {})).not.toMatch(/BLOCKED/);
     });
 

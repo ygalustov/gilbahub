@@ -104,14 +104,26 @@ function seedSite(SM, storeOverrides) {
     });
 }
 
+/**
+ * GH-803 (queue item "Zones", stage C3) — THE SAMPLES OF THIS FIXTURE CARRY THE IDENTITY OF THEIR ZONE.
+ *
+ * The selection these cases are about is unchanged — "this green's tissue, latest wins" — but what
+ * decides which samples are of one zone is the zone's own id now, not their names with the dates
+ * stripped off. The server answers with it on every sample (`zone_id`, `zone_name`), so a store built
+ * from that answer carries it, and this fixture is built the same way. Two samples of Green 1 share one
+ * id; Green 12 has its own, so the case that keeps them apart keeps them apart for the right reason.
+ */
+const ZONE_GREEN_1 = '01a0f200-0000-7000-8000-0000000000g1'.replace('g1', '01');
+const ZONE_GREEN_12 = '01a0f200-0000-7000-8000-0000000000g2'.replace('g2', '12');
+
 describe('GH-372 — Combined export tissue selection agrees with Plan\'s DB rule (single zone)', () => {
     // Same literal N/P/K/dates as PlanPageTissuePercentTest.php's
     // test_the_most_recent_tissue_sample_wins() — deliberately mirrored so a
     // human reading both files side by side can see they exercise the same
     // scenario through each side's own real mechanism.
-    const OLDER = { id: 'sample_older', label: 'Green 1', date: '2025-01-01', notes: '', zoneType: 'Greens', values: { N: '3.00', P: '0.30', K: '2.00' } };
-    const NEWER = { id: 'sample_newer', label: 'Green 1', date: '2026-08-08', notes: '', zoneType: 'Greens', values: { N: '4.57', P: '0.62', K: '1.05' } };
-    const SOIL_GREEN1 = { id: 'Green 1', label: 'Green 1', date: '2025-01-15', notes: '', zoneType: 'Greens', values: { N: '150', P: '40', K: '200' } };
+    const OLDER = { id: 'sample_older', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2025-01-01', notes: '', zoneType: 'Greens', values: { N: '3.00', P: '0.30', K: '2.00' } };
+    const NEWER = { id: 'sample_newer', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2026-08-08', notes: '', zoneType: 'Greens', values: { N: '4.57', P: '0.62', K: '1.05' } };
+    const SOIL_GREEN1 = { id: 'Green 1', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2025-01-15', notes: '', zoneType: 'Greens', values: { N: '150', P: '40', K: '200' } };
 
     test('the zone\'s soil-primary entry picks the chronologically-later tissue sample, matching Plan\'s COALESCE(lab_date,sample_date) DESC rule', () => {
         const { SM, CE } = loadModules();
@@ -163,11 +175,11 @@ describe('GH-372 — same-zone EXACT DATE tie: agrees today, but only because bo
     // isn't the one this ticket's fix targeted.
     test('when the array already arrives id-DESC-on-ties (the real sync order), the higher-id/later-inserted sample wins the tie', () => {
         const { SM, CE } = loadModules();
-        const soil = { id: 'Green 1', label: 'Green 1', date: '2025-01-15', notes: '', zoneType: 'Greens', values: { N: '150', P: '40', K: '200' } };
+        const soil = { id: 'Green 1', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2025-01-15', notes: '', zoneType: 'Greens', values: { N: '150', P: '40', K: '200' } };
         // Insertion order matches what a real server response (id DESC on a
         // tie) would produce once synced into the store: higher id first.
-        const higherId = { id: 'sample_148', label: 'Green 1', date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '5.00', P: '0.75', K: '1.20' } };
-        const lowerId = { id: 'sample_147', label: 'Green 1', date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '4.57', P: '0.62', K: '1.05' } };
+        const higherId = { id: 'sample_148', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '5.00', P: '0.75', K: '1.20' } };
+        const lowerId = { id: 'sample_147', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '4.57', P: '0.62', K: '1.05' } };
         seedSite(SM, { soil: { 'Green 1': soil }, tissue: { sample_148: higherId, sample_147: lowerId } });
 
         const entries = CE.enumerate('current');
@@ -176,9 +188,9 @@ describe('GH-372 — same-zone EXACT DATE tie: agrees today, but only because bo
 
     test('documented fragility: reverse the array order (lower id first) and the tie flips — buildZoneMap has no id-tiebreak of its own', () => {
         const { SM, CE } = loadModules();
-        const soil = { id: 'Green 1', label: 'Green 1', date: '2025-01-15', notes: '', zoneType: 'Greens', values: { N: '150', P: '40', K: '200' } };
-        const higherId = { id: 'sample_148', label: 'Green 1', date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '5.00', P: '0.75', K: '1.20' } };
-        const lowerId = { id: 'sample_147', label: 'Green 1', date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '4.57', P: '0.62', K: '1.05' } };
+        const soil = { id: 'Green 1', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2025-01-15', notes: '', zoneType: 'Greens', values: { N: '150', P: '40', K: '200' } };
+        const higherId = { id: 'sample_148', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '5.00', P: '0.75', K: '1.20' } };
+        const lowerId = { id: 'sample_147', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '4.57', P: '0.62', K: '1.05' } };
         // Reversed vs. the test above: if the store ever received these out
         // of the server's own order, buildZoneMap would pick the FIRST one
         // encountered on the tie, not the higher id.
@@ -203,10 +215,10 @@ describe('GH-372 — multi-zone sites: the export is zone-aware, Plan is not (do
     // current, intended behaviour, not a regression guard against a bug.
     test('each zone gets its own tissue sample even though the zones carry different dates', () => {
         const { SM, CE } = loadModules();
-        const soilGreen1 = { id: 'Green 1', label: 'Green 1', date: '2025-01-01', notes: '', zoneType: 'Greens', values: { N: '150', P: '40', K: '200' } };
-        const soilGreen12 = { id: 'Green 12', label: 'Green 12', date: '2025-01-01', notes: '', zoneType: 'Greens', values: { N: '150', P: '40', K: '200' } };
-        const tissueGreen1 = { id: 'sample_149', label: 'Green 1', date: '2025-03-01', notes: '', zoneType: 'Greens', values: { N: '3.80', P: '0.35', K: '1.60' } };
-        const tissueGreen12 = { id: 'sample_120', label: 'Green 12', date: '2026-08-06', notes: '', zoneType: 'Greens', values: { N: '12', P: '12', K: '12' } };
+        const soilGreen1 = { id: 'Green 1', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2025-01-01', notes: '', zoneType: 'Greens', values: { N: '150', P: '40', K: '200' } };
+        const soilGreen12 = { id: 'Green 12', label: 'Green 12', zoneId: ZONE_GREEN_12, date: '2025-01-01', notes: '', zoneType: 'Greens', values: { N: '150', P: '40', K: '200' } };
+        const tissueGreen1 = { id: 'sample_149', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2025-03-01', notes: '', zoneType: 'Greens', values: { N: '3.80', P: '0.35', K: '1.60' } };
+        const tissueGreen12 = { id: 'sample_120', label: 'Green 12', zoneId: ZONE_GREEN_12, date: '2026-08-06', notes: '', zoneType: 'Greens', values: { N: '12', P: '12', K: '12' } };
         seedSite(SM, {
             soil: { 'Green 1': soilGreen1, 'Green 12': soilGreen12 },
             tissue: { sample_149: tissueGreen1, sample_120: tissueGreen12 },
@@ -237,9 +249,9 @@ describe('GH-372 — site-selector-ui.js\'s auto-load fallback is now date-aware
         const { SM, SS } = loadWithSiteSelector();
         seedSite(SM, {
             tissue: {
-                sample_mid: { id: 'sample_mid', label: 'Green 1', date: '2025-06-01', notes: '', zoneType: 'Greens', values: { N: '3.50', P: '0.30', K: '1.90' } },
-                sample_oldest: { id: 'sample_oldest', label: 'Green 1', date: '2024-01-01', notes: '', zoneType: 'Greens', values: { N: '2.00', P: '0.20', K: '1.00' } },
-                sample_newest: { id: 'sample_newest', label: 'Green 1', date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '4.57', P: '0.62', K: '1.05' } },
+                sample_mid: { id: 'sample_mid', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2025-06-01', notes: '', zoneType: 'Greens', values: { N: '3.50', P: '0.30', K: '1.90' } },
+                sample_oldest: { id: 'sample_oldest', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2024-01-01', notes: '', zoneType: 'Greens', values: { N: '2.00', P: '0.20', K: '1.00' } },
+                sample_newest: { id: 'sample_newest', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '4.57', P: '0.62', K: '1.05' } },
             },
         });
 
@@ -252,8 +264,8 @@ describe('GH-372 — site-selector-ui.js\'s auto-load fallback is now date-aware
         const { SM, SS } = loadWithSiteSelector();
         seedSite(SM, {
             tissue: {
-                sample_a: { id: 'sample_a', label: 'Green 1', date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '4.57', P: '0.62', K: '1.05' } },
-                sample_b: { id: 'sample_b', label: 'Green 1', date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '5.00', P: '0.75', K: '1.20' } },
+                sample_a: { id: 'sample_a', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '4.57', P: '0.62', K: '1.05' } },
+                sample_b: { id: 'sample_b', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2026-01-15', notes: '', zoneType: 'Greens', values: { N: '5.00', P: '0.75', K: '1.20' } },
             },
         });
         SS.reloadActiveSample();
@@ -263,7 +275,7 @@ describe('GH-372 — site-selector-ui.js\'s auto-load fallback is now date-aware
     test('single sample, no tie, no ordering question: still loads correctly (guards against an off-by-one in the new comparison loop)', () => {
         const { SM, SS } = loadWithSiteSelector();
         seedSite(SM, {
-            tissue: { only_one: { id: 'only_one', label: 'Green 1', date: '2025-01-01', notes: '', zoneType: 'Greens', values: { N: '4.00', P: '0.40', K: '2.00' } } },
+            tissue: { only_one: { id: 'only_one', label: 'Green 1', zoneId: ZONE_GREEN_1, date: '2025-01-01', notes: '', zoneType: 'Greens', values: { N: '4.00', P: '0.40', K: '2.00' } } },
         });
         SS.reloadActiveSample();
         expect(SM.getActiveSampleId('tissue')).toBe('only_one');
